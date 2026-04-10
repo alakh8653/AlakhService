@@ -4,16 +4,12 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - "apps/**_web/**"
-      - "apps/customer_web/**"
-      - "apps/admin_web/**"
+      - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
   pull_request:
     branches: [main, develop]
     paths:
-      - "apps/**_web/**"
-      - "apps/customer_web/**"
-      - "apps/admin_web/**"
+      - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
 
 env:
@@ -26,6 +22,8 @@ jobs:
   lint-test-build:
     name: "${{ matrix.app }} — lint / test / build"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -96,6 +94,7 @@ jobs:
     name: Bundle size check
     runs-on: ubuntu-latest
     needs: lint-test-build
+    permissions: {}
     strategy:
       fail-fast: false
       matrix:

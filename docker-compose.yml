@@ -365,7 +365,7 @@ services:
       - "${ML_PLATFORM_PORT:-8017}:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/ml_db
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/16
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}

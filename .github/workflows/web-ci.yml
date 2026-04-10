@@ -29,7 +29,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test -- --watchAll=false --coverage
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.app }}-dist
           path: apps/${{ matrix.app }}/dist
@@ -99,7 +99,7 @@ jobs:
         run: npm run test -- --watchAll=false --coverage --ci
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-${{ matrix.app }}
@@ -113,7 +113,7 @@ jobs:
         run: npm run build
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-${{ matrix.app }}
           path: apps/${{ matrix.app }}/dist/

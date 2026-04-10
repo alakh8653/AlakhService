@@ -175,7 +175,7 @@ jobs:
             -o bandit-report.json || true
 
       - name: Upload bandit report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: bandit-security-report
@@ -270,7 +270,7 @@ jobs:
             -v
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-${{ matrix.service }}
@@ -278,7 +278,7 @@ jobs:
           retention-days: 14
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ matrix.service }}

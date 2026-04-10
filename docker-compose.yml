@@ -1,0 +1,362 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-alakhservice}
+      POSTGRES_USER: ${POSTGRES_USER:-alakh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alakh_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alakh}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - redis_data:/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-elastic_secret}
+    ports:
+      - "${ELASTIC_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_secret}
+      MINIO_BROWSER: ${MINIO_BROWSER:-off}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    image: alakhservice/api-gateway:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    environment:
+      PORT: ${API_GATEWAY_PORT:-8000}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      AUTH_SERVICE_URL: http://auth-service:8001
+      USER_SERVICE_URL: http://user-service:8002
+      SHOP_SERVICE_URL: http://shop-service:8003
+      BOOKING_SERVICE_URL: http://booking-service:8004
+      PAYMENT_SERVICE_URL: http://payment-service:8005
+      NOTIFICATION_SERVICE_URL: http://notification-service:8006
+      TRACKING_SERVICE_URL: http://tracking-service:8007
+      SECRET_KEY: ${SECRET_KEY}
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    image: alakhservice/auth-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 8001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakh_secret}@postgres:5432/${POSTGRES_DB:-alakhservice}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/1
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: ${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    image: alakhservice/user-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      PORT: 8002
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakh_secret}@postgres:5432/${POSTGRES_DB:-alakhservice}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio_secret}
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  shop-service:
+    build:
+      context: ./services/shop-service
+      dockerfile: Dockerfile
+    image: alakhservice/shop-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      PORT: 8003
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakh_secret}@postgres:5432/${POSTGRES_DB:-alakhservice}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    image: alakhservice/booking-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 8004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakh_secret}@postgres:5432/${POSTGRES_DB:-alakhservice}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/2
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    image: alakhservice/payment-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      PORT: 8005
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakh_secret}@postgres:5432/${POSTGRES_DB:-alakhservice}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    image: alakhservice/notification-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 8006
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/3
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  tracking-service:
+    build:
+      context: ./services/tracking-service
+      dockerfile: Dockerfile
+    image: alakhservice/tracking-service:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      PORT: 8007
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/4
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - alakh-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  kafka_data:
+  zookeeper_data:
+  minio_data:
+
+networks:
+  alakh-net:
+    driver: bridge

@@ -1,0 +1,11 @@
+# Override root .gitignore so Flutter source in lib/ is tracked
+!lib/
+!lib/**
+
+# Flutter / Dart generated files (do not track)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.g.dart
+*.freezed.dart

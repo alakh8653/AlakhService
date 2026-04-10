@@ -1,0 +1,100 @@
+name: Mobile CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['mobile/**', '.github/workflows/mobile-ci.yml']
+  pull_request:
+    branches: [main, develop]
+    paths: ['mobile/**']
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+        working-directory: mobile
+
+      - name: Analyze
+        run: flutter analyze --no-pub
+        working-directory: mobile
+
+      - name: Run tests
+        run: flutter test --coverage
+        working-directory: mobile
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: mobile/coverage/lcov.info
+          flags: mobile
+
+  build-apk:
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+        working-directory: mobile
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
+  build-ios:
+    needs: analyze-and-test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+        working-directory: mobile
+
+      - name: Build IPA (no-codesign)
+        run: flutter build ios --release --no-codesign
+        working-directory: mobile
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: mobile/build/ios/iphoneos/*.app
+          retention-days: 30

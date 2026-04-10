@@ -1,7 +1,8 @@
 import logging
-import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import aiosmtplib
 
 from app.config import settings
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 async def send_email(to_email: str, subject: str, html_body: str) -> None:
-    """Send an HTML email using the configured SMTP settings."""
+    """Send an HTML email using the configured SMTP settings (non-blocking)."""
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = settings.EMAILS_FROM_EMAIL
@@ -17,11 +18,14 @@ async def send_email(to_email: str, subject: str, html_body: str) -> None:
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.EMAILS_FROM_EMAIL, to_email, msg.as_string())
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.SMTP_HOST,
+            port=settings.SMTP_PORT,
+            username=settings.SMTP_USER,
+            password=settings.SMTP_PASSWORD,
+            start_tls=True,
+        )
         logger.info("Email sent to %s | subject: %s", to_email, subject)
     except Exception as exc:
         logger.error("Failed to send email to %s: %s", to_email, exc)

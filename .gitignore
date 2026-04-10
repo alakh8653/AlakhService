@@ -1,6 +1,11 @@
 # =============================================================================
+
 # AlakhService – Comprehensive .gitignore
 # Covers: Python, Dart/Flutter, TypeScript/Node, Docker, Terraform, IDE, OS
+
+# AlakhService — Comprehensive .gitignore
+# Covers: Python, Dart/Flutter, TypeScript/Node.js, IDE files
+
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -10,6 +15,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
 .Python
 build/
 develop-eggs/
@@ -51,21 +57,60 @@ __pypackages__/
 .coverage
 .coverage.*
 .cache
+
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+.installed.cfg
+lib/
+lib64/
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+
 nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+
 .pytest_cache/
 pytest.ini.bak
 htmlcov/
 
 # Type checkers
+
+
+# MyPy / type checkers
+
 .mypy_cache/
 .dmypy.json
 dmypy.json
 .pyre/
 .pytype/
+
 
 # Jupyter
 .ipynb_checkpoints
@@ -93,6 +138,19 @@ celerybeat.pid
 # mkdocs
 /site
 
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Distribution / packaging
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+junit.xml
+
+
 # Translations
 *.mo
 *.pot
@@ -110,6 +168,7 @@ instance/
 # Scrapy
 .scrapy
 
+
 # Sphinx
 docs/_build/
 
@@ -121,12 +180,48 @@ target/
 # Dart / Flutter
 # -----------------------------------------------------------------------------
 # Dart tool
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder IDE
+.spyderproject.db
+.spyproject
+
+# Rope IDE
+.ropeproject
+
+# mkdocs
+/site
+
+# Pyre
+.pyre/
+
+# pyenv
+.python-version
+
+# -----------------------------------------------------------------------------
+# Dart / Flutter
+# -----------------------------------------------------------------------------
+# Build outputs
+
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
+
 build/
 
 # Flutter
@@ -148,6 +243,27 @@ lib/l10n/app_*.arb
 
 # Android
 **/android/.gradle
+
+
+# Flutter build artifacts
+build/
+
+# iOS
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+**/android/.gradle/
+
 **/android/captures/
 **/android/gradlew
 **/android/gradlew.bat
@@ -156,6 +272,7 @@ lib/l10n/app_*.arb
 **/android/key.properties
 **/*.keystore
 **/*.jks
+
 
 # iOS
 **/ios/.symlinks/
@@ -167,20 +284,37 @@ lib/l10n/app_*.arb
 **/ios/Runner/GeneratedPluginRegistrant.*
 **/ios/Pods/
 
+
+
 # macOS
 **/macos/Flutter/GeneratedPluginRegistrant.swift
 **/macos/Flutter/ephemeral/
 
 # Web
+
 lib/generated/intl/
 
 # -----------------------------------------------------------------------------
 # TypeScript / JavaScript / Node.js
+
+**/web/
+
+# Dart analyzer
+.dartServer/
+*.dartserver
+
+# Dart coverage
+coverage/
+
+# -----------------------------------------------------------------------------
+# TypeScript / Node.js
+
 # -----------------------------------------------------------------------------
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
 pnpm-debug.log*
 lerna-debug.log*
 .npm
@@ -297,9 +431,94 @@ elasticsearch-data/
 kafka-data/
 zookeeper-data/
 
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime / build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# dotenv
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependency directories
+jspm_packages/
+bower_components/
+
+# Testing
+coverage/
+.nyc_output/
+cypress/screenshots/
+cypress/videos/
+
+# Storybook
+.out/
+.storybook-out/
+storybook-static/
+
+# Serverless
+.serverless/
+
+# FuseBox
+.fusebox/
+
+# DynamoDB Local
+.dynamodb/
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Package lock (keep package-lock.json or yarn.lock, not both)
+# Uncomment the one you don't use:
+# yarn.lock
+# package-lock.json
+
+# -----------------------------------------------------------------------------
+# IDE — IntelliJ / JetBrains
+# -----------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# -----------------------------------------------------------------------------
+# IDE — Visual Studio Code
+# -----------------------------------------------------------------------------
+.vscode/
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.code-workspace
+.history/
+
+
 # -----------------------------------------------------------------------------
 # Logs
 # -----------------------------------------------------------------------------
+
 logs/
 *.log
 *.log.*
@@ -310,6 +529,18 @@ pip-log.txt
 # OS generated files
 # -----------------------------------------------------------------------------
 # macOS
+
+*.log
+logs/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pip-log.txt
+
+# -----------------------------------------------------------------------------
+# OS Generated
+# -----------------------------------------------------------------------------
+
 .DS_Store
 .DS_Store?
 ._*
@@ -317,6 +548,7 @@ pip-log.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+
 .AppleDouble
 .LSOverride
 Icon?
@@ -460,3 +692,51 @@ docs/build/
 
 # Benchmark results
 benchmark_results/
+
+Desktop.ini
+$RECYCLE.BIN/
+
+# -----------------------------------------------------------------------------
+# Infrastructure / DevOps
+# -----------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Docker
+docker-compose.override.yml
+
+# Kubernetes secrets
+*-secret.yaml
+*-secrets.yaml
+
+# Ansible
+*.retry
+
+# SSH keys
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+*.bak
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+.editorconfig.local
+secrets/
+secret/
+credentials/
+

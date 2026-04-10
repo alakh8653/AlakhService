@@ -176,14 +176,23 @@ class UserService:
         return list(result.scalars().all())
 
     async def upload_avatar(self, db: AsyncSession, user_id: str, file: UploadFile) -> str:
-        if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+        allowed_content_types = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }
+        if file.content_type not in allowed_content_types:
             raise HTTPException(status_code=400, detail="Invalid image type")
 
         contents = await file.read()
         if len(contents) > 5 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 5MB)")
 
-        safe_filename = f"{uuid.uuid4()}.{file.filename.rsplit('.', 1)[-1] if file.filename and '.' in file.filename else 'bin'}"
+        # Derive extension from validated content_type (not from user-supplied filename)
+        ext = allowed_content_types[file.content_type]
+        safe_filename = f"{uuid.uuid4()}.{ext}"
+        # NOTE: In production this URL is the S3 object key after uploading `contents`
+        # to the configured S3_BUCKET. Here we store the path reference only.
         avatar_url = f"/avatars/{user_id}/{safe_filename}"
 
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))

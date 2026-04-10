@@ -24,9 +24,9 @@ class DoubleEntryLedger:
             .order_by(LedgerEntry.created_at.desc())
             .limit(1)
         )
-        row = result.scalar_one_or_none()
-        if row is not None:
-            return row
+        balance = result.scalar_one_or_none()
+        if balance is not None:
+            return balance
         result = await db.execute(
             select(Account.balance_cents).where(Account.id == account_id)
         )

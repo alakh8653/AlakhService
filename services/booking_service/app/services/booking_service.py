@@ -15,14 +15,22 @@ log = structlog.get_logger()
 
 class BookingService:
 
-    def _generate_booking_number(self) -> str:
-        return "BK" + str(random.randint(10000000, 99999999))
+    async def _generate_booking_number(self, db: AsyncSession) -> str:
+        """Generate a unique booking number with collision detection."""
+        from sqlalchemy import select as sa_select
+        for _ in range(10):
+            number = "BK" + str(random.randint(10000000, 99999999))
+            result = await db.execute(sa_select(Booking.id).where(Booking.booking_number == number))
+            if result.scalar_one_or_none() is None:
+                return number
+        # Fallback to UUID-based number to guarantee uniqueness
+        return "BK" + uuid.uuid4().hex[:8].upper()
 
     async def create_booking(self, db: AsyncSession, customer_id: str, booking_data: BookingCreate) -> Booking:
         now = datetime.now(timezone.utc)
         booking = Booking(
             id=str(uuid.uuid4()),
-            booking_number=self._generate_booking_number(),
+            booking_number=await self._generate_booking_number(db),
             customer_id=customer_id,
             service_id=booking_data.service_id,
             status=BookingStatus.PENDING.value,

@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -170,7 +171,7 @@ class UserService:
 
     async def get_active_devices(self, db: AsyncSession, user_id: str) -> List[UserDevice]:
         result = await db.execute(
-            select(UserDevice).where(and_(UserDevice.user_id == user_id, UserDevice.is_active == True))
+            select(UserDevice).where(and_(UserDevice.user_id == user_id, UserDevice.is_active))
         )
         return list(result.scalars().all())
 
@@ -182,7 +183,8 @@ class UserService:
         if len(contents) > 5 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 5MB)")
 
-        avatar_url = f"/avatars/{user_id}/{file.filename}"
+        safe_filename = f"{uuid.uuid4()}.{file.filename.rsplit('.', 1)[-1] if file.filename and '.' in file.filename else 'bin'}"
+        avatar_url = f"/avatars/{user_id}/{safe_filename}"
 
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = result.scalar_one_or_none()
@@ -204,7 +206,6 @@ class UserService:
         return avatar_url
 
     async def delete_account(self, db: AsyncSession, redis, user_id: str) -> bool:
-        import hashlib
         anon_id = hashlib.sha256(user_id.encode()).hexdigest()[:16]
 
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))

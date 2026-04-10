@@ -47,8 +47,7 @@ class WeightedFairQueue:
             if item[2] == entry_id:
                 self._heap[i] = self._heap[-1]
                 self._heap.pop()
-                if i < len(self._heap):
-                    heapq._siftup(self._heap, i)
-                    heapq._siftdown(self._heap, 0, i)
+                if self._heap:
+                    heapq.heapify(self._heap)
                 return True
         return False

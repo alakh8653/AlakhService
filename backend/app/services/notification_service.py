@@ -62,7 +62,7 @@ async def mark_as_read(
 async def mark_all_as_read(db: AsyncSession, user_id: uuid.UUID) -> None:
     await db.execute(
         update(Notification)
-        .where(Notification.user_id == user_id, Notification.is_read == False)  # noqa: E712
+        .where(Notification.user_id == user_id, ~Notification.is_read)
         .values(is_read=True)
     )
     await db.flush()

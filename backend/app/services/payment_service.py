@@ -45,10 +45,10 @@ async def verify_payment(db: AsyncSession, payment_verify: PaymentVerify) -> Pay
     if not payment:
         raise NotFoundException(resource_name="Payment")
 
-    # Razorpay signature verification (HMAC-SHA256)
+    # Razorpay signature verification (HMAC-SHA256 using webhook secret)
     body = f"{payment_verify.gateway_order_id}|{payment_verify.gateway_payment_id}"
     expected_sig = hmac.new(
-        settings.SECRET_KEY.encode(), body.encode(), hashlib.sha256
+        settings.RAZORPAY_WEBHOOK_SECRET.encode(), body.encode(), hashlib.sha256
     ).hexdigest()
     if hmac.compare_digest(expected_sig, payment_verify.gateway_signature):
         payment.status = "SUCCESS"

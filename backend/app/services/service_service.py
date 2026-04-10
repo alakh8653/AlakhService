@@ -22,7 +22,7 @@ async def get_services(
     limit: int = 20,
     category: str | None = None,
 ) -> list[Service]:
-    stmt = select(Service).where(Service.is_active == True)  # noqa: E712
+    stmt = select(Service).where(Service.is_active)
     if category:
         stmt = stmt.where(Service.category == category)
     stmt = stmt.offset(skip).limit(limit)

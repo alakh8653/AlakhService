@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
 
+    # Payment Gateway
+    RAZORPAY_WEBHOOK_SECRET: str = "your-razorpay-webhook-secret"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

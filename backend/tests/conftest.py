@@ -11,13 +11,13 @@ from app.main import app
 from app.models.user import User
 from app.core.security import get_password_hash, create_access_token
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 
 @pytest_asyncio.fixture(scope="session")
 async def engine():
-    """Create a test SQLite engine and tables for the entire test session."""
-    test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    """Create an in-memory test SQLite engine and tables for the entire test session."""
+    test_engine = create_async_engine(TEST_DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield test_engine

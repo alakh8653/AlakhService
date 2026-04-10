@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI
+from sqlalchemy import text
 
 from app.database import engine
 
@@ -12,7 +13,7 @@ async def on_startup(app: FastAPI) -> None:
     logger.info("Starting up AlakhService API...")
     try:
         async with engine.connect() as conn:
-            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
         logger.info("Database connection established successfully.")
     except Exception as exc:
         logger.warning("Database connection check failed: %s", exc)

@@ -1,0 +1,130 @@
+version: "3.9"
+
+# Development overrides for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  minio:
+    environment:
+      MINIO_BROWSER: "on"
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      target: development
+    volumes:
+      - ./services/api-gateway:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+      - "5678:5678"
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      target: development
+    volumes:
+      - ./services/auth-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8001:8001"
+      - "5679:5678"
+
+  user-service:
+    build:
+      context: ./services/user-service
+      target: development
+    volumes:
+      - ./services/user-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8002:8002"
+      - "5680:5678"
+
+  shop-service:
+    build:
+      context: ./services/shop-service
+      target: development
+    volumes:
+      - ./services/shop-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8003:8003"
+      - "5681:5678"
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      target: development
+    volumes:
+      - ./services/booking-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8004:8004"
+      - "5682:5678"
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      target: development
+    volumes:
+      - ./services/payment-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8005:8005"
+      - "5683:5678"
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      target: development
+    volumes:
+      - ./services/notification-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+    ports:
+      - "8006:8006"
+      - "5684:5678"
+    depends_on:
+      - mailhog
+
+  tracking-service:
+    build:
+      context: ./services/tracking-service
+      target: development
+    volumes:
+      - ./services/tracking-service:/app
+    environment:
+      DEBUG: "true"
+      RELOAD: "true"
+    ports:
+      - "8007:8007"
+      - "5685:5678"
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - alakh-net

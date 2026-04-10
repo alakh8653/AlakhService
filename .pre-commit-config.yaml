@@ -1,0 +1,270 @@
+# =============================================================================
+# AlakhService – Pre-commit configuration
+# https://pre-commit.com
+#
+# Install:  pip install pre-commit && pre-commit install
+# Run all:  pre-commit run --all-files
+# Update:   pre-commit autoupdate
+# =============================================================================
+
+default_language_version:
+  python: python3.11
+  node: "20.11.0"
+
+default_stages: [commit]
+
+fail_fast: false
+
+repos:
+  # ---------------------------------------------------------------------------
+  # General / Meta
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+        exclude: '^(.*/)?.*\.(min\.js|min\.css|lock|snap)$'
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        exclude: '^helm/.*$'
+      - id: check-json
+        exclude: '^(.*/)?\.vscode/.*$'
+      - id: check-toml
+      - id: check-xml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: fix-byte-order-marker
+      - id: detect-private-key
+      - id: forbid-submodules
+      - id: no-commit-to-branch
+        args: [--branch=main, --branch=master, --branch=production]
+      - id: pretty-format-json
+        args: [--autofix, --indent=2, --no-sort-keys]
+        exclude: '^package(-lock)?\.json$'
+
+  # ---------------------------------------------------------------------------
+  # Secrets detection (Gitleaks)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.3
+    hooks:
+      - id: gitleaks
+        name: Detect secrets with Gitleaks
+        args: [--config=.gitleaks.toml]
+
+  # ---------------------------------------------------------------------------
+  # Secrets detection (detect-secrets – backup layer)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets
+        args:
+          - --baseline
+          - .secrets.baseline
+          - --exclude-files
+          - '(.*)\.lock$'
+          - --exclude-files
+          - '(.*)\.snap$'
+          - --exclude-files
+          - '.*\.example$'
+
+  # ---------------------------------------------------------------------------
+  # Python – Ruff (linter + formatter, replaces flake8/isort/pyupgrade)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        name: Ruff lint
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: Ruff format
+        types_or: [python, pyi]
+
+  # ---------------------------------------------------------------------------
+  # Python – Black (formatter)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  # ---------------------------------------------------------------------------
+  # Python – MyPy (type checking)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        name: mypy type check
+        additional_dependencies:
+          - types-requests
+          - types-PyYAML
+          - types-redis
+          - types-python-dateutil
+          - pydantic
+        args: [--ignore-missing-imports, --strict]
+        exclude: '^(migrations/|tests/fixtures/|scripts/)'
+
+  # ---------------------------------------------------------------------------
+  # Python – Bandit (security)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: Bandit security scan
+        args: [-r, -ll, --exclude, "tests/,migrations/"]
+        files: ^services/.*/.*\.py$
+
+  # ---------------------------------------------------------------------------
+  # TypeScript / JavaScript – ESLint
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.3.0
+    hooks:
+      - id: eslint
+        name: ESLint
+        files: \.(ts|tsx|js|jsx|mjs)$
+        types: [file]
+        additional_dependencies:
+          - eslint@8.57.0
+          - typescript@5.4.5
+          - "@typescript-eslint/eslint-plugin@7.10.0"
+          - "@typescript-eslint/parser@7.10.0"
+          - eslint-plugin-react@7.34.1
+          - eslint-plugin-react-hooks@4.6.2
+          - eslint-plugin-jsx-a11y@6.8.0
+          - eslint-plugin-import@2.29.1
+          - eslint-plugin-prettier@5.1.3
+          - eslint-plugin-sonarjs@0.25.1
+          - eslint-import-resolver-typescript@3.6.1
+        args: [--fix, --max-warnings=0]
+        exclude: '^(node_modules|dist|build|\.next|coverage)/'
+
+  # ---------------------------------------------------------------------------
+  # TypeScript / JavaScript – Prettier
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: Prettier
+        types_or: [ts, tsx, javascript, jsx, css, scss, json, yaml, markdown, html]
+        args: [--write]
+        additional_dependencies:
+          - prettier@3.2.5
+        exclude: '^(node_modules|dist|build|\.next|coverage|.*\.lock|.*\.min\.)/'
+
+  # ---------------------------------------------------------------------------
+  # YAML – yamllint
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        name: yamllint
+        args: [--config-file=.yamllint.yml]
+        exclude: '^(helm/|\.github/)'
+
+  # ---------------------------------------------------------------------------
+  # Docker – Hadolint (Dockerfile linter)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        name: Hadolint Dockerfile linter
+        files: Dockerfile.*
+        args: [--ignore=DL3008, --ignore=DL3013, --ignore=DL3018]
+
+  # ---------------------------------------------------------------------------
+  # Shell scripts – ShellCheck
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: ShellCheck
+        args: [--severity=warning]
+
+  # ---------------------------------------------------------------------------
+  # Terraform – tflint + terraform fmt
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.90.0
+    hooks:
+      - id: terraform_fmt
+        name: Terraform fmt
+      - id: terraform_validate
+        name: Terraform validate
+        args: [--init-reconfigure]
+      - id: terraform_tflint
+        name: TFLint
+        args:
+          - --args=--enable-plugin=aws
+          - --args=--enable-plugin=google
+
+  # ---------------------------------------------------------------------------
+  # SQL – sqlfluff
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.0.7
+    hooks:
+      - id: sqlfluff-lint
+        name: SQLFluff lint
+        args: [--dialect=ansi]
+        files: \.sql$
+      - id: sqlfluff-fix
+        name: SQLFluff fix
+        args: [--dialect=ansi]
+        files: \.sql$
+
+  # ---------------------------------------------------------------------------
+  # Markdown – markdownlint-cli2
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.13.0
+    hooks:
+      - id: markdownlint-cli2
+        name: markdownlint
+        files: \.md$
+        args: [--config=.markdownlint.json, --fix]
+
+  # ---------------------------------------------------------------------------
+  # Commit message – Conventional Commits
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          [
+            feat,
+            fix,
+            docs,
+            style,
+            refactor,
+            perf,
+            test,
+            build,
+            ci,
+            chore,
+            revert,
+            wip,
+          ]

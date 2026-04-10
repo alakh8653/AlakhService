@@ -1,6 +1,11 @@
 # =============================================================================
+
+# AlakhService – Comprehensive .gitignore
+# Covers: Python, Dart/Flutter, TypeScript/Node, Docker, Terraform, IDE, OS
+
 # AlakhService — Comprehensive .gitignore
 # Covers: Python, Dart/Flutter, TypeScript/Node.js, IDE files
+
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -10,6 +15,49 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+Pipfile.lock
+poetry.lock
+.pdm.toml
+__pypackages__/
+
+# Testing
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+
 *.egg
 *.egg-info/
 dist/
@@ -41,18 +89,54 @@ venv.bak/
 .coverage.*
 coverage/
 htmlcov/
+
 nosetests.xml
 coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
 
+.pytest_cache/
+pytest.ini.bak
+htmlcov/
+
+# Type checkers
+
+
 # MyPy / type checkers
+
 .mypy_cache/
 .dmypy.json
 dmypy.json
 .pyre/
 .pytype/
+
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject.db
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs
+/site
 
 # Jupyter Notebooks
 .ipynb_checkpoints
@@ -65,6 +149,7 @@ pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 junit.xml
+
 
 # Translations
 *.mo
@@ -82,6 +167,19 @@ instance/
 
 # Scrapy
 .scrapy
+
+
+# Sphinx
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# -----------------------------------------------------------------------------
+# Dart / Flutter
+# -----------------------------------------------------------------------------
+# Dart tool
 
 # Sphinx documentation
 docs/_build/
@@ -116,12 +214,36 @@ celerybeat.pid
 # Dart / Flutter
 # -----------------------------------------------------------------------------
 # Build outputs
+
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
+
+build/
+
+# Flutter
+*.flx
+*.aot
+*.snapshot
+flutter_*.png
+linked_*.ds
+unlinked.ds
+unlinked_spec.ds
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+*.config.dart
+lib/generated_plugin_registrant.dart
+lib/l10n/app_*.arb
+
+# Android
+**/android/.gradle
+
 
 # Flutter build artifacts
 build/
@@ -141,6 +263,7 @@ build/
 
 # Android
 **/android/.gradle/
+
 **/android/captures/
 **/android/gradlew
 **/android/gradlew.bat
@@ -150,11 +273,30 @@ build/
 **/*.keystore
 **/*.jks
 
+
+# iOS
+**/ios/.symlinks/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+
+
+
 # macOS
 **/macos/Flutter/GeneratedPluginRegistrant.swift
 **/macos/Flutter/ephemeral/
 
 # Web
+
+lib/generated/intl/
+
+# -----------------------------------------------------------------------------
+# TypeScript / JavaScript / Node.js
+
 **/web/
 
 # Dart analyzer
@@ -166,11 +308,129 @@ coverage/
 
 # -----------------------------------------------------------------------------
 # TypeScript / Node.js
+
 # -----------------------------------------------------------------------------
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.node_repl_history
+*.tsbuildinfo
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build output
+dist/
+dist-ssr/
+*.local
+out/
+.next/
+.nuxt/
+.output/
+.vite/
+.svelte-kit/
+
+# Coverage
+coverage/
+*.lcov
+
+# Storybook
+storybook-static/
+.chromatic/
+
+# Nx
+.nx/cache
+
+# Turborepo
+.turbo/
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+.docker/
+
+# -----------------------------------------------------------------------------
+# Terraform / Infrastructure
+# -----------------------------------------------------------------------------
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+crash.log
+crash.*.log
+
+# Ansible
+*.retry
+
+# Kubernetes / Helm
+*.kubeconfig
+charts/*/charts/
+charts/*/tmpcharts/
+
+# Pulumi
+.pulumi/
+
+# -----------------------------------------------------------------------------
+# Secrets & credentials
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+*.csr
+id_rsa
+id_ed25519
+id_ecdsa
+*.asc
+secrets.yml
+secrets.yaml
+*secrets*
+*credentials*
+service-account*.json
+gcloud-credentials*.json
+aws-credentials
+.aws/credentials
+
+# -----------------------------------------------------------------------------
+# Databases & data files
+# -----------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.sql.gz
+*.dump
+data/
+pgdata/
+redis-data/
+elasticsearch-data/
+kafka-data/
+zookeeper-data/
+
 lerna-debug.log*
 .pnpm-debug.log*
 
@@ -254,9 +514,22 @@ fabric.properties
 *.code-workspace
 .history/
 
+
 # -----------------------------------------------------------------------------
 # Logs
 # -----------------------------------------------------------------------------
+
+logs/
+*.log
+*.log.*
+npm-debug.log*
+pip-log.txt
+
+# -----------------------------------------------------------------------------
+# OS generated files
+# -----------------------------------------------------------------------------
+# macOS
+
 *.log
 logs/
 npm-debug.log
@@ -267,6 +540,7 @@ pip-log.txt
 # -----------------------------------------------------------------------------
 # OS Generated
 # -----------------------------------------------------------------------------
+
 .DS_Store
 .DS_Store?
 ._*
@@ -274,6 +548,151 @@ pip-log.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.AppleDouble
+.LSOverride
+Icon?
+.DocumentRevisions-V100
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+[Dd]esktop.ini
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# -----------------------------------------------------------------------------
+# IDE / Editor
+# -----------------------------------------------------------------------------
+# JetBrains (IntelliJ, PyCharm, WebStorm, GoLand, etc.)
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+.idea_modules/
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.code-workspace
+.history/
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+Session.vim
+.netrwhist
+tags
+
+# Emacs
+*~
+\#*\#
+.\#*
+*.elc
+auto-save-list
+tramp
+.\#*
+.org-id-locations
+*_archive
+*.org-gcal-*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Eclipse
+.project
+.classpath
+.settings/
+.loadpath
+
+# Xcode
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+
+# TextMate
+*.tmproj
+*.tmproject
+tmtags
+
+# -----------------------------------------------------------------------------
+# Miscellaneous
+# -----------------------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.rej
+*.patch
+.cache/
+tmp/
+temp/
+*.pid
+*.seed
+*.pid.lock
+.grunt
+.lock-wscript
+.wafpickle-N
+.buildpath
+.project
+profile
+.profile
+
+# Compiled binaries
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+*.out
+
+# Archives
+*.zip
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.rar
+*.7z
+
+# Generated documentation
+docs/api/
+docs/build/
+
+# Benchmark results
+benchmark_results/
+
 Desktop.ini
 $RECYCLE.BIN/
 
@@ -320,3 +739,4 @@ id_ed25519.pub
 secrets/
 secret/
 credentials/
+

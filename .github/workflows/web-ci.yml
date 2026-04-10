@@ -3,6 +3,38 @@ name: Web CI
 on:
   push:
     branches: [main, develop]
+
+    paths: ['apps/**_web/**']
+  pull_request:
+    paths: ['apps/**_web/**']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [shop_dashboard_web, admin_dashboard_web]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test -- --watchAll=false --coverage
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-dist
+          path: apps/${{ matrix.app }}/dist
+          retention-days: 7
+
     paths:
       - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
@@ -114,3 +146,4 @@ jobs:
           echo "### ${{ matrix.app }} bundle sizes" >> $GITHUB_STEP_SUMMARY
           du -sh dist/ >> $GITHUB_STEP_SUMMARY
           find dist/ -name "*.js" -o -name "*.css" | xargs du -sh | sort -h >> $GITHUB_STEP_SUMMARY
+

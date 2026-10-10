@@ -65,9 +65,9 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 48),
-                  Text('Welcome Back', style: AppTextStyles.heading1),
+                  const Text('Welcome Back', style: AppTextStyles.heading1),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Sign in to continue',
                     style: AppTextStyles.body2,
                   ),
@@ -123,7 +123,7 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         "Don't have an account? ",
                         style: AppTextStyles.body2,
                       ),

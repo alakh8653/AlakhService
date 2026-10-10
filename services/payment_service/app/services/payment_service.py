@@ -1,19 +1,20 @@
-import uuid
 import hashlib
 import hmac
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-import redis.asyncio as aioredis
 
-from app.models.payment import Payment, Account, Refund, Escrow, LedgerEntry
-from app.schemas.payment import PaymentInitiate, RefundRequest
-from app.core.ledger import ledger
-from app.core.escrow import escrow_service
+import redis.asyncio as aioredis
+import structlog
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
+from app.core.escrow import escrow_service
+from app.core.ledger import ledger
+from app.models.payment import Account, LedgerEntry, Payment, Refund
+from app.schemas.payment import PaymentInitiate, RefundRequest
 
 log = structlog.get_logger()
 
@@ -157,7 +158,7 @@ class PaymentService:
             try:
                 event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
             except Exception as e:
-                raise ValueError(f"Invalid Stripe signature: {e}")
+                raise ValueError(f"Invalid Stripe signature: {e}") from e
             event_type = event["type"]
             event_data = event["data"]["object"]
         else:

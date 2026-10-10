@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
 from app.api.v1.router import api_router
-from app.core.events import on_startup, on_shutdown
+from app.config import settings
+from app.core.events import on_shutdown, on_startup
 from app.core.middleware import RequestLoggingMiddleware
 
 

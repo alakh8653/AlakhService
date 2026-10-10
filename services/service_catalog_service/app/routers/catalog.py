@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import ServiceListingNotFoundError
 from app.database import get_db
-from app.schemas.catalog import CategoryCreate, CategoryResponse, ServiceListingCreate, ServiceListingUpdate, ServiceListingResponse
+from app.schemas.catalog import (
+    CategoryCreate,
+    CategoryResponse,
+    ServiceListingCreate,
+    ServiceListingResponse,
+    ServiceListingUpdate,
+)
 from app.services.catalog_service import catalog_service
-from app.core.exceptions import ServiceListingNotFoundError, CategoryNotFoundError
 
 router = APIRouter()
 
@@ -47,7 +55,7 @@ async def get_service(service_id: str, db: AsyncSession = Depends(get_db)):
     try:
         return await catalog_service.get_service(db, service_id)
     except ServiceListingNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.put("/services/{service_id}", response_model=ServiceListingResponse)
@@ -55,4 +63,4 @@ async def update_service(service_id: str, data: ServiceListingUpdate, db: AsyncS
     try:
         return await catalog_service.update_service(db, service_id, data)
     except ServiceListingNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e

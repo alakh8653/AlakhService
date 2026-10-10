@@ -1,17 +1,19 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.database import Base
+from app.schemas.admin import AdminUserCreate, BanUserRequest, BulkUpdateRequest, SystemConfigUpdate
 from app.services.admin_service import AdminService
-from app.schemas.admin import AdminUserCreate, BanUserRequest, SystemConfigUpdate, BulkUpdateRequest
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -76,7 +78,7 @@ async def test_system_config_update(db_session, service):
     config = await service.update_system_config(db_session, "max_bookings_per_day", SystemConfigUpdate(value="100", description="Max bookings", updated_by="admin-1"))
     assert config.key == "max_bookings_per_day"
     assert config.value == "100"
-    
+
     # Update again
     config2 = await service.update_system_config(db_session, "max_bookings_per_day", SystemConfigUpdate(value="200", updated_by="admin-2"))
     assert config2.value == "200"

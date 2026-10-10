@@ -1,10 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
-from app.schemas.admin import AdminUserCreate, AdminUserResponse, AuditLogResponse, SystemConfigUpdate, SystemConfigResponse, BanUserRequest, BulkUpdateRequest
+from app.schemas.admin import (
+    AdminUserCreate,
+    AdminUserResponse,
+    AuditLogResponse,
+    BanUserRequest,
+    BulkUpdateRequest,
+    SystemConfigResponse,
+    SystemConfigUpdate,
+)
 from app.services.admin_service import admin_service
-from app.core.exceptions import AdminUserNotFoundError
 
 router = APIRouter()
 

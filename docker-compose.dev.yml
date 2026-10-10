@@ -1,130 +1,76 @@
-version: "3.9"
+# Development overrides: mounts each service's source and enables uvicorn auto-reload.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
-# Development overrides for docker-compose.yml
-# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+x-dev: &dev
+  environment:
+    UVICORN_EXTRA_ARGS: --reload
 
 services:
-  postgres:
-    ports:
-      - "5432:5432"
-
-  minio:
-    environment:
-      MINIO_BROWSER: "on"
-
-  api-gateway:
-    build:
-      context: ./services/api-gateway
-      target: development
+  auth_service:
+    <<: *dev
     volumes:
-      - ./services/api-gateway:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "${API_GATEWAY_PORT:-8000}:8000"
-      - "5678:5678"
-
-  auth-service:
-    build:
-      context: ./services/auth-service
-      target: development
+      - ./services/auth_service:/app
+  user_service:
+    <<: *dev
     volumes:
-      - ./services/auth-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8001:8001"
-      - "5679:5678"
-
-  user-service:
-    build:
-      context: ./services/user-service
-      target: development
+      - ./services/user_service:/app
+  shop_service:
+    <<: *dev
     volumes:
-      - ./services/user-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8002:8002"
-      - "5680:5678"
-
-  shop-service:
-    build:
-      context: ./services/shop-service
-      target: development
+      - ./services/shop_service:/app
+  booking_service:
+    <<: *dev
     volumes:
-      - ./services/shop-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8003:8003"
-      - "5681:5678"
-
-  booking-service:
-    build:
-      context: ./services/booking-service
-      target: development
+      - ./services/booking_service:/app
+  payment_service:
+    <<: *dev
     volumes:
-      - ./services/booking-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8004:8004"
-      - "5682:5678"
-
-  payment-service:
-    build:
-      context: ./services/payment-service
-      target: development
+      - ./services/payment_service:/app
+  notification_service:
+    <<: *dev
     volumes:
-      - ./services/payment-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8005:8005"
-      - "5683:5678"
-
-  notification-service:
-    build:
-      context: ./services/notification-service
-      target: development
+      - ./services/notification_service:/app
+  tracking_service:
+    <<: *dev
     volumes:
-      - ./services/notification-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-      SMTP_HOST: mailhog
-      SMTP_PORT: "1025"
-    ports:
-      - "8006:8006"
-      - "5684:5678"
-    depends_on:
-      - mailhog
-
-  tracking-service:
-    build:
-      context: ./services/tracking-service
-      target: development
+      - ./services/tracking_service:/app
+  queue_service:
+    <<: *dev
     volumes:
-      - ./services/tracking-service:/app
-    environment:
-      DEBUG: "true"
-      RELOAD: "true"
-    ports:
-      - "8007:8007"
-      - "5685:5678"
-
-  mailhog:
-    image: mailhog/mailhog:latest
-    restart: unless-stopped
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    networks:
-      - alakh-net
+      - ./services/queue_service:/app
+  dispatch_service:
+    <<: *dev
+    volumes:
+      - ./services/dispatch_service:/app
+  analytics_service:
+    <<: *dev
+    volumes:
+      - ./services/analytics_service:/app
+  dispute_service:
+    <<: *dev
+    volumes:
+      - ./services/dispute_service:/app
+  trust_risk_service:
+    <<: *dev
+    volumes:
+      - ./services/trust_risk_service:/app
+  admin_service:
+    <<: *dev
+    volumes:
+      - ./services/admin_service:/app
+  compliance_service:
+    <<: *dev
+    volumes:
+      - ./services/compliance_service:/app
+  pricing_engine:
+    <<: *dev
+    volumes:
+      - ./services/pricing_engine:/app
+  service_catalog_service:
+    <<: *dev
+    volumes:
+      - ./services/service_catalog_service:/app
+  catalog_service:
+    <<: *dev
+    volumes:
+      - ./services/catalog_service:/app

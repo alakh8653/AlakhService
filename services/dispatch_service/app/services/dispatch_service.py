@@ -1,14 +1,15 @@
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.dispatch import DispatchJob, AvailableProvider
-from app.schemas.dispatch import AssignRequest, AssignResponse, ProviderLocationUpdate
-from app.core.hungarian import haversine_distance, hungarian_algorithm
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.exceptions import NoProvidersAvailableError
+from app.core.hungarian import haversine_distance, hungarian_algorithm
+from app.models.dispatch import AvailableProvider, DispatchJob
+from app.schemas.dispatch import AssignRequest, AssignResponse, ProviderLocationUpdate
 
 log = structlog.get_logger()
 

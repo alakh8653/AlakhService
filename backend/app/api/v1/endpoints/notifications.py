@@ -1,7 +1,9 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.dependencies import pagination_params
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.models.user import User
@@ -12,7 +14,6 @@ from app.services.notification_service import (
     mark_all_as_read,
     mark_as_read,
 )
-from app.api.v1.dependencies import pagination_params
 
 router = APIRouter()
 

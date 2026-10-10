@@ -72,7 +72,7 @@ class ServiceDetailPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text('About this service', style: AppTextStyles.subtitle1),
+                  const Text('About this service', style: AppTextStyles.subtitle1),
                   const SizedBox(height: 8),
                   Text(service.description, style: AppTextStyles.body2),
                   if (service.tags.isNotEmpty) ...[
@@ -92,7 +92,7 @@ class ServiceDetailPage extends StatelessWidget {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Text('Starting at', style: AppTextStyles.body2),
+                      const Text('Starting at', style: AppTextStyles.body2),
                       const SizedBox(width: 8),
                       Text(
                         '₹${service.basePrice.toStringAsFixed(0)}',

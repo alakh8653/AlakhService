@@ -183,8 +183,8 @@ make test
 
 - Docker ≥ 24 & Docker Compose ≥ 2.20
 - Python 3.11+
-- Node.js 18+
-- Flutter 3.x SDK
+- Node.js 20.19+ (22 LTS recommended)
+- Flutter 3.x SDK (CI uses 3.47)
 - `make` (optional but recommended)
 
 ### 1. Clone & configure
@@ -199,23 +199,28 @@ cp .env.example .env
 ### 2. Start infrastructure + all services
 
 ```bash
-docker compose up -d
+docker compose up -d --build
+# or, with source mounts + auto-reload:
+make dev
 ```
 
-### 3. Run database migrations (first run)
+Each service gets its own PostgreSQL database (see `infra/postgres/init-databases.sql`) and
+creates its tables on start-up.
+
+### 3. Verify services are healthy
 
 ```bash
-docker compose exec auth_service alembic upgrade head
-docker compose exec user_service alembic upgrade head
-# Repeat for other services that own a DB schema
-```
-
-### 4. Verify services are healthy
-
-```bash
-curl http://localhost:3000/health          # API Gateway
 curl http://localhost:8001/health          # Auth Service
 curl http://localhost:8002/health          # User Service
+curl http://localhost:8001/docs            # Interactive API docs (any service)
+```
+
+### 4. Run the checks locally (without Docker)
+
+```bash
+make setup-python setup-node   # one virtualenv per service + npm ci for both dashboards
+make test-python test-node test-mobile
+make lint-python lint-node
 ```
 
 ### 5. Mobile app (development)
@@ -223,13 +228,16 @@ curl http://localhost:8002/health          # User Service
 ```bash
 cd apps/mobile_app
 flutter pub get
-flutter run
+dart run build_runner build   # generates test mocks
+flutter test
+flutter run                   # android/ and ios/ platform projects must be generated first
 ```
 
-### 6. Web dashboard (development)
+### 6. Web dashboards (development)
 
 ```bash
-cd apps/admin_web
+cd apps/admin_dashboard_web    # or apps/shop_dashboard_web
+cp .env.example .env           # set VITE_API_BASE_URL
 npm ci
 npm run dev
 ```
@@ -256,8 +264,9 @@ npm run dev
 | `compliance_service` | 8014 | Regulatory compliance and audit |
 | `pricing_engine` | 8015 | Dynamic pricing rules and computation |
 | `service_catalog_service` | 8016 | Service definitions, variants, SKUs |
-| `ml_platform` | 8017 | ML models: demand forecast, pricing, fraud |
-| `api_gateway` | 3000 | Unified API entry point, auth middleware |
+| `catalog_service` | 8017 | Service categories, items and pricing tiers |
+
+> The API gateway and ML platform described in the architecture are not in this repository yet.
 
 ---
 

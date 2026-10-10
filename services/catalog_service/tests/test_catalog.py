@@ -1,7 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.services.catalog_service import CatalogService
+
+import pytest
+
 from app.core.exceptions import ServiceNotFoundError, SlugConflictError
+from app.services.catalog_service import CatalogService
+
 
 @pytest.mark.asyncio
 async def test_get_service_not_found():

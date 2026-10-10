@@ -22,6 +22,7 @@ ROOT_DIR     := $(shell pwd)
 SERVICES_DIR := $(ROOT_DIR)/services
 MOBILE_DIR   := $(ROOT_DIR)/apps/mobile_app
 WEB_APPS     := $(ROOT_DIR)/apps/admin_dashboard_web $(ROOT_DIR)/apps/shop_dashboard_web
+NODE_PROJECTS := $(WEB_APPS) $(SERVICES_DIR)/api_gateway
 PY_PROJECTS  := $(wildcard $(SERVICES_DIR)/*/requirements.txt) $(ROOT_DIR)/backend/requirements.txt
 INFRA_DIR    := $(ROOT_DIR)/infra
 DOCS_DIR     := $(ROOT_DIR)/docs
@@ -117,7 +118,7 @@ setup-python: ## Create virtualenv and install all Python dependencies
 .PHONY: setup-node
 setup-node: ## Install Node.js dependencies
 	$(call log,"Installing Node.js dependencies...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) ci) || exit 1; \
 	done
@@ -215,7 +216,7 @@ test-python: ## Run all Python tests with coverage
 .PHONY: test-node
 test-node: ## Run all Node/TypeScript tests with coverage
 	$(call log,"Running TypeScript tests...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) test -- --coverage) || exit 1; \
 	done
@@ -287,7 +288,7 @@ lint-python: ## Lint Python code with Ruff + MyPy
 .PHONY: lint-node
 lint-node: ## Lint TypeScript/JavaScript with ESLint
 	$(call log,"Linting TypeScript...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) run lint && $(NPM) run type-check) || exit 1; \
 	done

@@ -5,7 +5,7 @@ import DataTable, { type Column } from '../components/DataTable';
 
 const columns: Column<AuditLog>[] = [
   { key: 'createdAt', header: 'Timestamp', render: (r) => format(new Date(r.createdAt), 'MMM d, yyyy HH:mm:ss') },
-  { key: 'actorName', header: 'Actor' },
+  { key: 'actorId', header: 'Admin' },
   { key: 'action', header: 'Action' },
   { key: 'resource', header: 'Resource' },
   { key: 'resourceId', header: 'Resource ID' },
@@ -33,11 +33,8 @@ export default function AuditLogPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
       <div className="flex gap-3 flex-wrap bg-white rounded-xl shadow p-4">
-        <input placeholder="Actor ID" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, actorId: e.target.value || undefined }))} />
-        <input placeholder="Action" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value || undefined }))} />
-        <input placeholder="Resource" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, resource: e.target.value || undefined }))} />
-        <input type="date" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
-        <input type="date" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
+        <input placeholder="Admin ID" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, actorId: e.target.value || undefined })); }} />
+        <input placeholder="Action" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => { setPage(1); setFilters((f) => ({ ...f, action: e.target.value || undefined })); }} />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <DataTable columns={columns} rows={logs} isLoading={isLoading} total={total} page={page} perPage={25} onPageChange={setPage} />

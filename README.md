@@ -205,7 +205,17 @@ make dev
 ```
 
 Each service gets its own PostgreSQL database (see `infra/postgres/init-databases.sql`) and
-creates its tables on start-up.
+applies its Alembic migrations on start-up.
+
+**Database migrations** live in `services/<name>/migrations` (and `backend/migrations`):
+
+```bash
+make db-migrate                                              # all services
+make db-new-migration SERVICE=auth_service NAME="add column" # after changing models (needs `make dev`)
+make db-rollback SERVICE=auth_service
+```
+
+CI applies every service's migrations to PostgreSQL and fails if the models and migrations drift.
 
 ### 3. Verify services are healthy
 

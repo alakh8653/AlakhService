@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build   # hot reload
 #
 # Each service gets its own database (created by infra/postgres/init-databases.sql)
-# and creates its tables on start-up, since the services do not ship migrations yet.
+# and applies its Alembic migrations (services/<name>/migrations) on start-up.
 # =============================================================================
 
 x-python-service: &python-service
@@ -27,24 +27,11 @@ x-python-service: &python-service
     timeout: 5s
     retries: 5
     start_period: 20s
+  # Apply this service's Alembic migrations, then start the API.
   command:
     - sh
     - -c
-    - |
-      python - <<'PY'
-      import asyncio, importlib, pkgutil
-      import app.main  # noqa: F401
-      import app.models as models
-      from app.database import Base, engine
-      for mod in pkgutil.walk_packages(models.__path__, "app.models."):
-          importlib.import_module(mod.name)
-      async def create_tables():
-          async with engine.begin() as conn:
-              await conn.run_sync(Base.metadata.create_all)
-          await engine.dispose()
-      asyncio.run(create_tables())
-      PY
-      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $${UVICORN_EXTRA_ARGS:-}
+    - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $${UVICORN_EXTRA_ARGS:-}
 
 x-service-env: &service-env
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme}

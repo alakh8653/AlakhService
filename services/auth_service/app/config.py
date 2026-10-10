@@ -16,7 +16,17 @@ class Settings(BaseSettings):
     LOCKOUT_DURATION_SECONDS: int = 300
     OTP_EXPIRE_SECONDS: int = 300
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
-    # Local testing only: log password reset tokens, since no email delivery is wired up yet.
+    # Where the emailed link points; the token is appended as ?token=...
+    PASSWORD_RESET_URL: str = "http://localhost:5173/reset-password"
+    # Outgoing mail for password reset links. With no SMTP_HOST, no email is sent.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM_EMAIL: str = "noreply@alakhservice.com"
+    SMTP_FROM_NAME: str = "AlakhService"
+    # Local testing only, when SMTP is not configured: log reset tokens instead of emailing them.
     # Never enable where logs are shared; a logged token lets its reader take over the account.
     LOG_PASSWORD_RESET_TOKENS: bool = False
 

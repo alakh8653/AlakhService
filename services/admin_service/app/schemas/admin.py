@@ -36,7 +36,8 @@ class AuditLogResponse(BaseModel):
 class SystemConfigUpdate(BaseModel):
     value: str
     description: Optional[str] = None
-    updated_by: str
+    # Ignored: the acting admin is taken from the access token. Kept for older clients.
+    updated_by: Optional[str] = None
 
 
 class SystemConfigResponse(BaseModel):
@@ -51,11 +52,13 @@ class SystemConfigResponse(BaseModel):
 
 class BanUserRequest(BaseModel):
     reason: Optional[str] = None
-    banned_by: str
+    # Ignored: the acting admin is taken from the access token. Kept for older clients.
+    banned_by: Optional[str] = None
 
 
 class BulkUpdateRequest(BaseModel):
     user_ids: List[str]
     action: str  # "ban", "unban", "verify"
-    admin_id: str
+    # Ignored: the acting admin is taken from the access token. Kept for older clients.
+    admin_id: Optional[str] = None
     reason: Optional[str] = None

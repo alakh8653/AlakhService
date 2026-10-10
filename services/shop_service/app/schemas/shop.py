@@ -83,7 +83,13 @@ class ShopHoursResponse(BaseModel):
 
 
 class RatingUpdate(BaseModel):
-    rating: float  # 1.0 - 5.0
+    rating: float = Field(ge=1.0, le=5.0)
+
+
+class ShopRatingCreate(BaseModel):
+    booking_id: str
+    rating: float = Field(ge=1.0, le=5.0)
+    comment: Optional[str] = Field(default=None, max_length=2000)
 
 
 class StaffCreate(BaseModel):

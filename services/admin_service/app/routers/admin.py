@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies import Caller, require_admin
 from app.schemas.admin import (
     AdminUserCreate,
     AdminUserResponse,
@@ -29,13 +30,22 @@ async def list_admin_users(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/admin/users/{user_id}/ban", status_code=200)
-async def ban_user(user_id: str, data: BanUserRequest, db: AsyncSession = Depends(get_db)):
+async def ban_user(
+    user_id: str, data: BanUserRequest, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_admin)
+):
+    # Audit entries name the admin from the token, never one the client supplies.
+    data = data.model_copy(update={"banned_by": caller.user_id})
     return await admin_service.ban_user(db, user_id, data)
 
 
 @router.post("/admin/users/{user_id}/unban", status_code=200)
-async def unban_user(user_id: str, admin_id: str = Query(...), db: AsyncSession = Depends(get_db)):
-    return await admin_service.unban_user(db, user_id, admin_id)
+async def unban_user(
+    user_id: str,
+    admin_id: Optional[str] = Query(None, description="Ignored; the acting admin comes from the token"),
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+):
+    return await admin_service.unban_user(db, user_id, caller.user_id)
 
 
 @router.get("/audit-logs", response_model=List[AuditLogResponse])
@@ -55,10 +65,14 @@ async def get_system_configs(db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/system-config/{key}", response_model=SystemConfigResponse)
-async def update_system_config(key: str, data: SystemConfigUpdate, db: AsyncSession = Depends(get_db)):
+async def update_system_config(
+    key: str, data: SystemConfigUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_admin)
+):
+    data = data.model_copy(update={"updated_by": caller.user_id})
     return await admin_service.update_system_config(db, key, data)
 
 
 @router.post("/admin/actions/bulk-update")
-async def bulk_update(data: BulkUpdateRequest, db: AsyncSession = Depends(get_db)):
+async def bulk_update(data: BulkUpdateRequest, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_admin)):
+    data = data.model_copy(update={"admin_id": caller.user_id})
     return await admin_service.bulk_update(db, data)

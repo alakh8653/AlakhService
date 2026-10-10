@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { apiErrorMessage } from '../services/format';
 
 const schema = z.object({
@@ -84,6 +84,9 @@ export default function LoginPage() {
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        <Link to="/forgot-password" className="mt-4 block text-sm text-indigo-600 hover:underline">
+          Forgot your password?
+        </Link>
       </div>
     </div>
   );

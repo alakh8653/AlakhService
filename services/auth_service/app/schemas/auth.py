@@ -5,6 +5,17 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
+def check_password_strength(v: str) -> str:
+    """The password policy, shared by registration and password reset."""
+    if len(v) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not any(c.isupper() for c in v):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Password must contain at least one digit")
+    return v
+
+
 class UserCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -22,13 +33,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if not any(c.isupper() for c in v):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("Password must contain at least one digit")
-        return v
+        return check_password_strength(v)
 
     @field_validator("email", "phone")
     @classmethod
@@ -78,9 +83,7 @@ class PasswordResetConfirm(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        return v
+        return check_password_strength(v)
 
 
 class UserResponse(BaseModel):

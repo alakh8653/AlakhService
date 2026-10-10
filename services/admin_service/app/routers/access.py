@@ -1,22 +1,22 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RoleConflictError, RoleNotFoundError
 from app.database import get_db
+from app.dependencies import Caller, require_admin
 from app.schemas.access import PermissionResponse, RoleCreate, RolePermissionsUpdate, RoleResponse
 from app.services import access_service
 
 router = APIRouter()
 
-# The API gateway sets x-user-id from the verified access token (and strips client-supplied values);
-# it is only used to attribute audit log entries.
 ActorId = Optional[str]
 
 
-def actor(x_user_id: Optional[str] = Header(default=None)) -> ActorId:
-    return x_user_id
+def actor(caller: Caller = Depends(require_admin)) -> ActorId:
+    """The admin making the change, from the access token; used to attribute audit log entries."""
+    return caller.user_id
 
 
 @router.get("/access/permissions", response_model=List[PermissionResponse])

@@ -3,10 +3,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ShopNotFoundError
+from app.core.exceptions import RatingExistsError, ShopNotFoundError
 from app.database import get_db
-from app.dependencies import Caller, ensure_owner, require_caller
-from app.schemas.shop import RatingUpdate, ShopCreate, ShopResponse, ShopUpdate
+from app.dependencies import BookingLookup, Caller, ensure_owner, get_booking_lookup, require_caller
+from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
 from app.services.shop_service import shop_service
 
 router = APIRouter()
@@ -70,11 +70,23 @@ async def delete_shop(shop_id: str, db: AsyncSession = Depends(get_db), caller: 
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
-@router.post("/shops/{shop_id}/rating")
-async def update_rating(
-    shop_id: str, data: RatingUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+@router.post("/shops/{shop_id}/rating", response_model=ShopResponse)
+async def rate_shop(
+    shop_id: str,
+    data: ShopRatingCreate,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    lookup_booking: BookingLookup = Depends(get_booking_lookup),
 ):
+    """Customers rate a shop once per completed booking with it."""
+    booking = await lookup_booking(data.booking_id, caller)
+    if booking is None or booking.get("customer_id") != caller.user_id or booking.get("shop_id") != shop_id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.get("status") != "COMPLETED":
+        raise HTTPException(status_code=409, detail="Only completed bookings can be rated")
     try:
-        return await shop_service.update_rating(db, shop_id, data.rating)
+        return await shop_service.add_rating(db, shop_id, data.booking_id, caller.user_id, data.rating, data.comment)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except RatingExistsError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e

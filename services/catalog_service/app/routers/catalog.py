@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.exceptions import CategoryNotFoundError, ServiceNotFoundError, SlugConflictError
 from app.database import get_db
+from app.dependencies import require_admin
 from app.schemas.catalog import (
     PricingTierCreate,
     PricingTierResponse,
@@ -44,7 +45,7 @@ async def list_categories(parent_id: Optional[str] = Query(None), db: AsyncSessi
 async def get_tree(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     return await catalog_service.get_service_tree(db, redis)
 
-@router.post("/catalog/categories", response_model=ServiceCategoryResponse, status_code=201)
+@router.post("/catalog/categories", response_model=ServiceCategoryResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_category(payload: ServiceCategoryCreate, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     try:
         category = await catalog_service.create_category(db, payload)
@@ -60,7 +61,7 @@ async def get_category(category_id: str, db: AsyncSession = Depends(get_db)):
     except CategoryNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-@router.put("/catalog/categories/{category_id}", response_model=ServiceCategoryResponse)
+@router.put("/catalog/categories/{category_id}", response_model=ServiceCategoryResponse, dependencies=[Depends(require_admin)])
 async def update_category(category_id: str, payload: ServiceCategoryUpdate, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     try:
         category = await catalog_service.update_category(db, category_id, payload)
@@ -69,7 +70,7 @@ async def update_category(category_id: str, payload: ServiceCategoryUpdate, db: 
     await catalog_service.invalidate_tree(redis)
     return category
 
-@router.delete("/catalog/categories/{category_id}")
+@router.delete("/catalog/categories/{category_id}", dependencies=[Depends(require_admin)])
 async def delete_category(category_id: str, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     try:
         await catalog_service.delete_category(db, category_id)
@@ -94,7 +95,7 @@ async def featured_services(db: AsyncSession = Depends(get_db), redis=Depends(ge
 async def search_catalog(params: SearchCatalogParams, db: AsyncSession = Depends(get_db)):
     return await catalog_service.search_catalog(db, params.query, params.category_id, params.min_price_cents, params.max_price_cents, params.page, params.per_page)
 
-@router.post("/catalog/services", response_model=ServiceItemResponse, status_code=201)
+@router.post("/catalog/services", response_model=ServiceItemResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_service(payload: ServiceItemCreate, db: AsyncSession = Depends(get_db)):
     try:
         return await catalog_service.create_service(db, payload)
@@ -115,14 +116,14 @@ async def get_service_by_slug(slug: str, db: AsyncSession = Depends(get_db)):
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-@router.put("/catalog/services/{service_id}", response_model=ServiceItemResponse)
+@router.put("/catalog/services/{service_id}", response_model=ServiceItemResponse, dependencies=[Depends(require_admin)])
 async def update_service(service_id: str, payload: ServiceItemUpdate, db: AsyncSession = Depends(get_db)):
     try:
         return await catalog_service.update_service(db, service_id, payload)
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-@router.delete("/catalog/services/{service_id}")
+@router.delete("/catalog/services/{service_id}", dependencies=[Depends(require_admin)])
 async def delete_service(service_id: str, db: AsyncSession = Depends(get_db)):
     try:
         await catalog_service.delete_service(db, service_id)
@@ -130,14 +131,14 @@ async def delete_service(service_id: str, db: AsyncSession = Depends(get_db)):
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-@router.post("/catalog/services/{service_id}/pricing-tiers", response_model=PricingTierResponse, status_code=201)
+@router.post("/catalog/services/{service_id}/pricing-tiers", response_model=PricingTierResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def add_pricing_tier(service_id: str, payload: PricingTierCreate, db: AsyncSession = Depends(get_db)):
     return await catalog_service.add_pricing_tier(db, service_id, payload)
 
-@router.post("/catalog/services/{service_id}/media", response_model=ServiceMediaResponse, status_code=201)
+@router.post("/catalog/services/{service_id}/media", response_model=ServiceMediaResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def add_media(service_id: str, payload: ServiceMediaCreate, db: AsyncSession = Depends(get_db)):
     return await catalog_service.add_media(db, service_id, payload)
 
-@router.post("/catalog/services/{service_id}/variants", response_model=ServiceVariantResponse, status_code=201)
+@router.post("/catalog/services/{service_id}/variants", response_model=ServiceVariantResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def add_variant(service_id: str, payload: ServiceVariantCreate, db: AsyncSession = Depends(get_db)):
     return await catalog_service.add_variant(db, service_id, payload)

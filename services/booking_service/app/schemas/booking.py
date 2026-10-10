@@ -5,26 +5,28 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class BookingCreate(BaseModel):
-    customer_id: str
+    # Ignored by the API: the customer is the caller.
+    customer_id: Optional[str] = None
     service_id: str
+    # Ignored by the API: the shop, price and (when listed) duration come from the service catalogue.
     shop_id: Optional[str] = None
     scheduled_at: datetime
-    duration_minutes: int
+    duration_minutes: Optional[int] = None
     address_id: Optional[str] = None
     notes: Optional[str] = None
-    total_amount: int
+    total_amount: Optional[int] = None
 
     @field_validator("duration_minutes")
     @classmethod
-    def validate_duration(cls, v: int) -> int:
-        if v <= 0:
+    def validate_duration(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
             raise ValueError("duration_minutes must be greater than 0")
         return v
 
     @field_validator("total_amount")
     @classmethod
-    def validate_amount(cls, v: int) -> int:
-        if v <= 0:
+    def validate_amount(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v <= 0:
             raise ValueError("total_amount must be greater than 0")
         return v
 

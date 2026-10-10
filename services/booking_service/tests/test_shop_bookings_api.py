@@ -11,12 +11,16 @@ from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_shop_owner_lookup
+from app.dependencies import get_service_lookup, get_shop_owner_lookup
 from app.main import app
 from app.models.booking import Booking
 
 TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
+LISTINGS = {
+    "svc-a": {"id": "svc-a", "shop_id": "shop-1", "price_cents": 49900, "duration_minutes": 45, "is_active": True},
+    "svc-off": {"id": "svc-off", "shop_id": "shop-1", "price_cents": 100, "duration_minutes": 30, "is_active": False},
+}
 
 
 def auth(sub: str, role: str = "user") -> dict:
@@ -60,7 +64,11 @@ async def client():
         return OWNERS.get(shop_id)
 
     app.dependency_overrides[get_db] = override_get_db
+    async def fake_listing(service_id):
+        return LISTINGS.get(service_id)
+
     app.dependency_overrides[get_shop_owner_lookup] = lambda: fake_owner
+    app.dependency_overrides[get_service_lookup] = lambda: fake_listing
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -181,3 +189,25 @@ async def test_only_access_tokens_authenticate(client):
         token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         resp = await client.get("/api/v1/bookings/shop/shop-1", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_bookings_are_priced_from_the_catalogue(client):
+    body = {
+        "customer_id": "someone-else",
+        "service_id": "svc-a",
+        "shop_id": "shop-2",
+        "scheduled_at": "2026-11-01T10:00:00Z",
+        "duration_minutes": 5,
+        "total_amount": 1,
+    }
+    created = await client.post("/api/v1/bookings", json=body, headers=auth("c7"))
+    assert created.status_code == 201
+    booking = created.json()
+    assert booking["total_amount"] == 49900
+    assert booking["shop_id"] == "shop-1"
+    assert booking["duration_minutes"] == 45
+    assert booking["customer_id"] == "c7"
+
+    assert (await client.post("/api/v1/bookings", json={**body, "service_id": "nope"}, headers=auth("c7"))).status_code == 404
+    assert (await client.post("/api/v1/bookings", json={**body, "service_id": "svc-off"}, headers=auth("c7"))).status_code == 409

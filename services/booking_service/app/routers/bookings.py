@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.access import OwnerLookup, may_transition, relationships
 from app.core.fsm import BookingStatus
 from app.database import get_db
-from app.dependencies import get_current_user, get_shop_owner_lookup, require_shop_access
+from app.dependencies import get_current_user, get_service_lookup, get_shop_owner_lookup, require_shop_access
 from app.schemas.booking import (
     BookingCancelRequest,
     BookingCreate,
@@ -64,8 +64,26 @@ async def create_booking(
     booking_data: BookingCreate,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
 ):
     customer_id = current_user.get("sub")
+    # Price, shop and duration come from the catalogue, never from the client.
+    listing = await lookup_service(booking_data.service_id)
+    if listing is None:
+        raise HTTPException(status_code=404, detail="Service not found")
+    if not listing.get("is_active", False):
+        raise HTTPException(status_code=409, detail="Service is not currently offered")
+    duration = listing.get("duration_minutes") or booking_data.duration_minutes
+    if not duration:
+        raise HTTPException(status_code=422, detail="duration_minutes is required for this service")
+    booking_data = booking_data.model_copy(
+        update={
+            "customer_id": customer_id,
+            "shop_id": listing["shop_id"],
+            "total_amount": listing["price_cents"],
+            "duration_minutes": duration,
+        }
+    )
     booking = await booking_service.create_booking(db, customer_id, booking_data)
     return booking
 

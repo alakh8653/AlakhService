@@ -131,6 +131,30 @@ async def shop_booking_summary(
     return await booking_service.shop_summary(db, shop_id, date_from, date_to)
 
 
+@router.get("/bookings/tracking/{provider_id}")
+async def can_track_provider(
+    provider_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+):
+    """Whether the caller may see this provider's live location (used by tracking_service).
+
+    Allowed for the provider, admins, and the customer or shop owner of a booking the provider
+    is working on right now. Anyone else gets 404.
+    """
+    user_id = current_user.get("sub")
+    if current_user.get("role") == "admin" or user_id == provider_id:
+        return {"allowed": True}
+    active = await booking_service.active_bookings_with_provider(db, provider_id)
+    if any(b.customer_id == user_id for b in active):
+        return {"allowed": True}
+    for shop_id in {b.shop_id for b in active if b.shop_id}:
+        if await lookup_owner(shop_id) == user_id:
+            return {"allowed": True}
+    raise HTTPException(status_code=404, detail="No active booking with this provider")
+
+
 @router.get("/bookings/{booking_id}", response_model=BookingResponse)
 async def get_booking(
     booking_id: str,

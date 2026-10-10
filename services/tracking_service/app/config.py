@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["*"]
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
+    BOOKING_SERVICE_URL: str = "http://booking_service:8000"
 
     class Config:
         env_file = ".env"

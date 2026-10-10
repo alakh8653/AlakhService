@@ -4,8 +4,9 @@ Tokens are verified here as well as at the API gateway, so the service stays pro
 its port is reached directly.
 """
 from dataclasses import dataclass
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
+import httpx
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -53,3 +54,26 @@ def ensure_self_or_admin(user_id: Optional[str], caller: Caller) -> None:
     """Users may only act for themselves; admins may act for anyone."""
     if not caller.is_admin and user_id != caller.user_id:
         raise HTTPException(status_code=403, detail="Not allowed for another user")
+
+
+async def may_track(provider_id: str, caller: Caller) -> bool:
+    """Ask booking_service whether the caller has a live booking with this provider."""
+    async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(
+                f"/api/v1/bookings/tracking/{provider_id}", headers={"Authorization": f"Bearer {caller.token}"}
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Booking service unavailable") from exc
+    if resp.status_code == 200:
+        return True
+    if resp.status_code in (403, 404):
+        return False
+    raise HTTPException(status_code=503, detail="Booking service unavailable")
+
+
+TrackingCheck = Callable[[str, Caller], Awaitable[bool]]
+
+
+def get_tracking_check() -> TrackingCheck:
+    return may_track

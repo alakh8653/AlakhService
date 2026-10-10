@@ -3,7 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import GeofenceNotFoundError, LocationNotFoundError
 from app.database import get_db
-from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
+from app.dependencies import (
+    Caller,
+    TrackingCheck,
+    ensure_self_or_admin,
+    get_tracking_check,
+    require_admin,
+    require_caller,
+)
 from app.schemas.tracking import (
     GeofenceCheckResponse,
     GeofenceCreate,
@@ -24,7 +31,15 @@ async def update_location(data: LocationUpdate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/locations/{provider_id}", response_model=LocationResponse)
-async def get_location(provider_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def get_location(
+    provider_id: str,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    tracking_check: TrackingCheck = Depends(get_tracking_check),
+):
+    # Live positions are shared only with the provider, admins, and whoever they are serving right now.
+    if not caller.is_admin and caller.user_id != provider_id and not await tracking_check(provider_id, caller):
+        raise HTTPException(status_code=404, detail="Location not found")
     try:
         return await tracking_service.get_latest_location(db, provider_id)
     except LocationNotFoundError as e:

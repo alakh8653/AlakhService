@@ -69,15 +69,11 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/audit-logs', upstream: 'admin', rewrite: '/api/v1/audit-logs', access: 'admin' },
   { prefix: '/api/v1/admin/disputes', upstream: 'dispute', rewrite: '/api/v1/disputes', access: 'admin' },
   { prefix: '/api/v1/admin/finance', upstream: 'payment', rewrite: '/api/v1/finance', access: 'admin' },
+  { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/audit-logs', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/system-config', upstream: 'admin', access: 'admin' },
-];
-
-/** Admin dashboard endpoints that no service implements yet; answered with 501. */
-export const NOT_IMPLEMENTED_PREFIXES = [
-  '/api/v1/admin/monitoring/metrics',
-  '/api/v1/admin/access',
+  { prefix: '/api/v1/access', upstream: 'admin', access: 'admin' },
 ];
 
 export function matchesPrefix(path: string, prefix: string): boolean {

@@ -134,11 +134,42 @@ describe('gateway', () => {
       expect(payment.requests.map((r) => r.url)).toEqual(['/api/v1/finance/revenue?date_from=2026-10-01']);
     });
 
-    it('answers 501 for dashboard endpoints no service implements', async () => {
-      const res = await request(createApp(testConfig(), quiet))
+    it('reports per-service traffic metrics from proxied requests', async () => {
+      let calls = 0;
+      const catalog = await upstream((_req, res) => {
+        res.statusCode = calls++ === 0 ? 200 : 500;
+        res.end('{}');
+      });
+      const app = createApp(testConfig({ catalog: catalog.url }), quiet);
+      await request(app).get('/api/v1/catalog/categories');
+      await request(app).get('/api/v1/catalog/categories');
+
+      const res = await request(app)
         .get('/api/v1/admin/monitoring/metrics')
         .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
-      expect(res.status).toBe(501);
+      expect(res.status).toBe(200);
+      const catalogMetrics = res.body.data.find((m: { id: string }) => m.id === 'catalog');
+      expect(catalogMetrics).toMatchObject({ service: 'catalog_service', requests: 2, errorRate: 0.5, circuit: 'closed' });
+      expect(res.body.data).toHaveLength(17);
+    });
+
+    it('forwards the verified identity and strips client-supplied identity headers', async () => {
+      const admin = await upstream();
+      const app = createApp(testConfig({ admin: admin.url, catalog: admin.url }), quiet);
+
+      await request(app)
+        .put('/api/v1/admin/access/roles/r1/permissions')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`)
+        .set('x-user-id', 'spoofed')
+        .send({ permissions: [] });
+      expect(admin.requests[0].url).toBe('/api/v1/access/roles/r1/permissions');
+      expect(admin.requests[0].headers['x-user-id']).toBe('user-1');
+      expect(admin.requests[0].headers['x-user-role']).toBe('admin');
+
+      // Public routes never carry an identity, even a spoofed one.
+      await request(app).get('/api/v1/catalog/categories').set('x-user-id', 'spoofed').set('x-user-role', 'admin');
+      expect(admin.requests[1].headers['x-user-id']).toBeUndefined();
+      expect(admin.requests[1].headers['x-user-role']).toBeUndefined();
     });
 
     it('aggregates service health', async () => {

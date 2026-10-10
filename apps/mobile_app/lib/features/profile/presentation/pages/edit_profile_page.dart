@@ -52,7 +52,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               _AvatarPicker(),
               const SizedBox(height: 32),
-              Text('Personal Information', style: AppTextStyles.subtitle1),
+              const Text('Personal Information', style: AppTextStyles.subtitle1),
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _nameController,

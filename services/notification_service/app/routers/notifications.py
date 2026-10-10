@@ -1,21 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 import json
-import structlog
 
+import redis.asyncio as aioredis
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
+from app.core.exceptions import NotificationNotFoundError, NotificationServiceError, TemplateNotFoundError
 from app.database import get_db
+from app.models.notification import DeviceToken, NotificationTemplate
 from app.schemas.notification import (
-    NotificationCreate, NotificationResponse, NotificationListResponse,
-    NotificationTemplateCreate, NotificationTemplateResponse,
-    DeviceTokenCreate, DeviceTokenResponse,
+    DeviceTokenCreate,
+    DeviceTokenResponse,
+    NotificationCreate,
+    NotificationListResponse,
+    NotificationResponse,
+    NotificationTemplateCreate,
+    NotificationTemplateResponse,
 )
 from app.services.notification_service import notification_service
-from app.models.notification import NotificationTemplate, DeviceToken, NotificationPreference
-from app.core.exceptions import NotificationServiceError, TemplateNotFoundError, NotificationNotFoundError
-from sqlalchemy import select
-import redis.asyncio as aioredis
-from app.config import settings
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -72,11 +76,11 @@ async def send_notification(
         )
         return notif
     except TemplateNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except NotificationServiceError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/notifications/me", response_model=NotificationListResponse)
@@ -100,7 +104,7 @@ async def mark_read(
         await notification_service.mark_as_read(db, notification_id, user_id)
         return {"success": True}
     except NotificationNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/notifications/read-all")

@@ -120,7 +120,7 @@ class _BookingPageState extends State<BookingPage> {
                   price: widget.servicePrice,
                 ),
                 const SizedBox(height: 24),
-                Text('Schedule', style: AppTextStyles.subtitle1),
+                const Text('Schedule', style: AppTextStyles.subtitle1),
                 const SizedBox(height: 12),
                 Row(
                   children: [

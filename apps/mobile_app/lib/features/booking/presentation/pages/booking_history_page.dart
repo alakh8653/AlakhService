@@ -51,16 +51,16 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
           }
           if (state is BookingsLoaded) {
             if (state.bookings.isEmpty) {
-              return Center(
+              return const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_outlined,
                       size: 64,
                       color: AppColors.textDisabled,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     Text('No bookings yet', style: AppTextStyles.subtitle1),
                     Text(
                       'Book a service to see it here',
@@ -127,7 +127,7 @@ class _BookingCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

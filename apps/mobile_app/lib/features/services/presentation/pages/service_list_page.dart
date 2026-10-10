@@ -87,7 +87,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
                   _ => <ServiceEntity>[],
                 };
                 if (services.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Text('No services found', style: AppTextStyles.body1),
                   );
                 }

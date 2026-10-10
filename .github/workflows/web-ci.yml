@@ -3,6 +3,7 @@ name: Web CI
 on:
   push:
     branches: [main, develop]
+ dependabot/github_actions/actions/checkout-7
 
     paths: ['apps/**_web/**']
   pull_request:
@@ -18,7 +19,7 @@ jobs:
       run:
         working-directory: apps/${{ matrix.app }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: '18'
@@ -35,6 +36,8 @@ jobs:
           path: apps/${{ matrix.app }}/dist
           retention-days: 7
 
+
+main
     paths:
       - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
@@ -44,31 +47,32 @@ jobs:
       - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
 
+permissions:
+  contents: read
+
 env:
-  NODE_VERSION: "18"
+  NODE_VERSION: "22"
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint + Test + Build (matrix over each web app)
+  # Lint + Type-check + Test + Build (matrix over each web app)
   # ---------------------------------------------------------------------------
   lint-test-build:
     name: "${{ matrix.app }} — lint / test / build"
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
         app:
-          - admin_web
-          - customer_web
+          - admin_dashboard_web
+          - shop_dashboard_web
     defaults:
       run:
         working-directory: apps/${{ matrix.app }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v6
@@ -80,23 +84,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # -----------------------------------------------------------------------
-      # Lint
-      # -----------------------------------------------------------------------
       - name: Run ESLint
         run: npm run lint
 
-      # -----------------------------------------------------------------------
-      # Type-check
-      # -----------------------------------------------------------------------
       - name: TypeScript type-check
-        run: npm run type-check --if-present
+        run: npm run type-check
 
-      # -----------------------------------------------------------------------
-      # Test
-      # -----------------------------------------------------------------------
       - name: Run tests
-        run: npm run test -- --watchAll=false --coverage --ci
+        run: npm test -- --coverage
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -106,11 +101,8 @@ jobs:
           path: apps/${{ matrix.app }}/coverage/
           retention-days: 14
 
-      # -----------------------------------------------------------------------
-      # Build
-      # -----------------------------------------------------------------------
       - name: Build production bundle
-        run: npm run build
+        run: npx vite build
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
@@ -120,7 +112,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Verify bundle sizes (optional quality gate)
+  # Report bundle sizes
   # ---------------------------------------------------------------------------
   bundle-size:
     name: Bundle size check
@@ -131,8 +123,8 @@ jobs:
       fail-fast: false
       matrix:
         app:
-          - admin_web
-          - customer_web
+          - admin_dashboard_web
+          - shop_dashboard_web
 
     steps:
       - name: Download build artifact
@@ -145,5 +137,4 @@ jobs:
         run: |
           echo "### ${{ matrix.app }} bundle sizes" >> $GITHUB_STEP_SUMMARY
           du -sh dist/ >> $GITHUB_STEP_SUMMARY
-          find dist/ -name "*.js" -o -name "*.css" | xargs du -sh | sort -h >> $GITHUB_STEP_SUMMARY
-
+          find dist/ \( -name "*.js" -o -name "*.css" \) -print0 | xargs -0 du -sh | sort -h >> $GITHUB_STEP_SUMMARY

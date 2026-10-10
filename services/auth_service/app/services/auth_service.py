@@ -1,23 +1,35 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, and_, delete
+
 import redis.asyncio as aioredis
+import structlog
+from sqlalchemy import and_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.user import User, RefreshToken, OTPCode, LoginAttempt
-from app.schemas.auth import UserCreate, UserLogin, TokenResponse, OTPRequest, OTPVerify
-from app.core.security import (
-    hash_password, verify_password, create_access_token, create_refresh_token,
-    decode_token, generate_otp, verify_otp, get_device_fingerprint, hash_token
-)
 from app.core.exceptions import (
-    InvalidCredentialsError, UserNotFoundError, UserAlreadyExistsError,
-    InvalidTokenError, AccountLockedError, OTPExpiredError, OTPInvalidError,
-    OTPTooManyAttemptsError
+    AccountLockedError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    OTPExpiredError,
+    OTPInvalidError,
+    OTPTooManyAttemptsError,
+    UserAlreadyExistsError,
+    UserNotFoundError,
 )
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    generate_otp,
+    get_device_fingerprint,
+    hash_password,
+    hash_token,
+    verify_otp,
+    verify_password,
+)
+from app.models.user import LoginAttempt, OTPCode, RefreshToken, User
+from app.schemas.auth import OTPRequest, OTPVerify, TokenResponse, UserCreate, UserLogin
 
 log = structlog.get_logger()
 
@@ -105,7 +117,7 @@ class AuthService:
         try:
             payload = decode_token(refresh_token)
         except Exception:
-            raise InvalidTokenError("Invalid refresh token")
+            raise InvalidTokenError("Invalid refresh token") from None
 
         if payload.get("type") != "refresh":
             raise InvalidTokenError("Not a refresh token")
@@ -282,7 +294,7 @@ class AuthService:
         try:
             payload = decode_token(token)
         except Exception:
-            raise InvalidTokenError()
+            raise InvalidTokenError() from None
 
         user_id = payload.get("sub")
         if not user_id:

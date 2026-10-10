@@ -2,9 +2,9 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User
+from app.core.security import create_access_token, get_password_hash
 from app.models.service import Service
-from app.core.security import get_password_hash, create_access_token
+from app.models.user import User
 
 
 async def _admin_headers(db: AsyncSession) -> dict:

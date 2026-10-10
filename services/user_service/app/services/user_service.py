@@ -2,15 +2,19 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, and_
-from fastapi import UploadFile, HTTPException
 
-from app.models.user import UserProfile, UserAddress, UserPreferences, UserDevice
+import structlog
+from fastapi import HTTPException, UploadFile
+from sqlalchemy import and_, delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import UserAddress, UserDevice, UserPreferences, UserProfile
 from app.schemas.user import (
-    UserProfileCreate, UserAddressCreate, UserAddressUpdate,
-    UserPreferencesUpdate, UserDeviceCreate,
+    UserAddressCreate,
+    UserAddressUpdate,
+    UserDeviceCreate,
+    UserPreferencesUpdate,
+    UserProfileCreate,
 )
 
 log = structlog.get_logger()

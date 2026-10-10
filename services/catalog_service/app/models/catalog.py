@@ -1,8 +1,11 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, Text, ForeignKey
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import backref, relationship
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+
 from app.database import Base
+
 
 class ServiceCategory(Base):
     __tablename__ = "service_categories"
@@ -16,7 +19,7 @@ class ServiceCategory(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
-    children = relationship("ServiceCategory", backref="parent", foreign_keys=[parent_id], lazy="select")
+    children = relationship("ServiceCategory", backref=backref("parent", remote_side=[id]), foreign_keys=[parent_id], lazy="select")
     services = relationship("ServiceItem", back_populates="category", lazy="select")
 
 class ServiceItem(Base):

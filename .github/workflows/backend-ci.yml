@@ -3,6 +3,7 @@ name: Backend CI
 on:
   push:
     branches: [main, develop]
+    dependabot/github_actions/actions/checkout-7
 
     paths: ['backend/**', '.github/workflows/backend-ci.yml']
   pull_request:
@@ -20,7 +21,7 @@ jobs:
       matrix:
         service: [auth-service, content-service, notification-service, analytics-service]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -71,7 +72,7 @@ jobs:
       matrix:
         service: [auth-service, content-service, notification-service, analytics-service]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -103,46 +104,48 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+
+ main
     paths:
       - "services/**"
+      - "backend/**"
+      - "ruff.toml"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "services/**"
+      - "backend/**"
+      - "ruff.toml"
       - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
 
 env:
   PYTHON_VERSION: "3.11"
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Lint
+  # Lint (configuration lives in ruff.toml at the repo root)
   # ---------------------------------------------------------------------------
   lint:
-    name: Lint (flake8)
+    name: Lint (ruff)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
 
-      - name: Install flake8
-        run: pip install flake8 flake8-bugbear flake8-isort
+      - name: Install ruff
+        run: pip install ruff
 
-      - name: Run flake8
-        run: |
-          flake8 services/ \
-            --max-line-length=120 \
-            --extend-ignore=E203,W503 \
-            --exclude=__pycache__,.venv,venv,migrations
+      - name: Run ruff
+        run: ruff check services backend --output-format=github
 
   # ---------------------------------------------------------------------------
   # Security Scan
@@ -150,25 +153,22 @@ jobs:
   security:
     name: Security Scan (bandit)
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
 
       - name: Install bandit
-        run: pip install bandit[toml]
+        run: pip install "bandit[toml]"
 
       - name: Run bandit
         run: |
-          bandit -r services/ \
-            -x services/**/tests,services/**/__pycache__ \
+          bandit -r services/ backend/ \
+            -x "*/tests/*" \
             --severity-level medium \
             --confidence-level medium \
             -f json \
@@ -186,10 +186,8 @@ jobs:
   # Test
   # ---------------------------------------------------------------------------
   test:
-    name: Test (pytest + coverage)
+    name: Test (${{ matrix.service }})
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     services:
       postgres:
         image: postgres:15-alpine
@@ -219,51 +217,56 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - auth_service
-          - user_service
-          - shop_service
-          - booking_service
-          - payment_service
-          - notification_service
-          - tracking_service
-          - queue_service
-          - dispatch_service
-          - analytics_service
-          - dispute_service
-          - trust_risk_service
           - admin_service
+          - analytics_service
+          - auth_service
+          - booking_service
+          - catalog_service
           - compliance_service
+          - dispatch_service
+          - dispute_service
+          - notification_service
+          - payment_service
           - pricing_engine
+          - queue_service
           - service_catalog_service
+          - shop_service
+          - tracking_service
+          - trust_risk_service
+          - user_service
+          - backend
+
+    env:
+      SERVICE_DIR: ${{ matrix.service == 'backend' && 'backend' || format('services/{0}', matrix.service) }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: services/${{ matrix.service }}/requirements*.txt
+          cache-dependency-path: ${{ env.SERVICE_DIR }}/requirements*.txt
 
       - name: Install dependencies
-        working-directory: services/${{ matrix.service }}
+        working-directory: ${{ env.SERVICE_DIR }}
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx
+          pip install pytest pytest-asyncio pytest-cov httpx aiosqlite
 
       - name: Run tests with coverage
-        working-directory: services/${{ matrix.service }}
+        working-directory: ${{ env.SERVICE_DIR }}
         env:
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: test-secret-key
           ENVIRONMENT: test
         run: |
           pytest tests/ \
-            --cov=. \
+            --cov=app \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing \
             --junitxml=junit.xml \
@@ -274,7 +277,7 @@ jobs:
         if: always()
         with:
           name: coverage-${{ matrix.service }}
-          path: services/${{ matrix.service }}/coverage.xml
+          path: ${{ env.SERVICE_DIR }}/coverage.xml
           retention-days: 14
 
       - name: Upload test results
@@ -282,6 +285,5 @@ jobs:
         if: always()
         with:
           name: test-results-${{ matrix.service }}
-          path: services/${{ matrix.service }}/junit.xml
+          path: ${{ env.SERVICE_DIR }}/junit.xml
           retention-days: 14
-

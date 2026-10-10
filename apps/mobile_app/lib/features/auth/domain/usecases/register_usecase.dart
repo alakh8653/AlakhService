@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
 import '../repositories/auth_repository.dart';
 
@@ -17,7 +18,7 @@ class RegisterUseCase {
   }
 }
 
-class RegisterParams {
+class RegisterParams extends Equatable {
   final String name;
   final String phone;
   final String password;
@@ -29,4 +30,7 @@ class RegisterParams {
     required this.password,
     required this.role,
   });
+
+  @override
+  List<Object?> get props => [name, phone, password, role];
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { getDisputes, type Dispute, type DisputeStatus } from './DisputeService';
@@ -18,11 +18,14 @@ export default function DisputeListPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<DisputeStatus | undefined>();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
+    setError(null);
     getDisputes({ status: statusFilter, page, perPage: 20 })
       .then((res) => { setDisputes(res.data); setTotal(res.total); })
+      .catch(() => { setDisputes([]); setTotal(0); setError('Failed to load disputes.'); })
       .finally(() => setIsLoading(false));
   }, [statusFilter, page]);
 
@@ -54,6 +57,7 @@ export default function DisputeListPage() {
           </button>
         ))}
       </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <DataTable columns={columns} rows={disputes} isLoading={isLoading} total={total} page={page} perPage={20} onPageChange={setPage}
         onRowClick={(row) => navigate(`/disputes/${row.id}`)} />
     </div>

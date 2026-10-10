@@ -1,18 +1,20 @@
+
+import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
-from typing import Optional
 
 from app.database import get_db
-from app.dependencies import get_redis, get_current_user
+from app.dependencies import get_current_user, get_redis
 from app.schemas.payment import (
-    PaymentInitiate, PaymentResponse,
-    RefundRequest, RefundResponse,
-    AccountResponse, LedgerEntryResponse,
-    WebhookPayload, TransactionHistoryResponse,
+    PaymentInitiate,
+    PaymentResponse,
+    RefundRequest,
+    RefundResponse,
+    TransactionHistoryResponse,
+    WebhookPayload,
 )
 from app.services.payment_service import payment_service
-import structlog
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -28,7 +30,7 @@ async def initiate_payment(
     try:
         payment = await payment_service.initiate_payment(db, redis, payment_data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return payment
 
 
@@ -54,7 +56,7 @@ async def request_refund(
     try:
         refund = await payment_service.request_refund(db, payment_id, refund_data)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return refund
 
 
@@ -88,7 +90,7 @@ async def razorpay_webhook(
     try:
         await payment_service.process_razorpay_webhook(db, body.payload, body.signature)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {"status": "processed"}
 
 
@@ -102,5 +104,5 @@ async def stripe_webhook(
     try:
         await payment_service.process_stripe_webhook(db, body, signature)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {"status": "processed"}

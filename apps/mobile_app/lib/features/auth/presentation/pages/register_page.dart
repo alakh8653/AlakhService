@@ -76,9 +76,9 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Join AlakhService', style: AppTextStyles.heading2),
+                const Text('Join AlakhService', style: AppTextStyles.heading2),
                 const SizedBox(height: 8),
-                Text('Create your account to get started',
+                const Text('Create your account to get started',
                     style: AppTextStyles.body2),
                 const SizedBox(height: 32),
                 CustomTextField(
@@ -114,7 +114,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('I am a:', style: AppTextStyles.subtitle2),
+                const Text('I am a:', style: AppTextStyles.subtitle2),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -147,7 +147,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Already have an account? ',
+                    const Text('Already have an account? ',
                         style: AppTextStyles.body2),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),

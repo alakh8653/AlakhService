@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 import json
-from typing import List, Optional, Any
+from typing import Any, List, Optional
+
 from pydantic import BaseModel, ConfigDict, field_validator
+
 
 class ServiceCategoryBase(BaseModel):
     name: str
@@ -24,12 +27,17 @@ class ServiceCategoryUpdate(BaseModel):
     order: Optional[int] = None
     is_active: Optional[bool] = None
 
-class ServiceCategoryResponse(ServiceCategoryBase):
+class ServiceCategoryChild(ServiceCategoryBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
-    children: List[ServiceCategoryResponse] = []
 
-ServiceCategoryResponse.model_rebuild()
+
+class ServiceCategoryResponse(ServiceCategoryBase):
+    """A category with its direct children; use /catalog/categories/tree for the full hierarchy."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    children: List[ServiceCategoryChild] = []
 
 class PricingTierBase(BaseModel):
     name: str

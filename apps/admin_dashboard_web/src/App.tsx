@@ -1,4 +1,3 @@
-import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminSidebar from './components/AdminSidebar';
 import AdminHeader from './components/AdminHeader';

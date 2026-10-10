@@ -1,7 +1,5 @@
 /* Tailwind CSS base — replace with your compiled stylesheet in production */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 body {
   margin: 0;

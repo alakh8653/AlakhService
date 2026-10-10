@@ -3,6 +3,41 @@ name: Web CI
 on:
   push:
     branches: [main, develop]
+ dependabot/github_actions/actions/checkout-7
+
+    paths: ['apps/**_web/**']
+  pull_request:
+    paths: ['apps/**_web/**']
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [shop_dashboard_web, admin_dashboard_web]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test -- --watchAll=false --coverage
+      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.app }}-dist
+          path: apps/${{ matrix.app }}/dist
+          retention-days: 7
+
+
+main
     paths:
       - "apps/*_web/**"
       - ".github/workflows/web-ci.yml"
@@ -37,7 +72,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v6

@@ -134,10 +134,10 @@ class FeaturedProviderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 28,
             backgroundColor: AppColors.primaryLight,
-            child: const Icon(Icons.person, color: AppColors.primary),
+            child: Icon(Icons.person, color: AppColors.primary),
           ),
           const SizedBox(height: 8),
           Text(

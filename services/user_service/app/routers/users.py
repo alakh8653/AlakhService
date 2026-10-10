@@ -1,21 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 import math
+
+import structlog
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.user import UserProfile
 from app.schemas.user import (
-    UserProfileCreate, UserProfileUpdate, UserProfileResponse,
-    UserAddressCreate, UserAddressUpdate, UserAddressResponse,
-    UserPreferencesUpdate, UserPreferencesResponse,
-    UserDeviceCreate, UserDeviceResponse,
     PaginatedResponse,
+    UserAddressCreate,
+    UserAddressResponse,
+    UserAddressUpdate,
+    UserDeviceCreate,
+    UserDeviceResponse,
+    UserPreferencesResponse,
+    UserPreferencesUpdate,
+    UserProfileCreate,
+    UserProfileResponse,
 )
 from app.services.user_service import user_service
-from app.models.user import UserProfile
-from sqlalchemy import select, func
-import structlog
 
 router = APIRouter()
 log = structlog.get_logger()

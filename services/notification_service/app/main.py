@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import structlog
+
 from app.config import settings
+from app.core.exceptions import NotificationNotFoundError, NotificationServiceError, TemplateNotFoundError
 from app.routers.notifications import router as notif_router
-from app.core.exceptions import NotificationServiceError, NotificationNotFoundError, TemplateNotFoundError
 
 logger = structlog.get_logger()
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { getAuditLogs, type AuditLog, type AuditLogFilters } from './AuditService';
 import DataTable, { type Column } from '../components/DataTable';
@@ -18,11 +18,14 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<AuditLogFilters>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
+    setError(null);
     getAuditLogs({ ...filters, page, perPage: 25 })
       .then((res) => { setLogs(res.data); setTotal(res.total); })
+      .catch(() => { setLogs([]); setTotal(0); setError('Failed to load audit logs.'); })
       .finally(() => setIsLoading(false));
   }, [filters, page]);
 
@@ -36,6 +39,7 @@ export default function AuditLogPage() {
         <input type="date" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
         <input type="date" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
       </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
       <DataTable columns={columns} rows={logs} isLoading={isLoading} total={total} page={page} perPage={25} onPageChange={setPage} />
     </div>
   );

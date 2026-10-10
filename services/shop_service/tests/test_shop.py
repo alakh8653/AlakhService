@@ -1,19 +1,20 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.models.shop import Shop, ShopDocument, ShopHours
-from app.services.shop_service import ShopService
-from app.schemas.shop import ShopCreate, ShopUpdate
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.exceptions import ShopNotFoundError
+from app.database import Base
+from app.schemas.shop import ShopCreate, ShopUpdate
+from app.services.shop_service import ShopService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

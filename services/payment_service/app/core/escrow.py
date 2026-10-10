@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.payment import Account, Escrow, Payment
-from app.core.ledger import ledger
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.config import settings
+from app.core.ledger import ledger
+from app.models.payment import Account, Escrow, Payment
 
 log = structlog.get_logger()
 

@@ -27,7 +27,7 @@ dependencies:
   go_router: ^12.1.1
   fl_chart: ^0.64.0
   image_picker: ^1.0.4
-  permission_handler: ^11.0.1
+  permission_handler: ^13.0.2
 
 dev_dependencies:
   flutter_test:

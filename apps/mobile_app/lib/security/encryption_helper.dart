@@ -15,7 +15,7 @@ class EncryptionHelper {
           Uint8List.fromList(base64Decode(base64Key)),
         );
 
-  /// Encrypts [plainText] and returns "<iv>:<cipherText>" (both base64).
+  /// Encrypts [plainText] and returns `<iv>:<cipherText>` (both base64).
   String encrypt(String plainText) {
     final iv = enc.IV.fromSecureRandom(16);
     final encrypter = enc.Encrypter(enc.AES(_key, mode: enc.AESMode.cbc));

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import apiClient from '../services/apiClient';
 import type { Service } from '../types';
 import { Plus, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useBookings } from '../hooks/useBookings';
 import BookingCard from '../components/BookingCard';
 import type { BookingStatus } from '../types';

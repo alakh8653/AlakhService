@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: /services/auth_service
+    directories:
+      - /services/*
+      - /backend
     schedule:
       interval: weekly
     groups:
@@ -12,19 +14,27 @@ updates:
     directory: /apps/shop_dashboard_web
     schedule:
       interval: weekly
+    groups:
+      npm-deps:
+        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /apps/admin_dashboard_web
     schedule:
       interval: weekly
+    groups:
+      npm-deps:
+        patterns: ["*"]
 
-  - package-ecosystem: npm
-    directory: /services/api_gateway
+  - package-ecosystem: pub
+    directory: /apps/mobile_app
     schedule:
       interval: weekly
 
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /services/*
+      - /backend
     schedule:
       interval: weekly
 

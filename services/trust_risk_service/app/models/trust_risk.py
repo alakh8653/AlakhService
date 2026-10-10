@@ -1,7 +1,8 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, DateTime
+
+from sqlalchemy import Column, DateTime, Float, Integer, String
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

@@ -3,6 +3,7 @@ name: Mobile CI
 on:
   push:
     branches: [main, develop]
+dependabot/github_actions/actions/checkout-7
 
     paths: ['mobile/**', '.github/workflows/mobile-ci.yml']
   pull_request:
@@ -65,6 +66,8 @@ jobs:
         run: flutter build apk --release --split-per-abi
         working-directory: mobile
 
+
+main
     paths:
       - "apps/mobile_app/**"
       - ".github/workflows/mobile-ci.yml"
@@ -74,19 +77,23 @@ jobs:
       - "apps/mobile_app/**"
       - ".github/workflows/mobile-ci.yml"
 
+permissions:
+  contents: read
+
 env:
-  FLUTTER_VERSION: "3.22.0"
-  JAVA_VERSION: "17"
+  FLUTTER_VERSION: "3.47.7"
 
 jobs:
   # ---------------------------------------------------------------------------
   # Analyze & Test
+  #
+  # Release builds (APK / iOS) are not run yet: apps/mobile_app has no generated
+  # android/ or ios/ platform projects. Add them with
+  # `flutter create --platforms=android,ios .` and then add build jobs here.
   # ---------------------------------------------------------------------------
   test:
     name: Analyze & Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     defaults:
       run:
         working-directory: apps/mobile_app
@@ -94,12 +101,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-
-      - name: Set up Java ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
         uses: subosito/flutter-action@v2
@@ -111,13 +112,13 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Verify dependencies
-        run: flutter pub deps
+      - name: Generate mocks
+        run: dart run build_runner build
 
       - name: Analyze (flutter analyze)
         run: flutter analyze --fatal-infos --fatal-warnings
 
-      - name: Run unit & widget tests
+      - name: Run unit, widget & integration tests
         run: |
           flutter test \
             --coverage \
@@ -130,6 +131,7 @@ jobs:
           name: flutter-coverage
           path: apps/mobile_app/coverage/lcov.info
           retention-days: 14
+dependabot/github_actions/actions/checkout-7
 
   # ---------------------------------------------------------------------------
   # Build Android APK (release)
@@ -238,3 +240,5 @@ jobs:
       - name: Build iOS (no codesign)
         run: flutter build ios --release --no-codesign
 
+
+ main

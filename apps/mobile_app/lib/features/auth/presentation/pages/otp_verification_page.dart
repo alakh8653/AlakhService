@@ -80,7 +80,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              Text('Enter OTP', style: AppTextStyles.heading2),
+              const Text('Enter OTP', style: AppTextStyles.heading2),
               const SizedBox(height: 8),
               Text(
                 'A ${AppConstants.otpLength}-digit code was sent to ${widget.phone}',

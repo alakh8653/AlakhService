@@ -1,14 +1,21 @@
-import uuid
 import json
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+import uuid
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
 
 from app.models.analytics import AnalyticsEvent, MetricAggregate
-from app.schemas.analytics import EventBatchCreate, EventCreate, FunnelAnalysisRequest, FunnelAnalysisResponse, FunnelStep, CohortResponse
+from app.schemas.analytics import (
+    CohortResponse,
+    EventBatchCreate,
+    FunnelAnalysisRequest,
+    FunnelAnalysisResponse,
+    FunnelStep,
+)
 
 log = structlog.get_logger()
 

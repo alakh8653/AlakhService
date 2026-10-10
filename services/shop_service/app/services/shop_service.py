@@ -1,13 +1,13 @@
 import uuid
-from datetime import datetime, timezone
 from typing import List, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
 
-from app.models.shop import Shop, ShopDocument, ShopHours
-from app.schemas.shop import ShopCreate, ShopUpdate
+import structlog
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.exceptions import ShopNotFoundError
+from app.models.shop import Shop
+from app.schemas.shop import ShopCreate, ShopUpdate
 
 log = structlog.get_logger()
 

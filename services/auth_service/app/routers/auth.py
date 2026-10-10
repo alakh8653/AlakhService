@@ -1,19 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import create_access_token
 from app.database import get_db
-from app.dependencies import get_redis, get_current_user
+from app.dependencies import get_current_user, get_redis
+from app.models.user import User
 from app.schemas.auth import (
-    UserCreate, UserLogin, TokenResponse, RefreshTokenRequest,
-    OTPRequest, OTPVerify, PasswordResetRequest, PasswordResetConfirm, UserResponse
+    OTPRequest,
+    OTPVerify,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    RefreshTokenRequest,
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserResponse,
 )
 from app.services.auth_service import auth_service
-from app.core.exceptions import AuthServiceError, AccountLockedError, UserNotFoundError
-from app.core.security import create_access_token, decode_token
-from app.models.user import User
-from sqlalchemy import select
-import structlog
 
 router = APIRouter()
 log = structlog.get_logger()

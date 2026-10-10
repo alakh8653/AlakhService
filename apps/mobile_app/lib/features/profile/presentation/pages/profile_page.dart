@@ -111,10 +111,10 @@ class _ProfileHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Text('John Doe', style: AppTextStyles.heading3),
-        Text('+91 9876543210', style: AppTextStyles.body2),
+        const Text('John Doe', style: AppTextStyles.heading3),
+        const Text('+91 9876543210', style: AppTextStyles.body2),
         const SizedBox(height: 4),
-        RatingWidget(rating: 4.8, showValue: true),
+        const RatingWidget(rating: 4.8, showValue: true),
       ],
     );
   }
@@ -127,11 +127,11 @@ class _StatsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatItem(label: 'Bookings', value: '24'),
+        const _StatItem(label: 'Bookings', value: '24'),
         _StatDivider(),
-        _StatItem(label: 'Reviews', value: '12'),
+        const _StatItem(label: 'Reviews', value: '12'),
         _StatDivider(),
-        _StatItem(label: 'Points', value: '380'),
+        const _StatItem(label: 'Points', value: '380'),
       ],
     );
   }

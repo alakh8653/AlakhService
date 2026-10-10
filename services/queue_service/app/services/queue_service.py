@@ -1,14 +1,14 @@
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from datetime import datetime, timedelta, timezone
 
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import EntryNotFoundError, QueueFullError, QueueNotFoundError
+from app.core.priority_queue import WeightedFairQueue
 from app.models.queue import Queue, QueueEntry
 from app.schemas.queue import QueueCreate, QueueJoinRequest, QueuePositionResponse
-from app.core.priority_queue import WeightedFairQueue
-from app.core.exceptions import QueueNotFoundError, QueueFullError, EntryNotFoundError
 
 log = structlog.get_logger()
 
@@ -52,7 +52,7 @@ class QueueService:
 
         pq = self._get_pq(queue_id)
         entry_id = str(uuid.uuid4())
-        vft = pq.enqueue(entry_id, data.customer_id, data.weight, data.priority)
+        pq.enqueue(entry_id, data.customer_id, data.weight, data.priority)
 
         position = pq.size()
         wait_minutes = position * 5  # rough estimate

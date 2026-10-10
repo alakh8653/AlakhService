@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { useAnalytics } from '../hooks/useAnalytics';
 import RevenueChart from '../components/RevenueChart';

@@ -1,18 +1,20 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.services.trust_risk_service import TrustRiskService
-from app.schemas.trust_risk import RiskSignalCreate
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.risk_engine import BayesianRiskScorer
+from app.database import Base
+from app.schemas.trust_risk import RiskSignalCreate
+from app.services.trust_risk_service import TrustRiskService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -96,9 +98,9 @@ async def test_signal_recording_increases_risk(db_session, service):
 @pytest.mark.anyio
 async def test_safe_signals_lower_risk(db_session, service):
     # Record many safe events
-    for i in range(5):
+    for _ in range(5):
         await service.record_signal(db_session, "user-2", RiskSignalCreate(signal_type="successful_payment", value=0.0, is_risk_event=False))
-    
+
     profile = await service.get_or_create_profile(db_session, "user-2")
     assert profile.safe_events == 5
     assert profile.risk_score < 0.5

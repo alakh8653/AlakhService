@@ -1,13 +1,14 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.trust_risk import UserRiskProfile, RiskSignal
-from app.schemas.trust_risk import RiskSignalCreate
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.risk_engine import BayesianRiskScorer
+from app.models.trust_risk import RiskSignal, UserRiskProfile
+from app.schemas.trust_risk import RiskSignalCreate
 
 log = structlog.get_logger()
 _scorer = BayesianRiskScorer()

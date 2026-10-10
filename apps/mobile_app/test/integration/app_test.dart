@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+import 'package:alakh_service/core/di/injection_container.dart' as di;
 import 'package:alakh_service/main.dart' as app;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('App startup integration tests', () {
+    // Each test boots the app via app.main(), which registers dependencies in GetIt.
+    tearDown(() => di.sl.reset());
+
     testWidgets('app launches without errors', (tester) async {
       app.main();
       await tester.pumpAndSettle(const Duration(seconds: 5));

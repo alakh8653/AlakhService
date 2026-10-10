@@ -1,23 +1,25 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
+import pytest
+import pytest_asyncio
+
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/3"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.models.payment import Account, LedgerEntry, Payment, Escrow, Refund
-from app.core.ledger import DoubleEntryLedger
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.escrow import EscrowService
+from app.core.ledger import DoubleEntryLedger
+from app.database import Base
+from app.models.payment import Account, Escrow, Payment
+from app.schemas.payment import PaymentInitiate
 from app.services.payment_service import PaymentService
-from app.schemas.payment import PaymentInitiate, RefundRequest
 
 pytest_plugins = ("anyio",)
 
@@ -149,7 +151,7 @@ async def test_ledger_transfer_maintains_double_entry(db_session, ledger_svc):
 @pytest.mark.anyio
 async def test_escrow_lifecycle_hold_release(db_session, escrow_svc, ledger_svc):
     # Create a platform account with enough funds
-    platform_acc = await create_account(db_session, "platform_account", balance_cents=100000, owner_type="platform")
+    await create_account(db_session, "platform_account", balance_cents=100000, owner_type="platform")
     provider_acc = await create_account(db_session, "provider-1", balance_cents=0, owner_type="provider")
 
     # Create a payment first (escrow needs a valid payment_id FK)
@@ -212,7 +214,7 @@ async def test_escrow_invalid_transition_held_to_held(db_session, escrow_svc):
 
 @pytest.mark.anyio
 async def test_escrow_held_to_refunded(db_session, escrow_svc, ledger_svc):
-    platform_acc = await create_account(db_session, "platform_account", balance_cents=50000, owner_type="platform")
+    await create_account(db_session, "platform_account", balance_cents=50000, owner_type="platform")
     payer_acc = await create_account(db_session, "payer-r", balance_cents=0, owner_type="user")
 
     now = datetime.now(timezone.utc)

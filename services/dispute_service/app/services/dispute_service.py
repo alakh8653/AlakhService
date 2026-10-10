@@ -1,15 +1,16 @@
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import List
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import DisputeNotFoundError
+from app.core.fsm import DisputeFSM, DisputeStatus
 from app.models.dispute import Dispute, DisputeMessage
 from app.schemas.dispute import DisputeCreate, DisputeMessageCreate
-from app.core.fsm import DisputeFSM, DisputeStatus
-from app.core.exceptions import DisputeNotFoundError
 
 log = structlog.get_logger()
 _fsm = DisputeFSM()

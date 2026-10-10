@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
-import 'package:mockito/mockito.dart';
 
 import 'package:alakh_service/features/auth/domain/usecases/login_usecase.dart';
 import 'package:alakh_service/features/auth/domain/usecases/register_usecase.dart';
@@ -25,16 +24,15 @@ void main() {
     mockVerifyOtpUseCase = MockVerifyOtpUseCase();
   });
 
+  // Mirrors lib/main.dart: AuthBloc is provided above MaterialApp so pushed routes can read it.
   Widget buildTestableWidget() {
-    return MaterialApp(
-      home: BlocProvider<AuthBloc>(
-        create: (_) => AuthBloc(
-          loginUseCase: mockLoginUseCase,
-          registerUseCase: mockRegisterUseCase,
-          verifyOtpUseCase: mockVerifyOtpUseCase,
-        ),
-        child: const LoginPage(),
+    return BlocProvider<AuthBloc>(
+      create: (_) => AuthBloc(
+        loginUseCase: mockLoginUseCase,
+        registerUseCase: mockRegisterUseCase,
+        verifyOtpUseCase: mockVerifyOtpUseCase,
       ),
+      child: const MaterialApp(home: LoginPage()),
     );
   }
 

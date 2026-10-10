@@ -83,16 +83,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ],
       ),
       body: _notifications.isEmpty
-          ? Center(
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.notifications_off_outlined,
                     size: 64,
                     color: AppColors.textDisabled,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Text('No notifications', style: AppTextStyles.subtitle1),
                 ],
               ),
@@ -139,12 +139,12 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      tileColor: item.isRead ? null : AppColors.primaryLight.withOpacity(0.3),
+      tileColor: item.isRead ? null : AppColors.primaryLight.withValues(alpha: 0.3),
       leading: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.15),
+          color: iconColor.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: iconColor, size: 22),

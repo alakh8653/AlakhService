@@ -2,16 +2,24 @@
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 import app.models.shop  # noqa: F401
+from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 
-OWNER = {"x-user-id": "owner-1"}
-OTHER = {"x-user-id": "owner-2"}
-ADMIN = {"x-user-id": "ops", "x-user-role": "admin"}
+
+def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
+    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return {"Authorization": f"Bearer {token}"}
+
+
+OWNER = auth("owner-1")
+OTHER = auth("owner-2")
+ADMIN = auth("ops", "admin")
 
 
 @pytest_asyncio.fixture
@@ -34,7 +42,7 @@ async def client():
 
 
 async def make_shop(client, owner="owner-1", name="Glow Salon"):
-    resp = await client.post("/api/v1/shops", json={"owner_id": owner, "name": name, "category": "salon"})
+    resp = await client.post("/api/v1/shops", json={"owner_id": owner, "name": name, "category": "salon"}, headers=auth(owner))
     assert resp.status_code == 201
     return resp.json()
 
@@ -43,7 +51,7 @@ async def make_shop(client, owner="owner-1", name="Glow Salon"):
 async def test_owner_filter_includes_inactive_shops(client):
     mine = await make_shop(client)
     await make_shop(client, owner="owner-2", name="Other")
-    await client.put(f"/api/v1/shops/{mine['id']}", json={"is_active": False})
+    await client.put(f"/api/v1/shops/{mine['id']}", json={"is_active": False}, headers=OWNER)
 
     owned = (await client.get("/api/v1/shops", params={"owner_id": "owner-1"})).json()
     assert [s["id"] for s in owned] == [mine["id"]]
@@ -91,3 +99,30 @@ async def test_staff_lifecycle_and_access(client):
     assert (await client.delete(f"/api/v1/staff/{member['id']}", headers=OTHER)).status_code == 403
     assert (await client.delete(f"/api/v1/staff/{member['id']}", headers=ADMIN)).status_code == 204
     assert (await client.put(f"/api/v1/staff/{member['id']}", json={}, headers=OWNER)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_shops_are_created_and_deleted_only_by_their_owner(client):
+    body = {"owner_id": "owner-1", "name": "Mine", "category": "salon"}
+    assert (await client.post("/api/v1/shops", json=body)).status_code == 401
+    assert (await client.post("/api/v1/shops", json=body, headers=OTHER)).status_code == 403
+    assert (await client.post("/api/v1/shops", json=body, headers=ADMIN)).status_code == 201
+    shop = await make_shop(client)
+
+    url = f"/api/v1/shops/{shop['id']}"
+    assert (await client.put(url, json={"name": "Renamed"})).status_code == 401
+    assert (await client.delete(url)).status_code == 401
+    assert (await client.delete(url, headers=OTHER)).status_code == 403
+    assert (await client.delete(url, headers=OWNER)).status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_only_signed_access_tokens_identify_the_caller(client):
+    shop = await make_shop(client)
+    url = f"/api/v1/shops/{shop['id']}"
+    # Gateway-style identity headers are not trusted on their own...
+    assert (await client.put(url, json={"name": "X"}, headers={"x-user-id": "owner-1"})).status_code == 401
+    # ...and neither are refresh tokens or tokens signed with another key.
+    assert (await client.put(url, json={"name": "X"}, headers=auth("owner-1", token_type="refresh"))).status_code == 401
+    forged = jwt.encode({"sub": "owner-1", "type": "access"}, "not-the-key", algorithm="HS256")
+    assert (await client.put(url, json={"name": "X"}, headers={"Authorization": f"Bearer {forged}"})).status_code == 401

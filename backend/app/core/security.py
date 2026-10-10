@@ -52,10 +52,16 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
-def decode_token(token: str) -> dict[str, Any]:
-    """Decode and validate a JWT. Raises CredentialsException on failure."""
+def decode_token(token: str, expected_type: str = "access") -> dict[str, Any]:
+    """Decode and validate a JWT of the given type. Raises CredentialsException on failure.
+
+    Access and refresh tokens share the signing key, so the type claim is what stops a
+    refresh token being used as an access token (and vice versa).
+    """
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload
     except JWTError as exc:
         raise CredentialsException() from exc
+    if payload.get("type") != expected_type:
+        raise CredentialsException()
+    return payload

@@ -43,6 +43,35 @@ def create_refresh_token(data: dict) -> str:
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+PASSWORD_RESET_TYPE = "password_reset"
+
+
+def _password_version(hashed_password: str) -> str:
+    """Changes whenever the password does, so a reset token works at most once."""
+    return hashlib.sha256(hashed_password.encode("ascii")).hexdigest()[:16]
+
+
+def create_password_reset_token(user_id: str, hashed_password: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES)
+    to_encode = {
+        "sub": user_id,
+        "type": PASSWORD_RESET_TYPE,
+        "pwv": _password_version(hashed_password),
+        "exp": expire,
+        "jti": secrets.token_hex(16),
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def password_reset_token_matches(payload: dict, hashed_password: str) -> bool:
+    return payload.get("type") == PASSWORD_RESET_TYPE and payload.get("pwv") == _password_version(hashed_password)
+
+
+def is_access_token(payload: dict) -> bool:
+    """Only access tokens authenticate API calls; refresh and single-purpose tokens do not."""
+    return payload.get("type") == "access" and "purpose" not in payload
+
+
 def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

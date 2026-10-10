@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/service_catalog_db"
     REDIS_URL: str = "redis://redis:6379/0"
     CORS_ORIGINS: List[str] = ["*"]
+    SECRET_KEY: str = "change-in-production"
+    ALGORITHM: str = "HS256"
+    SHOP_SERVICE_URL: str = "http://shop_service:8000"
 
     class Config:
         env_file = ".env"

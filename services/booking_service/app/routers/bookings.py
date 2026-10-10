@@ -5,8 +5,10 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access import OwnerLookup, may_transition, relationships
+from app.core.fsm import BookingStatus
 from app.database import get_db
-from app.dependencies import get_current_user, require_shop_access
+from app.dependencies import get_current_user, get_shop_owner_lookup, require_shop_access
 from app.schemas.booking import (
     BookingCancelRequest,
     BookingCreate,
@@ -116,11 +118,25 @@ async def get_booking(
     booking_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
-    booking = await booking_service.get_booking(db, booking_id)
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
+    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     return booking
+
+
+async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
+    """The booking and the caller's relationships to it; 404 for anyone uninvolved."""
+    booking = await booking_service.get_booking(db, booking_id)
+    parties = await relationships(booking, user, lookup_owner) if booking else set()
+    if not parties:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return booking, parties
+
+
+async def _authorize_transition(db, booking_id: str, target: str, user: dict, lookup_owner) -> None:
+    _, parties = await _visible_booking(db, booking_id, user, lookup_owner)
+    if not may_transition(parties, target):
+        raise HTTPException(status_code=403, detail=f"Not allowed to set this booking to {target}")
 
 
 @router.put("/bookings/{booking_id}/status", response_model=BookingResponse)
@@ -129,8 +145,10 @@ async def update_status(
     update_data: BookingStatusUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
     user_id = current_user.get("sub")
+    await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
     try:
         booking = await booking_service.transition_status(
             db, booking_id, update_data.status, user_id, update_data.reason
@@ -147,8 +165,10 @@ async def cancel_booking(
     body: BookingCancelRequest,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
     user_id = current_user.get("sub")
+    await _authorize_transition(db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner)
     try:
         booking = await booking_service.cancel_booking(db, booking_id, user_id, body.reason)
     except ValueError as e:
@@ -162,7 +182,9 @@ async def get_history(
     booking_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
+    await _visible_booking(db, booking_id, current_user, lookup_owner)
     history = await booking_service.get_booking_history(db, booking_id)
     return history
 

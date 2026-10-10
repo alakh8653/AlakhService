@@ -16,12 +16,12 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from None
+    # Refresh and single-purpose (e.g. password reset) tokens share the signing key; reject them.
+    if not payload.get("sub") or payload.get("type") != "access" or "purpose" in payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return payload
 
 
 async def fetch_shop_owner(shop_id: str) -> Optional[str]:

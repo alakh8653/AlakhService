@@ -64,6 +64,10 @@ Refresh tokens and single-purpose tokens (password reset) are rejected.
 For authenticated routes the gateway forwards the verified identity as `x-user-id` and
 `x-user-role` (used, for example, to attribute audit log entries). Client-supplied values of these
 headers are always removed, so services can trust them when the gateway is their only entry point.
+The gateway also forwards the `Authorization` header unchanged. Services that hold user data
+(auth, user, shop, booking, payment, notification and service catalog) verify that bearer token
+themselves and accept only access tokens. docker-compose publishes every other service only on
+`127.0.0.1`, which keeps the gateway the sole public entry point.
 
 ## Configuration
 

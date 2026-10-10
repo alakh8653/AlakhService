@@ -43,10 +43,10 @@ async def register_user(db: AsyncSession, user_create: UserCreate) -> User:
     return user
 
 
-async def get_user_from_token(db: AsyncSession, token: str) -> User | None:
-    """Decode a JWT and return the corresponding user."""
+async def get_user_from_token(db: AsyncSession, token: str, expected_type: str = "access") -> User | None:
+    """Decode a JWT of the given type and return the corresponding user."""
     try:
-        payload = decode_token(token)
+        payload = decode_token(token, expected_type)
     except CredentialsException:
         return None
     email: str | None = payload.get("sub")

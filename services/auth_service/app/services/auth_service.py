@@ -18,6 +18,7 @@ from app.core.exceptions import (
     UserNotFoundError,
 )
 from app.core.security import (
+    PASSWORD_RESET_TYPE,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -25,6 +26,7 @@ from app.core.security import (
     get_device_fingerprint,
     hash_password,
     hash_token,
+    password_reset_token_matches,
     verify_otp,
     verify_password,
 )
@@ -297,16 +299,23 @@ class AuthService:
             raise InvalidTokenError() from None
 
         user_id = payload.get("sub")
-        if not user_id:
+        if not user_id or payload.get("type") != PASSWORD_RESET_TYPE:
             raise InvalidTokenError()
 
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
-        if not user:
-            raise UserNotFoundError()
+        # A token issued before the last password change (including by this reset) is spent.
+        if not user or not password_reset_token_matches(payload, user.hashed_password):
+            raise InvalidTokenError()
 
         user.hashed_password = hash_password(new_password)
         user.updated_at = datetime.now(timezone.utc)
+        # Sign out every session that was opened with the old password.
+        await db.execute(
+            update(RefreshToken)
+            .where(and_(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False))
+            .values(is_revoked=True)
+        )
         await db.flush()
         log.info("password_reset", user_id=user.id)
         return True

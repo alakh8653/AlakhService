@@ -60,3 +60,21 @@ async def test_refresh_token(client: AsyncClient, test_user):
 async def test_get_current_user_unauthorized(client: AsyncClient):
     response = await client.get("/api/v1/users/me")
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_tokens_only_work_for_their_own_purpose(client: AsyncClient, test_user):
+    login = await client.post(
+        "/api/v1/auth/login",
+        data={"username": test_user.email, "password": "TestPass123"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    tokens = login.json()
+    # A refresh token is not an access token...
+    me = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {tokens['refresh_token']}"})
+    assert me.status_code == 401
+    # ...and an access token cannot mint new access tokens.
+    refreshed = await client.post("/api/v1/auth/refresh", params={"token": tokens["access_token"]})
+    assert refreshed.status_code == 401
+    me = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert me.status_code == 200

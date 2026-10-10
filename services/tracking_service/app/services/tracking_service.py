@@ -1,15 +1,15 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.models.tracking import ProviderLocation, GeofenceRegion
-from app.schemas.tracking import LocationUpdate, GeofenceCreate, GeofenceCheckResponse
-from app.core.kalman import KalmanGPSFilter
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import GeofenceNotFoundError, LocationNotFoundError
 from app.core.geofence import is_in_circular_geofence
-from app.core.exceptions import LocationNotFoundError, GeofenceNotFoundError
+from app.core.kalman import KalmanGPSFilter
+from app.models.tracking import GeofenceRegion, ProviderLocation
+from app.schemas.tracking import GeofenceCheckResponse, GeofenceCreate, LocationUpdate
 
 log = structlog.get_logger()
 

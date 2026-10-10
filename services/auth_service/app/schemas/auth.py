@@ -1,8 +1,8 @@
 import re
 from datetime import datetime
-from typing import Optional, Literal
-from uuid import UUID
-from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
+from typing import Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 class UserCreate(BaseModel):

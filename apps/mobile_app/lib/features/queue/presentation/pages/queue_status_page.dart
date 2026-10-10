@@ -65,13 +65,13 @@ class _QueueStatusPageState extends State<QueueStatusPage>
                       style: AppTextStyles.heading1
                           .copyWith(color: AppColors.primary),
                     ),
-                    Text('Your Position', style: AppTextStyles.caption),
+                    const Text('Your Position', style: AppTextStyles.caption),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 32),
-            Text('Estimated Wait Time', style: AppTextStyles.subtitle1),
+            const Text('Estimated Wait Time', style: AppTextStyles.subtitle1),
             const SizedBox(height: 8),
             Text(
               '$_estimatedMinutes min',
@@ -80,26 +80,26 @@ class _QueueStatusPageState extends State<QueueStatusPage>
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 24),
-            _QueueStep(
+            const _QueueStep(
               step: 1,
               label: 'Booking Confirmed',
               isDone: true,
             ),
-            _QueueStep(
+            const _QueueStep(
               step: 2,
               label: 'Provider Assigned',
               isDone: true,
             ),
-            _QueueStep(
+            const _QueueStep(
               step: 3,
               label: 'Provider En Route',
               isActive: true,
             ),
-            _QueueStep(
+            const _QueueStep(
               step: 4,
               label: 'Service In Progress',
             ),
-            _QueueStep(
+            const _QueueStep(
               step: 5,
               label: 'Completed',
               isLast: true,
@@ -143,7 +143,7 @@ class _QueueStep extends StatelessWidget {
               height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: color.withOpacity(isDone || isActive ? 1 : 0.2),
+                color: color.withValues(alpha: isDone || isActive ? 1 : 0.2),
               ),
               child: Icon(
                 isDone ? Icons.check : Icons.circle,
@@ -152,7 +152,7 @@ class _QueueStep extends StatelessWidget {
               ),
             ),
             if (!isLast)
-              Container(width: 2, height: 32, color: color.withOpacity(0.3)),
+              Container(width: 2, height: 32, color: color.withValues(alpha: 0.3)),
           ],
         ),
         const SizedBox(width: 12),

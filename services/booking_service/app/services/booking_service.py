@@ -1,14 +1,15 @@
-import uuid
 import random
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
 
-from app.models.booking import Booking, BookingStatusHistory, BookingAssignment
-from app.schemas.booking import BookingCreate, BookingStatusUpdate
-from app.core.fsm import booking_fsm, BookingStatus
+import structlog
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.fsm import BookingStatus, booking_fsm
+from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
+from app.schemas.booking import BookingCreate
 
 log = structlog.get_logger()
 

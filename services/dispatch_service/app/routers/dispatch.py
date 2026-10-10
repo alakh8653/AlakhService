@@ -1,10 +1,12 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from app.database import get_db
-from app.schemas.dispatch import AssignRequest, AssignResponse, ProviderLocationUpdate, AvailableProviderResponse
-from app.services.dispatch_service import dispatch_service
+
 from app.core.exceptions import NoProvidersAvailableError
+from app.database import get_db
+from app.schemas.dispatch import AssignRequest, AssignResponse, AvailableProviderResponse, ProviderLocationUpdate
+from app.services.dispatch_service import dispatch_service
 
 router = APIRouter()
 
@@ -14,7 +16,7 @@ async def assign_dispatch(data: AssignRequest, db: AsyncSession = Depends(get_db
     try:
         return await dispatch_service.assign(db, data)
     except NoProvidersAvailableError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/providers/location", status_code=200)

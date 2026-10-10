@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import RevenueChart from '../components/RevenueChart';
 import { TrendingUp, Calendar, Users, Star } from 'lucide-react';
@@ -6,7 +6,7 @@ import { TrendingUp, Calendar, Users, Star } from 'lucide-react';
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color: string;
 }
 

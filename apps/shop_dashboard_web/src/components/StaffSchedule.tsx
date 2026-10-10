@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, startOfWeek, addDays } from 'date-fns';
 import type { StaffMember, TimeSlot } from '../types';
 import apiClient from '../services/apiClient';

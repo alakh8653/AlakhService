@@ -1,15 +1,16 @@
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
 
-from app.models.catalog import ServiceCategory, ServiceListing, ServiceTag
+import structlog
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import ServiceListingNotFoundError
+from app.core.search import BKTree, TFIDFIndex
+from app.models.catalog import ServiceCategory, ServiceListing
 from app.schemas.catalog import CategoryCreate, ServiceListingCreate, ServiceListingUpdate
-from app.core.search import TFIDFIndex, BKTree
-from app.core.exceptions import ServiceListingNotFoundError, CategoryNotFoundError
 
 log = structlog.get_logger()
 

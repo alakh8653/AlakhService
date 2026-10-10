@@ -83,7 +83,7 @@ class _PaymentPageState extends State<PaymentPage> {
           children: [
             _AmountSummaryCard(amount: widget.amount, bookingId: widget.bookingId),
             const SizedBox(height: 24),
-            Text('Payment Method', style: AppTextStyles.subtitle1),
+            const Text('Payment Method', style: AppTextStyles.subtitle1),
             const SizedBox(height: 12),
             Expanded(
               child: ListView.separated(
@@ -165,7 +165,7 @@ class _AmountSummaryCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Total Amount', style: AppTextStyles.body2),
+              const Text('Total Amount', style: AppTextStyles.body2),
               Text(
                 '₹${amount.toStringAsFixed(2)}',
                 style: AppTextStyles.heading2.copyWith(color: AppColors.primary),
@@ -175,7 +175,7 @@ class _AmountSummaryCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('Booking ID', style: AppTextStyles.caption),
+              const Text('Booking ID', style: AppTextStyles.caption),
               Text(
                 '#${bookingId.substring(0, 8).toUpperCase()}',
                 style: AppTextStyles.subtitle2,

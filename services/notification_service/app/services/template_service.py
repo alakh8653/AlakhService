@@ -1,7 +1,8 @@
-import re
+from typing import List
+
 import structlog
-from typing import List, Optional
-from jinja2 import Environment, BaseLoader, TemplateError
+from jinja2 import BaseLoader, Environment, TemplateError
+
 from app.models.notification import NotificationTemplate
 
 log = structlog.get_logger()
@@ -20,7 +21,7 @@ class TemplateService:
             return {"title": rendered_subject, "body": rendered_body}
         except TemplateError as e:
             log.error("template_render_failed", template=template.name, error=str(e))
-            raise ValueError(f"Template render error: {e}")
+            raise ValueError(f"Template render error: {e}") from e
 
     def validate_template_variables(self, template: NotificationTemplate, variables: dict) -> List[str]:
         import json

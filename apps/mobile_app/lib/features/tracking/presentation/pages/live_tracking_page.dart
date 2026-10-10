@@ -124,16 +124,16 @@ class _ProviderStatusCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 backgroundColor: AppColors.primaryLight,
-                child: const Icon(Icons.person, color: AppColors.primary),
+                child: Icon(Icons.person, color: AppColors.primary),
               ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(providerName, style: AppTextStyles.subtitle1),
-                  Text('On the way · ~15 min', style: AppTextStyles.caption),
+                  const Text('On the way · ~15 min', style: AppTextStyles.caption),
                 ],
               ),
               const Spacer(),
@@ -149,13 +149,13 @@ class _ProviderStatusCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          LinearProgressIndicator(
+          const LinearProgressIndicator(
             value: 0.45,
             backgroundColor: AppColors.border,
-            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+            valueColor: AlwaysStoppedAnimation(AppColors.primary),
           ),
           const SizedBox(height: 8),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Provider dispatched', style: AppTextStyles.caption),

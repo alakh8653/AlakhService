@@ -1,11 +1,11 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Scissors, Users, BarChart2, Settings } from 'lucide-react';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 const NAV_ITEMS: NavItem[] = [

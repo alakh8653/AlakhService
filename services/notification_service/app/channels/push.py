@@ -5,10 +5,10 @@ log = structlog.get_logger()
 
 class FCMChannel:
     FCM_URL = "https://fcm.googleapis.com/fcm/send"
-    
+
     def __init__(self, server_key: str):
         self.server_key = server_key
-    
+
     async def send(self, device_token: str, title: str, body: str, data: dict = None) -> bool:
         headers = {
             "Authorization": f"key={self.server_key}",

@@ -1,8 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.template_service import TemplateService
+
+from app.models.notification import NotificationTemplate
 from app.services.notification_service import NotificationService
-from app.models.notification import NotificationTemplate, Notification
+from app.services.template_service import TemplateService
 
 
 @pytest.fixture

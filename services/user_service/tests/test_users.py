@@ -1,21 +1,24 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/1"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.database import Base
-from app.models.user import UserProfile, UserAddress, UserPreferences, UserDevice
-from app.services.user_service import UserService
 from app.schemas.user import (
-    UserProfileCreate, UserAddressCreate, UserAddressUpdate,
-    UserPreferencesUpdate, UserDeviceCreate,
+    UserAddressCreate,
+    UserDeviceCreate,
+    UserPreferencesUpdate,
+    UserProfileCreate,
 )
+from app.services.user_service import UserService
 
 pytest_plugins = ("anyio",)
 
@@ -105,7 +108,7 @@ async def test_set_default_address(db_session, service):
         label="Work", street="2 Business Ave", city="Delhi",
         state="Delhi", postal_code="110002", country="India",
     )
-    first = await service.add_address(db_session, "user-5", addr1)
+    await service.add_address(db_session, "user-5", addr1)
     second = await service.add_address(db_session, "user-5", addr2)
 
     success = await service.set_default_address(db_session, "user-5", second.id)

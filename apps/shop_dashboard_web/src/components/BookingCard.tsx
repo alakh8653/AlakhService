@@ -1,4 +1,3 @@
-import React from 'react';
 import { format } from 'date-fns';
 import type { Booking, BookingStatus } from '../types';
 import { Clock, User, Scissors, CheckCircle, XCircle } from 'lucide-react';

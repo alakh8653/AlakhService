@@ -56,3 +56,21 @@ async def require_shop_access(
     if owner != current_user.get("sub"):
         raise HTTPException(status_code=403, detail="Not your shop")
     return shop_id
+
+
+async def fetch_service_listing(service_id: str) -> Optional[dict]:
+    """The service catalogue's listing (price_cents, duration_minutes, shop_id, is_active), or None."""
+    async with httpx.AsyncClient(base_url=settings.SERVICE_CATALOG_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(f"/api/v1/services/{service_id}")
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Service catalogue unavailable") from exc
+    if resp.status_code == 404:
+        return None
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Service catalogue unavailable")
+    return resp.json()
+
+
+def get_service_lookup() -> Callable[[str], Awaitable[Optional[dict]]]:
+    return fetch_service_listing

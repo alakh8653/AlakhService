@@ -138,6 +138,7 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/booking_db
       SHOP_SERVICE_URL: http://shop_service:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
       REDIS_URL: redis://redis:6379/3
 
   payment_service:

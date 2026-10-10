@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/booking_db"
     REDIS_URL: str = "redis://redis:6379/2"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     CORS_ORIGINS: List[str] = ["*"]
 
     class Config:

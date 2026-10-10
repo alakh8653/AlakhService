@@ -16,7 +16,9 @@ val googleMapsApiKey: String =
 
 android {
     namespace = "com.alakhservice.alakh_service"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android 13 must be compiled against API 37 (compileSdk only;
+    // targetSdk stays on the Flutter default, so runtime behaviour is unchanged).
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

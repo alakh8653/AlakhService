@@ -11,12 +11,13 @@ from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_service_lookup, get_shop_owner_lookup
+from app.dependencies import get_service_lookup, get_shop_owner_lookup, get_staff_lookup
 from app.main import app
 from app.models.booking import Booking
 
 TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
+STAFF = {"shop-1": {"staff-1", "staff-2"}}  # provider accounts of each shop's active staff
 LISTINGS = {
     "svc-a": {"id": "svc-a", "shop_id": "shop-1", "price_cents": 49900, "duration_minutes": 45, "is_active": True},
     "svc-off": {"id": "svc-off", "shop_id": "shop-1", "price_cents": 100, "duration_minutes": 30, "is_active": False},
@@ -69,6 +70,11 @@ async def client():
 
     app.dependency_overrides[get_shop_owner_lookup] = lambda: fake_owner
     app.dependency_overrides[get_service_lookup] = lambda: fake_listing
+
+    async def fake_staff(shop_id, token):
+        return STAFF.get(shop_id, set())
+
+    app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -227,10 +233,40 @@ async def test_who_may_track_a_provider(client):
     assert not await allowed(auth("owner-1"))
 
     owner = auth("owner-1")
-    for status in ("CONFIRMED", "ASSIGNED"):
-        assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=owner)).status_code == 200
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)).status_code == 200
+    assert (await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "staff-1"}, headers=owner)).status_code == 200
     assert await allowed(auth("c3"))  # its customer, while the job is under way
     assert await allowed(owner)  # and the shop running it
     assert not await allowed(auth("c1"))  # another of the provider's customers, finished earlier
     assert not await allowed(auth("owner-2"))
     assert (await client.get(url)).status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_assigning_a_provider(client):
+    owner, url = auth("owner-1"), "/api/v1/bookings/bk-4/assign"
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)
+
+    # ASSIGNED is never set without a provider.
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "ASSIGNED"}, headers=owner)).status_code == 400
+    assert (await client.post(url, json={"provider_id": "staff-2"}, headers=auth("c3"))).status_code == 403  # the customer
+    assert (await client.post(url, json={"provider_id": "staff-2"}, headers=auth("owner-2"))).status_code == 404  # another shop
+    assert (await client.post(url, json={"provider_id": "outsider"}, headers=owner)).status_code == 422  # not shop staff
+
+    assigned = await client.post(url, json={"provider_id": "staff-2"}, headers=owner)
+    assert assigned.status_code == 200
+    assert assigned.json()["status"] == "ASSIGNED" and assigned.json()["provider_id"] == "staff-2"
+    history = (await client.get("/api/v1/bookings/bk-4/history", headers=owner)).json()
+    assert history[-1]["to_status"] == "ASSIGNED" and history[-1]["changed_by"] == "owner-1"
+
+    # The assigned provider now runs the job; assigning again is not a valid transition.
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "PROVIDER_EN_ROUTE"}, headers=auth("staff-2"))).status_code == 200
+    assert (await client.post(url, json={"provider_id": "staff-1"}, headers=owner)).status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_admins_and_dispatch_can_assign_anyone(client):
+    admin = auth("dispatch", "admin")
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=admin)
+    assigned = await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "freelancer-9"}, headers=admin)
+    assert assigned.status_code == 200 and assigned.json()["provider_id"] == "freelancer-9"

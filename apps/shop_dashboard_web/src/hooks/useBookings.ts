@@ -4,6 +4,7 @@ import type { RootState, AppDispatch } from '../state/store';
 import {
   fetchBookings,
   changeBookingStatus,
+  assignProviderThunk,
   cancelBookingThunk,
   setFilters,
   clearBookingError,
@@ -42,6 +43,11 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     [dispatch],
   );
 
+  const assign = useCallback(
+    (id: string, providerId: string) => dispatch(assignProviderThunk({ id, providerId })),
+    [dispatch],
+  );
+
   const cancel = useCallback(
     (id: string, reason: string) => dispatch(cancelBookingThunk({ id, reason })),
     [dispatch],
@@ -61,6 +67,7 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     applyFilters,
     goToPage,
     changeStatus,
+    assign,
     cancel,
     dismissError,
   };

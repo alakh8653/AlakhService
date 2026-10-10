@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../apiClient';
 import {
   BOOKING_ACTIONS,
+  assignProvider,
   cancelBooking,
   getShopBookings,
   getShopSummary,
@@ -66,6 +67,13 @@ describe('bookingService', () => {
 
     expect((await cancelBooking('b1', 'Closed today')).status).toBe('CANCELLED');
     expect(api.post).toHaveBeenCalledWith('/bookings/b1/cancel', { reason: 'Closed today' });
+  });
+
+  it('assigns a provider through the assign endpoint', async () => {
+    api.post.mockResolvedValue({ data: { ...apiBooking, status: 'ASSIGNED', provider_id: 'u-ravi' } });
+    const booking = await assignProvider('b1', 'u-ravi');
+    expect(api.post).toHaveBeenCalledWith('/bookings/b1/assign', { provider_id: 'u-ravi' });
+    expect(booking).toMatchObject({ status: 'ASSIGNED', providerId: 'u-ravi' });
   });
 
   it('maps the shop summary', async () => {

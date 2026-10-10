@@ -74,3 +74,21 @@ async def fetch_service_listing(service_id: str) -> Optional[dict]:
 
 def get_service_lookup() -> Callable[[str], Awaitable[Optional[dict]]]:
     return fetch_service_listing
+
+
+async def fetch_shop_provider_ids(shop_id: str, token: str) -> set:
+    """User ids of the shop's active staff, as shop_service shows them to the caller (the owner)."""
+    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(
+                "/api/v1/staff", params={"shop_id": shop_id}, headers={"Authorization": f"Bearer {token}"}
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Shop service unavailable")
+    return {m["user_id"] for m in resp.json() if m.get("user_id") and m.get("is_active")}
+
+
+def get_staff_lookup() -> Callable[[str, str], Awaitable[set]]:
+    return fetch_shop_provider_ids

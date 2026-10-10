@@ -3,13 +3,22 @@ from typing import Awaitable, Callable, Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.access import OwnerLookup, may_transition, relationships
+from app.core.access import ADMIN, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import BookingStatus
 from app.database import get_db
-from app.dependencies import get_current_user, get_service_lookup, get_shop_owner_lookup, require_shop_access
+from app.dependencies import (
+    get_current_user,
+    get_service_lookup,
+    get_shop_owner_lookup,
+    get_staff_lookup,
+    require_shop_access,
+    security,
+)
 from app.schemas.booking import (
+    BookingAssignRequest,
     BookingCancelRequest,
     BookingCreate,
     BookingListResponse,
@@ -190,11 +199,39 @@ async def update_status(
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
     user_id = current_user.get("sub")
+    if update_data.status == BookingStatus.ASSIGNED.value:
+        raise HTTPException(status_code=400, detail="Use POST /bookings/{id}/assign to assign a provider")
     await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
     try:
         booking = await booking_service.transition_status(
             db, booking_id, update_data.status, user_id, update_data.reason
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    return booking
+
+
+@router.post("/bookings/{booking_id}/assign", response_model=BookingResponse)
+async def assign_provider(
+    booking_id: str,
+    body: BookingAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_staff: Callable[[str, str], Awaitable[set]] = Depends(get_staff_lookup),
+):
+    """Give a confirmed booking to a provider. Admins (including dispatch) or the booking's shop."""
+    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    if ADMIN not in parties:
+        if SHOP_OWNER not in parties:
+            raise HTTPException(status_code=403, detail="Only the shop or an admin can assign a provider")
+        # A shop hands its bookings only to its own active staff with a provider account.
+        if body.provider_id not in await lookup_staff(booking.shop_id, credentials.credentials):
+            raise HTTPException(status_code=422, detail="Provider is not an active staff member of this shop")
+    try:
+        booking = await booking_service.assign_provider(db, booking_id, body.provider_id, current_user.get("sub"))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})

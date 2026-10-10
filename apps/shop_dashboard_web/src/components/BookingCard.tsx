@@ -5,15 +5,33 @@ import { BOOKING_ACTIONS } from '../services/bookingService';
 import { formatMoney, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 
+export interface ProviderOption {
+  userId: string;
+  name: string;
+}
+
 interface BookingCardProps {
   booking: Booking;
   serviceName?: string;
+  /** Staff who can take bookings (active, with a provider account). */
+  providers?: ProviderOption[];
   onChangeStatus: (id: string, status: BookingStatus) => void;
   onCancel: (id: string, reason: string) => void;
+  onAssign?: (id: string, providerId: string) => void;
 }
 
-export default function BookingCard({ booking, serviceName, onChangeStatus, onCancel }: BookingCardProps) {
+export default function BookingCard({
+  booking,
+  serviceName,
+  providers = [],
+  onChangeStatus,
+  onCancel,
+  onAssign,
+}: BookingCardProps) {
   const actions = BOOKING_ACTIONS[booking.status] ?? [];
+  const providerName = booking.providerId
+    ? (providers.find((p) => p.userId === booking.providerId)?.name ?? `Provider ${shortId(booking.providerId)}`)
+    : null;
 
   const handleCancel = () => {
     const reason = window.prompt('Reason for cancellation:');
@@ -37,10 +55,24 @@ export default function BookingCard({ booking, serviceName, onChangeStatus, onCa
           <Clock size={14} className="text-gray-400" />
           {format(new Date(booking.scheduledAt), 'MMM d, yyyy h:mm a')}
         </p>
+        {providerName && <p className="text-sm text-gray-500">Provider: {providerName}</p>}
         {booking.notes && <p className="text-xs text-gray-400 italic">{booking.notes}</p>}
       </div>
       <div className="flex flex-col sm:items-end gap-2">
         <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        {booking.status === 'CONFIRMED' && onAssign && (
+          <select
+            aria-label="Assign to"
+            value=""
+            onChange={(e) => e.target.value && onAssign(booking.id, e.target.value)}
+            className="text-xs border border-gray-300 rounded-lg px-2 py-1.5"
+          >
+            <option value="">{providers.length ? 'Assign to…' : 'No staff with a provider account'}</option>
+            {providers.map((p) => (
+              <option key={p.userId} value={p.userId}>{p.name}</option>
+            ))}
+          </select>
+        )}
         {actions.length > 0 && (
           <div className="flex gap-2">
             {actions.map((action) =>

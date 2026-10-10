@@ -17,6 +17,7 @@ SHOP_OWNER = "shop_owner"
 
 # Target statuses each party may move a booking to. Refunds and resolving a
 # dispute back to COMPLETED are left to admins (dispute/payment workflows).
+# ASSIGNED is reached only through POST /bookings/{id}/assign, which also records the provider.
 ALLOWED_TARGETS = {
     CUSTOMER: {BookingStatus.CANCELLED, BookingStatus.DISPUTED},
     PROVIDER: {
@@ -26,7 +27,6 @@ ALLOWED_TARGETS = {
     },
     SHOP_OWNER: {
         BookingStatus.CONFIRMED,
-        BookingStatus.ASSIGNED,
         BookingStatus.PROVIDER_EN_ROUTE,
         BookingStatus.IN_PROGRESS,
         BookingStatus.COMPLETED,

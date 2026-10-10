@@ -21,7 +21,8 @@ export interface BookingAction {
 
 /**
  * Actions a shop can take from each status. Mirrors the transitions
- * booking_service accepts; assignment itself is done by dispatch_service.
+ * booking_service accepts; CONFIRMED bookings are also assigned to a provider
+ * (see assignProvider), which moves them to ASSIGNED.
  */
 export const BOOKING_ACTIONS: Partial<Record<BookingStatus, BookingAction[]>> = {
   PENDING: [
@@ -119,6 +120,12 @@ export async function updateBookingStatus(
     status,
     reason,
   });
+  return toBooking(data);
+}
+
+/** Give a confirmed booking to one of the shop's staff (their provider account). */
+export async function assignProvider(id: string, providerId: string): Promise<Booking> {
+  const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/assign`, { provider_id: providerId });
   return toBooking(data);
 }
 

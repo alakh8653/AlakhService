@@ -1,6 +1,6 @@
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Callable, Optional, Any
-from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional
 
 
 class BookingStatus(str, Enum):

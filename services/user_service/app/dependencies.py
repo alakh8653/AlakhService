@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+
 from app.config import settings
 
 security = HTTPBearer()
@@ -17,4 +18,4 @@ async def get_current_user(
             raise HTTPException(status_code=401, detail="Invalid token")
         return payload
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from None

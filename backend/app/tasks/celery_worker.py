@@ -29,11 +29,12 @@ celery_app.conf.update(
 def send_email_task(self, to_email: str, subject: str, html_body: str) -> None:
     """Celery task to send an email asynchronously."""
     import asyncio
+
     from app.utils.email import send_email
     try:
         asyncio.run(send_email(to_email, subject, html_body))
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=60)
+        raise self.retry(exc=exc, countdown=60) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)
@@ -42,11 +43,12 @@ def send_push_notification_task(
 ) -> None:
     """Celery task to send a push notification via FCM asynchronously."""
     import asyncio
+
     from app.services.notification_service import send_push_notification
     try:
         asyncio.run(send_push_notification(device_token, title, body, data))
     except Exception as exc:
-        raise self.retry(exc=exc, countdown=30)
+        raise self.retry(exc=exc, countdown=30) from exc
 
 
 @celery_app.task(bind=True, max_retries=3)

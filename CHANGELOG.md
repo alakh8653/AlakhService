@@ -28,6 +28,25 @@ Types of changes:
 - CODE_OF_CONDUCT.md (Contributor Covenant v2.1)
 - LICENSE (MIT)
 
+### Fixed
+
+- CI workflows (`backend-ci`, `web-ci`, `mobile-ci`) were two workflows merged into one file with
+  duplicate keys, so GitHub rejected them; rewritten to target the real `services/`, `backend/`,
+  `apps/*_web` and `apps/mobile_app` directories
+- Weekly Security Scan: Trivy SARIF upload lacked `security-events: write`; TruffleHog compared a
+  commit with itself
+- `auth_service`: missing `email-validator` dependency; pinned `bcrypt` to a passlib-compatible version
+  (also in `backend/`)
+- `catalog_service`: self-referential category relationship could not be configured; creating or
+  fetching categories failed under the async session; category writes now invalidate the cached tree
+- Web dashboards: inconsistent dependency versions, missing Vite/ESLint/TS configs, missing admin
+  dashboard components and pages; API errors no longer crash the admin dashboard
+- Mobile app: dependency resolution, `CardThemeData` API change, test mocks/params equality, analyzer
+  issues
+- `docker-compose.yml` / `docker-compose.dev.yml` were merged duplicates pointing at non-existent
+  directories; Makefile targets now use the real app paths and per-service virtualenvs
+- Ruff lint across all Python services (import order, unused code, exception chaining)
+
 ---
 
 ## [1.0.0] — 2024-01-15

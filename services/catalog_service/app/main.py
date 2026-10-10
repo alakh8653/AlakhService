@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import structlog
+
 from app.config import settings
-from app.routers.catalog import router as catalog_router
 from app.core.exceptions import CatalogServiceError, CategoryNotFoundError, ServiceNotFoundError, SlugConflictError
+from app.routers.catalog import router as catalog_router
 
 logger = structlog.get_logger()
 

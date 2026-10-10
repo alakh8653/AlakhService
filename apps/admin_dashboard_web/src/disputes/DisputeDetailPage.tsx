@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { getDisputeById, updateDisputeStatus, type Dispute, type DisputeStatus } from './DisputeService';
@@ -10,23 +10,31 @@ export default function DisputeDetailPage() {
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [resolution, setResolution] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) getDisputeById(id).then(setDispute);
+    if (!id) return;
+    setError(null);
+    getDisputeById(id)
+      .then(setDispute)
+      .catch(() => setError('Failed to load dispute.'));
   }, [id]);
 
   const handleResolve = async (status: DisputeStatus) => {
     if (!dispute) return;
     setIsSaving(true);
+    setError(null);
     try {
       const updated = await updateDisputeStatus(dispute.id, status, resolution);
       setDispute(updated);
+    } catch {
+      setError('Failed to update dispute.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!dispute) return <p className="text-gray-500">Loading dispute…</p>;
+  if (!dispute) return <p className={error ? 'text-red-600' : 'text-gray-500'}>{error ?? 'Loading dispute…'}</p>;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -77,6 +85,7 @@ export default function DisputeDetailPage() {
       {dispute.status !== 'resolved' && dispute.status !== 'closed' && (
         <div className="bg-white rounded-2xl shadow p-6 space-y-3">
           <h2 className="text-lg font-semibold text-gray-900">Resolve Dispute</h2>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} rows={3} placeholder="Enter resolution notes…" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           <div className="flex gap-3">
             <button onClick={() => handleResolve('resolved')} disabled={isSaving} className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">

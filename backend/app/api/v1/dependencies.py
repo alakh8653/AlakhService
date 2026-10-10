@@ -1,12 +1,13 @@
 from uuid import UUID
+
 from fastapi import Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import PermissionDeniedException
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.models.user import User
 from app.services.booking_service import get_booking
-from app.core.exceptions import PermissionDeniedException
 
 
 def pagination_params(

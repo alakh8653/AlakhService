@@ -20,8 +20,9 @@ DOCKER_TAG   ?= $(VERSION)
 # ── Directories ───────────────────────────────────────────────────────────────
 ROOT_DIR     := $(shell pwd)
 SERVICES_DIR := $(ROOT_DIR)/services
-MOBILE_DIR   := $(ROOT_DIR)/mobile
-WEB_DIR      := $(ROOT_DIR)/web
+MOBILE_DIR   := $(ROOT_DIR)/apps/mobile_app
+WEB_APPS     := $(ROOT_DIR)/apps/admin_dashboard_web $(ROOT_DIR)/apps/shop_dashboard_web
+PY_PROJECTS  := $(wildcard $(SERVICES_DIR)/*/requirements.txt) $(ROOT_DIR)/backend/requirements.txt
 INFRA_DIR    := $(ROOT_DIR)/infra
 DOCS_DIR     := $(ROOT_DIR)/docs
 SCRIPTS_DIR  := $(ROOT_DIR)/scripts
@@ -47,19 +48,19 @@ RED    := \033[31m
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 define log
-	@printf "$(BOLD)$(CYAN)[$(PROJECT)]$(RESET) $(1)\n"
+	@printf "$(BOLD)$(CYAN)[$(PROJECT)]$(RESET) %s\n" $(1)
 endef
 
 define success
-	@printf "$(BOLD)$(GREEN)✓ $(1)$(RESET)\n"
+	@printf "$(BOLD)$(GREEN)✓ %s$(RESET)\n" $(1)
 endef
 
 define warn
-	@printf "$(BOLD)$(YELLOW)⚠ $(1)$(RESET)\n"
+	@printf "$(BOLD)$(YELLOW)⚠ %s$(RESET)\n" $(1)
 endef
 
 define error
-	@printf "$(BOLD)$(RED)✗ $(1)$(RESET)\n"
+	@printf "$(BOLD)$(RED)✗ %s$(RESET)\n" $(1)
 endef
 
 # =============================================================================
@@ -103,23 +104,23 @@ setup-python: ## Create virtualenv and install all Python dependencies
 	$(PIP) install --upgrade pip setuptools wheel
 	@if [ -f requirements.txt ]; then $(PIP) install -r requirements.txt; fi
 	@if [ -f requirements-dev.txt ]; then $(PIP) install -r requirements-dev.txt; fi
-	@for svc_req in $(SERVICES_DIR)/*/requirements.txt; do \
-		$(PIP) install -r "$$svc_req" 2>/dev/null || true; \
+	$(PIP) install ruff pre-commit
+	@# Services pin different library versions, so each one gets its own virtualenv.
+	@for req in $(PY_PROJECTS); do \
+		dir=$$(dirname "$$req"); \
+		echo "→ $$dir"; \
+		$(PYTHON) -m venv "$$dir/.venv" && \
+		"$$dir/.venv/bin/pip" install -q -r "$$req" pytest pytest-asyncio pytest-cov httpx aiosqlite || exit 1; \
 	done
 	$(call success,"Python environment ready")
 
 .PHONY: setup-node
 setup-node: ## Install Node.js dependencies
 	$(call log,"Installing Node.js dependencies...")
-	@if [ -f pnpm-lock.yaml ]; then \
-		$(PNPM) install --frozen-lockfile; \
-	elif [ -f package-lock.json ]; then \
-		$(NPM) ci; \
-	elif [ -f package.json ]; then \
-		$(NPM) install; \
-	else \
-		echo "No package.json found, skipping Node install."; \
-	fi
+	@for app in $(WEB_APPS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) ci) || exit 1; \
+	done
 	$(call success,"Node dependencies installed")
 
 .PHONY: setup-pre-commit
@@ -153,20 +154,17 @@ dev: ## Start all services in development mode (docker-compose)
 .PHONY: dev-backend
 dev-backend: ## Start only backend services (no mobile/web)
 	$(call log,"Starting backend services...")
-	docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-		up postgres redis kafka zookeeper elasticsearch \
-		api-gateway auth-service user-service shop-service \
-		booking-service payment-service notification-service tracking-service
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 .PHONY: dev-infra
-dev-infra: ## Start only infrastructure services (postgres, redis, kafka, es)
+dev-infra: ## Start only infrastructure services (postgres, redis)
 	$(call log,"Starting infrastructure services...")
-	docker compose up -d postgres redis kafka zookeeper elasticsearch minio
+	docker compose up -d postgres redis
 
 .PHONY: dev-web
-dev-web: ## Start web frontend in dev mode
+dev-web: ## Start a web dashboard in dev mode: make dev-web APP=admin_dashboard_web
 	$(call log,"Starting web dev server...")
-	cd $(WEB_DIR) && $(PNPM) dev
+	cd $(ROOT_DIR)/apps/$(or $(APP),shop_dashboard_web) && $(NPM) run dev
 
 .PHONY: dev-mobile
 dev-mobile: ## Start Flutter mobile app (requires connected device/emulator)
@@ -204,28 +202,29 @@ test: test-python test-node ## Run all tests
 .PHONY: test-python
 test-python: ## Run all Python tests with coverage
 	$(call log,"Running Python tests...")
-	$(PYTHON_VENV) -m pytest \
-		--cov=services \
-		--cov-report=term-missing \
-		--cov-report=html:coverage/python \
-		--cov-report=xml:coverage/python/coverage.xml \
-		--cov-fail-under=80 \
-		-v \
-		$(SERVICES_DIR)
+	@# Every service has its own top-level `app` package, so each suite runs in its own process/venv.
+	@failed=""; \
+	for req in $(PY_PROJECTS); do \
+		dir=$$(dirname "$$req"); \
+		echo "→ $$dir"; \
+		(cd "$$dir" && .venv/bin/python -m pytest tests/ -q --cov=app --cov-report=term-missing:skip-covered) || failed="$$failed $$dir"; \
+	done; \
+	if [ -n "$$failed" ]; then echo "Failed:$$failed"; exit 1; fi
 	$(call success,"Python tests passed")
 
 .PHONY: test-node
 test-node: ## Run all Node/TypeScript tests with coverage
 	$(call log,"Running TypeScript tests...")
-	@if [ -f package.json ]; then \
-		$(PNPM) run test --coverage; \
-	fi
+	@for app in $(WEB_APPS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) test -- --coverage) || exit 1; \
+	done
 	$(call success,"TypeScript tests passed")
 
 .PHONY: test-mobile
 test-mobile: ## Run Flutter widget and unit tests
 	$(call log,"Running Flutter tests...")
-	cd $(MOBILE_DIR) && flutter test --coverage
+	cd $(MOBILE_DIR) && flutter pub get && dart run build_runner build && flutter test --coverage
 	$(call success,"Flutter tests passed")
 
 .PHONY: test-e2e
@@ -282,14 +281,16 @@ lint: lint-python lint-node lint-yaml lint-docker ## Run all linters
 .PHONY: lint-python
 lint-python: ## Lint Python code with Ruff + MyPy
 	$(call log,"Linting Python...")
-	$(PYTHON_VENV) -m ruff check $(SERVICES_DIR)
-	$(PYTHON_VENV) -m mypy $(SERVICES_DIR) --ignore-missing-imports
+	$(VENV)/bin/ruff check $(SERVICES_DIR) $(ROOT_DIR)/backend
 	$(call success,"Python lint passed")
 
 .PHONY: lint-node
 lint-node: ## Lint TypeScript/JavaScript with ESLint
 	$(call log,"Linting TypeScript...")
-	@if [ -f package.json ]; then $(PNPM) run lint; fi
+	@for app in $(WEB_APPS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) run lint && $(NPM) run type-check) || exit 1; \
+	done
 	$(call success,"TypeScript lint passed")
 
 .PHONY: lint-yaml
@@ -426,9 +427,10 @@ build-image/%: ## Build a specific service image: make build-image/api-gateway
 .PHONY: build-web
 build-web: ## Build web frontend
 	$(call log,"Building web frontend...")
-	@if [ -d $(WEB_DIR) ] && [ -f $(WEB_DIR)/package.json ]; then \
-		cd $(WEB_DIR) && $(PNPM) run build; \
-	fi
+	@for app in $(WEB_APPS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) run build) || exit 1; \
+	done
 	$(call success,"Web frontend built")
 
 .PHONY: build-mobile-android

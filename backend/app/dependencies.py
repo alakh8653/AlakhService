@@ -1,9 +1,9 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.core.security import oauth2_scheme, decode_token
 from app.core.exceptions import CredentialsException, PermissionDeniedException
+from app.core.security import decode_token, oauth2_scheme
+from app.database import get_db
 from app.models.user import User
 from app.services.user_service import get_user_by_email
 

@@ -19,7 +19,7 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   local_auth: ^3.0.2
   google_maps_flutter: ^2.5.0
-  web_socket_channel: ^2.4.0
+  web_socket_channel: ^3.0.3
   cached_network_image: ^3.3.0
   intl: ^0.20.3
   connectivity_plus: ^7.3.2

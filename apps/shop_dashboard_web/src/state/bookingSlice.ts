@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import {
   getShopBookings,
   updateBookingStatus,
+  assignProvider,
   cancelBooking,
   type BookingFilters,
 } from '../services/bookingService';
@@ -65,6 +66,17 @@ export const changeBookingStatus = createAsyncThunk(
   },
 );
 
+export const assignProviderThunk = createAsyncThunk(
+  'bookings/assign',
+  async ({ id, providerId }: { id: string; providerId: string }, { rejectWithValue }) => {
+    try {
+      return await assignProvider(id, providerId);
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Could not assign the booking'));
+    }
+  },
+);
+
 export const cancelBookingThunk = createAsyncThunk(
   'bookings/cancel',
   async ({ id, reason }: { id: string; reason: string }, { rejectWithValue }) => {
@@ -119,6 +131,12 @@ const bookingSlice = createSlice({
         replaceBooking(state, action.payload);
       })
       .addCase(changeBookingStatus.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(assignProviderThunk.fulfilled, (state, action) => {
+        replaceBooking(state, action.payload);
+      })
+      .addCase(assignProviderThunk.rejected, (state, action) => {
         state.error = action.payload as string;
       })
       .addCase(cancelBookingThunk.fulfilled, (state, action) => {

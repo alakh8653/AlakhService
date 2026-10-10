@@ -9,10 +9,10 @@ import { useShopServices } from '../hooks/useShopServices';
 import StaffSchedule from '../components/StaffSchedule';
 
 function AddStaffForm({ onSubmit, onClose }: {
-  onSubmit: (values: { name: string; email: string; phone: string; role: string }) => Promise<void>;
+  onSubmit: (values: { name: string; email: string; phone: string; role: string; userId: string }) => Promise<void>;
   onClose: () => void;
 }) {
-  const [values, setValues] = useState({ name: '', email: '', phone: '', role: 'staff' });
+  const [values, setValues] = useState({ name: '', email: '', phone: '', role: 'staff', userId: '' });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -46,6 +46,7 @@ function AddStaffForm({ onSubmit, onClose }: {
       {field('role', 'Role')}
       {field('email', 'Email', 'email')}
       {field('phone', 'Phone', 'tel')}
+      {field('userId', 'Provider account ID (to assign bookings)')}
       {error && <p className="sm:col-span-2 text-xs text-red-500">{error}</p>}
       <div className="sm:col-span-2 flex gap-2 justify-end">
         <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100">Cancel</button>
@@ -86,7 +87,7 @@ export default function StaffPage() {
     }
   };
 
-  const add = async (values: { name: string; email: string; phone: string; role: string }) => {
+  const add = async (values: { name: string; email: string; phone: string; role: string; userId: string }) => {
     if (!shopId) return;
     const created = await createStaffMember(shopId, values);
     setStaff((prev) => [...prev, created]);

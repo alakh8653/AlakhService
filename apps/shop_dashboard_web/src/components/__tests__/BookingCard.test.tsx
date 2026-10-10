@@ -43,3 +43,27 @@ describe('BookingCard', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 });
+
+describe('BookingCard assignment', () => {
+  const providers = [
+    { userId: 'u-ravi', name: 'Ravi' },
+    { userId: 'u-meena', name: 'Meena' },
+  ];
+
+  it('assigns a confirmed booking to a chosen staff member', () => {
+    const onAssign = vi.fn();
+    render(
+      <BookingCard booking={{ ...booking, status: 'CONFIRMED' }} providers={providers} onChangeStatus={vi.fn()} onCancel={vi.fn()} onAssign={onAssign} />,
+    );
+    fireEvent.change(screen.getByLabelText('Assign to'), { target: { value: 'u-meena' } });
+    expect(onAssign).toHaveBeenCalledWith('b1', 'u-meena');
+  });
+
+  it('names the assigned provider and offers no picker once assigned', () => {
+    render(
+      <BookingCard booking={{ ...booking, status: 'ASSIGNED', providerId: 'u-ravi' }} providers={providers} onChangeStatus={vi.fn()} onCancel={vi.fn()} onAssign={vi.fn()} />,
+    );
+    expect(screen.getByText('Provider: Ravi')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Assign to')).not.toBeInTheDocument();
+  });
+});

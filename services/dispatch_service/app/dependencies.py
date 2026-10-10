@@ -4,8 +4,9 @@ Tokens are verified here as well as at the API gateway, so the service stays pro
 its port is reached directly.
 """
 from dataclasses import dataclass
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
+import httpx
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -53,3 +54,29 @@ def ensure_self_or_admin(user_id: Optional[str], caller: Caller) -> None:
     """Users may only act for themselves; admins may act for anyone."""
     if not caller.is_admin and user_id != caller.user_id:
         raise HTTPException(status_code=403, detail="Not allowed for another user")
+
+
+async def assign_in_booking_service(booking_id: str, provider_id: str, caller: Caller) -> None:
+    """Record the chosen provider on the booking (moving it to ASSIGNED), as the calling operator."""
+    async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.post(
+                f"/api/v1/bookings/{booking_id}/assign",
+                json={"provider_id": provider_id},
+                headers={"Authorization": f"Bearer {caller.token}"},
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Booking service unavailable") from exc
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if resp.status_code in (400, 409, 422):
+        raise HTTPException(status_code=409, detail=resp.json().get("detail", "Booking cannot be assigned"))
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Booking service unavailable")
+
+
+BookingAssigner = Callable[[str, str, Caller], Awaitable[None]]
+
+
+def get_booking_assigner() -> BookingAssigner:
+    return assign_in_booking_service

@@ -1,16 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../state/store';
+import { getStaff } from '../services/shopService';
 import { useBookings } from '../hooks/useBookings';
 import { useShopServices } from '../hooks/useShopServices';
-import BookingCard from '../components/BookingCard';
+import BookingCard, { type ProviderOption } from '../components/BookingCard';
 import { BOOKING_STATUSES } from '../services/bookingService';
 import { humanize } from '../services/format';
-import type { BookingStatus } from '../types';
+import type { BookingStatus, StaffMember } from '../types';
 
 export default function BookingsPage() {
   const [activeStatus, setActiveStatus] = useState<BookingStatus | undefined>();
-  const { bookings, isLoading, error, applyFilters, goToPage, page, totalPages, changeStatus, cancel, dismissError } =
+  const { bookings, isLoading, error, applyFilters, goToPage, page, totalPages, changeStatus, assign, cancel, dismissError } =
     useBookings();
   const { serviceNames } = useShopServices();
+  const shopId = useSelector((state: RootState) => state.auth.shop?.id);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+
+  useEffect(() => {
+    if (!shopId) return;
+    getStaff(shopId).then(setStaff).catch(() => setStaff([]));
+  }, [shopId]);
+
+  // Bookings go to active staff who have a provider account to run them with.
+  const providers = useMemo<ProviderOption[]>(
+    () => staff.filter((m) => m.isActive && m.userId).map((m) => ({ userId: m.userId as string, name: m.name })),
+    [staff],
+  );
 
   const handleFilter = (status?: BookingStatus) => {
     setActiveStatus(status);
@@ -37,7 +53,7 @@ export default function BookingsPage() {
       ) : (
         <div className="grid gap-4">
           {bookings.map((b) => (
-            <BookingCard key={b.id} booking={b} serviceName={serviceNames[b.serviceId]} onChangeStatus={changeStatus} onCancel={cancel} />
+            <BookingCard key={b.id} booking={b} serviceName={serviceNames[b.serviceId]} providers={providers} onChangeStatus={changeStatus} onAssign={assign} onCancel={cancel} />
           ))}
           {bookings.length === 0 && <p className="text-gray-400 text-center py-10">No bookings found.</p>}
         </div>

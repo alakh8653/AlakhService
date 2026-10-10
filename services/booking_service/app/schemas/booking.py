@@ -36,6 +36,10 @@ class BookingStatusUpdate(BaseModel):
     reason: Optional[str] = None
 
 
+class BookingAssignRequest(BaseModel):
+    provider_id: str
+
+
 class BookingCancelRequest(BaseModel):
     reason: str
 

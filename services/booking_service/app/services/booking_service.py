@@ -215,9 +215,11 @@ class BookingService:
         log.info("booking_status_changed", booking_id=booking.id, from_status=old_status, to_status=new_status)
         return booking
 
-    async def assign_provider(self, db: AsyncSession, booking_id: str, provider_id: str) -> Booking:
+    async def assign_provider(
+        self, db: AsyncSession, booking_id: str, provider_id: str, assigned_by: Optional[str] = None
+    ) -> Booking:
         booking = await self.transition_status(
-            db, booking_id, BookingStatus.ASSIGNED.value, provider_id, "Provider assigned"
+            db, booking_id, BookingStatus.ASSIGNED.value, assigned_by or provider_id, "Provider assigned"
         )
 
         assignment = BookingAssignment(

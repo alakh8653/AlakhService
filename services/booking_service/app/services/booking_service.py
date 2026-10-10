@@ -212,6 +212,8 @@ class BookingService:
         )
         db.add(assignment)
         booking.provider_id = provider_id
+        # Set explicitly so the column's server-side onupdate does not expire it after the flush.
+        booking.updated_at = datetime.now(timezone.utc)
         await db.flush()
         return booking
 
@@ -220,6 +222,8 @@ class BookingService:
             db, booking_id, BookingStatus.CANCELLED.value, user_id, reason
         )
         booking.cancellation_reason = reason
+        # Set explicitly so the column's server-side onupdate does not expire it after the flush.
+        booking.updated_at = datetime.now(timezone.utc)
         await db.flush()
         return booking
 

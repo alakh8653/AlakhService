@@ -119,3 +119,18 @@ async def test_summary(client):
         "/api/v1/bookings/shop/shop-1/summary", params={"date_from": "2026-10-05", "date_to": "2026-10-01"}, headers=auth("owner-1")
     )
     assert bad.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_status_change_and_cancel_endpoints_return_the_booking(client):
+    owner = auth("owner-1")
+    confirmed = await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "CONFIRMED"
+
+    cancelled = await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "Shop closed"}, headers=owner)
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "CANCELLED"
+
+    rejected = await client.post("/api/v1/bookings/bk-1/cancel", json={"reason": "Too late"}, headers=owner)
+    assert rejected.status_code == 400

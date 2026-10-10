@@ -3,7 +3,8 @@ import { store } from '../state/store';
 import { clearAuth, setTokens } from '../state/authSlice';
 import { toAuthTokens, type TokenResponse } from './tokens';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
+// Falls back to the local API gateway (see .env.example) when the variable is not set.
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:3000/api/v1';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,

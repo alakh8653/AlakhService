@@ -1,8 +1,14 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import (
+    CalculationNotFoundError,
+    CouponAlreadyUsedError,
+    CouponExhaustedError,
+    CouponExpiredError,
+)
 from app.database import get_db
 from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
 from app.schemas.pricing import (
@@ -29,6 +35,21 @@ async def calculate_price(
 async def get_pricing_history(customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     ensure_self_or_admin(customer_id, caller)
     return await pricing_service.get_pricing_history(db, customer_id)
+
+
+@router.post("/pricing/{calculation_id}/redeem", response_model=PriceCalculationResponse)
+async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    """Checkout: commit to a quote, using up its coupon."""
+    try:
+        calc = await pricing_service.get_calculation(db, calculation_id)
+    except CalculationNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    if not caller.is_admin and calc.customer_id != caller.user_id:
+        raise HTTPException(status_code=404, detail="Price calculation not found")
+    try:
+        return await pricing_service.redeem(db, calc)
+    except (CouponAlreadyUsedError, CouponExhaustedError, CouponExpiredError) as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
 
 @router.post("/coupons", response_model=CouponResponse, status_code=201, dependencies=[Depends(require_admin)])

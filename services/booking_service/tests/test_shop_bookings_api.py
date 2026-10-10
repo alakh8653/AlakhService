@@ -211,3 +211,26 @@ async def test_bookings_are_priced_from_the_catalogue(client):
 
     assert (await client.post("/api/v1/bookings", json={**body, "service_id": "nope"}, headers=auth("c7"))).status_code == 404
     assert (await client.post("/api/v1/bookings", json={**body, "service_id": "svc-off"}, headers=auth("c7"))).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_who_may_track_a_provider(client):
+    url = "/api/v1/bookings/tracking/staff-1"
+
+    async def allowed(headers):
+        return (await client.get(url, headers=headers)).status_code == 200
+
+    # bk-4 (PENDING, customer c3, shop-1) is not active yet, so no one but the provider and admins.
+    assert await allowed(auth("staff-1"))
+    assert await allowed(auth("ops", "admin"))
+    assert not await allowed(auth("c3"))
+    assert not await allowed(auth("owner-1"))
+
+    owner = auth("owner-1")
+    for status in ("CONFIRMED", "ASSIGNED"):
+        assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=owner)).status_code == 200
+    assert await allowed(auth("c3"))  # its customer, while the job is under way
+    assert await allowed(owner)  # and the shop running it
+    assert not await allowed(auth("c1"))  # another of the provider's customers, finished earlier
+    assert not await allowed(auth("owner-2"))
+    assert (await client.get(url)).status_code in (401, 403)

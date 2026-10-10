@@ -177,6 +177,7 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/tracking_db
       REDIS_URL: redis://redis:6379/6
+      BOOKING_SERVICE_URL: http://booking_service:8000
 
   queue_service:
     <<: *python-service

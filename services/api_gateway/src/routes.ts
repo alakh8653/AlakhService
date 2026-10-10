@@ -65,6 +65,8 @@ export const ROUTES: Route[] = [
   // Browsing the catalogue does not require an account.
   { prefix: '/api/v1/categories', upstream: 'serviceCatalog', access: 'public', publicMethods: READ_ONLY },
   { prefix: '/api/v1/services', upstream: 'serviceCatalog', access: 'public', publicMethods: READ_ONLY },
+  // Searching takes its filters as a POST body but is still just browsing.
+  { prefix: '/api/v1/catalog/services/search', upstream: 'catalog', access: 'public', publicMethods: ['POST'] },
   { prefix: '/api/v1/catalog', upstream: 'catalog', access: 'public', publicMethods: READ_ONLY },
 
   // Admin dashboard API (apps/admin_dashboard_web), mapped onto the owning services.

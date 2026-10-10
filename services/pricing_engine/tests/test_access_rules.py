@@ -51,3 +51,30 @@ async def test_pricing_rules(client):
     coupon = {"code": "FREE100", "discount_pct": 100}
     assert (await client.post("/api/v1/coupons", json=coupon, headers=ALICE)).status_code == 403
     assert (await client.post("/api/v1/coupons", json=coupon, headers=ADMIN)).status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
+    await client.post("/api/v1/coupons", json={"code": "TWICE", "discount_pct": 10, "max_uses": 2}, headers=ADMIN)
+
+    def quote(customer):
+        body = {"service_id": "s1", "customer_id": customer, "base_price_cents": 10000, "coupon_code": "TWICE"}
+        return client.post("/api/v1/pricing/calculate", json=body, headers=auth(customer))
+
+    # Asking for prices many times never exhausts the coupon.
+    quotes = [(await quote("alice")).json() for _ in range(5)]
+    assert all(q["coupon_code"] == "TWICE" and q["redeemed_at"] is None for q in quotes)
+    assert (await client.get("/api/v1/coupons/TWICE/validate", headers=ALICE)).json()["is_valid"] is True
+
+    first = quotes[0]["id"]
+    assert (await client.post(f"/api/v1/pricing/{first}/redeem", headers=BOB)).status_code == 404  # not Bob's quote
+    redeemed = await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)
+    assert redeemed.status_code == 200 and redeemed.json()["redeemed_at"]
+    assert (await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)).status_code == 409  # quote spent
+    assert (await client.post(f"/api/v1/pricing/{quotes[1]['id']}/redeem", headers=ALICE)).status_code == 409  # one use each
+
+    bob = (await quote("bob")).json()
+    assert (await client.post(f"/api/v1/pricing/{bob['id']}/redeem", headers=BOB)).status_code == 200
+    carol = (await quote("carol")).json()
+    assert carol["coupon_code"] is None  # max_uses reached, so no discount is quoted
+    assert (await client.get("/api/v1/coupons/TWICE/validate", headers=ALICE)).json()["is_valid"] is False

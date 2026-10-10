@@ -29,7 +29,8 @@ async def update_provider_location(
     return await dispatch_service.update_provider_location(db, data)
 
 
-@router.get("/providers/available", response_model=List[AvailableProviderResponse])
+# Returns providers' live positions, so it is for dispatch operators only.
+@router.get("/providers/available", response_model=List[AvailableProviderResponse], dependencies=[Depends(require_admin)])
 async def get_available_providers(
     lat: float = Query(...),
     lon: float = Query(...),

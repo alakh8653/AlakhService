@@ -114,6 +114,22 @@ class BookingService:
             )
         return query
 
+    async def active_bookings_with_provider(self, db: AsyncSession, provider_id: str) -> List[Booking]:
+        """Bookings the provider is currently working on (assigned, on the way, or in progress)."""
+        result = await db.execute(
+            select(Booking).where(
+                Booking.provider_id == provider_id,
+                Booking.status.in_(
+                    [
+                        BookingStatus.ASSIGNED.value,
+                        BookingStatus.PROVIDER_EN_ROUTE.value,
+                        BookingStatus.IN_PROGRESS.value,
+                    ]
+                ),
+            )
+        )
+        return list(result.scalars().all())
+
     async def list_shop_bookings(
         self,
         db: AsyncSession,

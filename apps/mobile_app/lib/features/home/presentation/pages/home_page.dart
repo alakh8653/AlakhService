@@ -38,15 +38,15 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 20),
               const BannerWidget(),
               const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text('Our Services', style: AppTextStyles.heading3),
               ),
               const SizedBox(height: 16),
               _buildCategoriesGrid(),
               const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
                 child: Text('Popular Near You', style: AppTextStyles.heading3),
               ),
               const SizedBox(height: 12),
@@ -63,8 +63,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           Column(
@@ -74,11 +74,11 @@ class _HomePageState extends State<HomePage> {
               Text('Find a Service', style: AppTextStyles.heading2),
             ],
           ),
-          const Spacer(),
+          Spacer(),
           CircleAvatar(
             radius: 22,
             backgroundColor: AppColors.primaryLight,
-            child: const Icon(Icons.person, color: AppColors.primary),
+            child: Icon(Icons.person, color: AppColors.primary),
           ),
         ],
       ),

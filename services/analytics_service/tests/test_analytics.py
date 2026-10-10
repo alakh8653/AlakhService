@@ -1,17 +1,19 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.database import Base
-from app.services.analytics_service import AnalyticsService
 from app.schemas.analytics import EventBatchCreate, EventCreate, FunnelAnalysisRequest
+from app.services.analytics_service import AnalyticsService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

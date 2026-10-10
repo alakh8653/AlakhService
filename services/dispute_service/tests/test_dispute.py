@@ -1,19 +1,21 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.services.dispute_service import DisputeService
-from app.schemas.dispute import DisputeCreate, DisputeMessageCreate
-from app.core.fsm import DisputeFSM, DisputeStatus
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.exceptions import DisputeNotFoundError
+from app.core.fsm import DisputeFSM, DisputeStatus
+from app.database import Base
+from app.schemas.dispute import DisputeCreate, DisputeMessageCreate
+from app.services.dispute_service import DisputeService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

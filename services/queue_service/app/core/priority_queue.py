@@ -2,6 +2,7 @@ import heapq
 from dataclasses import dataclass, field
 from typing import Optional
 
+
 @dataclass(order=True)
 class QueueItem:
     priority: float

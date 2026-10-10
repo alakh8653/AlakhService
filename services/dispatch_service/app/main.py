@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import structlog
+
 from app.config import settings
 from app.routers.dispatch import router as dispatch_router
 

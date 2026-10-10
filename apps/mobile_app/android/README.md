@@ -1,47 +1,29 @@
 # Android Build Configuration
 
-## SDK Versions
+Generated with `flutter create` (Flutter 3.47) and configured for AlakhService.
 
-| Setting          | Value |
-|------------------|-------|
-| `minSdkVersion`  | 21    |
-| `targetSdkVersion` | 34  |
-| `compileSdkVersion` | 34 |
+| Setting | Value |
+|---|---|
+| Application ID | `com.alakhservice.alakh_service` |
+| `minSdk` | 24 (Flutter default; required by `flutter_secure_storage` 11) |
+| `targetSdk` / `compileSdk` | Flutter defaults |
+| Java | 17 |
 
-## Required Permissions (`AndroidManifest.xml`)
+## Permissions (`app/src/main/AndroidManifest.xml`)
 
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.USE_BIOMETRIC" />
-<uses-permission android:name="android.permission.USE_FINGERPRINT" />
-<uses-permission android:name="android.permission.VIBRATE" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-```
+`INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `CAMERA`, `USE_BIOMETRIC`,
+`VIBRATE`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`.
+
+`MainActivity` extends `FlutterFragmentActivity`, which `local_auth` needs for the biometric prompt.
 
 ## Google Maps API Key
 
-Add your key inside `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_GOOGLE_MAPS_API_KEY" />
-```
-
-Also set it in `android/local.properties`:
+The manifest reads the key from a build placeholder. Provide it in `android/local.properties`
+(git-ignored) or as an environment variable:
 
 ```
 GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
-
-## ProGuard / R8
-
-ProGuard rules are pre-configured in `android/app/proguard-rules.pro`.
-Ensure `minifyEnabled` is `true` for release builds.
 
 ## Release Build
 
@@ -50,3 +32,7 @@ flutter build apk --release
 # or
 flutter build appbundle --release
 ```
+
+Release builds are currently signed with the debug key. Before publishing, create a release
+keystore and a `key.properties` (both git-ignored) and add a `signingConfigs.release` block in
+`app/build.gradle.kts`.

@@ -230,7 +230,7 @@ cd apps/mobile_app
 flutter pub get
 dart run build_runner build   # generates test mocks
 flutter test
-flutter run                   # android/ and ios/ platform projects must be generated first
+flutter run                   # see android/README.md and ios/README.md for API keys
 ```
 
 ### 6. Web dashboards (development)

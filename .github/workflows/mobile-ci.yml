@@ -17,14 +17,11 @@ permissions:
 
 env:
   FLUTTER_VERSION: "3.47.7"
+  JAVA_VERSION: "17"
 
 jobs:
   # ---------------------------------------------------------------------------
   # Analyze & Test
-  #
-  # Release builds (APK / iOS) are not run yet: apps/mobile_app has no generated
-  # android/ or ios/ platform projects. Add them with
-  # `flutter create --platforms=android,ios .` and then add build jobs here.
   # ---------------------------------------------------------------------------
   test:
     name: Analyze & Test
@@ -66,3 +63,73 @@ jobs:
           name: flutter-coverage
           path: apps/mobile_app/coverage/lcov.info
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Build Android APK (release, signed with the debug key until a release
+  # keystore is configured)
+  # ---------------------------------------------------------------------------
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: apps/mobile_app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: apps/mobile_app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Build iOS (compile check, no code signing)
+  # ---------------------------------------------------------------------------
+  build-ios:
+    name: Build iOS (no codesign)
+    runs-on: macos-latest
+    needs: test
+    defaults:
+      run:
+        working-directory: apps/mobile_app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign

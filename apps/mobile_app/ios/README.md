@@ -4,7 +4,7 @@
 
 | Setting        | Value  |
 |----------------|--------|
-| iOS Deployment | 13.0   |
+| iOS Deployment | 15.0   |
 | Xcode          | 15.0+  |
 | Swift          | 5.9+   |
 
@@ -35,23 +35,21 @@
 <string>Use Face ID for quick and secure login.</string>
 ```
 
-## Google Maps API Key (`AppDelegate.swift`)
+## Google Maps API Key
 
-```swift
-import GoogleMaps
+`AppDelegate.swift` reads `GMSApiKey` from `Info.plist`, which is filled from the
+`GOOGLE_MAPS_API_KEY` build setting. Copy `Flutter/Secrets.xcconfig.example` to
+`Flutter/Secrets.xcconfig` (git-ignored) and set the key there.
 
-@UIApplicationMain
-class AppDelegate: FlutterAppDelegate {
-  override func application(...) -> Bool {
-    GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY")
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-}
-```
+## Permissions (`Podfile`)
+
+`permission_handler` only compiles in the permissions enabled in the `Podfile`'s
+`post_install` hook: location (when in use), camera, photos and notifications. Add a
+`PERMISSION_*=1` macro there before requesting any other permission.
 
 ## App Store Deployment
 
-1. Set `PRODUCT_BUNDLE_IDENTIFIER` in `Runner.xcodeproj`
+1. Set the bundle identifier (`com.alakhservice.alakhService` by default) in `Runner.xcodeproj`
 2. Configure signing in **Xcode → Signing & Capabilities**
 3. Run `flutter build ipa --release`
 4. Upload via **Xcode Organizer** or `xcrun altool`

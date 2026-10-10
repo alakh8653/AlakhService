@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ShopNotFoundError
 from app.database import get_db
-from app.dependencies import Caller, ensure_owner, optional_caller
+from app.dependencies import Caller, ensure_owner, require_caller
 from app.schemas.shop import RatingUpdate, ShopCreate, ShopResponse, ShopUpdate
 from app.services.shop_service import shop_service
 
@@ -13,7 +13,9 @@ router = APIRouter()
 
 
 @router.post("/shops", response_model=ShopResponse, status_code=201)
-async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db)):
+async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    # Only admins may open a shop on someone else's behalf.
+    ensure_owner(data.owner_id, caller)
     return await shop_service.create_shop(db, data)
 
 
@@ -50,26 +52,28 @@ async def update_shop(
     shop_id: str,
     data: ShopUpdate,
     db: AsyncSession = Depends(get_db),
-    caller: Optional[Caller] = Depends(optional_caller),
+    caller: Caller = Depends(require_caller),
 ):
     try:
-        if caller is not None:  # requests through the gateway: only the owner (or an admin) may edit
-            ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
+        ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
         return await shop_service.update_shop(db, shop_id, data)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.delete("/shops/{shop_id}", status_code=204)
-async def delete_shop(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_shop(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     try:
+        ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
         await shop_service.delete_shop(db, shop_id)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/shops/{shop_id}/rating")
-async def update_rating(shop_id: str, data: RatingUpdate, db: AsyncSession = Depends(get_db)):
+async def update_rating(
+    shop_id: str, data: RatingUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     try:
         return await shop_service.update_rating(db, shop_id, data.rating)
     except ShopNotFoundError as e:

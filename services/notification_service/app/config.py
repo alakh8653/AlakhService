@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/notification_db"
     REDIS_URL: str = "redis://redis:6379/4"
     CORS_ORIGINS: List[str] = ["*"]
+    SECRET_KEY: str = "change-in-production"
+    ALGORITHM: str = "HS256"
 
     FCM_SERVER_KEY: str = ""
 

@@ -42,7 +42,7 @@ async def login(
 @router.post("/refresh")
 async def refresh_token(token: str, db: AsyncSession = Depends(get_db)):
     """Obtain a new access token using a valid refresh token."""
-    user = await get_user_from_token(db, token)
+    user = await get_user_from_token(db, token, expected_type="refresh")
     if not user:
         raise CredentialsException()
     access_token = create_access_token(data={"sub": user.email})

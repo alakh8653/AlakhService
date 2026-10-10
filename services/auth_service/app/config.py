@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_DURATION_SECONDS: int = 300
     OTP_EXPIRE_SECONDS: int = 300
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    # Local testing only: log password reset tokens, since no email delivery is wired up yet.
+    # Never enable where logs are shared; a logged token lets its reader take over the account.
+    LOG_PASSWORD_RESET_TOKENS: bool = False
 
     class Config:
         env_file = ".env"

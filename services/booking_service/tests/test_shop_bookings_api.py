@@ -134,3 +134,50 @@ async def test_status_change_and_cancel_endpoints_return_the_booking(client):
 
     rejected = await client.post("/api/v1/bookings/bk-1/cancel", json={"reason": "Too late"}, headers=owner)
     assert rejected.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_strangers_cannot_see_or_change_a_booking(client):
+    stranger = auth("stranger")
+    assert (await client.get("/api/v1/bookings/bk-4", headers=stranger)).status_code == 404
+    assert (await client.get("/api/v1/bookings/bk-4/history", headers=stranger)).status_code == 404
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=stranger)).status_code == 404
+    assert (await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=stranger)).status_code == 404
+    # Owning a different shop does not help.
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-2"))).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_each_party_may_only_make_its_own_transitions(client):
+    customer, provider = auth("c3"), auth("staff-1")  # bk-4: PENDING, customer c3, provider staff-1, shop-1
+
+    assert (await client.get("/api/v1/bookings/bk-4", headers=customer)).status_code == 200
+    assert (await client.get("/api/v1/bookings/bk-4", headers=provider)).status_code == 200
+
+    # Confirming is the shop's call, not the customer's or the provider's.
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=customer)).status_code == 403
+    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=provider)).status_code == 403
+    assert (await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=provider)).status_code == 403
+
+    # The customer may cancel their own booking.
+    cancelled = await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "Changed plans"}, headers=customer)
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "CANCELLED"
+
+
+@pytest.mark.asyncio
+async def test_admin_may_resolve_what_others_cannot(client):
+    # bk-1 is COMPLETED; disputing is the customer's call, refunding the admin's.
+    assert (await client.put("/api/v1/bookings/bk-1/status", json={"status": "DISPUTED"}, headers=auth("c1"))).status_code == 200
+    assert (await client.put("/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("owner-1"))).status_code == 403
+    refunded = await client.put("/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("ops", "admin"))
+    assert refunded.status_code == 200
+    assert refunded.json()["status"] == "REFUNDED"
+
+
+@pytest.mark.asyncio
+async def test_only_access_tokens_authenticate(client):
+    for claims in ({"sub": "owner-1", "type": "refresh"}, {"sub": "owner-1", "type": "access", "purpose": "password_reset"}):
+        token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        resp = await client.get("/api/v1/bookings/shop/shop-1", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 401

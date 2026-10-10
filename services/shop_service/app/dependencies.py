@@ -1,12 +1,18 @@
-"""Caller identity forwarded by the API gateway.
+"""Caller identity from the bearer access token.
 
-The gateway verifies the access token and sets x-user-id / x-user-role, stripping any values a
-client sent, so they can be trusted for requests that come through it.
+Tokens are verified here rather than trusting gateway-set headers, because the service port can
+be reached without going through the gateway.
 """
 from dataclasses import dataclass
 from typing import Optional
 
-from fastapi import Header, HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+
+from app.config import settings
+
+bearer = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -19,18 +25,21 @@ class Caller:
         return self.role == "admin"
 
 
-def optional_caller(
-    x_user_id: Optional[str] = Header(default=None), x_user_role: Optional[str] = Header(default=None)
-) -> Optional[Caller]:
-    return Caller(x_user_id, x_user_role or "user") if x_user_id else None
+def _caller_from_token(token: str) -> Caller:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from None
+    # Refresh and single-purpose (e.g. password reset) tokens share the signing key; reject them.
+    if not payload.get("sub") or payload.get("type") != "access" or "purpose" in payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return Caller(payload["sub"], payload.get("role") or "user")
 
 
-def require_caller(
-    x_user_id: Optional[str] = Header(default=None), x_user_role: Optional[str] = Header(default=None)
-) -> Caller:
-    if not x_user_id:
+def require_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)) -> Caller:
+    if credentials is None:
         raise HTTPException(status_code=401, detail="Authentication required")
-    return Caller(x_user_id, x_user_role or "user")
+    return _caller_from_token(credentials.credentials)
 
 
 def ensure_owner(owner_id: str, caller: Caller) -> None:

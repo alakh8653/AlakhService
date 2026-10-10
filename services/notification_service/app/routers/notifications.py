@@ -9,6 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.exceptions import NotificationNotFoundError, NotificationServiceError, TemplateNotFoundError
 from app.database import get_db
+from app.dependencies import (
+    Caller,
+    caller_from_token,
+    ensure_self_or_admin,
+    require_admin,
+    require_caller,
+    target_user,
+)
 from app.models.notification import DeviceToken, NotificationTemplate
 from app.schemas.notification import (
     DeviceTokenCreate,
@@ -59,7 +67,13 @@ async def get_redis():
         await r.aclose()
 
 
-@router.post("/notifications/send", response_model=NotificationResponse, status_code=201)
+# Sending is for platform services and operators, not end users.
+@router.post(
+    "/notifications/send",
+    response_model=NotificationResponse,
+    status_code=201,
+    dependencies=[Depends(require_admin)],
+)
 async def send_notification(
     payload: NotificationCreate,
     db: AsyncSession = Depends(get_db),
@@ -85,7 +99,7 @@ async def send_notification(
 
 @router.get("/notifications/me", response_model=NotificationListResponse)
 async def get_my_notifications(
-    user_id: str = Query(...),
+    user_id: str = Depends(target_user),
     unread_only: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -97,7 +111,7 @@ async def get_my_notifications(
 @router.post("/notifications/{notification_id}/read")
 async def mark_read(
     notification_id: str,
-    user_id: str = Query(...),
+    user_id: str = Depends(target_user),
     db: AsyncSession = Depends(get_db),
 ):
     try:
@@ -109,7 +123,7 @@ async def mark_read(
 
 @router.post("/notifications/read-all")
 async def mark_all_read(
-    user_id: str = Query(...),
+    user_id: str = Depends(target_user),
     db: AsyncSession = Depends(get_db),
 ):
     count = await notification_service.mark_all_read(db, user_id)
@@ -118,7 +132,7 @@ async def mark_all_read(
 
 @router.get("/notifications/count/unread")
 async def unread_count(
-    user_id: str = Query(...),
+    user_id: str = Depends(target_user),
     db: AsyncSession = Depends(get_db),
 ):
     count = await notification_service.get_unread_count(db, user_id)
@@ -126,7 +140,13 @@ async def unread_count(
 
 
 @router.websocket("/ws/notifications/{user_id}")
-async def ws_notifications(websocket: WebSocket, user_id: str):
+async def ws_notifications(websocket: WebSocket, user_id: str, token: str = Query(...)):
+    # Browsers cannot set headers on a WebSocket handshake, so the access token comes as ?token=.
+    try:
+        ensure_self_or_admin(user_id, caller_from_token(token))
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
     await ws_manager.connect(user_id, websocket)
     r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = r.pubsub()
@@ -152,7 +172,12 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.post("/notifications/templates", response_model=NotificationTemplateResponse, status_code=201)
+@router.post(
+    "/notifications/templates",
+    response_model=NotificationTemplateResponse,
+    status_code=201,
+    dependencies=[Depends(require_admin)],
+)
 async def create_template(payload: NotificationTemplateCreate, db: AsyncSession = Depends(get_db)):
     import json as _json
     tmpl = NotificationTemplate(
@@ -169,12 +194,17 @@ async def create_template(payload: NotificationTemplateCreate, db: AsyncSession 
 
 
 @router.post("/notifications/device-tokens", response_model=DeviceTokenResponse, status_code=201)
-async def register_device_token(payload: DeviceTokenCreate, db: AsyncSession = Depends(get_db)):
+async def register_device_token(
+    payload: DeviceTokenCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
+    ensure_self_or_admin(payload.user_id, caller)
     result = await db.execute(
         select(DeviceToken).where(DeviceToken.token == payload.token)
     )
     existing = result.scalar_one_or_none()
     if existing:
+        # A device that signs in as someone else must stop receiving the previous user's pushes.
+        existing.user_id = payload.user_id
         existing.is_active = True
         existing.platform = payload.platform
         await db.flush()

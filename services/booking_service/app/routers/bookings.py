@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.schemas.booking import (
-    BookingCreate, BookingStatusUpdate, BookingCancelRequest,
-    BookingResponse, BookingStatusHistoryResponse, BookingListResponse,
+    BookingCancelRequest,
+    BookingCreate,
+    BookingListResponse,
+    BookingResponse,
+    BookingStatusHistoryResponse,
+    BookingStatusUpdate,
 )
 from app.services.booking_service import booking_service
 
@@ -99,7 +104,7 @@ async def update_status(
             db, booking_id, update_data.status, user_id, update_data.reason
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     return booking
 
@@ -115,7 +120,7 @@ async def cancel_booking(
     try:
         booking = await booking_service.cancel_booking(db, booking_id, user_id, body.reason)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     return booking
 
@@ -135,7 +140,7 @@ async def booking_websocket(booking_id: str, websocket: WebSocket):
     await manager.connect(booking_id, websocket)
     try:
         while True:
-            data = await websocket.receive_text()
+            await websocket.receive_text()
             await websocket.send_json({"type": "pong", "booking_id": booking_id})
     except WebSocketDisconnect:
         manager.disconnect(booking_id, websocket)

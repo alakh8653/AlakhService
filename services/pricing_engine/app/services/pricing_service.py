@@ -1,15 +1,16 @@
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
-import structlog
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from typing import List
 
-from app.models.pricing import PriceCalculation, Coupon
-from app.schemas.pricing import PriceCalculationRequest, CouponCreate, CouponValidateResponse
+import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import CouponExhaustedError, CouponExpiredError, CouponNotFoundError
 from app.core.rules import PricingContext, pricing_engine
-from app.core.exceptions import CouponNotFoundError, CouponExpiredError, CouponExhaustedError
+from app.models.pricing import Coupon, PriceCalculation
+from app.schemas.pricing import CouponCreate, CouponValidateResponse, PriceCalculationRequest
 
 log = structlog.get_logger()
 

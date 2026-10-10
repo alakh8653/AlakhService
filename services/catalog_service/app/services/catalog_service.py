@@ -1,19 +1,24 @@
 import json
-import structlog
 from typing import List, Optional
+
+import structlog
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 
-from app.models.catalog import ServiceCategory, ServiceItem, PricingTier, ServiceMedia, ServiceVariant
-from app.schemas.catalog import (
-    ServiceCategoryCreate, ServiceCategoryUpdate,
-    ServiceItemCreate, ServiceItemUpdate,
-    PricingTierCreate, ServiceMediaCreate, ServiceVariantCreate,
-    ServiceItemListResponse,
-)
-from app.core.exceptions import CategoryNotFoundError, ServiceNotFoundError, SlugConflictError
 from app.config import settings
+from app.core.exceptions import CategoryNotFoundError, ServiceNotFoundError, SlugConflictError
+from app.models.catalog import PricingTier, ServiceCategory, ServiceItem, ServiceMedia, ServiceVariant
+from app.schemas.catalog import (
+    PricingTierCreate,
+    ServiceCategoryCreate,
+    ServiceCategoryUpdate,
+    ServiceItemCreate,
+    ServiceItemListResponse,
+    ServiceItemUpdate,
+    ServiceMediaCreate,
+    ServiceVariantCreate,
+)
 
 log = structlog.get_logger()
 CACHE_KEY_TREE = "catalog:tree"
@@ -28,6 +33,8 @@ class CatalogService:
         cat = ServiceCategory(**data.model_dump())
         db.add(cat)
         await db.flush()
+        # Load the (empty) children collection now; lazy loading is not possible under AsyncSession.
+        await db.refresh(cat, attribute_names=["children"])
         return cat
 
     async def get_category(self, db: AsyncSession, category_id: str) -> ServiceCategory:
@@ -69,6 +76,15 @@ class CatalogService:
         if redis:
             await redis.setex(CACHE_KEY_TREE, settings.CACHE_TTL_SECONDS, json.dumps(tree))
         return tree
+
+    async def invalidate_tree(self, redis=None) -> None:
+        """Drop the cached category tree after a category write (best effort)."""
+        if not redis:
+            return
+        try:
+            await redis.delete(CACHE_KEY_TREE)
+        except Exception as exc:  # cache outage must not fail the write
+            log.warning("catalog_tree_invalidation_failed", error=str(exc))
 
     async def _build_tree_node(self, db: AsyncSession, cat: ServiceCategory) -> dict:
         result = await db.execute(select(ServiceCategory).where(ServiceCategory.parent_id == cat.id, ServiceCategory.is_active == True).order_by(ServiceCategory.order))

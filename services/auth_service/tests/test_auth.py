@@ -1,10 +1,10 @@
+import os
+import sys
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import DeclarativeBase
-import sys
-import os
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Patch the DATABASE_URL before importing app modules
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
@@ -13,23 +13,21 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 # We need to override the engine in database.py
 # Instead, we create our own engine and session for tests
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Import app modules after setting env vars
-import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import Base
-from app.models.user import User, RefreshToken, OTPCode, LoginAttempt
-from app.services.auth_service import AuthService
-from app.schemas.auth import UserCreate, UserLogin, OTPRequest, OTPVerify
 from app.core.exceptions import (
-    InvalidCredentialsError, UserAlreadyExistsError,
-    AccountLockedError, InvalidTokenError,
+    AccountLockedError,
+    InvalidCredentialsError,
 )
 from app.core.security import hash_token
+from app.database import Base
+from app.models.user import RefreshToken
+from app.schemas.auth import UserCreate, UserLogin
+from app.services.auth_service import AuthService
 
 pytest_plugins = ("anyio",)
 

@@ -56,9 +56,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          Text('Reset Password', style: AppTextStyles.heading2),
+          const Text('Reset Password', style: AppTextStyles.heading2),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Enter your registered phone number and we\'ll send you a reset link.',
             style: AppTextStyles.body2,
           ),
@@ -91,7 +91,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           color: AppColors.success,
         ),
         const SizedBox(height: 24),
-        Text('Link Sent!', style: AppTextStyles.heading2),
+        const Text('Link Sent!', style: AppTextStyles.heading2),
         const SizedBox(height: 8),
         Text(
           'A password reset link has been sent to ${_phoneController.text}.',

@@ -1,9 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
-from app.schemas.analytics import EventBatchCreate, EventResponse, MetricResponse, FunnelAnalysisRequest, FunnelAnalysisResponse, CohortResponse
+from app.schemas.analytics import (
+    CohortResponse,
+    EventBatchCreate,
+    EventResponse,
+    FunnelAnalysisRequest,
+    FunnelAnalysisResponse,
+    MetricResponse,
+)
 from app.services.analytics_service import analytics_service
 
 router = APIRouter()

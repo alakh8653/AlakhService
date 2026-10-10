@@ -1,7 +1,9 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.dependencies import pagination_params
 from app.database import get_db
 from app.dependencies import get_current_active_user
 from app.models.user import User
@@ -13,7 +15,6 @@ from app.services.payment_service import (
     initiate_payment,
     verify_payment,
 )
-from app.api.v1.dependencies import pagination_params
 
 router = APIRouter()
 

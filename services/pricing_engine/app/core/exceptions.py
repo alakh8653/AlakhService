@@ -12,3 +12,12 @@ class CouponExpiredError(PricingEngineError):
 class CouponExhaustedError(PricingEngineError):
     def __init__(self, msg="Coupon has reached maximum uses"):
         super().__init__(msg)
+
+
+class CalculationNotFoundError(PricingEngineError):
+    def __init__(self, msg="Price calculation not found"):
+        super().__init__(msg)
+
+class CouponAlreadyUsedError(PricingEngineError):
+    def __init__(self, msg="Coupon already used"):
+        super().__init__(msg)

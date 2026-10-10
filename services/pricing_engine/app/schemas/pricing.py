@@ -25,6 +25,8 @@ class PriceCalculationResponse(BaseModel):
     applied_rules: Optional[str] = None
     demand_level: float
     supply_level: float
+    coupon_code: Optional[str] = None
+    redeemed_at: Optional[datetime] = None
     created_at: datetime
 
 

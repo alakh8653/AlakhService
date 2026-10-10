@@ -204,6 +204,8 @@ jobs:
         working-directory: ${{ env.SERVICE_DIR }}
         env:
           DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          # Tests that read TEST_DATABASE_URL run against PostgreSQL instead of SQLite.
+          TEST_DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: test-secret-key
           ENVIRONMENT: test

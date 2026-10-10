@@ -125,9 +125,18 @@ describe('gateway', () => {
       expect(admin.requests.map((r) => r.url)).toEqual(['/api/v1/audit-logs?page=2']);
     });
 
+    it('maps finance reports onto payment_service', async () => {
+      const payment = await upstream();
+      const res = await request(createApp(testConfig({ payment: payment.url }), quiet))
+        .get('/api/v1/admin/finance/revenue?date_from=2026-10-01')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
+      expect(res.status).toBe(200);
+      expect(payment.requests.map((r) => r.url)).toEqual(['/api/v1/finance/revenue?date_from=2026-10-01']);
+    });
+
     it('answers 501 for dashboard endpoints no service implements', async () => {
       const res = await request(createApp(testConfig(), quiet))
-        .get('/api/v1/admin/finance/settlements')
+        .get('/api/v1/admin/monitoring/metrics')
         .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
       expect(res.status).toBe(501);
     });

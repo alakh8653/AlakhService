@@ -21,9 +21,10 @@ export default function RevenueReportPage() {
   const currency = report?.currency ?? 'INR';
   const kpis = report
     ? [
-        { label: 'Gross Revenue', value: report.totalGross },
-        { label: 'Platform Fees', value: report.totalFees },
-        { label: 'Refunds', value: report.totalRefunds },
+        { label: 'Gross collected', value: formatMoney(report.gross, currency) },
+        { label: 'Refunds', value: formatMoney(report.refunds, currency) },
+        { label: 'Net revenue', value: formatMoney(report.net, currency) },
+        { label: 'Payments', value: report.payments.toLocaleString() },
       ]
     : [];
 
@@ -46,11 +47,11 @@ export default function RevenueReportPage() {
       {!report && !error && <p className="text-gray-500">Loading report…</p>}
       {report && (
         <>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {kpis.map((kpi) => (
               <div key={kpi.label} className="bg-white rounded-xl shadow p-5">
                 <p className="text-sm text-gray-500">{kpi.label}</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{formatMoney(kpi.value, currency)}</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{kpi.value}</p>
               </div>
             ))}
           </div>
@@ -62,8 +63,8 @@ export default function RevenueReportPage() {
                 <YAxis />
                 <Tooltip formatter={(value) => formatMoney(Number(value), currency)} />
                 <Legend />
-                <Line type="monotone" dataKey="grossRevenue" name="Gross" stroke="#4f46e5" dot={false} />
-                <Line type="monotone" dataKey="platformFees" name="Fees" stroke="#16a34a" dot={false} />
+                <Line type="monotone" dataKey="gross" name="Gross" stroke="#4f46e5" dot={false} />
+                <Line type="monotone" dataKey="net" name="Net" stroke="#16a34a" dot={false} />
                 <Line type="monotone" dataKey="refunds" name="Refunds" stroke="#dc2626" dot={false} />
               </LineChart>
             </ResponsiveContainer>

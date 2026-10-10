@@ -1,20 +1,21 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.dependencies import pagination_params
 from app.database import get_db
 from app.dependencies import get_current_active_user, get_current_superuser
 from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingRead, BookingUpdate
 from app.services.booking_service import (
+    cancel_booking,
+    confirm_booking,
     create_booking,
     get_booking,
     get_user_bookings,
     update_booking,
-    cancel_booking,
-    confirm_booking,
 )
-from app.api.v1.dependencies import pagination_params
 
 router = APIRouter()
 

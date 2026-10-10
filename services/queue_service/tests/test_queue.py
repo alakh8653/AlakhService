@@ -1,20 +1,22 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
 import time
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.services.queue_service import QueueService
-from app.schemas.queue import QueueCreate, QueueJoinRequest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.exceptions import QueueFullError
 from app.core.priority_queue import WeightedFairQueue
-from app.core.exceptions import QueueNotFoundError, QueueFullError, EntryNotFoundError
+from app.database import Base
+from app.schemas.queue import QueueCreate, QueueJoinRequest
+from app.services.queue_service import QueueService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

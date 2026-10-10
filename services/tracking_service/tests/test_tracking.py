@@ -1,21 +1,22 @@
-import pytest
-import pytest_asyncio
 import os
 import sys
+
+import pytest
+import pytest_asyncio
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.database import Base
-from app.models.tracking import ProviderLocation, GeofenceRegion
-from app.services.tracking_service import TrackingService
-from app.schemas.tracking import LocationUpdate, GeofenceCreate
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.exceptions import LocationNotFoundError
+from app.core.geofence import point_in_polygon
 from app.core.kalman import KalmanGPSFilter
-from app.core.geofence import is_in_circular_geofence, point_in_polygon
-from app.core.exceptions import LocationNotFoundError, GeofenceNotFoundError
+from app.database import Base
+from app.schemas.tracking import GeofenceCreate, LocationUpdate
+from app.services.tracking_service import TrackingService
 
 pytest_plugins = ("anyio",)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

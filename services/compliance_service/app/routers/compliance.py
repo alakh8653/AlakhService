@@ -1,10 +1,19 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
-from app.database import get_db
-from app.schemas.compliance import DataExportRequestCreate, DataExportRequestResponse, DataErasureRequestCreate, DataErasureRequestResponse, ConsentRecordCreate, ConsentRecordResponse
-from app.services.compliance_service import compliance_service
+
 from app.core.exceptions import ExportRequestNotFoundError
+from app.database import get_db
+from app.schemas.compliance import (
+    ConsentRecordCreate,
+    ConsentRecordResponse,
+    DataErasureRequestCreate,
+    DataErasureRequestResponse,
+    DataExportRequestCreate,
+    DataExportRequestResponse,
+)
+from app.services.compliance_service import compliance_service
 
 router = APIRouter()
 
@@ -19,7 +28,7 @@ async def get_export_status(request_id: str, db: AsyncSession = Depends(get_db))
     try:
         return await compliance_service.get_export_status(db, request_id)
     except ExportRequestNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/gdpr/erasure", response_model=DataErasureRequestResponse, status_code=201)

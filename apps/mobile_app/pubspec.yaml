@@ -22,7 +22,7 @@ dependencies:
   web_socket_channel: ^2.4.0
   cached_network_image: ^3.3.0
   intl: ^0.18.1
-  connectivity_plus: ^5.0.1
+  connectivity_plus: ^7.3.2
   encrypt: ^5.0.3
   go_router: ^12.1.1
   fl_chart: ^1.2.0

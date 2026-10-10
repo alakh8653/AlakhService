@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from 'recharts';
 import type { DailyRevenue } from '../types';
+import { formatMoney } from '../services/format';
 
 interface RevenueChartProps {
   data: DailyRevenue[];
@@ -29,8 +30,8 @@ export default function RevenueChart({ data }: RevenueChartProps) {
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => `$${v}`} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-        <Tooltip formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Revenue']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }} />
+        <YAxis tickFormatter={(v: number) => formatMoney(v)} width={80} tick={{ fontSize: 11, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
+        <Tooltip formatter={(value) => [formatMoney(Number(value)), 'Revenue']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }} />
         <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fill="url(#revenueGradient)" dot={false} activeDot={{ r: 4 }} />
       </AreaChart>
     </ResponsiveContainer>

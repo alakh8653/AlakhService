@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 import app.models.shop  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
+from app.dependencies import get_booking_lookup
 from app.main import app
 
 
@@ -16,6 +17,8 @@ def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
     token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return {"Authorization": f"Bearer {token}"}
 
+
+BOOKINGS = {}
 
 OWNER = auth("owner-1")
 OTHER = auth("owner-2")
@@ -34,7 +37,13 @@ async def client():
             yield session
             await session.commit()
 
+    async def fake_booking(booking_id, caller):
+        booking = BOOKINGS.get(booking_id)
+        # booking_service only shows a booking to its parties.
+        return booking if booking and caller.user_id in (booking["customer_id"], "ops") else None
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_booking_lookup] = lambda: fake_booking
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -126,3 +135,28 @@ async def test_only_signed_access_tokens_identify_the_caller(client):
     assert (await client.put(url, json={"name": "X"}, headers=auth("owner-1", token_type="refresh"))).status_code == 401
     forged = jwt.encode({"sub": "owner-1", "type": "access"}, "not-the-key", algorithm="HS256")
     assert (await client.put(url, json={"name": "X"}, headers={"Authorization": f"Bearer {forged}"})).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_customers_rate_a_shop_once_per_completed_booking(client):
+    shop = await make_shop(client)
+    other = await make_shop(client, owner="owner-2", name="Other")
+    BOOKINGS.clear()
+    BOOKINGS.update({
+        "done": {"id": "done", "customer_id": "cust-1", "shop_id": shop["id"], "status": "COMPLETED"},
+        "pending": {"id": "pending", "customer_id": "cust-1", "shop_id": shop["id"], "status": "PENDING"},
+        "elsewhere": {"id": "elsewhere", "customer_id": "cust-1", "shop_id": other["id"], "status": "COMPLETED"},
+    })
+    url = f"/api/v1/shops/{shop['id']}/rating"
+    customer = auth("cust-1")
+
+    assert (await client.post(url, json={"booking_id": "done", "rating": 5})).status_code == 401
+    assert (await client.post(url, json={"booking_id": "done", "rating": 5}, headers=auth("stranger"))).status_code == 404
+    assert (await client.post(url, json={"booking_id": "elsewhere", "rating": 5}, headers=customer)).status_code == 404
+    assert (await client.post(url, json={"booking_id": "pending", "rating": 5}, headers=customer)).status_code == 409
+    assert (await client.post(url, json={"booking_id": "done", "rating": 50}, headers=customer)).status_code == 422
+
+    rated = await client.post(url, json={"booking_id": "done", "rating": 4, "comment": "Great cut"}, headers=customer)
+    assert rated.status_code == 200
+    assert rated.json()["rating_avg"] == 4.0 and rated.json()["rating_count"] == 1
+    assert (await client.post(url, json={"booking_id": "done", "rating": 1}, headers=customer)).status_code == 409

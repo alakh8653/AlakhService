@@ -3,10 +3,11 @@ from typing import List, Optional
 
 import structlog
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ShopNotFoundError
-from app.models.shop import Shop
+from app.core.exceptions import RatingExistsError, ShopNotFoundError
+from app.models.shop import Shop, ShopRating
 from app.schemas.shop import ShopCreate, ShopUpdate
 
 log = structlog.get_logger()
@@ -83,6 +84,21 @@ class ShopService:
         await db.flush()
         log.info("shop_rating_updated", shop_id=shop_id, new_avg=shop.rating_avg)
         return shop
+
+
+    async def add_rating(
+        self, db: AsyncSession, shop_id: str, booking_id: str, customer_id: str, rating: float, comment=None
+    ) -> Shop:
+        """Record a booking's rating once and fold it into the shop's average."""
+        existing = await db.execute(select(ShopRating).where(ShopRating.booking_id == booking_id))
+        if existing.scalar_one_or_none() is not None:
+            raise RatingExistsError()
+        db.add(ShopRating(shop_id=shop_id, booking_id=booking_id, customer_id=customer_id, rating=rating, comment=comment))
+        try:
+            return await self.update_rating(db, shop_id, rating)
+        except IntegrityError:  # the same booking rated concurrently
+            await db.rollback()
+            raise RatingExistsError() from None
 
 
 shop_service = ShopService()

@@ -60,3 +60,17 @@ class StaffMember(Base):
     service_ids = Column(Text, nullable=False, default="[]")  # JSON list of service listing ids
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ShopRating(Base):
+    """One customer rating per completed booking; shops.rating_avg/rating_count aggregate these."""
+
+    __tablename__ = "shop_ratings"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    booking_id = Column(String, nullable=False, unique=True)
+    customer_id = Column(String, nullable=False, index=True)
+    rating = Column(Float, nullable=False)
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -35,6 +35,8 @@ export const ROUTES: Route[] = [
 
   { prefix: '/api/v1/users', upstream: 'user' },
   { prefix: '/api/v1/shops', upstream: 'shop', access: 'public', publicMethods: READ_ONLY },
+  // Staff contact details are private to the shop owner (checked by shop_service).
+  { prefix: '/api/v1/staff', upstream: 'shop' },
   { prefix: '/api/v1/bookings', upstream: 'booking' },
 
   // Payment provider webhooks are authenticated by their signatures in payment_service.

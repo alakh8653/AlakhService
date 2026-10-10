@@ -1,6 +1,6 @@
 import random
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional
 
 import structlog
@@ -34,6 +34,7 @@ class BookingService:
             booking_number=await self._generate_booking_number(db),
             customer_id=customer_id,
             service_id=booking_data.service_id,
+            shop_id=booking_data.shop_id,
             status=BookingStatus.PENDING.value,
             scheduled_at=booking_data.scheduled_at,
             duration_minutes=booking_data.duration_minutes,
@@ -89,6 +90,76 @@ class BookingService:
             "total": total,
             "page": page,
             "per_page": per_page,
+        }
+
+    def _shop_query(
+        self,
+        shop_id: str,
+        status_filter: Optional[str] = None,
+        provider_id: Optional[str] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ):
+        """Bookings of one shop, optionally narrowed by status, assignee and scheduled date (inclusive)."""
+        query = select(Booking).where(Booking.shop_id == shop_id)
+        if status_filter:
+            query = query.where(Booking.status == status_filter)
+        if provider_id:
+            query = query.where(Booking.provider_id == provider_id)
+        if date_from:
+            query = query.where(Booking.scheduled_at >= datetime.combine(date_from, time.min, tzinfo=timezone.utc))
+        if date_to:
+            query = query.where(
+                Booking.scheduled_at < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=timezone.utc)
+            )
+        return query
+
+    async def list_shop_bookings(
+        self,
+        db: AsyncSession,
+        shop_id: str,
+        page: int = 1,
+        per_page: int = 20,
+        status_filter: Optional[str] = None,
+        provider_id: Optional[str] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ) -> dict:
+        query = self._shop_query(shop_id, status_filter, provider_id, date_from, date_to)
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar() or 0
+        result = await db.execute(
+            query.order_by(Booking.scheduled_at.desc(), Booking.id).offset((page - 1) * per_page).limit(per_page)
+        )
+        return {"items": list(result.scalars().all()), "total": total, "page": page, "per_page": per_page}
+
+    async def shop_summary(self, db: AsyncSession, shop_id: str, date_from: date, date_to: date, top_n: int = 5) -> dict:
+        """Totals for bookings scheduled in the range; revenue counts completed bookings only."""
+        bookings = (await db.execute(self._shop_query(shop_id, date_from=date_from, date_to=date_to))).scalars().all()
+
+        by_status: dict = {}
+        by_day = {date_from + timedelta(days=i): {"revenue": 0, "bookings": 0} for i in range((date_to - date_from).days + 1)}
+        by_service: dict = {}
+        for b in bookings:
+            by_status[b.status] = by_status.get(b.status, 0) + 1
+            day = b.scheduled_at.astimezone(timezone.utc).date() if b.scheduled_at.tzinfo else b.scheduled_at.date()
+            revenue = b.total_amount if b.status == BookingStatus.COMPLETED.value else 0
+            if day in by_day:
+                by_day[day]["bookings"] += 1
+                by_day[day]["revenue"] += revenue
+            svc = by_service.setdefault(b.service_id, {"service_id": b.service_id, "bookings": 0, "revenue": 0})
+            svc["bookings"] += 1
+            svc["revenue"] += revenue
+
+        return {
+            "shop_id": shop_id,
+            "date_from": date_from,
+            "date_to": date_to,
+            "total_bookings": len(bookings),
+            "total_revenue": sum(d["revenue"] for d in by_day.values()),
+            "unique_customers": len({b.customer_id for b in bookings}),
+            "by_status": by_status,
+            "by_day": [{"day": d, **v} for d, v in sorted(by_day.items())],
+            "top_services": sorted(by_service.values(), key=lambda s: (-s["bookings"], -s["revenue"]))[:top_n],
         }
 
     async def transition_status(

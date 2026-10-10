@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import List, Optional
+from datetime import date, datetime
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class BookingCreate(BaseModel):
     customer_id: str
     service_id: str
+    shop_id: Optional[str] = None
     scheduled_at: datetime
     duration_minutes: int
     address_id: Optional[str] = None
@@ -45,6 +46,7 @@ class BookingResponse(BaseModel):
     customer_id: str
     provider_id: Optional[str] = None
     service_id: str
+    shop_id: Optional[str] = None
     status: str
     scheduled_at: datetime
     duration_minutes: int
@@ -72,3 +74,27 @@ class BookingListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+
+
+class DailyBookingRevenue(BaseModel):
+    day: date
+    revenue: int  # cents, completed bookings
+    bookings: int
+
+
+class ServiceBookingStats(BaseModel):
+    service_id: str
+    bookings: int
+    revenue: int  # cents, completed bookings
+
+
+class ShopBookingSummary(BaseModel):
+    shop_id: str
+    date_from: date
+    date_to: date
+    total_bookings: int
+    total_revenue: int  # cents, completed bookings
+    unique_customers: int
+    by_status: Dict[str, int]
+    by_day: List[DailyBookingRevenue]
+    top_services: List[ServiceBookingStats]

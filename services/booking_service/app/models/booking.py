@@ -14,6 +14,7 @@ class Booking(Base):
     customer_id = Column(String, nullable=False, index=True)
     provider_id = Column(String, nullable=True, index=True)
     service_id = Column(String, nullable=False)
+    shop_id = Column(String, nullable=True, index=True)
     status = Column(String, default="PENDING", nullable=False)
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
     duration_minutes = Column(Integer, nullable=False)

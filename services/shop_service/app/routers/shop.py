@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ShopNotFoundError
 from app.database import get_db
+from app.dependencies import Caller, ensure_owner, optional_caller
 from app.schemas.shop import RatingUpdate, ShopCreate, ShopResponse, ShopUpdate
 from app.services.shop_service import shop_service
 
@@ -20,9 +21,10 @@ async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db)):
 async def list_shops(
     skip: int = 0,
     limit: int = 20,
+    owner_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    return await shop_service.list_shops(db, skip=skip, limit=limit)
+    return await shop_service.list_shops(db, skip=skip, limit=limit, owner_id=owner_id)
 
 
 @router.get("/shops/search", response_model=List[ShopResponse])
@@ -44,8 +46,15 @@ async def get_shop(shop_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/shops/{shop_id}", response_model=ShopResponse)
-async def update_shop(shop_id: str, data: ShopUpdate, db: AsyncSession = Depends(get_db)):
+async def update_shop(
+    shop_id: str,
+    data: ShopUpdate,
+    db: AsyncSession = Depends(get_db),
+    caller: Optional[Caller] = Depends(optional_caller),
+):
     try:
+        if caller is not None:  # requests through the gateway: only the owner (or an admin) may edit
+            ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
         return await shop_service.update_shop(db, shop_id, data)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

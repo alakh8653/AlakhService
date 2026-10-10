@@ -24,7 +24,7 @@ service, so the gateway forwards by longest matching prefix (see `src/routes.ts`
 |---|---|
 | `auth` | auth_service |
 | `users` | user_service |
-| `shops` | shop_service |
+| `shops`, `staff` | shop_service |
 | `bookings` | booking_service |
 | `payments`, `accounts`, `webhooks` | payment_service |
 | `notifications` | notification_service |

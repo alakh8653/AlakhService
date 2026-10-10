@@ -41,8 +41,13 @@ class ShopService:
             raise ShopNotFoundError()
         return shop
 
-    async def list_shops(self, db: AsyncSession, skip: int = 0, limit: int = 20) -> List[Shop]:
-        result = await db.execute(select(Shop).where(Shop.is_active == True).offset(skip).limit(limit))
+    async def list_shops(
+        self, db: AsyncSession, skip: int = 0, limit: int = 20, owner_id: Optional[str] = None
+    ) -> List[Shop]:
+        """Active shops; filtered by owner it also includes the owner's inactive shops."""
+        query = select(Shop)
+        query = query.where(Shop.owner_id == owner_id) if owner_id else query.where(Shop.is_active == True)
+        result = await db.execute(query.order_by(Shop.created_at, Shop.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def search_shops(self, db: AsyncSession, q: Optional[str] = None, city: Optional[str] = None, category: Optional[str] = None) -> List[Shop]:

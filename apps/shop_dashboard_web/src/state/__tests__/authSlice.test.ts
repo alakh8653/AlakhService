@@ -1,7 +1,23 @@
-import reducer, { clearAuth, setCredentials, setError, setLoading } from '../authSlice';
-import type { AuthTokens, User } from '../../types';
+import reducer, { clearAuth, setCredentials, setError, setLoading, setShop } from '../authSlice';
+import type { AuthTokens, Shop, User } from '../../types';
 
-const user: User = { id: 'u1', name: 'Asha', email: 'asha@example.com', role: 'owner', shopId: 's1' };
+const user: User = { id: 'u1', name: 'Asha', email: 'asha@example.com', phone: null, role: 'customer' };
+const shop: Shop = {
+  id: 's1',
+  ownerId: 'u1',
+  name: 'Asha Salon',
+  category: 'salon',
+  description: null,
+  city: 'Pune',
+  address: null,
+  phone: null,
+  email: null,
+  ratingAvg: 4.5,
+  ratingCount: 10,
+  isActive: true,
+  isVerified: true,
+  createdAt: '2026-01-01T00:00:00Z',
+};
 const tokens: AuthTokens = { accessToken: 'access', refreshToken: 'refresh', expiresAt: 1_700_000_000_000 };
 
 describe('authSlice', () => {
@@ -12,11 +28,18 @@ describe('authSlice', () => {
   });
 
   it('stores credentials on login', () => {
-    const state = reducer(undefined, setCredentials({ tokens, user }));
+    const state = reducer(undefined, setCredentials({ tokens, user, shop }));
     expect(state.isAuthenticated).toBe(true);
     expect(state.user).toEqual(user);
     expect(state.accessToken).toBe('access');
     expect(state.expiresAt).toBe(tokens.expiresAt);
+    expect(state.shop).toEqual(shop);
+  });
+
+  it('replaces the shop after settings are saved', () => {
+    const loggedIn = reducer(undefined, setCredentials({ tokens, user, shop }));
+    const state = reducer(loggedIn, setShop({ ...shop, name: 'Renamed' }));
+    expect(state.shop?.name).toBe('Renamed');
   });
 
   it('clears loading when an error is set', () => {
@@ -27,10 +50,11 @@ describe('authSlice', () => {
   });
 
   it('resets everything on logout', () => {
-    const loggedIn = reducer(undefined, setCredentials({ tokens, user }));
+    const loggedIn = reducer(undefined, setCredentials({ tokens, user, shop }));
     const state = reducer(loggedIn, clearAuth());
     expect(state.isAuthenticated).toBe(false);
     expect(state.accessToken).toBeNull();
     expect(state.user).toBeNull();
+    expect(state.shop).toBeNull();
   });
 });

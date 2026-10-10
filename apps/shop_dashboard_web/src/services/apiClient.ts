@@ -1,9 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { store } from '../state/store';
 import { clearAuth, setTokens } from '../state/authSlice';
-import type { AuthTokens } from '../types';
+import { toAuthTokens, type TokenResponse } from './tokens';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
+// Falls back to the local API gateway (see .env.example) when the variable is not set.
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:3000/api/v1';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -70,13 +71,13 @@ apiClient.interceptors.response.use(
     }
 
     try {
-      const { data } = await axios.post<AuthTokens>(
-        `${BASE_URL}/auth/refresh`,
-        { refreshToken },
-      );
-      store.dispatch(setTokens(data));
-      processQueue(null, data.accessToken);
-      originalRequest.headers.set('Authorization', `Bearer ${data.accessToken}`);
+      const { data } = await axios.post<TokenResponse>(`${BASE_URL}/auth/refresh`, {
+        refresh_token: refreshToken,
+      });
+      const tokens = toAuthTokens(data);
+      store.dispatch(setTokens(tokens));
+      processQueue(null, tokens.accessToken);
+      originalRequest.headers.set('Authorization', `Bearer ${tokens.accessToken}`);
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);

@@ -19,6 +19,9 @@ class Shop(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     city = Column(String, nullable=True, index=True)
+    address = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -42,3 +45,18 @@ class ShopHours(Base):
     day_of_week = Column(Integer, nullable=False)  # 0=Monday, 6=Sunday
     open_time = Column(String, nullable=False)   # "HH:MM"
     close_time = Column(String, nullable=False)  # "HH:MM"
+
+
+class StaffMember(Base):
+    __tablename__ = "staff_members"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, nullable=True, index=True)  # platform account, when the staff member has one
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    role = Column(String, nullable=False, default="staff")
+    service_ids = Column(Text, nullable=False, default="[]")  # JSON list of service listing ids
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -1,114 +1,105 @@
-// Shared TypeScript interfaces for the Shop Dashboard
+// Shared TypeScript interfaces for the Shop Dashboard.
+// Field names are camelCase; services/*.ts map them from the snake_case API.
 
+/** Booking lifecycle, as enforced by booking_service's state machine. */
 export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled'
-  | 'no_show';
-
-export type PaymentStatus = 'unpaid' | 'paid' | 'refunded' | 'partial';
-
-export interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  avatarUrl?: string;
-}
-
-export interface Service {
-  id: string;
-  name: string;
-  description: string;
-  durationMinutes: number;
-  price: number;
-  currency: string;
-  category: string;
-  isActive: boolean;
-  imageUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface StaffMember {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  avatarUrl?: string;
-  assignedServiceIds: string[];
-  isActive: boolean;
-  joinedAt: string;
-}
-
-export interface TimeSlot {
-  start: string; // ISO datetime
-  end: string;   // ISO datetime
-}
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'ASSIGNED'
+  | 'PROVIDER_EN_ROUTE'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISPUTED'
+  | 'REFUNDED';
 
 export interface Booking {
   id: string;
   bookingNumber: string;
-  customer: Customer;
-  service: Service;
-  staff: StaffMember;
-  timeSlot: TimeSlot;
+  customerId: string;
+  providerId: string | null;
+  serviceId: string;
+  shopId: string | null;
   status: BookingStatus;
-  paymentStatus: PaymentStatus;
-  totalAmount: number;
-  currency: string;
-  notes?: string;
+  scheduledAt: string; // ISO datetime
+  durationMinutes: number;
+  notes: string | null;
+  totalAmount: number; // minor units (paise)
   createdAt: string;
   updatedAt: string;
 }
 
+export interface Service {
+  id: string;
+  shopId: string;
+  categoryId: string | null;
+  name: string;
+  description: string | null;
+  priceCents: number;
+  durationMinutes: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface StaffMember {
+  id: string;
+  shopId: string;
+  userId: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  serviceIds: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Shop {
+  id: string;
+  ownerId: string;
+  name: string;
+  category: string;
+  description: string | null;
+  city: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: string;
+}
+
 export interface DailyRevenue {
-  date: string;   // 'YYYY-MM-DD'
-  revenue: number;
+  date: string; // 'YYYY-MM-DD'
+  revenue: number; // minor units
   bookingCount: number;
 }
 
+export interface ServiceStats {
+  serviceId: string;
+  bookingCount: number;
+  revenue: number; // minor units
+}
+
 export interface Analytics {
+  dateFrom: string;
+  dateTo: string;
   totalBookings: number;
-  totalRevenue: number;
-  activeCustomers: number;
-  averageRating: number;
+  totalRevenue: number; // minor units, completed bookings
+  uniqueCustomers: number;
+  bookingsByStatus: Partial<Record<BookingStatus, number>>;
   revenueByDay: DailyRevenue[];
-  topServices: Array<{ service: Service; bookingCount: number; revenue: number }>;
-  bookingsByStatus: Record<BookingStatus, number>;
+  topServices: ServiceStats[];
 }
 
 export interface User {
   id: string;
   name: string;
-  email: string;
-  role: 'owner' | 'manager' | 'staff';
-  shopId: string;
-  avatarUrl?: string;
-}
-
-export interface Shop {
-  id: string;
-  name: string;
-  description: string;
-  address: string;
-  phone: string;
-  email: string;
-  logoUrl?: string;
-  coverImageUrl?: string;
-  openingHours: Record<string, { open: string; close: string; closed: boolean }>;
-  timezone: string;
-  currency: string;
-  createdAt: string;
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-  success: boolean;
+  email: string | null;
+  phone: string | null;
+  role: string;
 }
 
 export interface PaginatedResponse<T> {

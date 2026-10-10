@@ -1,8 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { AuthTokens, User } from '../types';
+import type { AuthTokens, Shop, User } from '../types';
 
 interface AuthState {
   user: User | null;
+  shop: Shop | null;
   accessToken: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
@@ -13,6 +14,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
+  shop: null,
   accessToken: null,
   refreshToken: null,
   expiresAt: null,
@@ -27,10 +29,11 @@ const authSlice = createSlice({
   reducers: {
     setCredentials(
       state,
-      action: PayloadAction<{ tokens: AuthTokens; user: User }>,
+      action: PayloadAction<{ tokens: AuthTokens; user: User; shop: Shop }>,
     ) {
-      const { tokens, user } = action.payload;
+      const { tokens, user, shop } = action.payload;
       state.user = user;
+      state.shop = shop;
       state.accessToken = tokens.accessToken;
       state.refreshToken = tokens.refreshToken;
       state.expiresAt = tokens.expiresAt;
@@ -45,6 +48,9 @@ const authSlice = createSlice({
     setUser(state, action: PayloadAction<User>) {
       state.user = action.payload;
     },
+    setShop(state, action: PayloadAction<Shop>) {
+      state.shop = action.payload;
+    },
     setLoading(state, action: PayloadAction<boolean>) {
       state.isLoading = action.payload;
     },
@@ -54,6 +60,7 @@ const authSlice = createSlice({
     },
     clearAuth(state) {
       state.user = null;
+      state.shop = null;
       state.accessToken = null;
       state.refreshToken = null;
       state.expiresAt = null;
@@ -68,6 +75,7 @@ export const {
   setCredentials,
   setTokens,
   setUser,
+  setShop,
   setLoading,
   setError,
   clearAuth,

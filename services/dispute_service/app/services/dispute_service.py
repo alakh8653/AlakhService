@@ -1,10 +1,10 @@
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional, Tuple
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DisputeNotFoundError
@@ -40,6 +40,29 @@ class DisputeService:
         if not dispute:
             raise DisputeNotFoundError()
         return dispute
+
+    async def list_disputes(
+        self,
+        db: AsyncSession,
+        status: Optional[DisputeStatus] = None,
+        booking_id: Optional[str] = None,
+        raised_by: Optional[str] = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> Tuple[List[Dispute], int]:
+        """Newest first, with optional filters; returns (page of disputes, total matching)."""
+        query = select(Dispute)
+        if status is not None:
+            query = query.where(Dispute.status == status)
+        if booking_id:
+            query = query.where(Dispute.booking_id == booking_id)
+        if raised_by:
+            query = query.where(Dispute.raised_by == raised_by)
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+        result = await db.execute(
+            query.order_by(Dispute.created_at.desc(), Dispute.id).offset((page - 1) * per_page).limit(per_page)
+        )
+        return list(result.scalars().all()), total
 
     async def transition(self, db: AsyncSession, dispute_id: str, new_status: str) -> Dispute:
         dispute = await self.get_dispute(db, dispute_id)

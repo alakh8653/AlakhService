@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers.shop import router as shop_router
+from app.routers.staff import router as staff_router
 
 logger = structlog.get_logger()
 
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.APP_NAME, version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(shop_router, prefix="/api/v1", tags=["shops"])
+app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 
 @app.get("/health")
 async def health():

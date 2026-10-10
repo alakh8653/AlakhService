@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import structlog
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_shop_access
 from app.schemas.booking import (
     BookingCancelRequest,
     BookingCreate,
@@ -13,6 +14,7 @@ from app.schemas.booking import (
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
+    ShopBookingSummary,
 )
 from app.services.booking_service import booking_service
 
@@ -77,6 +79,36 @@ async def list_bookings(
     user_id = current_user.get("sub")
     result = await booking_service.list_bookings(db, user_id, page, per_page, status)
     return result
+
+
+@router.get("/bookings/shop/{shop_id}", response_model=BookingListResponse)
+async def list_shop_bookings(
+    shop_id: str = Depends(require_shop_access),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    provider_id: Optional[str] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    return await booking_service.list_shop_bookings(
+        db, shop_id, page, per_page, status, provider_id=provider_id, date_from=date_from, date_to=date_to
+    )
+
+
+@router.get("/bookings/shop/{shop_id}/summary", response_model=ShopBookingSummary)
+async def shop_booking_summary(
+    shop_id: str = Depends(require_shop_access),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    date_to = date_to or datetime.now(timezone.utc).date()
+    date_from = date_from or date_to - timedelta(days=29)
+    if date_from > date_to or (date_to - date_from).days > 366:
+        raise HTTPException(status_code=400, detail="Invalid date range (max 366 days)")
+    return await booking_service.shop_summary(db, shop_id, date_from, date_to)
 
 
 @router.get("/bookings/{booking_id}", response_model=BookingResponse)

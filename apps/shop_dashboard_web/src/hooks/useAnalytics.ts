@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import apiClient from '../services/apiClient';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../state/store';
+import { getShopSummary } from '../services/bookingService';
+import { apiErrorMessage } from '../services/format';
 import type { Analytics } from '../types';
 
 interface UseAnalyticsResult {
@@ -9,29 +12,26 @@ interface UseAnalyticsResult {
   refetch: () => void;
 }
 
-export function useAnalytics(
-  dateFrom?: string,
-  dateTo?: string,
-): UseAnalyticsResult {
+/** Booking summary for the signed-in owner's shop (defaults to the last 30 days). */
+export function useAnalytics(dateFrom?: string, dateTo?: string): UseAnalyticsResult {
+  const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    if (!shopId) return;
     let cancelled = false;
     setIsLoading(true);
     setError(null);
 
-    apiClient
-      .get<Analytics>('/analytics/summary', {
-        params: { dateFrom, dateTo },
-      })
-      .then(({ data }) => {
+    getShopSummary(shopId, dateFrom, dateTo)
+      .then((data) => {
         if (!cancelled) setAnalytics(data);
       })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
+      .catch((err: unknown) => {
+        if (!cancelled) setError(apiErrorMessage(err, 'Could not load analytics'));
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -40,7 +40,7 @@ export function useAnalytics(
     return () => {
       cancelled = true;
     };
-  }, [dateFrom, dateTo, tick]);
+  }, [shopId, dateFrom, dateTo, tick]);
 
   const refetch = () => setTick((t) => t + 1);
 

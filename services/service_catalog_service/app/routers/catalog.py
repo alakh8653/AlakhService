@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ServiceListingNotFoundError
@@ -30,10 +30,14 @@ async def create_category(data: CategoryCreate, db: AsyncSession = Depends(get_d
 @router.get("/services", response_model=List[ServiceListingResponse])
 async def list_services(
     skip: int = 0,
-    limit: int = 20,
+    limit: int = Query(20, ge=1, le=200),
+    shop_id: Optional[str] = None,
+    include_inactive: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    return await catalog_service.list_services(db, skip=skip, limit=limit)
+    return await catalog_service.list_services(
+        db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive
+    )
 
 
 @router.post("/services", response_model=ServiceListingResponse, status_code=201)

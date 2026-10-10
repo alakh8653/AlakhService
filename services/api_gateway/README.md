@@ -24,7 +24,7 @@ service, so the gateway forwards by longest matching prefix (see `src/routes.ts`
 |---|---|
 | `auth` | auth_service |
 | `users` | user_service |
-| `shops` | shop_service |
+| `shops`, `staff` | shop_service |
 | `bookings` | booking_service |
 | `payments`, `accounts`, `webhooks` | payment_service |
 | `notifications` | notification_service |
@@ -40,10 +40,16 @@ service, so the gateway forwards by longest matching prefix (see `src/routes.ts`
 | `categories`, `services` | service_catalog_service |
 | `catalog` | catalog_service |
 
-Admin dashboard paths are mapped onto the owning services: `admin/audit-logs` → admin_service
-`audit-logs`, `admin/disputes` → dispute_service `disputes`. `admin/monitoring/health` is answered
-by the gateway itself with the health of every service. Dashboard endpoints that no service
-implements yet (`admin/finance`, `admin/monitoring/metrics`, `admin/access`) return `501`.
+Admin dashboard paths are mapped onto the owning services:
+
+| Dashboard path (`/api/v1/admin/…`) | Served by |
+|---|---|
+| `audit-logs` | admin_service `audit-logs` |
+| `disputes` | dispute_service `disputes` |
+| `finance` | payment_service `finance` (settlements, revenue) |
+| `access` | admin_service `access` (roles, permissions) |
+| `monitoring/health` | the gateway: health of every service |
+| `monitoring/metrics` | the gateway: request rate, error rate, latency and circuit state per service over the last 5 minutes |
 
 ## Access
 
@@ -54,6 +60,10 @@ Refresh tokens and single-purpose tokens (password reset) are rejected.
   (verified by signature in payment_service); `GET` on `shops`, `categories`, `services`, `catalog`.
 - **Admin role:** `admin/*`, `audit-logs`, `system-config`, `risk`, and analytics reporting.
 - **Everything else:** any signed-in user. Services still check the token themselves.
+
+For authenticated routes the gateway forwards the verified identity as `x-user-id` and
+`x-user-role` (used, for example, to attribute audit log entries). Client-supplied values of these
+headers are always removed, so services can trust them when the gateway is their only entry point.
 
 ## Configuration
 

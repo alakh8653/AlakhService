@@ -74,8 +74,20 @@ class CatalogService:
             raise ServiceListingNotFoundError()
         return service
 
-    async def list_services(self, db: AsyncSession, skip: int = 0, limit: int = 20) -> List[ServiceListing]:
-        result = await db.execute(select(ServiceListing).where(ServiceListing.is_active == True).offset(skip).limit(limit))
+    async def list_services(
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 20,
+        shop_id: Optional[str] = None,
+        include_inactive: bool = False,
+    ) -> List[ServiceListing]:
+        query = select(ServiceListing)
+        if shop_id:
+            query = query.where(ServiceListing.shop_id == shop_id)
+        if not include_inactive:
+            query = query.where(ServiceListing.is_active == True)
+        result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def search_services(self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None) -> List[ServiceListing]:

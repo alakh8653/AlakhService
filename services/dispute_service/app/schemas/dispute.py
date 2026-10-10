@@ -30,6 +30,13 @@ class DisputeResponse(BaseModel):
     resolved_at: Optional[datetime] = None
 
 
+class DisputeListResponse(BaseModel):
+    data: List[DisputeResponse]
+    total: int
+    page: int
+    per_page: int
+
+
 class DisputeMessageCreate(BaseModel):
     author_id: str
     content: str

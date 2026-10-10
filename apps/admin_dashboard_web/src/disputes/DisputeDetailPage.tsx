@@ -1,34 +1,66 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { getDisputeById, updateDisputeStatus, type Dispute, type DisputeStatus } from './DisputeService';
-import { ArrowLeft, FileText, Image } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
+import { currentAdminId } from '../apiClient';
+import {
+  addDisputeMessage,
+  escalateDispute,
+  formatStatus,
+  getDisputeById,
+  getDisputeMessages,
+  resolveDispute,
+  startReview,
+  STATUS_COLORS,
+  type Dispute,
+  type DisputeMessage,
+} from './DisputeService';
 
 export default function DisputeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [dispute, setDispute] = useState<Dispute | null>(null);
+  const [messages, setMessages] = useState<DisputeMessage[]>([]);
   const [resolution, setResolution] = useState('');
+  const [reply, setReply] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     setError(null);
-    getDisputeById(id)
-      .then(setDispute)
+    Promise.all([getDisputeById(id), getDisputeMessages(id)])
+      .then(([d, m]) => {
+        setDispute(d);
+        setMessages(m);
+      })
       .catch(() => setError('Failed to load dispute.'));
   }, [id]);
 
-  const handleResolve = async (status: DisputeStatus) => {
-    if (!dispute) return;
+  const run = async (action: () => Promise<Dispute>, failure: string) => {
     setIsSaving(true);
     setError(null);
     try {
-      const updated = await updateDisputeStatus(dispute.id, status, resolution);
-      setDispute(updated);
+      setDispute(await action());
     } catch {
-      setError('Failed to update dispute.');
+      setError(failure);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const sendReply = async (event: FormEvent) => {
+    event.preventDefault();
+    const adminId = currentAdminId();
+    if (!dispute || !reply.trim() || !adminId) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const message = await addDisputeMessage(dispute.id, adminId, reply.trim());
+      setMessages((m) => [...m, message]);
+      setReply('');
+    } catch {
+      setError('Failed to send message.');
     } finally {
       setIsSaving(false);
     }
@@ -36,65 +68,93 @@ export default function DisputeDetailPage() {
 
   if (!dispute) return <p className={error ? 'text-red-600' : 'text-gray-500'}>{error ?? 'Loading dispute…'}</p>;
 
+  const isOpen = dispute.status !== 'RESOLVED';
+
   return (
     <div className="space-y-6 max-w-4xl">
       <button onClick={() => navigate('/disputes')} className="flex items-center gap-1 text-sm text-indigo-600 hover:underline">
         <ArrowLeft size={16} /> Back to Disputes
       </button>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
       <div className="bg-white rounded-2xl shadow p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Case #{dispute.caseNumber}</h1>
             <p className="text-sm text-gray-500 mt-0.5">Opened {format(new Date(dispute.createdAt), 'PPP')}</p>
           </div>
-          <span className="text-sm font-semibold px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full capitalize">
-            {dispute.status.replace('_', ' ')}
+          <span className={`text-sm font-semibold px-3 py-1 rounded-full capitalize ${STATUS_COLORS[dispute.status]}`}>
+            {formatStatus(dispute.status)}
           </span>
         </div>
         <div className="grid sm:grid-cols-2 gap-4 text-sm">
-          <div><p className="text-gray-500">Customer</p><p className="font-medium">{dispute.customerName}</p></div>
-          <div><p className="text-gray-500">Shop</p><p className="font-medium">{dispute.shopName}</p></div>
-          <div><p className="text-gray-500">Reason</p><p className="font-medium">{dispute.reason}</p></div>
+          <div><p className="text-gray-500">Type</p><p className="font-medium capitalize">{dispute.type.replace(/_/g, ' ')}</p></div>
+          <div><p className="text-gray-500">Raised by</p><p className="font-medium font-mono text-xs">{dispute.raisedBy}</p></div>
           <div><p className="text-gray-500">Booking ID</p><p className="font-medium font-mono text-xs">{dispute.bookingId}</p></div>
+          {dispute.resolvedAt && (
+            <div><p className="text-gray-500">Resolved</p><p className="font-medium">{format(new Date(dispute.resolvedAt), 'PPp')}</p></div>
+          )}
         </div>
         <div className="mt-4">
           <p className="text-gray-500 text-sm">Description</p>
           <p className="mt-1 text-gray-800">{dispute.description}</p>
         </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Evidence ({dispute.evidence.length})</h2>
-        {dispute.evidence.length === 0 ? <p className="text-gray-400 text-sm">No evidence submitted.</p> : (
-          <div className="space-y-3">
-            {dispute.evidence.map((e) => (
-              <div key={e.id} className="flex items-start gap-3 bg-gray-50 rounded-xl p-3">
-                {e.type === 'image' ? <Image size={18} className="text-blue-500 mt-0.5" /> : <FileText size={18} className="text-gray-500 mt-0.5" />}
-                <div className="flex-1 text-sm">
-                  <p className="font-medium text-gray-900 capitalize">{e.type}</p>
-                  {e.content && <p className="text-gray-600 mt-0.5">{e.content}</p>}
-                  {e.url && <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline text-xs">{e.url}</a>}
-                  <p className="text-xs text-gray-400 mt-1">By {e.submittedBy} · {format(new Date(e.createdAt), 'PPp')}</p>
-                </div>
-              </div>
-            ))}
+        {dispute.resolution && (
+          <div className="mt-4">
+            <p className="text-gray-500 text-sm">Resolution</p>
+            <p className="mt-1 text-gray-800">{dispute.resolution}</p>
           </div>
         )}
       </div>
 
-      {dispute.status !== 'resolved' && dispute.status !== 'closed' && (
-        <div className="bg-white rounded-2xl shadow p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900">Resolve Dispute</h2>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} rows={3} placeholder="Enter resolution notes…" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <div className="flex gap-3">
-            <button onClick={() => handleResolve('resolved')} disabled={isSaving} className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-              Mark Resolved
-            </button>
-            <button onClick={() => handleResolve('closed')} disabled={isSaving} className="bg-gray-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-50">
-              Close Without Resolution
-            </button>
+      <div className="bg-white rounded-2xl shadow p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Evidence ({dispute.evidenceUrls.length})</h2>
+        {dispute.evidenceUrls.length === 0 ? (
+          <p className="text-gray-400 text-sm">No evidence submitted.</p>
+        ) : (
+          <ul className="space-y-2">
+            {dispute.evidenceUrls.map((url) => (
+              <li key={url} className="flex items-center gap-2 text-sm">
+                <FileText size={16} className="text-gray-500" />
+                <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all">{url}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow p-6 space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Messages ({messages.length})</h2>
+        {messages.length === 0 && <p className="text-gray-400 text-sm">No messages yet.</p>}
+        {messages.map((m) => (
+          <div key={m.id} className="bg-gray-50 rounded-xl p-3 text-sm">
+            <p className="text-gray-800">{m.content}</p>
+            <p className="text-xs text-gray-400 mt-1">{m.authorId} · {format(new Date(m.createdAt), 'PPp')}</p>
           </div>
+        ))}
+        <form onSubmit={sendReply} className="flex gap-2">
+          <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write a message…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <button type="submit" disabled={isSaving || !reply.trim()} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">Send</button>
+        </form>
+      </div>
+
+      {isOpen && (
+        <div className="bg-white rounded-2xl shadow p-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">Actions</h2>
+          {dispute.status === 'OPEN' && (
+            <button onClick={() => run(() => startReview(dispute.id), 'Failed to start review.')} disabled={isSaving} className="bg-yellow-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 disabled:opacity-50">
+              Start review
+            </button>
+          )}
+          {dispute.status === 'UNDER_REVIEW' && (
+            <button onClick={() => run(() => escalateDispute(dispute.id), 'Failed to escalate.')} disabled={isSaving} className="bg-orange-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50">
+              Escalate
+            </button>
+          )}
+          <textarea value={resolution} onChange={(e) => setResolution(e.target.value)} rows={3} placeholder="Resolution notes (required to resolve)…" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button onClick={() => run(() => resolveDispute(dispute.id, resolution.trim()), 'Failed to resolve dispute.')} disabled={isSaving || !resolution.trim()} className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50">
+            Mark resolved
+          </button>
         </div>
       )}
     </div>

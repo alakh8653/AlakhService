@@ -8,3 +8,8 @@ class ShopNotFoundError(ShopServiceError):
 class ShopAlreadyExistsError(ShopServiceError):
     def __init__(self, msg="Shop already exists"):
         super().__init__(msg)
+
+
+class StaffNotFoundError(ShopServiceError):
+    def __init__(self, msg="Staff member not found"):
+        super().__init__(msg)

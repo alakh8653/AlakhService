@@ -4,10 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { apiErrorMessage } from '../services/format';
 
 const schema = z.object({
   email: z.string().email('Invalid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(1, 'Password is required'),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -28,7 +29,7 @@ export default function LoginPage() {
       await login(values);
       navigate('/dashboard');
     } catch (err) {
-      setServerError((err as Error).message ?? 'Login failed');
+      setServerError(apiErrorMessage(err, 'Login failed'));
     }
   };
 

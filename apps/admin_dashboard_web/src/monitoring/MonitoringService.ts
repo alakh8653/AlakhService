@@ -11,14 +11,17 @@ export interface ServiceHealth {
   checkedAt: string;
 }
 
+/** Traffic a service received through the API gateway over the last 5 minutes. */
 export interface ServiceMetric {
   id: string;
   service: string;
+  requests: number;
   requestsPerMinute: number;
+  /** 0..1 share of failed requests (errors, timeouts, 5xx). */
   errorRate: number;
+  p50LatencyMs: number;
   p95LatencyMs: number;
-  cpuPercent: number;
-  memoryMb: number;
+  circuit: 'closed' | 'open' | 'half-open';
 }
 
 export async function getSystemHealth(): Promise<ServiceHealth[]> {

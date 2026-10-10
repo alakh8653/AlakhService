@@ -35,12 +35,15 @@ export const ROUTES: Route[] = [
 
   { prefix: '/api/v1/users', upstream: 'user' },
   { prefix: '/api/v1/shops', upstream: 'shop', access: 'public', publicMethods: READ_ONLY },
+  // Staff contact details are private to the shop owner (checked by shop_service).
+  { prefix: '/api/v1/staff', upstream: 'shop' },
   { prefix: '/api/v1/bookings', upstream: 'booking' },
 
   // Payment provider webhooks are authenticated by their signatures in payment_service.
   { prefix: '/api/v1/webhooks', upstream: 'payment', access: 'public' },
   { prefix: '/api/v1/payments', upstream: 'payment' },
   { prefix: '/api/v1/accounts', upstream: 'payment' },
+  { prefix: '/api/v1/finance', upstream: 'payment', access: 'admin' },
 
   { prefix: '/api/v1/notifications', upstream: 'notification' },
   { prefix: '/api/v1/locations', upstream: 'tracking' },
@@ -67,16 +70,12 @@ export const ROUTES: Route[] = [
   // Admin dashboard API (apps/admin_dashboard_web), mapped onto the owning services.
   { prefix: '/api/v1/admin/audit-logs', upstream: 'admin', rewrite: '/api/v1/audit-logs', access: 'admin' },
   { prefix: '/api/v1/admin/disputes', upstream: 'dispute', rewrite: '/api/v1/disputes', access: 'admin' },
+  { prefix: '/api/v1/admin/finance', upstream: 'payment', rewrite: '/api/v1/finance', access: 'admin' },
+  { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/audit-logs', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/system-config', upstream: 'admin', access: 'admin' },
-];
-
-/** Admin dashboard endpoints that no service implements yet; answered with 501. */
-export const NOT_IMPLEMENTED_PREFIXES = [
-  '/api/v1/admin/finance',
-  '/api/v1/admin/monitoring/metrics',
-  '/api/v1/admin/access',
+  { prefix: '/api/v1/access', upstream: 'admin', access: 'admin' },
 ];
 
 export function matchesPrefix(path: string, prefix: string): boolean {

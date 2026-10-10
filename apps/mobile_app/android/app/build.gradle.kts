@@ -14,6 +14,23 @@ val localProperties = Properties().apply {
 val googleMapsApiKey: String =
     localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
 
+// Release signing: android/key.properties (git-ignored) or ANDROID_KEYSTORE_* environment
+// variables (CI). Without either, release builds fall back to the debug key, which is fine for
+// local testing but cannot be published.
+val keyProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun signingValue(property: String, env: String): String? =
+    keyProperties.getProperty(property)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+val releaseStoreFile = signingValue("storeFile", "ANDROID_KEYSTORE_PATH")
+val releaseStorePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+    .all { it != null }
+
 android {
     namespace = "com.alakhservice.alakh_service"
     // permission_handler_android 13 must be compiled against API 37 (compileSdk only;
@@ -41,11 +58,26 @@ android {
         manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                // A relative storeFile resolves against android/app, like Flutter's template.
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("No release keystore configured; signing the release build with the debug key.")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

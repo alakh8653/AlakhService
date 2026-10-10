@@ -1,37 +1,18 @@
 ## Summary
 
-<!-- Brief description of the changes -->
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-- [ ] Performance improvement
-- [ ] Security fix
-
-## Related Issues
-Closes #
-
-## Checklist
-- [ ] Tests added/updated
-- [ ] Documentation updated
-- [ ] No breaking changes (or migration guide provided)
-- [ ] Passes CI checks
-- [ ] Reviewed security implications
-- [ ] API changes documented in OpenAPI spec
-=======
-<!-- Briefly describe the changes in this PR -->
+<!-- Brief description of the changes and why they are needed -->
 
 ## Type of Change
 - [ ] 🐛 Bug fix
 - [ ] ✨ New feature
+- [ ] 💥 Breaking change
 - [ ] 🔧 Refactor
+- [ ] ⚡ Performance improvement
 - [ ] 📝 Documentation
 - [ ] 🏗️ Infrastructure
 - [ ] 🔒 Security fix
 
-## Related Issue
+## Related Issues
 Closes #
 
 ## Changes Made
@@ -45,7 +26,8 @@ Closes #
 ## Checklist
 - [ ] Code follows project style guidelines
 - [ ] Self-reviewed code
-- [ ] Added/updated tests
-- [ ] Updated documentation
-- [ ] No breaking changes (or documented if breaking)
-
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] No breaking changes (or migration guide provided)
+- [ ] Reviewed security implications
+- [ ] API changes documented in OpenAPI spec

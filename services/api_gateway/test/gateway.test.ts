@@ -107,6 +107,8 @@ describe('gateway', () => {
       const app = createApp(testConfig({ catalog: catalog.url }), quiet);
       expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
       expect((await request(app).post('/api/v1/catalog/categories').send({})).status).toBe(401);
+      expect((await request(app).post('/api/v1/catalog/services/search').send({ query: 'cut' })).status).toBe(200);
+      expect((await request(app).put('/api/v1/catalog/services/search').send({})).status).toBe(401);
     });
   });
 

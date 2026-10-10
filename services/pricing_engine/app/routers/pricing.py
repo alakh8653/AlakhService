@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
 from app.schemas.pricing import (
     CouponCreate,
     CouponResponse,
@@ -17,20 +18,24 @@ router = APIRouter()
 
 
 @router.post("/pricing/calculate", response_model=PriceCalculationResponse, status_code=201)
-async def calculate_price(data: PriceCalculationRequest, db: AsyncSession = Depends(get_db)):
+async def calculate_price(
+    data: PriceCalculationRequest, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
+    ensure_self_or_admin(data.customer_id, caller)
     return await pricing_service.calculate_price(db, data)
 
 
 @router.get("/pricing/history/{customer_id}", response_model=List[PriceCalculationResponse])
-async def get_pricing_history(customer_id: str, db: AsyncSession = Depends(get_db)):
+async def get_pricing_history(customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    ensure_self_or_admin(customer_id, caller)
     return await pricing_service.get_pricing_history(db, customer_id)
 
 
-@router.post("/coupons", response_model=CouponResponse, status_code=201)
+@router.post("/coupons", response_model=CouponResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_coupon(data: CouponCreate, db: AsyncSession = Depends(get_db)):
     return await pricing_service.create_coupon(db, data)
 
 
 @router.get("/coupons/{code}/validate", response_model=CouponValidateResponse)
-async def validate_coupon(code: str, db: AsyncSession = Depends(get_db)):
+async def validate_coupon(code: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     return await pricing_service.validate_coupon(db, code)

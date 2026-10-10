@@ -2,11 +2,22 @@
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.models.dispute  # noqa: F401  (registers the models on Base.metadata)
+from app.config import settings
 from app.database import Base, get_db
+from app.dependencies import get_booking_check
 from app.main import app
+
+# Who booking_service would show each booking to.
+BOOKING_PARTIES = {"b-1": {"cust-1", "owner-1"}}
+
+
+def auth(sub: str, role: str = "admin") -> dict:
+    token = jwt.encode({"sub": sub, "role": role, "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest_asyncio.fixture
@@ -21,8 +32,13 @@ async def client():
             yield session
             await session.commit()
 
+    async def booking_check(booking_id, caller):
+        return caller.user_id in BOOKING_PARTIES.get(booking_id, set())
+
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    app.dependency_overrides[get_booking_check] = lambda: booking_check
+    # Requests are made as an admin unless a test says otherwise.
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=auth("ops")) as ac:
         yield ac
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -82,3 +98,33 @@ async def test_review_escalate_resolve_flow(client):
     assert resolved["status"] == "RESOLVED"
     assert resolved["resolution"] == "Refunded 50%"
     assert resolved["resolved_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_only_booking_parties_raise_and_see_disputes(client):
+    customer, owner, stranger = auth("cust-1", "user"), auth("owner-1", "user"), auth("stranger", "user")
+    body = {"booking_id": "b-1", "raised_by": "someone-else", "dispute_type": "service_quality", "description": "Late"}
+
+    assert (await client.post("/api/v1/disputes", json=body, headers={"Authorization": ""})).status_code == 401
+    assert (await client.post("/api/v1/disputes", json=body, headers=stranger)).status_code == 404
+    created = await client.post("/api/v1/disputes", json=body, headers=customer)
+    assert created.status_code == 201
+    dispute = created.json()
+    assert dispute["raised_by"] == "cust-1"  # never the name the client sent
+
+    url = f"/api/v1/disputes/{dispute['id']}"
+    assert (await client.get(url, headers=stranger)).status_code == 404
+    assert (await client.get(url, headers=owner)).status_code == 200  # the shop can answer
+
+    reply = await client.post(f"{url}/messages", json={"author_id": "cust-1", "content": "We were on time"}, headers=owner)
+    assert reply.status_code == 201
+    assert reply.json()["author_id"] == "owner-1"
+    assert (await client.get(f"{url}/messages", headers=stranger)).status_code == 404
+    assert len((await client.get(f"{url}/messages", headers=customer)).json()) == 1
+
+    # Users list only what they raised; only admins move a dispute along.
+    assert [d["id"] for d in (await client.get("/api/v1/disputes", headers=owner)).json()["data"]] == []
+    assert [d["id"] for d in (await client.get("/api/v1/disputes", headers=customer)).json()["data"]] == [dispute["id"]]
+    assert (await client.post(f"{url}/review", headers=customer)).status_code == 403
+    assert (await client.post(f"{url}/resolve", json={"resolution": "refund"}, headers=owner)).status_code == 403
+    assert (await client.post(f"{url}/review")).status_code == 200

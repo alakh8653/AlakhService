@@ -4,14 +4,21 @@ import json
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.core.permissions import DEFAULT_ROLES, PERMISSIONS
 from app.database import Base, get_db
 from app.main import app
 from app.models.admin import AdminUser, AuditLog, Role
+
+
+def auth(sub: str, role: str = "admin") -> dict:
+    token = jwt.encode({"sub": sub, "role": role, "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest_asyncio.fixture
@@ -37,7 +44,8 @@ async def ctx():
             await session.commit()
 
     app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    # Requests are made as admin u1 unless a test says otherwise.
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=auth("u1")) as client:
         yield client, factory
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -83,7 +91,6 @@ async def test_update_permissions_is_audited_and_admin_is_protected(ctx):
     resp = await client.put(
         "/api/v1/access/roles/role-support/permissions",
         json={"permissions": ["disputes:read"]},
-        headers={"x-user-id": "u1"},
     )
     assert resp.status_code == 200
     assert resp.json()["permissions"] == ["disputes:read"]
@@ -117,3 +124,28 @@ async def test_delete_role_rules(ctx):
     in_use = await client.delete(f"/api/v1/access/roles/{ops['id']}")
     assert in_use.status_code == 409
     assert "assigned to 1" in in_use.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_only_admin_tokens_are_accepted(ctx):
+    client, factory = ctx
+    url = "/api/v1/access/roles"
+    assert (await client.get(url, headers={"Authorization": ""})).status_code == 401
+    assert (await client.get(url, headers=auth("u2", role="user"))).status_code == 403
+    refresh = jwt.encode({"sub": "u1", "role": "admin", "type": "refresh"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    assert (await client.get(url, headers={"Authorization": f"Bearer {refresh}"})).status_code == 401
+    assert (await client.get("/api/v1/audit-logs", headers=auth("u2", role="user"))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_audit_entries_name_the_admin_from_the_token(ctx):
+    client, factory = ctx
+    resp = await client.post(
+        "/api/v1/admin/users/victim/ban",
+        json={"reason": "spam", "banned_by": "someone-else"},
+        headers={**auth("u1"), "x-user-id": "someone-else"},
+    )
+    assert resp.status_code == 200
+    async with factory() as db:
+        entry = (await db.execute(select(AuditLog).where(AuditLog.action == "ban_user"))).scalar_one()
+    assert entry.admin_id == "u1"

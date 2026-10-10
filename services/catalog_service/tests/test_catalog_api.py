@@ -2,12 +2,19 @@
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.models.catalog  # noqa: F401  (registers the models on Base.metadata)
+from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.routers.catalog import get_redis
+
+
+def auth(sub: str, role: str = "admin") -> dict:
+    token = jwt.encode({"sub": sub, "role": role, "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return {"Authorization": f"Bearer {token}"}
 
 
 class FakeRedis:
@@ -42,7 +49,8 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_redis] = override_get_redis
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    # Catalogue changes are admin-only; requests are made as an admin unless a test says otherwise.
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=auth("ops")) as ac:
         yield ac
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -87,3 +95,12 @@ async def test_category_writes_invalidate_cached_tree(client):
 
     resp = await client.get("/api/v1/catalog/categories/tree")
     assert [c["slug"] for c in resp.json()] == ["plumbing"]
+
+
+@pytest.mark.asyncio
+async def test_browsing_is_public_but_changes_are_admin_only(client):
+    category = {"name": "Painting", "slug": "painting"}
+    assert (await client.post("/api/v1/catalog/categories", json=category, headers={"Authorization": ""})).status_code == 401
+    assert (await client.post("/api/v1/catalog/categories", json=category, headers=auth("u1", "user"))).status_code == 403
+    assert (await client.post("/api/v1/catalog/categories", json=category)).status_code == 201
+    assert (await client.get("/api/v1/catalog/categories", headers={"Authorization": ""})).status_code == 200

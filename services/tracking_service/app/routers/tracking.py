@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import GeofenceNotFoundError, LocationNotFoundError
 from app.database import get_db
+from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
 from app.schemas.tracking import (
     GeofenceCheckResponse,
     GeofenceCreate,
@@ -16,19 +17,21 @@ router = APIRouter()
 
 
 @router.post("/locations", response_model=LocationResponse, status_code=201)
-async def update_location(data: LocationUpdate, db: AsyncSession = Depends(get_db)):
+async def update_location(data: LocationUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    # Providers report only their own position.
+    ensure_self_or_admin(data.provider_id, caller)
     return await tracking_service.update_location(db, data)
 
 
 @router.get("/locations/{provider_id}", response_model=LocationResponse)
-async def get_location(provider_id: str, db: AsyncSession = Depends(get_db)):
+async def get_location(provider_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     try:
         return await tracking_service.get_latest_location(db, provider_id)
     except LocationNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
-@router.post("/geofences", response_model=GeofenceResponse, status_code=201)
+@router.post("/geofences", response_model=GeofenceResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_geofence(data: GeofenceCreate, db: AsyncSession = Depends(get_db)):
     return await tracking_service.create_geofence(db, data)
 
@@ -39,6 +42,7 @@ async def check_geofence(
     lat: float = Query(...),
     lon: float = Query(...),
     db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
 ):
     try:
         return await tracking_service.check_geofence(db, geofence_id, lat, lon)

@@ -36,9 +36,15 @@
     main
     "@hookform/resolvers": "^5.2.2",
     "zod": "^4.3.6",
+ dependabot/npm_and_yarn/apps/admin_dashboard_web/zod-4.3.6
+    "lucide-react": "^0.294.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0"
+
     "lucide-react": "^0.545.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.3.1"
+ main
   },
   "devDependencies": {
 dependabot/npm_and_yarn/apps/admin_dashboard_web/eslint-10.2.0

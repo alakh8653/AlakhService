@@ -1,10 +1,10 @@
 import redis.asyncio as aioredis
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.mailer import send_password_reset
 from app.core.security import create_password_reset_token
 from app.database import get_db
 from app.dependencies import get_current_user, get_redis
@@ -96,16 +96,16 @@ async def verify_otp(
 @router.post("/auth/forgot-password")
 async def forgot_password(
     body: PasswordResetRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
-    if user:
+    if user and user.is_active:
         reset_token = create_password_reset_token(str(user.id), user.hashed_password)
-        # TODO: deliver reset_token by email once notification_service has a template for it.
         log.info("password_reset_requested", user_id=user.id)
-        if settings.LOG_PASSWORD_RESET_TOKENS:
-            log.warning("password_reset_token_for_local_testing", user_id=user.id, token=reset_token)
+        # Sent after the response, so the reply takes as long whether or not the account exists.
+        background.add_task(send_password_reset, str(user.id), user.email, user.full_name, reset_token)
     return {"message": "If the email exists, a reset link has been sent"}
 
 

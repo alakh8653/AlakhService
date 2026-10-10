@@ -25,3 +25,17 @@ adminApiClient.interceptors.response.use((response) => {
 });
 
 export default adminApiClient;
+
+/** Id (`sub` claim) of the signed-in admin, read from the stored access token. */
+export function currentAdminId(): string | null {
+  const token = localStorage.getItem('admin_token');
+  const payload = token?.split('.')[1];
+  if (!payload) return null;
+  try {
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const sub: unknown = JSON.parse(json).sub;
+    return typeof sub === 'string' ? sub : null;
+  } catch {
+    return null;
+  }
+}

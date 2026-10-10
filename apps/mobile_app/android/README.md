@@ -33,6 +33,37 @@ flutter build apk --release
 flutter build appbundle --release
 ```
 
-Release builds are currently signed with the debug key. Before publishing, create a release
-keystore and a `key.properties` (both git-ignored) and add a `signingConfigs.release` block in
-`app/build.gradle.kts`.
+### Signing
+
+`app/build.gradle.kts` signs release builds with a release keystore when one is configured, and
+falls back to the debug key (with a build warning) when it is not. Debug-signed builds are fine
+for testing but cannot be uploaded to Google Play.
+
+1. Create a keystore once and keep it (and its passwords) somewhere safe. Losing it means you can
+   no longer update the app:
+
+   ```bash
+   keytool -genkey -v -keystore ~/alakh-upload.jks -keyalg RSA -keysize 2048 \
+     -validity 10000 -alias upload
+   ```
+
+2. Locally, create `android/key.properties` (git-ignored, as are `*.jks` and `*.keystore`):
+
+   ```properties
+   storeFile=/home/you/alakh-upload.jks
+   storePassword=...
+   keyAlias=upload
+   keyPassword=...
+   ```
+
+   A relative `storeFile` is resolved against `android/app`.
+
+3. In CI, set the same values as environment variables instead: `ANDROID_KEYSTORE_PATH`,
+   `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. The Mobile CI
+   workflow does this from the repository secrets `ANDROID_KEYSTORE_BASE64`
+   (`base64 -w0 alakh-upload.jks`), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+   `ANDROID_KEY_PASSWORD`. When the secrets are absent (forks, or before they are added) the
+   APK is debug-signed.
+
+Values in `key.properties` take precedence over the environment. All four must be set for the
+release key to be used.

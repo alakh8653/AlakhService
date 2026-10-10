@@ -65,8 +65,8 @@ jobs:
           retention-days: 14
 
   # ---------------------------------------------------------------------------
-  # Build Android APK (release, signed with the debug key until a release
-  # keystore is configured)
+  # Build Android APK (release; signed with the release keystore when the
+  # ANDROID_KEYSTORE_* secrets are set, otherwise with the debug key)
   # ---------------------------------------------------------------------------
   build-android:
     name: Build Android APK
@@ -96,8 +96,32 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Configure release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::notice::ANDROID_KEYSTORE_BASE64 is not set; the APK will be signed with the debug key."
+            exit 0
+          fi
+          keystore="$RUNNER_TEMP/release.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "ANDROID_KEYSTORE_PATH=$keystore"
+            echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+            echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
       - name: Build release APK
         run: flutter build apk --release
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7

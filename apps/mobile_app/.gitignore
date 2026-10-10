@@ -14,3 +14,6 @@ build/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 ios/Flutter/ephemeral/
+
+# Flutter profile-build manifest (the root .gitignore ignores any "profile" path)
+!android/app/src/profile/

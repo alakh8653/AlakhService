@@ -205,11 +205,22 @@ make dev
 ```
 
 Each service gets its own PostgreSQL database (see `infra/postgres/init-databases.sql`) and
-creates its tables on start-up.
+applies its Alembic migrations on start-up.
+
+**Database migrations** live in `services/<name>/migrations` (and `backend/migrations`):
+
+```bash
+make db-migrate                                              # all services
+make db-new-migration SERVICE=auth_service NAME="add column" # after changing models (needs `make dev`)
+make db-rollback SERVICE=auth_service
+```
+
+CI applies every service's migrations to PostgreSQL and fails if the models and migrations drift.
 
 ### 3. Verify services are healthy
 
 ```bash
+curl http://localhost:3000/health          # API Gateway (apps use http://localhost:3000/api/v1)
 curl http://localhost:8001/health          # Auth Service
 curl http://localhost:8002/health          # User Service
 curl http://localhost:8001/docs            # Interactive API docs (any service)
@@ -230,14 +241,14 @@ cd apps/mobile_app
 flutter pub get
 dart run build_runner build   # generates test mocks
 flutter test
-flutter run                   # android/ and ios/ platform projects must be generated first
+flutter run                   # see android/README.md and ios/README.md for API keys
 ```
 
 ### 6. Web dashboards (development)
 
 ```bash
 cd apps/admin_dashboard_web    # or apps/shop_dashboard_web
-cp .env.example .env           # set VITE_API_BASE_URL
+cp .env.example .env           # VITE_API_BASE_URL=http://localhost:3000/api/v1 (the gateway)
 npm ci
 npm run dev
 ```
@@ -265,8 +276,9 @@ npm run dev
 | `pricing_engine` | 8015 | Dynamic pricing rules and computation |
 | `service_catalog_service` | 8016 | Service definitions, variants, SKUs |
 | `catalog_service` | 8017 | Service categories, items and pricing tiers |
+| `api_gateway` | 3000 | Single entry point: routing, JWT checks, rate limiting, circuit breaker ([docs](services/api_gateway/README.md)) |
 
-> The API gateway and ML platform described in the architecture are not in this repository yet.
+> The ML platform described in the architecture is not in this repository yet.
 
 ---
 

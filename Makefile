@@ -22,6 +22,7 @@ ROOT_DIR     := $(shell pwd)
 SERVICES_DIR := $(ROOT_DIR)/services
 MOBILE_DIR   := $(ROOT_DIR)/apps/mobile_app
 WEB_APPS     := $(ROOT_DIR)/apps/admin_dashboard_web $(ROOT_DIR)/apps/shop_dashboard_web
+NODE_PROJECTS := $(WEB_APPS) $(SERVICES_DIR)/api_gateway
 PY_PROJECTS  := $(wildcard $(SERVICES_DIR)/*/requirements.txt) $(ROOT_DIR)/backend/requirements.txt
 INFRA_DIR    := $(ROOT_DIR)/infra
 DOCS_DIR     := $(ROOT_DIR)/docs
@@ -117,7 +118,7 @@ setup-python: ## Create virtualenv and install all Python dependencies
 .PHONY: setup-node
 setup-node: ## Install Node.js dependencies
 	$(call log,"Installing Node.js dependencies...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) ci) || exit 1; \
 	done
@@ -215,7 +216,7 @@ test-python: ## Run all Python tests with coverage
 .PHONY: test-node
 test-node: ## Run all Node/TypeScript tests with coverage
 	$(call log,"Running TypeScript tests...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) test -- --coverage) || exit 1; \
 	done
@@ -287,7 +288,7 @@ lint-python: ## Lint Python code with Ruff + MyPy
 .PHONY: lint-node
 lint-node: ## Lint TypeScript/JavaScript with ESLint
 	$(call log,"Linting TypeScript...")
-	@for app in $(WEB_APPS); do \
+	@for app in $(NODE_PROJECTS); do \
 		echo "→ $$app"; \
 		(cd "$$app" && $(NPM) run lint && $(NPM) run type-check) || exit 1; \
 	done
@@ -344,51 +345,53 @@ format-terraform: ## Format Terraform files
 # DATABASE
 # =============================================================================
 
+# Each service owns its database and Alembic migrations (services/<name>/migrations).
+# These targets run inside the service containers started by `make dev` / `docker compose up`.
+COMPOSE_DEV     := docker compose -f docker-compose.yml -f docker-compose.dev.yml
+DB_SERVICES     := $(notdir $(patsubst %/,%,$(dir $(wildcard $(SERVICES_DIR)/*/alembic.ini))))
+
 .PHONY: db-migrate
-db-migrate: ## Apply all pending database migrations
+db-migrate: ## Apply pending migrations for every service (or one: make db-migrate SERVICE=auth_service)
 	$(call log,"Applying database migrations...")
-	$(PYTHON_VENV) -m alembic upgrade head
+	@for svc in $(or $(SERVICE),$(DB_SERVICES)); do \
+		echo "→ $$svc"; \
+		docker compose exec -T $$svc alembic upgrade head || exit 1; \
+	done
 	$(call success,"Migrations applied")
 
-.PHONY: db-migrate/%
-db-migrate/%: ## Apply migrations for a specific service: make db-migrate/auth-service
-	$(call log,"Applying migrations for $*...")
-	cd $(SERVICES_DIR)/$* && $(PYTHON_VENV) -m alembic upgrade head
-	$(call success,"Migrations applied for $*")
-
 .PHONY: db-rollback
-db-rollback: ## Roll back the last migration
-	$(call log,"Rolling back last migration...")
-	$(PYTHON_VENV) -m alembic downgrade -1
-	$(call warn,"Rolled back 1 migration")
+db-rollback: ## Roll back the last migration of one service: make db-rollback SERVICE=auth_service
+	@test -n "$(SERVICE)" || { echo "SERVICE is required, e.g. make db-rollback SERVICE=auth_service"; exit 1; }
+	docker compose exec -T $(SERVICE) alembic downgrade -1
+	$(call warn,"Rolled back 1 migration for $(SERVICE)")
 
 .PHONY: db-new-migration
-db-new-migration: ## Create a new migration: make db-new-migration NAME="add_users_table"
-	@test -n "$(NAME)" || ($(call error,"NAME is required: make db-new-migration NAME=...") && exit 1)
-	$(call log,"Creating migration: $(NAME)...")
-	$(PYTHON_VENV) -m alembic revision --autogenerate -m "$(NAME)"
-	$(call success,"Migration created")
+db-new-migration: ## Autogenerate a migration (needs make dev): make db-new-migration SERVICE=auth_service NAME="add column"
+	@test -n "$(SERVICE)" -a -n "$(NAME)" || { echo "SERVICE and NAME are required"; exit 1; }
+	$(call log,"Creating migration for $(SERVICE): $(NAME)...")
+	$(COMPOSE_DEV) exec -T $(SERVICE) alembic revision --autogenerate -m "$(NAME)"
+	$(call success,"Migration written to services/$(SERVICE)/migrations/versions")
 
 .PHONY: db-seed
-db-seed: ## Seed database with development data
-	$(call log,"Seeding database...")
-	$(PYTHON_VENV) $(SCRIPTS_DIR)/seed_database.py
-	$(call success,"Database seeded")
+db-seed: ## Seed databases with development data (scripts/seed_database.py)
+	@if [ -f $(SCRIPTS_DIR)/seed_database.py ]; then \
+		$(PYTHON_VENV) $(SCRIPTS_DIR)/seed_database.py; \
+	else \
+		echo "No seed script yet (expected $(SCRIPTS_DIR)/seed_database.py)"; \
+	fi
 
 .PHONY: db-reset
-db-reset: ## Drop and recreate database (DESTRUCTIVE)
-	$(call warn,"This will DESTROY all data. Press Ctrl-C to cancel...")
+db-reset: ## Drop all service databases and re-run migrations (DESTRUCTIVE)
+	$(call warn,"This will DESTROY all local data. Press Ctrl-C to cancel...")
 	@sleep 3
-	$(call log,"Resetting database...")
-	docker compose exec postgres psql -U alakh -c "DROP DATABASE IF EXISTS alakhservice;"
-	docker compose exec postgres psql -U alakh -c "CREATE DATABASE alakhservice;"
-	$(MAKE) db-migrate
-	$(MAKE) db-seed
-	$(call success,"Database reset complete")
+	$(call log,"Resetting databases...")
+	docker compose down -v
+	docker compose up -d --build
+	$(call success,"Databases recreated; services re-apply migrations on start")
 
 .PHONY: db-shell
-db-shell: ## Open a psql shell
-	docker compose exec postgres psql -U alakh alakhservice
+db-shell: ## Open a psql shell: make db-shell DB=auth_db
+	docker compose exec postgres psql -U $${POSTGRES_USER:-alakh} $(or $(DB),alakhservice_db)
 
 .PHONY: db-backup
 db-backup: ## Backup the database to backups/

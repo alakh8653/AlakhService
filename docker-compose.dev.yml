@@ -74,3 +74,10 @@ services:
     <<: *dev
     volumes:
       - ./services/catalog_service:/app
+  api_gateway:
+    build:
+      context: ./services/api_gateway
+      target: dev
+    command: ["npx", "tsx", "watch", "src/server.ts"]
+    volumes:
+      - ./services/api_gateway/src:/app/src

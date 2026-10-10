@@ -1,10 +1,21 @@
 import 'package:local_auth/local_auth.dart';
-import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:flutter/services.dart';
 
 /// Wraps [LocalAuthentication] for fingerprint / Face ID authentication.
 class BiometricAuthService {
   final LocalAuthentication _localAuth = LocalAuthentication();
+
+  /// Failures reported as a plain `false` from [authenticate]: biometrics are
+  /// unavailable on this device, or the user/system cancelled the prompt.
+  static const Set<LocalAuthExceptionCode> _unavailableOrCancelled = {
+    LocalAuthExceptionCode.noBiometricHardware,
+    LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable,
+    LocalAuthExceptionCode.noBiometricsEnrolled,
+    LocalAuthExceptionCode.noCredentialsSet,
+    LocalAuthExceptionCode.userCanceled,
+    LocalAuthExceptionCode.systemCanceled,
+    LocalAuthExceptionCode.timeout,
+  };
 
   /// Returns `true` if the device supports biometric authentication and has
   /// at least one enrolled biometric.
@@ -37,14 +48,10 @@ class BiometricAuthService {
     try {
       return await _localAuth.authenticate(
         localizedReason: localizedReason,
-        options: const AuthenticationOptions(
-          biometricOnly: false,
-          stickyAuth: true,
-        ),
+        persistAcrossBackgrounding: true,
       );
-    } on PlatformException catch (e) {
-      if (e.code == auth_error.notAvailable ||
-          e.code == auth_error.notEnrolled) {
+    } on LocalAuthException catch (e) {
+      if (_unavailableOrCancelled.contains(e.code)) {
         return false;
       }
       rethrow;

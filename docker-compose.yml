@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build   # hot reload
 #
 # Each service gets its own database (created by infra/postgres/init-databases.sql)
-# and creates its tables on start-up, since the services do not ship migrations yet.
+# and applies its Alembic migrations (services/<name>/migrations) on start-up.
 # =============================================================================
 
 x-python-service: &python-service
@@ -27,27 +27,15 @@ x-python-service: &python-service
     timeout: 5s
     retries: 5
     start_period: 20s
+  # Apply this service's Alembic migrations, then start the API.
   command:
     - sh
     - -c
-    - |
-      python - <<'PY'
-      import asyncio, importlib, pkgutil
-      import app.main  # noqa: F401
-      import app.models as models
-      from app.database import Base, engine
-      for mod in pkgutil.walk_packages(models.__path__, "app.models."):
-          importlib.import_module(mod.name)
-      async def create_tables():
-          async with engine.begin() as conn:
-              await conn.run_sync(Base.metadata.create_all)
-          await engine.dispose()
-      asyncio.run(create_tables())
-      PY
-      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $${UVICORN_EXTRA_ARGS:-}
+    - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $${UVICORN_EXTRA_ARGS:-}
 
 x-service-env: &service-env
-  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+  # Services that issue/verify JWTs read SECRET_KEY; one shared value across the stack.
+  SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
   ENVIRONMENT: ${ENVIRONMENT:-development}
 
 services:
@@ -301,6 +289,52 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/catalog_db
       REDIS_URL: redis://redis:6379/16
+
+  # ---------------------------------------------------------------------------
+  # API Gateway (single entry point for the apps: http://localhost:3000/api/v1)
+  # ---------------------------------------------------------------------------
+
+  api_gateway:
+    container_name: alakh_api_gateway
+    build:
+      context: ./services/api_gateway
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    environment:
+      SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      AUTH_SERVICE_URL: http://auth_service:8000
+      USER_SERVICE_URL: http://user_service:8000
+      SHOP_SERVICE_URL: http://shop_service:8000
+      BOOKING_SERVICE_URL: http://booking_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      TRACKING_SERVICE_URL: http://tracking_service:8000
+      QUEUE_SERVICE_URL: http://queue_service:8000
+      DISPATCH_SERVICE_URL: http://dispatch_service:8000
+      ANALYTICS_SERVICE_URL: http://analytics_service:8000
+      DISPUTE_SERVICE_URL: http://dispute_service:8000
+      TRUST_RISK_SERVICE_URL: http://trust_risk_service:8000
+      ADMIN_SERVICE_URL: http://admin_service:8000
+      COMPLIANCE_SERVICE_URL: http://compliance_service:8000
+      PRICING_ENGINE_URL: http://pricing_engine:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+      CATALOG_SERVICE_URL: http://catalog_service:8000
+    depends_on:
+      auth_service:
+        condition: service_healthy
+      user_service:
+        condition: service_healthy
+      catalog_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

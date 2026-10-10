@@ -1,26 +1,35 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.config import settings
 from app.core.exceptions import CredentialsException
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt only uses the first 72 bytes of a password; truncate explicitly (as passlib did)
+# because bcrypt>=5 raises on longer input.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _password_bytes(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Return True if the plain password matches the stored hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(_password_bytes(plain_password), hashed_password.encode("ascii"))
+    except ValueError:  # malformed or non-bcrypt hash
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Return the bcrypt hash of the given password."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt()).decode("ascii")
 
 
 def create_access_token(

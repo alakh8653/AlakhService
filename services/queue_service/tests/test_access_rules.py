@@ -59,3 +59,12 @@ async def test_queue_rules(client):
     assert (await client.post(f"/api/v1/queues/{qid}/join", json=join, headers=BOB)).status_code == 403
     assert (await client.get(f"/api/v1/queues/{qid}/position/alice", headers=BOB)).status_code == 403
     assert (await client.delete(f"/api/v1/queues/{qid}/entries/someone-elses", headers=BOB)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_customers_can_find_a_services_open_queues(client):
+    created = await client.post("/api/v1/queues", json={"service_id": "svc-1"}, headers=ALICE)
+    assert (await client.get("/api/v1/queues", params={"service_id": "svc-1"})).status_code == 401
+    found = await client.get("/api/v1/queues", params={"service_id": "svc-1"}, headers=BOB)
+    assert [q["id"] for q in found.json()] == [created.json()["id"]]
+    assert (await client.get("/api/v1/queues", params={"service_id": "other"}, headers=BOB)).json() == []

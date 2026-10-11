@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 import structlog
 from sqlalchemy import select
@@ -35,6 +36,13 @@ class QueueService:
         await db.flush()
         log.info("queue_created", queue_id=q.id, service_id=q.service_id)
         return q
+
+    async def queues_for_service(self, db: AsyncSession, service_id: str) -> List[Queue]:
+        """Queues currently taking customers for a service."""
+        result = await db.execute(
+            select(Queue).where(Queue.service_id == service_id, Queue.is_accepting.is_(True)).order_by(Queue.created_at)
+        )
+        return list(result.scalars().all())
 
     async def get_queue(self, db: AsyncSession, queue_id: str) -> Queue:
         result = await db.execute(select(Queue).where(Queue.id == queue_id))

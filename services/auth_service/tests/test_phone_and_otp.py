@@ -134,3 +134,13 @@ async def test_login_code_signs_in_and_reset_code_gives_a_working_reset_token(db
     assert reset.reset_token and reset.access_token is None
     assert await service.reset_password(db, reset.reset_token, "BrandNew9") is True
     assert await service.login(db, FakeRedis(), UserLogin(phone=PHONE, password="BrandNew9"), request_)
+
+
+@pytest.mark.asyncio
+async def test_verifying_a_new_account_marks_it_verified_and_signs_in(db, request_, monkeypatch):
+    sent = await deliver(await request_code(db, FakeRedis(), PHONE, "registration"), monkeypatch)
+    code = sent[0][1].split("code is ")[1][:6]
+    verified = await verify_otp(OTPVerify(phone_or_email=PHONE, code=code, purpose="registration"), request_, db=db)
+    assert verified.access_token and verified.refresh_token
+    user = await service._find_user(db, PHONE)
+    assert user.is_verified is True

@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +35,12 @@ async def create_queue(
         if owner != caller.user_id:
             raise HTTPException(status_code=403, detail="Not your shop")
     return await queue_service.create_queue(db, data)
+
+
+@router.get("/queues", response_model=List[QueueResponse])
+async def list_queues(service_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    """Open queues for a service, so customers can find one to join."""
+    return await queue_service.queues_for_service(db, service_id)
 
 
 @router.get("/queues/{queue_id}", response_model=QueueResponse)

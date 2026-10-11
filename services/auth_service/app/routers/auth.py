@@ -98,13 +98,14 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
 ):
     user = await auth_service.verify_otp(db, otp_verify)
-    if otp_verify.purpose == "login":
+    if otp_verify.purpose in ("login", "registration"):
+        # Confirming a new account's code also signs it in.
         tokens = await auth_service.issue_tokens(db, user, request)
-        return OTPVerifyResponse(message="Signed in", **tokens.model_dump())
+        message = "Signed in" if otp_verify.purpose == "login" else "Account verified"
+        return OTPVerifyResponse(message=message, **tokens.model_dump())
     if otp_verify.purpose == "password_reset":
         token = create_password_reset_token(str(user.id), user.hashed_password)
         return OTPVerifyResponse(message="Code verified", reset_token=token)
-    return OTPVerifyResponse(message="Account verified")
 
 
 @router.post("/auth/forgot-password")

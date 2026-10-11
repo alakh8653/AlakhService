@@ -6,11 +6,17 @@ class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  /// Adds a Jobs tab (before Profile) for people who work as providers.
+  final bool showJobs;
+
   const AppBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.showJobs = false,
   });
+
+  static const _jobs = _NavItem(icon: Icons.work_outline, activeIcon: Icons.work, label: 'Jobs');
 
   static const List<_NavItem> _items = [
     _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
@@ -44,7 +50,7 @@ class AppBottomNavBar extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
       unselectedLabelStyle: AppTextStyles.caption,
-      items: _items
+      items: [..._items.take(3), if (showJobs) _jobs, _items.last]
           .map(
             (item) => BottomNavigationBarItem(
               icon: Icon(item.icon),

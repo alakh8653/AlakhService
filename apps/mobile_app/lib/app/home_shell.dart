@@ -6,26 +6,42 @@ import '../features/auth/domain/entities/user.dart';
 import '../features/booking/presentation/bloc/booking_bloc.dart';
 import '../features/booking/presentation/pages/booking_history_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
+import '../features/jobs/data/jobs_api.dart';
+import '../features/jobs/presentation/jobs_page.dart';
 import '../features/notifications/presentation/pages/notifications_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/services/presentation/bloc/service_bloc.dart';
 import '../features/services/presentation/pages/service_list_page.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 
-/// The signed-in app: Home, Services, Bookings and Profile tabs.
+/// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers.
 class HomeShell extends StatefulWidget {
   final User user;
+  final JobsApi? jobsApi;
 
-  const HomeShell({super.key, required this.user});
+  const HomeShell({super.key, required this.user, this.jobsApi});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const _home = 0, _services = 1, _bookings = 2;
+  // Tab ids; the bar shows them in this order, Jobs only for providers.
+  static const _home = 0, _services = 1, _bookings = 2, _jobs = 3, _profile = 4;
 
   int _index = _home;
+  // Shown once the user turns out to have jobs assigned to them as a provider.
+  bool _showJobs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    (widget.jobsApi ?? sl<JobsApi>()).hasJobs().then((has) {
+      if (has && mounted) setState(() => _showJobs = true);
+    });
+  }
+
+  List<int> get _tabs => [_home, _services, _bookings, if (_showJobs) _jobs, _profile];
   String? _serviceQuery;
   // Bumped on every visit so a tab reloads its data when shown again.
   int _visit = 0;
@@ -60,6 +76,8 @@ class _HomeShellState extends State<HomeShell> {
           create: (_) => sl<BookingBloc>(),
           child: const BookingHistoryPage(),
         );
+      case _jobs:
+        return JobsPage(key: ValueKey('jobs-$_visit'), providerId: widget.user.id);
       default:
         return ProfilePage(
           user: widget.user,
@@ -73,7 +91,11 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _tab(),
-      bottomNavigationBar: AppBottomNavBar(currentIndex: _index, onTap: _select),
+      bottomNavigationBar: AppBottomNavBar(
+        currentIndex: _tabs.indexOf(_index),
+        onTap: (i) => _select(_tabs[i]),
+        showJobs: _showJobs,
+      ),
     );
   }
 }

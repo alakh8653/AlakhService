@@ -17,13 +17,25 @@ adminApiClient.interceptors.request.use((config) => {
 
 // Fail loudly when the API is unreachable or misconfigured (e.g. an SPA fallback page served instead of JSON),
 // so callers hit their error path instead of rendering `undefined` data.
-adminApiClient.interceptors.response.use((response) => {
-  const contentType = String(response.headers['content-type'] ?? '');
-  if (response.status !== 204 && !contentType.includes('application/json')) {
-    return Promise.reject(new Error(`Unexpected response type "${contentType}" from ${response.config.url}`));
-  }
-  return response;
-});
+adminApiClient.interceptors.response.use(
+  (response) => {
+    const contentType = String(response.headers['content-type'] ?? '');
+    if (response.status !== 204 && !contentType.includes('application/json')) {
+      return Promise.reject(new Error(`Unexpected response type "${contentType}" from ${response.config.url}`));
+    }
+    return response;
+  },
+  (error: unknown) => {
+    // An expired or revoked session: back to the sign-in page (a failed sign-in is handled by the form).
+    const status = (error as { response?: { status?: number } }).response?.status;
+    const url = (error as { config?: { url?: string } }).config?.url ?? '';
+    if (status === 401 && !url.endsWith('/auth/login') && localStorage.getItem('admin_token')) {
+      localStorage.removeItem('admin_token');
+      window.location.assign('/login');
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default adminApiClient;
 

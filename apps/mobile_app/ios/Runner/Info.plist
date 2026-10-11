@@ -69,7 +69,7 @@
 	<key>GMSApiKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>AlakhService needs your location to show nearby providers.</string>
+	<string>AlakhService uses your location to show nearby services and, when you are working on a job, to show your customer where you are.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>AlakhService uses your location to track your service provider.</string>
 	<key>NSCameraUsageDescription</key>

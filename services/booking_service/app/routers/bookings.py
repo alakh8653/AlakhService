@@ -2,12 +2,13 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import ADMIN, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import BookingStatus
+from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.database import get_db
 from app.dependencies import (
     get_current_user,
@@ -71,9 +72,12 @@ manager = ConnectionManager()
 @router.post("/bookings", response_model=BookingResponse, status_code=201)
 async def create_booking(
     booking_data: BookingCreate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    notifier: Notifier = Depends(get_notifier),
 ):
     customer_id = current_user.get("sub")
     # Price, shop and duration come from the catalogue, never from the client.
@@ -94,6 +98,13 @@ async def create_booking(
         }
     )
     booking = await booking_service.create_booking(db, customer_id, booking_data)
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    background.add_task(
+        notify_booking, notifier, snapshot(booking, listing.get("name")), "booking.created", customer_id, lookup_owner,
+        roles=("shop",),
+    )
     return booking
 
 
@@ -108,6 +119,18 @@ async def list_bookings(
     user_id = current_user.get("sub")
     result = await booking_service.list_bookings(db, user_id, page, per_page, status)
     return result
+
+
+@router.get("/bookings/assigned", response_model=BookingListResponse)
+async def list_assigned_bookings(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Jobs assigned to the caller as a provider, newest first."""
+    return await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
 
 
 @router.get("/bookings/shop/{shop_id}", response_model=BookingListResponse)
@@ -194,9 +217,11 @@ async def _authorize_transition(db, booking_id: str, target: str, user: dict, lo
 async def update_status(
     booking_id: str,
     update_data: BookingStatusUpdate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    notifier: Notifier = Depends(get_notifier),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
@@ -209,6 +234,12 @@ async def update_status(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    background.add_task(
+        notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
+    )
     return booking
 
 
@@ -216,11 +247,13 @@ async def update_status(
 async def assign_provider(
     booking_id: str,
     body: BookingAssignRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_staff: Callable[[str, str], Awaitable[set]] = Depends(get_staff_lookup),
+    notifier: Notifier = Depends(get_notifier),
 ):
     """Give a confirmed booking to a provider. Admins (including dispatch) or the booking's shop."""
     booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
@@ -235,6 +268,13 @@ async def assign_provider(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    background.add_task(
+        notify_booking, notifier, snapshot(booking), "booking.assigned", current_user.get("sub"), lookup_owner,
+        roles=("customer", "provider"),
+    )
     return booking
 
 
@@ -242,9 +282,11 @@ async def assign_provider(
 async def cancel_booking(
     booking_id: str,
     body: BookingCancelRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    notifier: Notifier = Depends(get_notifier),
 ):
     user_id = current_user.get("sub")
     await _authorize_transition(db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner)
@@ -253,6 +295,10 @@ async def cancel_booking(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     return booking
 
 

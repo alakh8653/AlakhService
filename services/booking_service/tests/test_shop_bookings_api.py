@@ -1,4 +1,5 @@
 """Shop-scoped booking list and summary, with ownership enforced."""
+import json
 import os
 from datetime import datetime, timezone
 
@@ -10,16 +11,31 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
+from app.core.notifier import get_notifier
 from app.database import Base, get_db
 from app.dependencies import get_service_lookup, get_shop_owner_lookup, get_staff_lookup
 from app.main import app
 from app.models.booking import Booking
 
+SENT: list = []
+SESSIONS: dict = {}
+
+
+class RecordingNotifier:
+    async def send(self, event, recipients, data):
+        # By the time anyone is told, the change must be committed and visible to other requests.
+        async with SESSIONS["factory"]() as db:
+            stored = await db.get(Booking, data["booking_id"])
+        assert stored is not None
+        assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
+        SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))
+
+
 TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
 STAFF = {"shop-1": {"staff-1", "staff-2"}}  # provider accounts of each shop's active staff
 LISTINGS = {
-    "svc-a": {"id": "svc-a", "shop_id": "shop-1", "price_cents": 49900, "duration_minutes": 45, "is_active": True},
+    "svc-a": {"id": "svc-a", "name": "Haircut", "shop_id": "shop-1", "price_cents": 49900, "duration_minutes": 45, "is_active": True},
     "svc-off": {"id": "svc-off", "shop_id": "shop-1", "price_cents": 100, "duration_minutes": 30, "is_active": False},
 }
 
@@ -75,6 +91,9 @@ async def client():
         return STAFF.get(shop_id, set())
 
     app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
+    app.dependency_overrides[get_notifier] = RecordingNotifier
+    SESSIONS["factory"] = factory
+    SENT.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -270,3 +289,74 @@ async def test_admins_and_dispatch_can_assign_anyone(client):
     await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=admin)
     assigned = await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "freelancer-9"}, headers=admin)
     assert assigned.status_code == 200 and assigned.json()["provider_id"] == "freelancer-9"
+
+
+@pytest.mark.asyncio
+async def test_everyone_on_a_booking_hears_about_changes_made_by_someone_else(client):
+    created = await client.post(
+        "/api/v1/bookings", json={"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"}, headers=auth("c1"),
+    )
+    assert created.status_code == 201
+    event, recipients, data = SENT[-1]
+    # The shop hears about a new booking; the customer who made it does not.
+    assert (event, recipients) == ("booking.created", [("owner-1", "shop")])
+    assert (data["service_name"], data["booking_number"]) == ("Haircut", created.json()["booking_number"])
+    assert data["scheduled_at"] == "12 Oct, 10:30 AM"  # shown in India time
+
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-1"))
+    assert SENT[-1][:2] == ("booking.confirmed", [("c3", "customer"), ("staff-1", "provider")])
+
+    await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "Plans changed"}, headers=auth("c3"))
+    assert SENT[-1][:2] == ("booking.cancelled", [("staff-1", "provider"), ("owner-1", "shop")])
+
+    # Refused changes notify nobody.
+    count = len(SENT)
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "COMPLETED"}, headers=auth("c3"))
+    assert len(SENT) == count
+
+
+@pytest.mark.asyncio
+async def test_notifier_posts_to_notification_service_with_the_internal_key():
+    import httpx
+
+    from app.core.notifier import Notifier
+
+    seen = []
+
+    def service(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"created": 1})
+
+    notifier = Notifier("http://notification_service:8000", "k3y", transport=httpx.MockTransport(service))
+    await notifier.send("booking.confirmed", [{"user_id": "c1", "role": "customer"}], {"booking_number": "BK-1"})
+    assert seen[0].url.path == "/internal/notifications/events"
+    assert seen[0].headers["x-internal-key"] == "k3y"
+    assert json.loads(seen[0].content)["recipients"] == [{"user_id": "c1", "role": "customer"}]
+
+    def down(request):
+        raise httpx.ConnectError("refused")
+
+    # Delivery problems never surface to the caller.
+    await Notifier("http://nowhere", "k3y", transport=httpx.MockTransport(down)).send("booking.confirmed", [{"user_id": "c1"}], {})
+    # Without a key nothing is sent at all.
+    await Notifier("http://notification_service:8000", "", transport=httpx.MockTransport(service)).send("x", [{"user_id": "c1"}], {})
+    assert len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_providers_list_the_jobs_assigned_to_them(client):
+    jobs = (await client.get("/api/v1/bookings/assigned", headers=auth("staff-1"))).json()
+    assert sorted(b["id"] for b in jobs["items"]) == ["bk-1", "bk-4"]
+    pending = (await client.get("/api/v1/bookings/assigned", params={"status": "PENDING"}, headers=auth("staff-1"))).json()
+    assert [b["id"] for b in pending["items"]] == ["bk-4"]
+    # Customers' own lists are unchanged, and nobody else's jobs show up.
+    assert (await client.get("/api/v1/bookings/assigned", headers=auth("c1"))).json()["items"] == []
+    assert "bk-4" not in [b["id"] for b in (await client.get("/api/v1/bookings", headers=auth("staff-1"))).json()["items"]]
+
+    # The provider moves their job along; the customer and shop hear about it.
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-1"))
+    await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "staff-1"}, headers=auth("owner-1"))
+    for status in ("PROVIDER_EN_ROUTE", "IN_PROGRESS", "COMPLETED"):
+        resp = await client.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=auth("staff-1"))
+        assert resp.json()["status"] == status
+        assert SENT[-1][:2] == (f"booking.{status.lower()}", [("c3", "customer"), ("owner-1", "shop")])

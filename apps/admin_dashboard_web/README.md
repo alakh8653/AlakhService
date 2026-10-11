@@ -4,6 +4,10 @@ Central admin panel for AlakhService platform operators to manage disputes, sett
 
 ## Features
 
+- **Sign-in** — admin accounts only (role `admin` in auth_service); expired sessions return to the sign-in page
+- **Users** — search accounts and ban/unban them. A ban deactivates the account in auth_service, so the
+  person cannot sign in or refresh a session (an access token already issued lasts until it expires, at most
+  `ACCESS_TOKEN_EXPIRE_MINUTES`). Needs `INTERNAL_API_KEY` set for admin_service and auth_service.
 - **Audit Logs** — Full activity trail with actor, action, resource, and timestamp filters
 - **Disputes** — View, investigate, and resolve customer/shop disputes with evidence
 - **Finance** — Settlement runs, revenue reports, export to CSV
@@ -21,6 +25,15 @@ cd apps/admin_dashboard_web
 cp .env.example .env
 npm install
 npm run dev   # http://localhost:5174
+```
+
+## Admin accounts
+
+Register the account normally (app or `POST /api/v1/auth/register`), then grant it admin access:
+
+```bash
+docker compose exec auth_service python -m app.cli make-admin ops@example.com
+# revoke with: python -m app.cli revoke-admin ops@example.com
 ```
 
 ## Environment Variables

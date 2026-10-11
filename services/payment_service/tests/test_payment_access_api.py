@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
+from app.core.notifier import get_notifier
 from app.core.razorpay import RazorpayGateway, get_razorpay
 from app.database import Base, get_db
 from app.dependencies import get_booking_lookup, get_redis, get_shop_owner_lookup
@@ -28,6 +29,12 @@ OWNERS = {"shop-1": "owner"}
 KEY_SECRET = "rzp-secret"
 WEBHOOK_SECRET = "rzp-webhook-secret"
 ORDERS: list = []
+NOTIFIED: list = []
+
+
+class RecordingNotifier:
+    async def send(self, event, recipients, data):
+        NOTIFIED.append((event, [(r["user_id"], r["role"]) for r in recipients], data["amount"]))
 
 
 def razorpay_api(request: httpx.Request) -> httpx.Response:
@@ -94,7 +101,9 @@ async def client():
     app.dependency_overrides[get_booking_lookup] = lambda: fake_booking
     app.dependency_overrides[get_shop_owner_lookup] = lambda: fake_owner
     app.dependency_overrides[get_razorpay] = fake_gateway
+    app.dependency_overrides[get_notifier] = RecordingNotifier
     ORDERS.clear()
+    NOTIFIED.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -168,8 +177,9 @@ async def test_online_payment_opens_a_razorpay_order_and_completes_only_with_a_v
     done = await client.post(url, json=proof, headers=auth("cust"))
     assert done.status_code == 200
     assert (done.json()["status"], done.json()["checkout"]) == ("COMPLETED", None)
-    # Confirming again is harmless (crediting once is covered in test_payments).
+    # Confirming again is harmless (crediting once is covered in test_payments) and tells nobody twice.
     assert (await client.post(url, json=proof, headers=auth("cust"))).json()["status"] == "COMPLETED"
+    assert NOTIFIED == [("payment.completed", [("cust", "customer"), ("owner", "shop")], "499.00")]
 
 
 @pytest.mark.asyncio
@@ -205,9 +215,14 @@ async def test_razorpay_webhooks_must_be_signed_with_the_webhook_secret(client):
     assert (await client.post(hook, content=event(1), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(1))})).status_code == 200
     assert (await status()).json()["status"] == "PENDING"
 
+    assert NOTIFIED == []
     ok = await client.post(hook, content=event(49900), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(49900))})
     assert ok.status_code == 200
     assert (await status()).json()["status"] == "COMPLETED"
+    assert [e for e, _, _ in NOTIFIED] == ["payment.completed"]
+    # Razorpay retries webhooks; a repeat changes and announces nothing.
+    await client.post(hook, content=event(49900), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(49900))})
+    assert len(NOTIFIED) == 1
 
     app.dependency_overrides[get_razorpay] = lambda: RazorpayGateway("k", "s")
     assert (await client.post(hook, content=event(49900), headers={"x-razorpay-signature": "x"})).status_code == 503

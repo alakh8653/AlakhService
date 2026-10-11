@@ -10,10 +10,23 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.config import settings
+from app.core.accounts import get_account_switch
 from app.core.permissions import DEFAULT_ROLES, PERMISSIONS
 from app.database import Base, get_db
 from app.main import app
 from app.models.admin import AdminUser, AuditLog, Role
+
+SWITCHED: list = []
+KNOWN_USERS = {"victim", "u2", "u3"}
+
+
+async def fake_switch(user_id: str, active: bool) -> None:
+    """Stands in for auth_service's account switch."""
+    from fastapi import HTTPException
+
+    if user_id not in KNOWN_USERS:
+        raise HTTPException(status_code=404, detail="User not found")
+    SWITCHED.append((user_id, active))
 
 
 def auth(sub: str, role: str = "admin") -> dict:
@@ -44,6 +57,8 @@ async def ctx():
             await session.commit()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_account_switch] = lambda: fake_switch
+    SWITCHED.clear()
     # Requests are made as admin u1 unless a test says otherwise.
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=auth("u1")) as client:
         yield client, factory
@@ -149,3 +164,33 @@ async def test_audit_entries_name_the_admin_from_the_token(ctx):
     async with factory() as db:
         entry = (await db.execute(select(AuditLog).where(AuditLog.action == "ban_user"))).scalar_one()
     assert entry.admin_id == "u1"
+
+
+@pytest.mark.asyncio
+async def test_bans_are_enforced_by_auth_service_before_they_are_recorded(ctx):
+    client, factory = ctx
+    assert (await client.post("/api/v1/admin/users/victim/ban", json={"reason": "fraud"})).status_code == 200
+    assert SWITCHED == [("victim", False)]
+
+    # An account auth_service doesn't know is not "banned" here either.
+    assert (await client.post("/api/v1/admin/users/ghost/ban", json={"reason": "x"})).status_code == 404
+    async with factory() as db:
+        from app.models.admin import BannedUser
+
+        banned = (await db.execute(select(BannedUser.user_id).where(BannedUser.is_active == True))).scalars().all()  # noqa: E712
+    assert banned == ["victim"]
+
+    assert (await client.post("/api/v1/admin/users/u1/ban", json={"reason": "oops"})).status_code == 400
+    assert (await client.post("/api/v1/admin/users/victim/unban")).status_code == 200
+    assert SWITCHED[-1] == ("victim", True)
+    # Banning again after an unban reuses the record rather than colliding with it.
+    assert (await client.post("/api/v1/admin/users/victim/ban", json={"reason": "again"})).status_code == 200
+    async with factory() as db:
+        from app.models.admin import BannedUser
+
+        again = (await db.execute(select(BannedUser).where(BannedUser.user_id == "victim"))).scalars().all()
+    assert [(b.is_active, b.reason) for b in again] == [(True, "again")]
+
+    bulk = await client.post("/api/v1/admin/actions/bulk-update", json={"user_ids": ["u2", "ghost", "u1"], "action": "ban", "admin_id": "x"})
+    statuses = {r["user_id"]: r["status"] for r in bulk.json()["results"]}
+    assert statuses == {"u2": "banned", "ghost": "failed", "u1": "failed"}

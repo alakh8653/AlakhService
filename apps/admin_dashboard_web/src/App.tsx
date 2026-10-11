@@ -1,4 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import LoginPage from './auth/LoginPage';
+import { isSignedIn } from './auth/session';
+import UsersPage from './users/UsersPage';
 import AdminSidebar from './components/AdminSidebar';
 import AdminHeader from './components/AdminHeader';
 import AuditLogPage from './audit/AuditLogPage';
@@ -12,6 +15,11 @@ import RolesPage from './access_control/RolesPage';
 import PermissionsPage from './access_control/PermissionsPage';
 
 export default function App() {
+  const location = useLocation();
+  if (location.pathname === '/login') {
+    return isSignedIn() ? <Navigate to="/" replace /> : <LoginPage />;
+  }
+  if (!isSignedIn()) return <Navigate to="/login" replace />;
   return (
     <div className="flex h-screen bg-gray-100">
       <AdminSidebar />
@@ -21,6 +29,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/audit" replace />} />
             <Route path="/audit" element={<AuditLogPage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/disputes" element={<DisputeListPage />} />
             <Route path="/disputes/:id" element={<DisputeDetailPage />} />
             <Route path="/finance/settlements" element={<SettlementsPage />} />

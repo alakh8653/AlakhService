@@ -34,19 +34,24 @@ class AdminService:
         return list(result.scalars().all())
 
     async def ban_user(self, db: AsyncSession, user_id: str, data: BanUserRequest) -> dict:
-        # Check if already banned
-        result = await db.execute(select(BannedUser).where(BannedUser.user_id == user_id, BannedUser.is_active == True))
+        # One row per user (user_id is unique): a repeat ban after an unban reactivates it.
+        result = await db.execute(select(BannedUser).where(BannedUser.user_id == user_id))
         existing = result.scalar_one_or_none()
-        if not existing:
-            banned = BannedUser(
+        now = datetime.now(timezone.utc)
+        if existing is None:
+            db.add(BannedUser(
                 id=str(uuid.uuid4()),
                 user_id=user_id,
                 reason=data.reason,
                 banned_by=data.banned_by,
-                banned_at=datetime.now(timezone.utc),
+                banned_at=now,
                 is_active=True,
-            )
-            db.add(banned)
+            ))
+        elif not existing.is_active:
+            existing.is_active = True
+            existing.reason = data.reason
+            existing.banned_by = data.banned_by
+            existing.banned_at = now
 
         await self._log_audit(db, data.banned_by, "ban_user", "user", user_id, new_values=json.dumps({"reason": data.reason}))
         await db.flush()

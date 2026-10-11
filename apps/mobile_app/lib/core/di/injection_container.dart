@@ -28,6 +28,7 @@ import '../../features/services/domain/repositories/service_repository.dart';
 import '../../features/services/domain/usecases/get_services_usecase.dart';
 import '../../features/services/domain/usecases/search_services_usecase.dart';
 import '../../features/services/presentation/bloc/service_bloc.dart';
+import '../../features/jobs/data/jobs_api.dart';
 import '../../features/tracking/data/tracking_api.dart';
 import '../network/api_client.dart';
 import '../network/network_info.dart';
@@ -92,6 +93,7 @@ Future<void> init({TokenStore? tokens}) async {
 
   // Smaller features talk to their service directly.
   sl.registerLazySingleton(() => TrackingApi(sl()));
+  sl.registerLazySingleton(() => JobsApi(sl(), services: sl()));
   sl.registerLazySingleton(() => QueueApi(sl()));
   sl.registerLazySingleton(() => NotificationsApi(sl()));
   sl.registerLazySingleton(() => ProfileApi(sl()));

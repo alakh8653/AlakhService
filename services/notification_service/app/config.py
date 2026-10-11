@@ -11,7 +11,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
 
-    FCM_SERVER_KEY: str = ""
+    # Firebase service account for push (FCM HTTP v1): the JSON itself, or a path to the file.
+    FCM_SERVICE_ACCOUNT_JSON: str = ""
+    FCM_SERVICE_ACCOUNT_FILE: str = ""
+
+    # Shared secret other platform services present on /internal routes.
+    INTERNAL_API_KEY: str = ""
 
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""

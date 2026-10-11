@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
 from app.dependencies import (
@@ -118,9 +119,11 @@ async def initiate_payment(
 async def verify_payment(
     payment_id: str,
     proof: RazorpayVerification,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     gateway: RazorpayGateway = Depends(get_razorpay),
+    notifier: Notifier = Depends(get_notifier),
 ):
     """Confirms a checkout with the signature Razorpay gave the app; only a valid signature completes it."""
     payment = await payment_service.get_payment(db, payment_id)
@@ -132,7 +135,9 @@ async def verify_payment(
         or not gateway.checkout_signature_valid(proof.razorpay_order_id, proof.razorpay_payment_id, proof.razorpay_signature)
     ):
         raise HTTPException(status_code=400, detail="Payment could not be verified")
-    await payment_service.mark_completed(db, payment, proof.razorpay_payment_id, "razorpay")
+    if payment.status != "COMPLETED":
+        await payment_service.mark_completed(db, payment, proof.razorpay_payment_id, "razorpay")
+        background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
     return _with_checkout(payment, gateway)
 
 
@@ -201,8 +206,10 @@ async def get_transaction_history(
 @router.post("/webhooks/razorpay")
 async def razorpay_webhook(
     request: Request,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     gateway: RazorpayGateway = Depends(get_razorpay),
+    notifier: Notifier = Depends(get_notifier),
 ):
     """Razorpay events, signed over the raw body with the webhook secret. Unsigned calls are refused."""
     if not gateway.webhook_secret:
@@ -210,7 +217,10 @@ async def razorpay_webhook(
     body = await request.body()
     if not gateway.webhook_signature_valid(body, request.headers.get("x-razorpay-signature", "")):
         raise HTTPException(status_code=400, detail="Invalid signature")
-    await payment_service.process_razorpay_event(db, json.loads(body))
+    changed = await payment_service.process_razorpay_event(db, json.loads(body))
+    if changed:
+        event, payment = changed
+        background.add_task(notify_payment, notifier, event, payment_snapshot(payment))
     return {"status": "processed"}
 
 

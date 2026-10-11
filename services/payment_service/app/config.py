@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     PLATFORM_ACCOUNT_ID: str = "platform_account"
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
+    # Shared with notification_service; without it no notifications are sent.
+    INTERNAL_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

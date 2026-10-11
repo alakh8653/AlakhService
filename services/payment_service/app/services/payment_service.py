@@ -127,22 +127,30 @@ class PaymentService:
             return result.scalar_one_or_none()
         return None
 
-    async def process_razorpay_event(self, db: AsyncSession, event: dict) -> None:
-        """Applies a Razorpay webhook event whose signature has already been checked."""
+    async def process_razorpay_event(self, db: AsyncSession, event: dict) -> Optional[tuple[str, Payment]]:
+        """Applies a Razorpay webhook event whose signature has already been checked.
+
+        Returns what changed (``("payment.completed", payment)`` or ``("payment.failed", payment)``), if anything.
+        """
         entity = event.get("payload", {}).get("payment", {}).get("entity", {})
         payment = await self._find_for_gateway(db, (entity.get("notes") or {}).get("payment_id"), entity.get("order_id"))
         if payment is None:
             log.info("razorpay_event_unmatched", event=event.get("event"), order_id=entity.get("order_id"))
-            return
+            return None
         if event.get("event") in ("payment.captured", "order.paid"):
             if entity.get("amount") != payment.amount_cents or entity.get("currency", payment.currency) != payment.currency:
                 log.warning("razorpay_amount_mismatch", payment_id=payment.id, amount=entity.get("amount"))
-                return
+                return None
+            if payment.status == "COMPLETED":
+                return None
             await self.mark_completed(db, payment, entity.get("id"), "razorpay")
-        elif event.get("event") == "payment.failed" and payment.status == "PENDING":
+            return "payment.completed", payment
+        if event.get("event") == "payment.failed" and payment.status == "PENDING":
             payment.status = "FAILED"
             payment.updated_at = datetime.now(timezone.utc)
             await db.flush()
+            return "payment.failed", payment
+        return None
 
     async def process_stripe_event(self, db: AsyncSession, event: dict) -> None:
         """Applies a Stripe webhook event whose signature has already been checked."""

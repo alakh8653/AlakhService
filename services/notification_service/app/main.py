@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.core.exceptions import NotificationNotFoundError, NotificationServiceError, TemplateNotFoundError
+from app.routers.internal import router as internal_router
 from app.routers.notifications import router as notif_router
 
 logger = structlog.get_logger()
@@ -50,6 +51,8 @@ async def notification_error_handler(request: Request, exc: NotificationServiceE
 
 
 app.include_router(notif_router, prefix="/api/v1", tags=["notifications"])
+# Service-to-service only: outside /api/v1, so the gateway never forwards it.
+app.include_router(internal_router, tags=["internal"])
 
 
 @app.get("/health")

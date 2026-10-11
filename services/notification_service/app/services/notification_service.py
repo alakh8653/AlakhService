@@ -13,6 +13,7 @@ from app.channels.in_app import InAppChannel
 from app.channels.push import FCMChannel
 from app.channels.sms import TwilioSMSChannel
 from app.config import settings
+from app.core.events import render as render_event
 from app.core.exceptions import NotificationNotFoundError, TemplateNotFoundError
 from app.models.notification import DeviceToken, Notification, NotificationPreference, NotificationTemplate
 from app.schemas.notification import NotificationListResponse
@@ -23,8 +24,13 @@ log = structlog.get_logger()
 CHANNEL_FALLBACK = ["push", "in_app", "email", "sms"]
 
 class NotificationService:
+    _fcm: Optional[FCMChannel] = None
+
     def _get_fcm(self) -> FCMChannel:
-        return FCMChannel(settings.FCM_SERVER_KEY)
+        # One channel per process so the OAuth token is reused until it expires.
+        if self._fcm is None:
+            self._fcm = FCMChannel.from_settings(settings.FCM_SERVICE_ACCOUNT_JSON, settings.FCM_SERVICE_ACCOUNT_FILE)
+        return self._fcm
 
     def _get_sms(self) -> TwilioSMSChannel:
         return TwilioSMSChannel(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_FROM_NUMBER)
@@ -160,6 +166,37 @@ class NotificationService:
             sms_ch = self._get_sms()
             return await sms_ch.send(to_number, body)
         return False
+
+    async def notify_event(
+        self, db: AsyncSession, redis, user_id: str, event: str, role: Optional[str], data: dict
+    ) -> Optional[Notification]:
+        """Records an event's notification for one person and pushes it to their devices and open apps.
+
+        The stored notification is what the app lists, so it is kept even if no live channel delivers.
+        """
+        rendered = render_event(event, role, data)
+        if rendered is None:
+            return None
+        title, body = rendered
+        payload = {"event": event, **{k: v for k, v in data.items() if v is not None}}
+        notif = Notification(
+            user_id=user_id,
+            channel="in_app",
+            status="SENT",
+            title=title,
+            body=body,
+            data=json.dumps(payload),
+            retry_count=0,
+            sent_at=datetime.now(timezone.utc),
+        )
+        db.add(notif)
+        await db.flush()
+        if await self._dispatch_channel(db, redis, "push", user_id, notif, title, body, payload):
+            notif.channel = "push"
+        if redis is not None:
+            await InAppChannel(redis).send(user_id, title, body, {**payload, "id": notif.id})
+        await db.flush()
+        return notif
 
     async def get_notifications(
         self, db: AsyncSession, user_id: str, unread_only: bool = False, page: int = 1, per_page: int = 20

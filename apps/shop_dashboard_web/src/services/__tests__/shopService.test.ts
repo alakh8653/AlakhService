@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../apiClient';
-import { createStaffMember, getServices, getShopForOwner, updateService, updateShop } from '../shopService';
+import { createShop, createStaffMember, getServices, getShopForOwner, updateService, updateShop } from '../shopService';
+import { register } from '../authService';
 import { formatMoney, toMinorUnits } from '../format';
 import { toAuthTokens } from '../tokens';
 
@@ -88,5 +89,33 @@ describe('helpers', () => {
       refreshToken: 'r',
       expiresAt: 901_000,
     });
+  });
+
+  it('opens the owner\'s shop with trimmed details and drops empty fields', async () => {
+    api.post.mockResolvedValueOnce({ data: apiShop });
+    const shop = await createShop('u1', { name: ' Asha Salon ', category: 'Salon', city: 'Pune', address: ' ', phone: '' });
+    expect(api.post).toHaveBeenCalledWith('/shops', {
+      owner_id: 'u1',
+      name: 'Asha Salon',
+      category: 'salon',
+      city: 'Pune',
+      address: undefined,
+      phone: undefined,
+      description: undefined,
+    });
+    expect(shop.id).toBe('s1');
+  });
+
+  it('registers an owner account', async () => {
+    api.post.mockResolvedValueOnce({
+      data: { id: 'u9', email: 'asha@example.com', phone: null, full_name: 'Asha', is_active: true, is_verified: false, role: 'user' },
+    });
+    const user = await register({ name: ' Asha ', email: 'Asha@Example.com', phone: '', password: 'Passw0rd!' });
+    expect(api.post).toHaveBeenLastCalledWith('/auth/register', {
+      full_name: 'Asha',
+      email: 'asha@example.com',
+      password: 'Passw0rd!',
+    });
+    expect(user.id).toBe('u9');
   });
 });

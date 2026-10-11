@@ -87,6 +87,12 @@ export default function LoginPage() {
         <Link to="/forgot-password" className="mt-4 block text-sm text-indigo-600 hover:underline">
           Forgot your password?
         </Link>
+        <p className="mt-2 text-sm text-gray-600">
+          New to AlakhService?{' '}
+          <Link to="/register" className="text-indigo-600 hover:underline">
+            List your shop
+          </Link>
+        </p>
       </div>
     </div>
   );

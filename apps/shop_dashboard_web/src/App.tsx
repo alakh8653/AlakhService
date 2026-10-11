@@ -12,6 +12,8 @@ import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import RegisterPage from './pages/RegisterPage';
+import ShopSetupPage from './pages/ShopSetupPage';
 
 function ProtectedLayout() {
   return (
@@ -39,16 +41,25 @@ export default function App() {
   const isAuthenticated = useSelector(
     (state: RootState) => state.auth.isAuthenticated,
   );
+  const hasShop = useSelector((state: RootState) => state.auth.shop !== null);
 
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route
         path="/*"
         element={
-          isAuthenticated ? <ProtectedLayout /> : <Navigate to="/login" replace />
+          !isAuthenticated ? (
+            <Navigate to="/login" replace />
+          ) : hasShop ? (
+            <ProtectedLayout />
+          ) : (
+            // Signed in without a shop yet: set one up before anything else.
+            <ShopSetupPage />
+          )
         }
       />
     </Routes>

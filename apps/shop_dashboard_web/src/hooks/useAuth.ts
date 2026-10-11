@@ -1,21 +1,14 @@
 import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../state/store';
-import { setCredentials, clearAuth } from '../state/authSlice';
+import { setCredentials, clearAuth, setShop } from '../state/authSlice';
 import {
   getCurrentUser,
   login as loginService,
   logout as logoutService,
 } from '../services/authService';
-import { getShopForOwner } from '../services/shopService';
+import { createShop as createShopService, getShopForOwner, type NewShop } from '../services/shopService';
 import type { LoginCredentials } from '../types';
-
-export class NoShopError extends Error {
-  constructor() {
-    super('This account does not own a shop yet.');
-    this.name = 'NoShopError';
-  }
-}
 
 export function useAuth() {
   const dispatch = useDispatch<AppDispatch>();
@@ -27,15 +20,8 @@ export function useAuth() {
     async (credentials: LoginCredentials) => {
       const tokens = await loginService(credentials);
       const currentUser = await getCurrentUser(tokens.accessToken);
+      // An owner without a shop yet is signed in and taken to shop setup.
       const ownedShop = await getShopForOwner(currentUser.id, tokens.accessToken);
-      if (!ownedShop) {
-        try {
-          await logoutService(tokens.refreshToken, tokens.accessToken);
-        } catch {
-          // best-effort: the session simply expires
-        }
-        throw new NoShopError();
-      }
       const result = { tokens, user: currentUser, shop: ownedShop };
       dispatch(setCredentials(result));
       return result;
@@ -54,5 +40,15 @@ export function useAuth() {
     dispatch(clearAuth());
   }, [dispatch, refreshToken]);
 
-  return { user, shop, isAuthenticated, isLoading, error, login, logout };
+  const createShop = useCallback(
+    async (details: NewShop) => {
+      if (!user) throw new Error('Not signed in');
+      const created = await createShopService(user.id, details);
+      dispatch(setShop(created));
+      return created;
+    },
+    [dispatch, user],
+  );
+
+  return { user, shop, isAuthenticated, isLoading, error, login, logout, createShop };
 }

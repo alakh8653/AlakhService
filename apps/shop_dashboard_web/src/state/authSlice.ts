@@ -29,7 +29,8 @@ const authSlice = createSlice({
   reducers: {
     setCredentials(
       state,
-      action: PayloadAction<{ tokens: AuthTokens; user: User; shop: Shop }>,
+      // shop is null for an owner who has signed in but not set up their shop yet.
+      action: PayloadAction<{ tokens: AuthTokens; user: User; shop: Shop | null }>,
     ) {
       const { tokens, user, shop } = action.payload;
       state.user = user;

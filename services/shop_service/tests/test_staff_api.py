@@ -115,8 +115,10 @@ async def test_shops_are_created_and_deleted_only_by_their_owner(client):
     body = {"owner_id": "owner-1", "name": "Mine", "category": "salon"}
     assert (await client.post("/api/v1/shops", json=body)).status_code == 401
     assert (await client.post("/api/v1/shops", json=body, headers=OTHER)).status_code == 403
-    assert (await client.post("/api/v1/shops", json=body, headers=ADMIN)).status_code == 201
     shop = await make_shop(client)
+    # One shop per owner: a second submit is refused, though admins may still open more on their behalf.
+    assert (await client.post("/api/v1/shops", json=body, headers=OWNER)).status_code == 409
+    assert (await client.post("/api/v1/shops", json=body, headers=ADMIN)).status_code == 201
 
     url = f"/api/v1/shops/{shop['id']}"
     assert (await client.put(url, json={"name": "Renamed"})).status_code == 401

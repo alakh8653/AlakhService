@@ -58,6 +58,30 @@ export interface ShopUpdate {
   email?: string | null;
 }
 
+export interface NewShop {
+  name: string;
+  category: string;
+  city?: string;
+  address?: string;
+  phone?: string;
+  description?: string;
+}
+
+/** Opens the signed-in owner's shop. An owner has one shop; the server refuses a second. */
+export async function createShop(ownerId: string, shop: NewShop): Promise<Shop> {
+  const optional = (v?: string) => (v && v.trim() ? v.trim() : undefined);
+  const { data } = await apiClient.post<ShopResponse>('/shops', {
+    owner_id: ownerId,
+    name: shop.name.trim(),
+    category: shop.category.trim().toLowerCase(),
+    city: optional(shop.city),
+    address: optional(shop.address),
+    phone: optional(shop.phone),
+    description: optional(shop.description),
+  });
+  return toShop(data);
+}
+
 export async function updateShop(id: string, update: ShopUpdate): Promise<Shop> {
   const { data } = await apiClient.put<ShopResponse>(`/shops/${id}`, update);
   return toShop(data);

@@ -27,6 +27,24 @@ export async function login(credentials: LoginCredentials): Promise<AuthTokens> 
   return toAuthTokens(data);
 }
 
+export interface Registration {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+}
+
+/** Creates an account; the owner then signs in and sets up their shop. */
+export async function register(reg: Registration): Promise<User> {
+  const { data } = await apiClient.post<UserResponse>('/auth/register', {
+    full_name: reg.name.trim(),
+    email: reg.email.trim().toLowerCase(),
+    ...(reg.phone?.trim() ? { phone: reg.phone.trim() } : {}),
+    password: reg.password,
+  });
+  return toUser(data);
+}
+
 export async function logout(refreshToken: string, accessToken?: string): Promise<void> {
   await apiClient.post(
     '/auth/logout',

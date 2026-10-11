@@ -51,3 +51,8 @@ class OTPTooManyAttemptsError(AuthServiceError):
 class UserNotVerifiedError(AuthServiceError):
     def __init__(self, msg="User not verified"):
         super().__init__(msg)
+
+
+class OTPRateLimitedError(AuthServiceError):
+    def __init__(self, msg="Too many codes requested; try again later"):
+        super().__init__(msg)

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import redis.asyncio as aioredis
 import structlog
@@ -13,9 +14,9 @@ from app.core.exceptions import (
     InvalidTokenError,
     OTPExpiredError,
     OTPInvalidError,
+    OTPRateLimitedError,
     OTPTooManyAttemptsError,
     UserAlreadyExistsError,
-    UserNotFoundError,
 )
 from app.core.security import (
     PASSWORD_RESET_TYPE,
@@ -66,14 +67,19 @@ class AuthService:
         log.info("user_registered", user_id=user.id, email=user.email)
         return user
 
+    async def _find_user(self, db: AsyncSession, identifier: str) -> Optional[User]:
+        """The account for an email address or an E.164 phone number."""
+        column = User.email if "@" in identifier else User.phone
+        result = await db.execute(select(User).where(column == identifier))
+        return result.scalar_one_or_none()
+
     async def login(self, db: AsyncSession, redis: aioredis.Redis, login_data: UserLogin, request) -> TokenResponse:
-        identifier = login_data.email
+        identifier = login_data.identifier
         ip = request.client.host if request.client else "unknown"
 
         await self._check_brute_force(redis, identifier, ip)
 
-        result = await db.execute(select(User).where(User.email == login_data.email))
-        user = result.scalar_one_or_none()
+        user = await self._find_user(db, identifier)
 
         if not user or not verify_password(login_data.password, user.hashed_password):
             await self._record_login_attempt(db, identifier, ip, False)
@@ -87,7 +93,9 @@ class AuthService:
 
         await redis.delete(f"auth:attempts:{identifier}")
         await self._record_login_attempt(db, identifier, ip, True)
+        return await self.issue_tokens(db, user, request)
 
+    async def issue_tokens(self, db: AsyncSession, user: User, request) -> TokenResponse:
         access_token = create_access_token({"sub": str(user.id), "email": user.email, "role": user.role})
         refresh_token_str = create_refresh_token({"sub": str(user.id)})
 
@@ -209,15 +217,26 @@ class AuthService:
         log.info("user_logged_out_all", user_id=user_id)
         return True
 
-    async def send_otp(self, db: AsyncSession, otp_request: OTPRequest) -> bool:
+    async def send_otp(
+        self, db: AsyncSession, redis: aioredis.Redis, otp_request: OTPRequest
+    ) -> Optional[tuple]:
+        """Create a code for the account, if there is one, and return (user, code) to deliver.
+
+        Unknown accounts get the same treatment from the caller's point of view, so the endpoint
+        does not reveal which emails and phone numbers are registered.
+        """
         identifier = otp_request.phone_or_email
-        if "@" in identifier:
-            result = await db.execute(select(User).where(User.email == identifier))
-        else:
-            result = await db.execute(select(User).where(User.phone == identifier))
-        user = result.scalar_one_or_none()
-        if not user:
-            raise UserNotFoundError()
+        window_key = f"auth:otp_requests:{identifier}"
+        count = await redis.incr(window_key)
+        if count == 1:
+            await redis.expire(window_key, settings.OTP_REQUEST_WINDOW_SECONDS)
+        if count > settings.OTP_REQUESTS_PER_WINDOW:
+            raise OTPRateLimitedError()
+
+        user = await self._find_user(db, identifier)
+        if not user or not user.is_active:
+            log.info("otp_requested_unknown_account", purpose=otp_request.purpose)
+            return None
 
         await db.execute(
             update(OTPCode)
@@ -241,18 +260,13 @@ class AuthService:
         db.add(otp)
         await db.flush()
 
-        log.info("otp_sent", user_id=user.id, purpose=otp_request.purpose, code=plain_code)
-        return True
+        log.info("otp_sent", user_id=user.id, purpose=otp_request.purpose)
+        return user, plain_code
 
-    async def verify_otp(self, db: AsyncSession, otp_verify: OTPVerify) -> bool:
-        identifier = otp_verify.phone_or_email
-        if "@" in identifier:
-            result = await db.execute(select(User).where(User.email == identifier))
-        else:
-            result = await db.execute(select(User).where(User.phone == identifier))
-        user = result.scalar_one_or_none()
-        if not user:
-            raise UserNotFoundError()
+    async def verify_otp(self, db: AsyncSession, otp_verify: OTPVerify) -> User:
+        user = await self._find_user(db, otp_verify.phone_or_email)
+        if not user or not user.is_active:
+            raise OTPInvalidError()
 
         now = datetime.now(timezone.utc)
         result = await db.execute(
@@ -290,7 +304,7 @@ class AuthService:
         await db.flush()
 
         log.info("otp_verified", user_id=user.id, purpose=otp_verify.purpose)
-        return True
+        return user
 
     async def reset_password(self, db: AsyncSession, token: str, new_password: str) -> bool:
         try:

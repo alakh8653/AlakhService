@@ -1,7 +1,15 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class PaymentCheckout(BaseModel):
+    """What a customer sends to pay for a booking; amount and parties come from the booking."""
+
+    booking_id: str
+    payment_method: str
+    idempotency_key: str = Field(min_length=8, max_length=128)
 
 
 class PaymentInitiate(BaseModel):

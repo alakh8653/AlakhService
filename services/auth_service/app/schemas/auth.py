@@ -46,8 +46,19 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    """Sign in with the account's email or phone number."""
+
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     password: str
+
+    def model_post_init(self, __context) -> None:
+        if not self.email and not self.phone:
+            raise ValueError("Provide an email or a phone number")
+
+    @property
+    def identifier(self) -> str:
+        return self.email or self.phone or ""
 
 
 class TokenResponse(BaseModel):
@@ -70,6 +81,17 @@ class OTPVerify(BaseModel):
     phone_or_email: str
     code: str
     purpose: Literal["registration", "login", "password_reset"]
+
+
+class OTPVerifyResponse(BaseModel):
+    """What a verified code grants: tokens for 'login', a reset token for 'password_reset'."""
+
+    message: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = None
+    expires_in: Optional[int] = None
+    reset_token: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):

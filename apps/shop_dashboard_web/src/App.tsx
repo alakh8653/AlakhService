@@ -6,6 +6,7 @@ import Header from './components/Header';
 import DashboardPage from './pages/DashboardPage';
 import BookingsPage from './pages/BookingsPage';
 import ServicesPage from './pages/ServicesPage';
+import QueuesPage from './pages/QueuesPage';
 import StaffPage from './pages/StaffPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -27,6 +28,7 @@ function ProtectedLayout() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/services" element={<ServicesPage />} />
+            <Route path="/queues" element={<QueuesPage />} />
             <Route path="/staff" element={<StaffPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

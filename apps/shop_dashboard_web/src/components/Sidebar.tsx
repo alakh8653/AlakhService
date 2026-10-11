@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Scissors, Users, BarChart2, Settings } from 'lucide-react';
+import { LayoutDashboard, Calendar, Scissors, Users, BarChart2, Settings, ListOrdered } from 'lucide-react';
 
 interface NavItem {
   to: string;
@@ -12,6 +12,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/bookings', label: 'Bookings', icon: <Calendar size={18} /> },
   { to: '/services', label: 'Services', icon: <Scissors size={18} /> },
+  { to: '/queues', label: 'Queues', icon: <ListOrdered size={18} /> },
   { to: '/staff', label: 'Staff', icon: <Users size={18} /> },
   { to: '/analytics', label: 'Analytics', icon: <BarChart2 size={18} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} /> },

@@ -1,28 +1,22 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import EntryNotFoundError, QueueFullError, QueueNotFoundError
-from app.core.priority_queue import WeightedFairQueue
 from app.models.queue import Queue, QueueEntry
 from app.schemas.queue import QueueCreate, QueueJoinRequest, QueuePositionResponse
 
 log = structlog.get_logger()
 
-# In-memory priority queues per queue_id
-_pq_map: dict[str, WeightedFairQueue] = {}
+# Rough service time per customer ahead, for the wait estimate.
+MINUTES_PER_CUSTOMER = 5
 
 
 class QueueService:
-
-    def _get_pq(self, queue_id: str) -> WeightedFairQueue:
-        if queue_id not in _pq_map:
-            _pq_map[queue_id] = WeightedFairQueue()
-        return _pq_map[queue_id]
 
     async def create_queue(self, db: AsyncSession, data: QueueCreate) -> Queue:
         q = Queue(
@@ -37,11 +31,12 @@ class QueueService:
         log.info("queue_created", queue_id=q.id, service_id=q.service_id)
         return q
 
-    async def queues_for_service(self, db: AsyncSession, service_id: str) -> List[Queue]:
-        """Queues currently taking customers for a service."""
-        result = await db.execute(
-            select(Queue).where(Queue.service_id == service_id, Queue.is_accepting.is_(True)).order_by(Queue.created_at)
-        )
+    async def queues_for_service(self, db: AsyncSession, service_id: str, include_closed: bool = False) -> List[Queue]:
+        """Queues currently taking customers for a service (or every queue it has)."""
+        stmt = select(Queue).where(Queue.service_id == service_id)
+        if not include_closed:
+            stmt = stmt.where(Queue.is_accepting.is_(True))
+        result = await db.execute(stmt.order_by(Queue.created_at))
         return list(result.scalars().all())
 
     async def get_queue(self, db: AsyncSession, queue_id: str) -> Queue:
@@ -51,37 +46,52 @@ class QueueService:
             raise QueueNotFoundError()
         return q
 
+    async def _waiting(self, db: AsyncSession, queue_id: str) -> List[QueueEntry]:
+        """Customers still waiting, in serving order: higher priority first, then who came first."""
+        result = await db.execute(
+            select(QueueEntry)
+            .where(QueueEntry.queue_id == queue_id, QueueEntry.status == "WAITING")
+            .order_by(QueueEntry.priority.desc(), QueueEntry.entered_at, QueueEntry.id)
+        )
+        return list(result.scalars().all())
+
+    def _place(self, entry: QueueEntry, waiting: List[QueueEntry]) -> QueueEntry:
+        """Sets the entry's live position and wait estimate from the current waiting list."""
+        ahead = next(i for i, e in enumerate(waiting) if e.id == entry.id)
+        entry.position = ahead + 1
+        entry.estimated_wait_minutes = ahead * MINUTES_PER_CUSTOMER
+        return entry
+
     async def join_queue(self, db: AsyncSession, queue_id: str, data: QueueJoinRequest) -> QueueEntry:
         q = await self.get_queue(db, queue_id)
+        waiting = await self._waiting(db, queue_id)
+        # Joining again (e.g. a retried tap) returns the place already held.
+        mine = next((e for e in waiting if e.customer_id == data.customer_id), None)
+        if mine is not None:
+            return self._place(mine, waiting)
         if not q.is_accepting:
             raise QueueFullError("Queue is not accepting new entries")
-        if q.current_size >= q.max_capacity:
+        if len(waiting) >= q.max_capacity:
             raise QueueFullError()
 
-        pq = self._get_pq(queue_id)
-        entry_id = str(uuid.uuid4())
-        pq.enqueue(entry_id, data.customer_id, data.weight, data.priority)
-
-        position = pq.size()
-        wait_minutes = position * 5  # rough estimate
-
+        now = datetime.now(timezone.utc)
         entry = QueueEntry(
-            id=entry_id,
+            id=str(uuid.uuid4()),
             queue_id=queue_id,
             customer_id=data.customer_id,
             service_id=data.service_id,
             priority=data.priority,
             weight=data.weight,
-            position=position,
+            position=0,
             status="WAITING",
-            entered_at=datetime.now(timezone.utc),
-            estimated_wait_minutes=wait_minutes,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            entered_at=now,
+            expires_at=now + timedelta(hours=2),
         )
         db.add(entry)
-        q.current_size += 1
+        q.current_size = len(waiting) + 1
         await db.flush()
-        log.info("queue_joined", queue_id=queue_id, customer_id=data.customer_id, position=position)
+        self._place(entry, await self._waiting(db, queue_id))
+        log.info("queue_joined", queue_id=queue_id, customer_id=data.customer_id, position=entry.position)
         return entry
 
     async def leave_queue(self, db: AsyncSession, queue_id: str, entry_id: str) -> None:
@@ -91,36 +101,53 @@ class QueueService:
         entry = result.scalar_one_or_none()
         if not entry:
             raise EntryNotFoundError()
-
-        pq = self._get_pq(queue_id)
-        pq.remove(entry_id)
-
-        entry.status = "LEFT"
-        result2 = await db.execute(select(Queue).where(Queue.id == queue_id))
-        q = result2.scalar_one_or_none()
-        if q and q.current_size > 0:
-            q.current_size -= 1
-        await db.flush()
+        if entry.status == "WAITING":
+            entry.status = "LEFT"
+            await self._resize(db, queue_id)
         log.info("queue_left", queue_id=queue_id, entry_id=entry_id)
 
+    async def _resize(self, db: AsyncSession, queue_id: str) -> None:
+        await db.flush()
+        q = await self.get_queue(db, queue_id)
+        q.current_size = len(await self._waiting(db, queue_id))
+        await db.flush()
+
     async def get_position(self, db: AsyncSession, queue_id: str, customer_id: str) -> QueuePositionResponse:
-        result = await db.execute(
-            select(QueueEntry).where(
-                QueueEntry.queue_id == queue_id,
-                QueueEntry.customer_id == customer_id,
-                QueueEntry.status == "WAITING",
-            )
-        )
-        entry = result.scalar_one_or_none()
+        waiting = await self._waiting(db, queue_id)
+        entry = next((e for e in waiting if e.customer_id == customer_id), None)
         if not entry:
             raise EntryNotFoundError("Customer not in queue")
-
+        self._place(entry, waiting)
         return QueuePositionResponse(
             customer_id=customer_id,
             queue_id=queue_id,
             position=entry.position,
             estimated_wait_minutes=entry.estimated_wait_minutes,
         )
+
+    async def waiting_list(self, db: AsyncSession, queue_id: str) -> List[QueueEntry]:
+        await self.get_queue(db, queue_id)
+        waiting = await self._waiting(db, queue_id)
+        return [self._place(e, waiting) for e in waiting]
+
+    async def call_next(self, db: AsyncSession, queue_id: str) -> Optional[QueueEntry]:
+        """Takes the first waiting customer off the queue (they are being served), or None if it is empty."""
+        waiting = await self._waiting(db, queue_id)
+        if not waiting:
+            return None
+        head = waiting[0]
+        head.status = "CALLED"
+        head.position = 0
+        head.estimated_wait_minutes = 0
+        await self._resize(db, queue_id)
+        log.info("queue_called", queue_id=queue_id, entry_id=head.id)
+        return head
+
+    async def set_accepting(self, db: AsyncSession, queue_id: str, accepting: bool) -> Queue:
+        q = await self.get_queue(db, queue_id)
+        q.is_accepting = accepting
+        await db.flush()
+        return q
 
 
 queue_service = QueueService()

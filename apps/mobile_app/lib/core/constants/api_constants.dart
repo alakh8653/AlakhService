@@ -32,6 +32,7 @@ class ApiConstants {
   static String bookingStatus(String id) => '$bookings/$id/status';
   static const String assignedBookings = '$bookings/assigned';
   static const String disputes = '$apiVersion/disputes';
+  static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';

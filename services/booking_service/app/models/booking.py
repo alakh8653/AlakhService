@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -25,6 +26,21 @@ class Booking(Base):
     metadata_json = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+
+    def _meta(self) -> dict:
+        try:
+            return json.loads(self.metadata_json) if self.metadata_json else {}
+        except ValueError:
+            return {}
+
+    @property
+    def coupon_code(self):
+        return self._meta().get("coupon_code")
+
+    @property
+    def list_price(self) -> int:
+        """The catalogue price before any coupon (total_amount is what the customer pays)."""
+        return self._meta().get("list_price", self.total_amount)
 
 
 class BookingStatusHistory(Base):

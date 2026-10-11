@@ -17,6 +17,8 @@ class BookingModel extends Booking {
     super.durationMinutes,
     required super.address,
     required super.totalAmount,
+    super.listPrice,
+    super.couponCode,
     super.notes,
     required super.createdAt,
   });
@@ -40,6 +42,8 @@ class BookingModel extends Booking {
       durationMinutes: (json['duration_minutes'] as int?) ?? 0,
       address: addressLine.replaceFirst(_addressPrefix, ''),
       totalAmount: ((json['total_amount'] as num?) ?? 0) / 100,
+      listPrice: json['list_price'] == null ? null : (json['list_price'] as num) / 100,
+      couponCode: json['coupon_code'] as String?,
       notes: otherNotes.isEmpty ? null : otherNotes,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
     );

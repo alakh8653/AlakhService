@@ -12,12 +12,14 @@ class CreateBookingRequested extends BookingEvent {
   final DateTime scheduledAt;
   final String address;
   final String? notes;
+  final String? couponCode;
 
   const CreateBookingRequested({
     required this.serviceId,
     required this.scheduledAt,
     required this.address,
     this.notes,
+    this.couponCode,
   });
 
   @override

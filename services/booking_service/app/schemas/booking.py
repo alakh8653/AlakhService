@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BookingCreate(BaseModel):
@@ -15,6 +15,8 @@ class BookingCreate(BaseModel):
     address_id: Optional[str] = None
     notes: Optional[str] = None
     total_amount: Optional[int] = None
+    # A promo code; the booking is priced with its discount (pricing_engine) and the code is used up.
+    coupon_code: Optional[str] = Field(default=None, max_length=50)
 
     @field_validator("duration_minutes")
     @classmethod
@@ -59,6 +61,8 @@ class BookingResponse(BaseModel):
     address_id: Optional[str] = None
     notes: Optional[str] = None
     total_amount: int
+    list_price: Optional[int] = None
+    coupon_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

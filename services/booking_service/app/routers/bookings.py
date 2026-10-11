@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
@@ -11,6 +12,9 @@ from app.core.fsm import BookingStatus
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.database import get_db
 from app.dependencies import (
+    CouponPricer,
+    CouponRejected,
+    get_coupon_pricer,
     get_current_user,
     get_service_lookup,
     get_shop_owner_lookup,
@@ -78,6 +82,8 @@ async def create_booking(
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    price_with_coupon: CouponPricer = Depends(get_coupon_pricer),
 ):
     customer_id = current_user.get("sub")
     # Price, shop and duration come from the catalogue, never from the client.
@@ -89,15 +95,23 @@ async def create_booking(
     duration = listing.get("duration_minutes") or booking_data.duration_minutes
     if not duration:
         raise HTTPException(status_code=422, detail="duration_minutes is required for this service")
+    price = listing["price_cents"]
+    code = (booking_data.coupon_code or "").strip().upper() or None
+    if code:
+        try:
+            price = await price_with_coupon(credentials.credentials, customer_id, booking_data.service_id, listing["price_cents"], code)
+        except CouponRejected as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
     booking_data = booking_data.model_copy(
         update={
             "customer_id": customer_id,
             "shop_id": listing["shop_id"],
-            "total_amount": listing["price_cents"],
+            "total_amount": price,
             "duration_minutes": duration,
         }
     )
-    booking = await booking_service.create_booking(db, customer_id, booking_data)
+    metadata = json.dumps({"coupon_code": code, "list_price": listing["price_cents"]}) if code else None
+    booking = await booking_service.create_booking(db, customer_id, booking_data, metadata)
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()

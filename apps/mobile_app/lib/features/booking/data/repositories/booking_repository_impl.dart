@@ -21,6 +21,7 @@ class BookingRepositoryImpl implements BookingRepository {
     required DateTime scheduledAt,
     required String address,
     String? notes,
+    String? couponCode,
   }) async {
     if (!await networkInfo.isConnected) return const Left(NetworkFailure());
     try {
@@ -29,6 +30,7 @@ class BookingRepositoryImpl implements BookingRepository {
         scheduledAt: scheduledAt,
         address: address,
         notes: notes,
+        couponCode: couponCode,
       );
       return Right(booking);
     } on ServerException catch (e) {

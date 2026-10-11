@@ -1,6 +1,7 @@
 import 'package:alakh_service/core/constants/api_constants.dart';
 import 'package:alakh_service/core/network/api_client.dart';
 import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/booking/data/coupon_api.dart';
 import 'package:alakh_service/features/booking/data/dispute_api.dart';
 import 'package:alakh_service/features/booking/data/models/booking_model.dart';
 import 'package:alakh_service/features/booking/domain/entities/booking.dart';
@@ -144,6 +145,22 @@ void main() {
       final api = PaymentApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
       expect(await api.paymentStateByBooking(), {'b1': 'paid', 'b2': 'cash'});
       expect(adapter.requests.single.path, ApiConstants.payments);
+    });
+
+    test('coupons are checked before booking and the booking shows what was saved', () async {
+      final adapter = FakeAdapter((r) => r.path.contains('NOPE')
+          ? (status: 404, body: {'detail': 'Coupon not found'})
+          : (status: 200, body: {'code': 'WELCOME10', 'is_valid': true, 'discount_pct': 0.10, 'message': 'Coupon is valid'}));
+      final api = CouponApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final ok = await api.check(' welcome10 ');
+      expect((ok.code, ok.isValid, ok.discountPct.round()), ('WELCOME10', true, 10));
+      expect(adapter.requests.first.path, '/api/v1/coupons/WELCOME10/validate');
+      final missing = await api.check('nope');
+      expect((missing.isValid, missing.message), (false, 'Coupon not found'));
+
+      final booked = BookingModel.fromJson({...bookingJson(), 'total_amount': 44910, 'list_price': 49900, 'coupon_code': 'WELCOME10'});
+      expect((booked.totalAmount, booked.listPrice, booked.couponCode), (449.1, 499.0, 'WELCOME10'));
     });
   });
 }

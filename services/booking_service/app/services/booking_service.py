@@ -27,7 +27,9 @@ class BookingService:
         # Fallback to UUID-based number to guarantee uniqueness
         return "BK" + uuid.uuid4().hex[:8].upper()
 
-    async def create_booking(self, db: AsyncSession, customer_id: str, booking_data: BookingCreate) -> Booking:
+    async def create_booking(
+        self, db: AsyncSession, customer_id: str, booking_data: BookingCreate, metadata_json: Optional[str] = None
+    ) -> Booking:
         now = datetime.now(timezone.utc)
         booking = Booking(
             id=str(uuid.uuid4()),
@@ -41,6 +43,7 @@ class BookingService:
             address_id=booking_data.address_id,
             notes=booking_data.notes,
             total_amount=booking_data.total_amount,
+            metadata_json=metadata_json,
             created_at=now,
             updated_at=now,
         )

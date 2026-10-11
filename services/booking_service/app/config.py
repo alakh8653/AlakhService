@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/2"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
+    PRICING_ENGINE_URL: str = "http://pricing_engine:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     # Shared with notification_service; without it no notifications are sent.
     INTERNAL_API_KEY: str = ""

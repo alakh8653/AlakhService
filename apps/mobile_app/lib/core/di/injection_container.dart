@@ -12,6 +12,7 @@ import '../../features/auth/domain/usecases/verify_otp_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/booking/data/datasources/booking_remote_datasource.dart';
+import '../../features/booking/data/coupon_api.dart';
 import '../../features/booking/data/dispute_api.dart';
 import '../../features/booking/data/rating_api.dart';
 import '../../features/booking/data/repositories/booking_repository_impl.dart';
@@ -101,4 +102,5 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => PaymentApi(sl()));
   sl.registerLazySingleton(() => RatingApi(sl()));
   sl.registerLazySingleton(() => DisputeApi(sl()));
+  sl.registerLazySingleton(() => CouponApi(sl()));
 }

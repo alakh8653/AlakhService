@@ -12,6 +12,7 @@ abstract class BookingRemoteDataSource {
     required DateTime scheduledAt,
     required String address,
     String? notes,
+    String? couponCode,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -50,6 +51,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     required DateTime scheduledAt,
     required String address,
     String? notes,
+    String? couponCode,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
@@ -58,6 +60,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
           'service_id': serviceId,
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'notes': BookingModel.composeNotes(address, notes),
+          if (couponCode != null && couponCode.trim().isNotEmpty) 'coupon_code': couponCode.trim(),
         },
       );
       return await _model(response.data!);

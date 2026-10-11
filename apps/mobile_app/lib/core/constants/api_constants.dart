@@ -40,6 +40,9 @@ class ApiConstants {
 
   // Profile (user_service)
   static const String profile = '$apiVersion/users/me/profile';
+  static const String addresses = '$apiVersion/users/me/addresses';
+  static String address(String id) => '$addresses/$id';
+  static String defaultAddress(String id) => '$addresses/$id/default';
 
   // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';

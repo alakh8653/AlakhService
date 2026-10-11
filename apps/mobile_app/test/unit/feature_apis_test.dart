@@ -6,6 +6,7 @@ import 'package:alakh_service/features/booking/data/dispute_api.dart';
 import 'package:alakh_service/features/booking/data/models/booking_model.dart';
 import 'package:alakh_service/features/booking/domain/entities/booking.dart';
 import 'package:alakh_service/features/payment/data/payment_api.dart';
+import 'package:alakh_service/features/profile/data/address_api.dart';
 import 'package:alakh_service/features/profile/data/profile_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
 import 'package:alakh_service/features/services/data/models/service_model.dart';
@@ -169,6 +170,27 @@ void main() {
       await ProfileApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore())).deleteAccount('Passw0rd!');
       expect(adapter.requests.single.path, '/api/v1/auth/delete-account');
       expect(adapter.requests.single.data, {'password': 'Passw0rd!'});
+    });
+
+    test('saved addresses come default-first and add as Indian addresses', () async {
+      final adapter = FakeAdapter((r) => r.method == 'POST'
+          ? (status: 201, body: {'id': 'a3', 'label': 'Work', 'street': '5 Baner Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411045', 'is_default': false})
+          : (status: 200, body: [
+              {'id': 'a1', 'label': 'Gym', 'street': '1 FC Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411004', 'is_default': false},
+              {'id': 'a2', 'label': 'Home', 'street': '12 MG Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411001', 'is_default': true},
+            ]));
+      final api = AddressApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final saved = await api.list();
+      expect(saved.map((a) => a.label), ['Home', 'Gym']);
+      expect(saved.first.oneLine, '12 MG Road, Pune, MH 411001');
+
+      await api.add(label: 'Work', street: '5 Baner Rd', city: 'Pune', state: 'MH', postalCode: '411045');
+      expect(adapter.requests.last.data, {
+        'label': 'Work', 'street': '5 Baner Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411045', 'country': 'India',
+      });
+      await api.makeDefault('a3');
+      expect(adapter.requests.last.path, '/api/v1/users/me/addresses/a3/default');
     });
   });
 }

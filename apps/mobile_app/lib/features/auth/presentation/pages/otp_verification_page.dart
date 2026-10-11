@@ -72,6 +72,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 backgroundColor: AppColors.error,
               ),
             );
+          } else if (state is OtpResent) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('A new code is on its way')),
+            );
           }
         },
         child: Padding(
@@ -114,9 +118,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               const SizedBox(height: 16),
               Center(
                 child: TextButton(
-                  onPressed: () {
-                    // Resend OTP
-                  },
+                  onPressed: () => context
+                      .read<AuthBloc>()
+                      .add(ResendOtpRequested(widget.phone)),
                   child: const Text("Didn't receive? Resend OTP"),
                 ),
               ),

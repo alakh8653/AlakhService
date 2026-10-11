@@ -75,9 +75,9 @@ class _LoginPageState extends State<LoginPage> {
                   CustomTextField(
                     controller: _phoneController,
                     label: 'Phone Number',
-                    hint: '+91 9876543210',
+                    hint: '+91 9876543210 (or your email)',
                     keyboardType: TextInputType.phone,
-                    validator: Validators.phone,
+                    validator: Validators.phoneOrEmail,
                   ),
                   const SizedBox(height: 16),
                   CustomTextField(
@@ -128,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: AppTextStyles.body2,
                       ),
                       GestureDetector(
-                        onTap: () => Navigator.pushReplacement(
+                        onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => const RegisterPage(),

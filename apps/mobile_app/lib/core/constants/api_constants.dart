@@ -1,6 +1,9 @@
+/// Endpoints of the AlakhService API gateway (services/api_gateway/src/routes.ts).
 class ApiConstants {
   ApiConstants._();
 
+  /// Gateway origin. Point a dev build at a local stack with
+  /// `--dart-define=API_BASE_URL=http://10.0.2.2:3000` (Android emulator) or `http://localhost:3000`.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://api.alakhservice.com',
@@ -8,39 +11,48 @@ class ApiConstants {
 
   static const String apiVersion = '/api/v1';
 
-  // Auth endpoints
+  // Auth (auth_service)
   static const String login = '$apiVersion/auth/login';
   static const String register = '$apiVersion/auth/register';
+  static const String sendOtp = '$apiVersion/auth/send-otp';
   static const String verifyOtp = '$apiVersion/auth/verify-otp';
   static const String refreshToken = '$apiVersion/auth/refresh';
   static const String logout = '$apiVersion/auth/logout';
-  static const String forgotPassword = '$apiVersion/auth/forgot-password';
+  static const String me = '$apiVersion/auth/me';
+  static const String resetPassword = '$apiVersion/auth/reset-password';
 
-  // Service endpoints
+  // Catalogue (service_catalog_service)
   static const String services = '$apiVersion/services';
   static const String searchServices = '$apiVersion/services/search';
 
-  // Booking endpoints
+  // Bookings (booking_service)
   static const String bookings = '$apiVersion/bookings';
-  static const String cancelBooking = '$apiVersion/bookings/cancel';
+  static String booking(String id) => '$bookings/$id';
+  static String cancelBooking(String id) => '$bookings/$id/cancel';
 
-  // User profile
-  static const String profile = '$apiVersion/users/profile';
-  static const String updateProfile = '$apiVersion/users/profile/update';
+  // Shops (shop_service)
+  static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
 
-  // Payment
+  // Profile (user_service)
+  static const String profile = '$apiVersion/users/me/profile';
+
+  // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';
-  static const String paymentCallback = '$apiVersion/payments/callback';
 
-  // Queue
-  static const String queueStatus = '$apiVersion/queue/status';
+  // Queues (queue_service)
+  static const String queues = '$apiVersion/queues';
+  static String joinQueue(String queueId) => '$queues/$queueId/join';
+  static String queuePosition(String queueId, String customerId) => '$queues/$queueId/position/$customerId';
+  static String leaveQueue(String queueId, String entryId) => '$queues/$queueId/entries/$entryId';
 
-  // Tracking
-  static const String trackProvider = '$apiVersion/tracking/provider';
+  // Tracking (tracking_service)
+  static String providerLocation(String providerId) => '$apiVersion/locations/$providerId';
 
-  // Notifications
-  static const String notifications = '$apiVersion/notifications';
-  static const String markRead = '$apiVersion/notifications/mark-read';
+  // Notifications (notification_service)
+  static const String notifications = '$apiVersion/notifications/me';
+  static const String unreadCount = '$apiVersion/notifications/count/unread';
+  static const String markAllRead = '$apiVersion/notifications/read-all';
+  static String markRead(String id) => '$apiVersion/notifications/$id/read';
 
   // Timeouts
   static const int connectTimeout = 30000;

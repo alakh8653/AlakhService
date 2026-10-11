@@ -50,3 +50,13 @@ class OtpRequired extends AuthState {
   @override
   List<Object> get props => [phone];
 }
+
+/// A new verification code was sent.
+class OtpResent extends AuthState {
+  final String phone;
+
+  const OtpResent({required this.phone});
+
+  @override
+  List<Object> get props => [phone];
+}

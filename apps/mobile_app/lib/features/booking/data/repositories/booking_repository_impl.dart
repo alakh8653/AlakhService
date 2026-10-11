@@ -67,7 +67,7 @@ class BookingRepositoryImpl implements BookingRepository {
       final result = await remoteDataSource.cancelBooking(bookingId);
       return Right(result);
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message));
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     }
   }
 }

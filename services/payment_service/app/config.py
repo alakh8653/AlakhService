@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     PLATFORM_ACCOUNT_ID: str = "platform_account"
+    BOOKING_SERVICE_URL: str = "http://booking_service:8000"
+    SHOP_SERVICE_URL: str = "http://shop_service:8000"
 
     class Config:
         env_file = ".env"

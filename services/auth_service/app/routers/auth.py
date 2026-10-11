@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.mailer import send_password_reset
+from app.core.mailer import send_otp_code, send_password_reset
 from app.core.security import create_password_reset_token
 from app.database import get_db
 from app.dependencies import get_current_user, get_redis
@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.auth import (
     OTPRequest,
     OTPVerify,
+    OTPVerifyResponse,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshTokenRequest,
@@ -78,19 +79,33 @@ async def logout_all(
 @router.post("/auth/send-otp")
 async def send_otp(
     otp_request: OTPRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
 ):
-    await auth_service.send_otp(db, otp_request)
-    return {"message": "OTP sent"}
+    created = await auth_service.send_otp(db, redis, otp_request)
+    if created:
+        user, code = created
+        # Delivered after the response, so known and unknown accounts look the same to the caller.
+        background.add_task(send_otp_code, str(user.id), otp_request.phone_or_email, code, otp_request.purpose)
+    return {"message": "If the account exists, a code has been sent"}
 
 
-@router.post("/auth/verify-otp")
+@router.post("/auth/verify-otp", response_model=OTPVerifyResponse, response_model_exclude_none=True)
 async def verify_otp(
     otp_verify: OTPVerify,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await auth_service.verify_otp(db, otp_verify)
-    return {"message": "OTP verified successfully"}
+    user = await auth_service.verify_otp(db, otp_verify)
+    if otp_verify.purpose in ("login", "registration"):
+        # Confirming a new account's code also signs it in.
+        tokens = await auth_service.issue_tokens(db, user, request)
+        message = "Signed in" if otp_verify.purpose == "login" else "Account verified"
+        return OTPVerifyResponse(message=message, **tokens.model_dump())
+    if otp_verify.purpose == "password_reset":
+        token = create_password_reset_token(str(user.id), user.hashed_password)
+        return OTPVerifyResponse(message="Code verified", reset_token=token)
 
 
 @router.post("/auth/forgot-password")

@@ -23,7 +23,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedRole = AppConstants.roleUser;
   bool _obscurePassword = true;
 
   @override
@@ -41,7 +40,7 @@ class _RegisterPageState extends State<RegisterPage> {
               name: _nameController.text.trim(),
               phone: _phoneController.text.trim(),
               password: _passwordController.text,
-              role: _selectedRole,
+              role: AppConstants.roleUser,
             ),
           );
     }
@@ -113,25 +112,11 @@ class _RegisterPageState extends State<RegisterPage> {
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text('I am a:', style: AppTextStyles.subtitle2),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _RoleChip(
-                      label: 'Customer',
-                      value: AppConstants.roleUser,
-                      selectedRole: _selectedRole,
-                      onTap: (v) => setState(() => _selectedRole = v),
-                    ),
-                    const SizedBox(width: 12),
-                    _RoleChip(
-                      label: 'Provider',
-                      value: AppConstants.roleProvider,
-                      selectedRole: _selectedRole,
-                      onTap: (v) => setState(() => _selectedRole = v),
-                    ),
-                  ],
+                const SizedBox(height: 12),
+                // Provider accounts are set up by a shop or an admin, so sign-up is for customers.
+                const Text(
+                  'We will text a verification code to this number.',
+                  style: AppTextStyles.caption,
                 ),
                 const SizedBox(height: 32),
                 BlocBuilder<AuthBloc, AuthState>(
@@ -161,45 +146,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final String selectedRole;
-  final void Function(String) onTap;
-
-  const _RoleChip({
-    required this.label,
-    required this.value,
-    required this.selectedRole,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = value == selectedRole;
-    return GestureDetector(
-      onTap: () => onTap(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.subtitle2.copyWith(
-            color: isSelected ? AppColors.textLight : AppColors.textSecondary,
           ),
         ),
       ),

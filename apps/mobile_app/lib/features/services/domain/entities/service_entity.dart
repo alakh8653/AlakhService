@@ -12,6 +12,8 @@ class ServiceEntity extends Equatable {
   final String? imageUrl;
   final bool isAvailable;
   final List<String> tags;
+  final String? shopId;
+  final int? durationMinutes;
 
   const ServiceEntity({
     required this.id,
@@ -25,6 +27,8 @@ class ServiceEntity extends Equatable {
     this.imageUrl,
     this.isAvailable = true,
     this.tags = const [],
+    this.shopId,
+    this.durationMinutes,
   });
 
   @override

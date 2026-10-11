@@ -94,7 +94,7 @@ class _BookingPageState extends State<BookingPage> {
           if (state is BookingCreated) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Booking confirmed!'),
+                content: Text('Booking requested. The shop will confirm it shortly.'),
                 backgroundColor: AppColors.success,
               ),
             );
@@ -207,7 +207,7 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(serviceName, style: AppTextStyles.subtitle1),
                 Text(
-                  'Starting at ₹${price.toStringAsFixed(0)}',
+                  '₹${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}',
                   style: AppTextStyles.caption,
                 ),
               ],

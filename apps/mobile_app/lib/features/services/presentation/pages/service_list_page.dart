@@ -11,7 +11,10 @@ import '../bloc/service_state.dart';
 import 'service_detail_page.dart';
 
 class ServiceListPage extends StatefulWidget {
-  const ServiceListPage({super.key});
+  /// Search to run on open (e.g. a category picked on the home screen).
+  final String? initialQuery;
+
+  const ServiceListPage({super.key, this.initialQuery});
 
   @override
   State<ServiceListPage> createState() => _ServiceListPageState();
@@ -23,7 +26,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
   @override
   void initState() {
     super.initState();
-    context.read<ServiceBloc>().add(const LoadServices());
+    final query = widget.initialQuery?.trim() ?? '';
+    _searchController.text = query;
+    context.read<ServiceBloc>().add(query.isEmpty ? const LoadServices() : SearchServices(query: query));
   }
 
   @override

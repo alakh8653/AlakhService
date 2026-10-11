@@ -6,7 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
-from app.core.exceptions import AccountLockedError, AuthServiceError
+from app.core.exceptions import (
+    AccountLockedError,
+    AuthServiceError,
+    OTPRateLimitedError,
+    OTPTooManyAttemptsError,
+    UserAlreadyExistsError,
+)
 from app.routers.auth import router as auth_router
 
 logger = structlog.get_logger()
@@ -41,6 +47,10 @@ async def auth_error_handler(request: Request, exc: AuthServiceError):
             status_code=429,
             content={"detail": str(exc), "lockout_seconds": exc.lockout_seconds},
         )
+    if isinstance(exc, (OTPRateLimitedError, OTPTooManyAttemptsError)):
+        return JSONResponse(status_code=429, content={"detail": str(exc)})
+    if isinstance(exc, UserAlreadyExistsError):
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
     return JSONResponse(status_code=401, content={"detail": str(exc)})
 
 

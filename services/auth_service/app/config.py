@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     # Local testing only, when SMTP is not configured: log reset tokens instead of emailing them.
     # Never enable where logs are shared; a logged token lets its reader take over the account.
     LOG_PASSWORD_RESET_TOKENS: bool = False
+    # SMS for one-time codes to phone numbers (Twilio REST API). Without these, no SMS is sent.
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+    OTP_REQUESTS_PER_WINDOW: int = 3
+    OTP_REQUEST_WINDOW_SECONDS: int = 600
+    # Local testing only: log one-time codes when they cannot be delivered.
+    LOG_OTP_CODES: bool = False
 
     class Config:
         env_file = ".env"

@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/di/injection_container.dart';
+import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
+import '../../data/payment_api.dart';
 
+/// Starts payment for a booking. The server charges the booking's own price, whatever
+/// [amount] shows here.
 class PaymentPage extends StatefulWidget {
   final double amount;
   final String bookingId;
+  final PaymentApi? paymentApi;
 
   const PaymentPage({
     super.key,
     required this.amount,
     required this.bookingId,
+    this.paymentApi,
   });
 
   @override
@@ -18,6 +26,9 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
+  late final PaymentApi _api = widget.paymentApi ?? sl<PaymentApi>();
+  // One key per attempt on this screen, so a retried tap never creates a second payment.
+  final String _idempotencyKey = PaymentApi.newIdempotencyKey();
   String _selectedMethod = 'upi';
   bool _isProcessing = false;
 
@@ -25,45 +36,60 @@ class _PaymentPageState extends State<PaymentPage> {
     _PaymentMethod(id: 'upi', label: 'UPI', icon: Icons.account_balance),
     _PaymentMethod(id: 'card', label: 'Credit/Debit Card', icon: Icons.credit_card),
     _PaymentMethod(id: 'netbanking', label: 'Net Banking', icon: Icons.computer),
-    _PaymentMethod(id: 'cod', label: 'Cash on Delivery', icon: Icons.money),
+    _PaymentMethod(id: 'cash', label: 'Pay in cash', icon: Icons.money),
   ];
 
   Future<void> _onPay() async {
     setState(() => _isProcessing = true);
-    // Simulate payment processing
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
+    try {
+      final result = await _api.payForBooking(
+        bookingId: widget.bookingId,
+        method: _selectedMethod,
+        idempotencyKey: _idempotencyKey,
+      );
+      if (!mounted) return;
       setState(() => _isProcessing = false);
-      _showSuccessDialog();
+      _showResult(result);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
+      );
     }
   }
 
-  void _showSuccessDialog() {
+  void _showResult(PaymentResult result) {
+    final amount = '₹${result.amount.toStringAsFixed(2)}';
+    final completed = result.status == 'COMPLETED';
+    final message = completed
+        ? '$amount paid.'
+        : _selectedMethod == 'cash'
+            ? 'Pay $amount in cash to your provider when the job is done.'
+            : 'Payment of $amount has been started and will be confirmed '
+                'once your bank or UPI app approves it.';
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('Payment Successful'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(completed ? 'Payment Successful' : 'Payment Recorded'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.check_circle,
-              color: AppColors.success,
+            Icon(
+              completed ? Icons.check_circle : Icons.hourglass_top,
+              color: completed ? AppColors.success : AppColors.primary,
               size: 64,
             ),
             const SizedBox(height: 12),
-            Text(
-              '₹${widget.amount.toStringAsFixed(2)} paid successfully',
-              style: AppTextStyles.body1,
-            ),
+            Text(message, style: AppTextStyles.body1, textAlign: TextAlign.center),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              Navigator.pop(context, true);
             },
             child: const Text('Done'),
           ),
@@ -98,14 +124,10 @@ class _PaymentPageState extends State<PaymentPage> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primaryLight
-                            : AppColors.surface,
+                        color: isSelected ? AppColors.primaryLight : AppColors.surface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.border,
+                          color: isSelected ? AppColors.primary : AppColors.border,
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -113,18 +135,12 @@ class _PaymentPageState extends State<PaymentPage> {
                         children: [
                           Icon(
                             method.icon,
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
+                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
                           ),
                           const SizedBox(width: 12),
                           Text(method.label, style: AppTextStyles.body1),
                           const Spacer(),
-                          if (isSelected)
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppColors.primary,
-                            ),
+                          if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
                         ],
                       ),
                     ),
@@ -153,6 +169,7 @@ class _AmountSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shortId = bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -176,10 +193,7 @@ class _AmountSummaryCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Text('Booking ID', style: AppTextStyles.caption),
-              Text(
-                '#${bookingId.substring(0, 8).toUpperCase()}',
-                style: AppTextStyles.subtitle2,
-              ),
+              Text('#${shortId.toUpperCase()}', style: AppTextStyles.subtitle2),
             ],
           ),
         ],
@@ -193,9 +207,5 @@ class _PaymentMethod {
   final String label;
   final IconData icon;
 
-  const _PaymentMethod({
-    required this.id,
-    required this.label,
-    required this.icon,
-  });
+  const _PaymentMethod({required this.id, required this.label, required this.icon});
 }

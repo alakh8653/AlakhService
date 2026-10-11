@@ -11,6 +11,12 @@ class Validators {
     return null;
   }
 
+  /// Sign-in accepts the account's phone number or its email.
+  static String? phoneOrEmail(String? value) {
+    if (value != null && value.contains('@')) return email(value);
+    return phone(value);
+  }
+
   static String? email(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email is required';
     if (!RegExp(r'^[\w\.\+\-]+@[\w\-]+\.\w{2,}$').hasMatch(value.trim())) {

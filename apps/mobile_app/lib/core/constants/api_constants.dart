@@ -20,6 +20,7 @@ class ApiConstants {
   static const String logout = '$apiVersion/auth/logout';
   static const String me = '$apiVersion/auth/me';
   static const String resetPassword = '$apiVersion/auth/reset-password';
+  static const String deleteAccount = '$apiVersion/auth/delete-account';
 
   // Catalogue (service_catalog_service)
   static const String services = '$apiVersion/services';

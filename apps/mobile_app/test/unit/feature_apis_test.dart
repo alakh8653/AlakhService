@@ -6,6 +6,7 @@ import 'package:alakh_service/features/booking/data/dispute_api.dart';
 import 'package:alakh_service/features/booking/data/models/booking_model.dart';
 import 'package:alakh_service/features/booking/domain/entities/booking.dart';
 import 'package:alakh_service/features/payment/data/payment_api.dart';
+import 'package:alakh_service/features/profile/data/profile_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
 import 'package:alakh_service/features/services/data/models/service_model.dart';
 import 'package:alakh_service/features/tracking/data/tracking_api.dart';
@@ -161,6 +162,13 @@ void main() {
 
       final booked = BookingModel.fromJson({...bookingJson(), 'total_amount': 44910, 'list_price': 49900, 'coupon_code': 'WELCOME10'});
       expect((booked.totalAmount, booked.listPrice, booked.couponCode), (449.1, 499.0, 'WELCOME10'));
+    });
+
+    test('deleting the account sends the password to auth', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: {'message': 'Your account has been deleted'}));
+      await ProfileApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore())).deleteAccount('Passw0rd!');
+      expect(adapter.requests.single.path, '/api/v1/auth/delete-account');
+      expect(adapter.requests.single.data, {'password': 'Passw0rd!'});
     });
   });
 }

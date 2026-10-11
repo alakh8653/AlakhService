@@ -61,6 +61,7 @@ class Booking extends Equatable {
   bool get canTrack => providerId != null && BookingStatus.trackable.contains(status);
   bool get canPay => BookingStatus.payable.contains(status);
   bool get canRate => status == BookingStatus.completed && shopId != null;
+  bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override
   List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId];

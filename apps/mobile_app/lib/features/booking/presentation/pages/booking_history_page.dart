@@ -9,6 +9,7 @@ import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../tracking/presentation/pages/live_tracking_page.dart';
+import '../../data/dispute_api.dart';
 import '../../data/rating_api.dart';
 import '../../domain/entities/booking.dart';
 import '../bloc/booking_bloc.dart';
@@ -80,6 +81,20 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     }
   }
 
+  Future<void> _report(Booking booking) async {
+    final report = await showDialog<(String, String)>(context: context, builder: (_) => const _ReportDialog());
+    if (report == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final bloc = context.read<BookingBloc>();
+    try {
+      await sl<DisputeApi>().report(bookingId: booking.id, type: report.$1, description: report.$2);
+      messenger.showSnackBar(const SnackBar(content: Text('Thanks. Our support team will look into it and get back to you.')));
+      bloc.add(const LoadUserBookings());
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
+    }
+  }
+
   void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page))
       .then((_) => mounted ? context.read<BookingBloc>().add(const LoadUserBookings()) : null);
 
@@ -133,6 +148,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   onTrack: b.canTrack ? () => _open(LiveTrackingPage(booking: b)) : null,
                   onPay: b.canPay ? () => _open(PaymentPage(bookingId: b.id, amount: b.totalAmount)) : null,
                   onRate: b.canRate ? () => _rate(b) : null,
+                  onReport: b.canDispute ? () => _report(b) : null,
                 );
               },
             ),
@@ -157,6 +173,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onTrack;
   final VoidCallback? onPay;
   final VoidCallback? onRate;
+  final VoidCallback? onReport;
 
   const _BookingCard({
     required this.booking,
@@ -166,6 +183,7 @@ class _BookingCard extends StatelessWidget {
     this.onTrack,
     this.onPay,
     this.onRate,
+    this.onReport,
   });
 
   @override
@@ -177,6 +195,8 @@ class _BookingCard extends StatelessWidget {
         TextButton.icon(onPressed: onPay, icon: const Icon(Icons.payment, size: 18), label: const Text('Pay')),
       if (onRate != null)
         TextButton.icon(onPressed: onRate, icon: const Icon(Icons.star_outline, size: 18), label: const Text('Rate')),
+      if (onReport != null)
+        TextButton.icon(onPressed: onReport, icon: const Icon(Icons.report_outlined, size: 18), label: const Text('Report a problem')),
       if (onCancel != null)
         TextButton(
           onPressed: onCancel,
@@ -273,6 +293,62 @@ class _RatingDialogState extends State<_RatingDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Not now')),
         TextButton(onPressed: () => Navigator.pop(context, _stars.toDouble()), child: const Text('Submit')),
+      ],
+    );
+  }
+}
+
+
+/// Asks what went wrong; pops with (type, description).
+class _ReportDialog extends StatefulWidget {
+  const _ReportDialog();
+
+  @override
+  State<_ReportDialog> createState() => _ReportDialogState();
+}
+
+class _ReportDialogState extends State<_ReportDialog> {
+  String _type = disputeTypes.keys.first;
+  final _description = TextEditingController();
+
+  @override
+  void dispose() {
+    _description.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _description.text.trim().length >= 3;
+    return AlertDialog(
+      title: const Text('Report a problem'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: _type,
+            items: [
+              for (final e in disputeTypes.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => setState(() => _type = v ?? _type),
+            decoration: const InputDecoration(labelText: 'What went wrong?'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _description,
+            maxLines: 4,
+            maxLength: 2000,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Tell us what happened', alignLabelWithHint: true),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: valid ? () => Navigator.pop(context, (_type, _description.text.trim())) : null,
+          child: const Text('Send'),
+        ),
       ],
     );
   }

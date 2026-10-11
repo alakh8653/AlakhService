@@ -1,14 +1,15 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DisputeCreate(BaseModel):
     booking_id: str
-    raised_by: str
-    dispute_type: str
-    description: str
+    # Set from the caller's token; only admins may name someone else.
+    raised_by: Optional[str] = None
+    dispute_type: str = Field(min_length=1, max_length=50)
+    description: str = Field(min_length=3, max_length=2000)
     evidence_urls: Optional[List[str]] = None
 
 

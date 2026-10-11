@@ -45,6 +45,8 @@ async def create_dispute(
         if not await booking_check(data.booking_id, caller):
             raise HTTPException(status_code=404, detail="Booking not found")
         data = data.model_copy(update={"raised_by": caller.user_id})
+    elif not data.raised_by:
+        data = data.model_copy(update={"raised_by": caller.user_id})
     return await dispute_service.create_dispute(db, data)
 
 

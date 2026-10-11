@@ -31,6 +31,7 @@ class ApiConstants {
   static String cancelBooking(String id) => '$bookings/$id/cancel';
   static String bookingStatus(String id) => '$bookings/$id/status';
   static const String assignedBookings = '$bookings/assigned';
+  static const String disputes = '$apiVersion/disputes';
 
   // Shops (shop_service)
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';

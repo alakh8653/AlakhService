@@ -46,6 +46,7 @@ class Payment(Base):
     status = Column(String, default="PENDING", nullable=False)
     payment_method = Column(String, nullable=False)
     provider_payment_id = Column(String, nullable=True)
+    provider_order_id = Column(String, nullable=True, index=True)
     gateway = Column(String, nullable=True)  # razorpay, stripe
     idempotency_key = Column(String, unique=True, nullable=False)
     metadata_json = Column("metadata", Text, nullable=True)

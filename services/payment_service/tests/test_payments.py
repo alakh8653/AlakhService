@@ -283,3 +283,22 @@ async def test_idempotency(db_session, payment_svc, mock_redis):
     # Second call with same key (Redis returns None but DB has the record)
     payment2 = await payment_svc.initiate_payment(db_session, mock_redis, payment_data)
     assert payment1.id == payment2.id
+
+
+@pytest.mark.anyio
+async def test_completing_a_payment_twice_holds_and_credits_once(db_session, payment_svc, mock_redis, ledger_svc):
+    payment = await payment_svc.initiate_payment(db_session, mock_redis, PaymentInitiate(
+        booking_id="booking-done-1",
+        payer_id="payer-done-1",
+        payee_id="payee-done-1",
+        amount_cents=7000,
+        payment_method="upi",
+        idempotency_key=str(uuid.uuid4()),
+    ))
+
+    await payment_svc.mark_completed(db_session, payment, "pay_1", "razorpay")
+    await payment_svc.mark_completed(db_session, payment, "pay_1", "razorpay")
+
+    assert (payment.status, payment.gateway, payment.provider_payment_id) == ("COMPLETED", "razorpay", "pay_1")
+    platform = await payment_svc.get_or_create_account(db_session, "platform_account", "platform")
+    assert await ledger_svc.get_balance(db_session, platform.id) == 7000

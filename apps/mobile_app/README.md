@@ -60,8 +60,10 @@ lib/
 - 🔎 Service catalogue browsing and search
 - 📅 Booking, booking history and cancellation
 - 📍 Live provider location while a booking is in progress (Google Maps)
-- 💳 Payment for confirmed bookings (the server prices the booking; gateway checkout is not yet integrated,
-  so online payments are recorded as pending)
+- 💳 Payment for confirmed bookings: Razorpay checkout (UPI, cards, net banking) or cash. The server prices
+  the booking, opens the Razorpay order and only counts the payment once Razorpay's signature verifies.
+  Online payments need `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` on payment_service;
+  without them the app offers cash only
 - ⭐ Rating the shop after a completed booking
 - 📊 Joining a walk-in queue and watching your position
 - 🔔 In-app notifications

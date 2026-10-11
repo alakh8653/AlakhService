@@ -1,6 +1,3 @@
-import hashlib
-import hmac
-import json
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -98,87 +95,63 @@ class PaymentService:
         log.info("payment_initiated", payment_id=payment.id, amount_cents=payment_data.amount_cents)
         return payment
 
-    async def process_razorpay_webhook(self, db: AsyncSession, payload: dict, signature: str) -> bool:
-        if settings.RAZORPAY_KEY_SECRET:
-            webhook_body = json.dumps(payload, separators=(",", ":")).encode()
-            expected = hmac.new(
-                settings.RAZORPAY_KEY_SECRET.encode(),
-                webhook_body,
-                hashlib.sha256,
-            ).hexdigest()
-            if not hmac.compare_digest(expected, signature):
-                raise ValueError("Invalid Razorpay signature")
+    async def mark_completed(self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway: str) -> Payment:
+        """Records a confirmed payment once: funds go into escrow and the platform account is credited."""
+        if payment.status == "COMPLETED":
+            return payment
+        payment.status = "COMPLETED"
+        payment.provider_payment_id = provider_payment_id
+        payment.gateway = gateway
+        payment.updated_at = datetime.now(timezone.utc)
+        try:
+            await escrow_service.hold_funds(db, payment.id)
+            platform_account = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
+            await ledger.credit(
+                db, platform_account.id, payment.amount_cents,
+                payment.currency, f"Payment {payment.id} received",
+                payment.id, "payment",
+            )
+        except Exception as e:
+            log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
+        await db.flush()
+        log.info("payment_completed", payment_id=payment.id, gateway=gateway)
+        return payment
 
-        event = payload.get("event", "")
-        entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
-        provider_payment_id = entity.get("id")
+    async def _find_for_gateway(self, db: AsyncSession, payment_id: Optional[str], order_id: Optional[str]) -> Optional[Payment]:
+        if payment_id:
+            payment = await self.get_payment(db, payment_id)
+            if payment:
+                return payment
+        if order_id:
+            result = await db.execute(select(Payment).where(Payment.provider_order_id == order_id))
+            return result.scalar_one_or_none()
+        return None
 
-        if event == "payment.captured":
-            notes = entity.get("notes", {})
-            internal_payment_id = notes.get("payment_id")
-            if internal_payment_id:
-                result = await db.execute(select(Payment).where(Payment.id == internal_payment_id))
-                payment = result.scalar_one_or_none()
-                if payment:
-                    payment.status = "COMPLETED"
-                    payment.provider_payment_id = provider_payment_id
-                    payment.gateway = "razorpay"
-                    payment.updated_at = datetime.now(timezone.utc)
-                    try:
-                        await escrow_service.hold_funds(db, payment.id)
-                        platform_account = await self.get_or_create_account(
-                            db, settings.PLATFORM_ACCOUNT_ID, "platform"
-                        )
-                        await ledger.credit(
-                            db, platform_account.id, payment.amount_cents,
-                            payment.currency, f"Payment {payment.id} received",
-                            payment.id, "payment",
-                        )
-                    except Exception as e:
-                        log.warning("escrow_hold_failed", error=str(e))
-                    await db.flush()
-                    log.info("razorpay_payment_captured", payment_id=payment.id)
+    async def process_razorpay_event(self, db: AsyncSession, event: dict) -> None:
+        """Applies a Razorpay webhook event whose signature has already been checked."""
+        entity = event.get("payload", {}).get("payment", {}).get("entity", {})
+        payment = await self._find_for_gateway(db, (entity.get("notes") or {}).get("payment_id"), entity.get("order_id"))
+        if payment is None:
+            log.info("razorpay_event_unmatched", event=event.get("event"), order_id=entity.get("order_id"))
+            return
+        if event.get("event") in ("payment.captured", "order.paid"):
+            if entity.get("amount") != payment.amount_cents or entity.get("currency", payment.currency) != payment.currency:
+                log.warning("razorpay_amount_mismatch", payment_id=payment.id, amount=entity.get("amount"))
+                return
+            await self.mark_completed(db, payment, entity.get("id"), "razorpay")
+        elif event.get("event") == "payment.failed" and payment.status == "PENDING":
+            payment.status = "FAILED"
+            payment.updated_at = datetime.now(timezone.utc)
+            await db.flush()
 
-        elif event == "payment.failed":
-            notes = entity.get("notes", {})
-            internal_payment_id = notes.get("payment_id")
-            if internal_payment_id:
-                result = await db.execute(select(Payment).where(Payment.id == internal_payment_id))
-                payment = result.scalar_one_or_none()
-                if payment:
-                    payment.status = "FAILED"
-                    payment.updated_at = datetime.now(timezone.utc)
-                    await db.flush()
-
-        return True
-
-    async def process_stripe_webhook(self, db: AsyncSession, payload: bytes, signature: str) -> bool:
-        if settings.STRIPE_WEBHOOK_SECRET:
-            import stripe
-            try:
-                event = stripe.Webhook.construct_event(payload, signature, settings.STRIPE_WEBHOOK_SECRET)
-            except Exception as e:
-                raise ValueError(f"Invalid Stripe signature: {e}") from e
-            event_type = event["type"]
-            event_data = event["data"]["object"]
-        else:
-            event_data = payload if isinstance(payload, dict) else {}
-            event_type = event_data.get("type", "")
-
-        if event_type == "payment_intent.succeeded":
-            internal_payment_id = event_data.get("metadata", {}).get("payment_id")
-            if internal_payment_id:
-                result = await db.execute(select(Payment).where(Payment.id == internal_payment_id))
-                payment = result.scalar_one_or_none()
-                if payment:
-                    payment.status = "COMPLETED"
-                    payment.provider_payment_id = event_data.get("id")
-                    payment.gateway = "stripe"
-                    payment.updated_at = datetime.now(timezone.utc)
-                    await db.flush()
-                    log.info("stripe_payment_succeeded", payment_id=payment.id)
-
-        return True
+    async def process_stripe_event(self, db: AsyncSession, event: dict) -> None:
+        """Applies a Stripe webhook event whose signature has already been checked."""
+        if event.get("type") != "payment_intent.succeeded":
+            return
+        intent = event.get("data", {}).get("object", {})
+        payment = await self._find_for_gateway(db, (intent.get("metadata") or {}).get("payment_id"), None)
+        if payment and intent.get("amount_received", intent.get("amount")) == payment.amount_cents:
+            await self.mark_completed(db, payment, intent.get("id"), "stripe")
 
     async def request_refund(self, db: AsyncSession, payment_id: str, refund_data: RefundRequest) -> Refund:
         result = await db.execute(select(Payment).where(Payment.id == payment_id))

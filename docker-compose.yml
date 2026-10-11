@@ -155,6 +155,11 @@ services:
       REDIS_URL: redis://redis:6379/4
       BOOKING_SERVICE_URL: http://booking_service:8000
       SHOP_SERVICE_URL: http://shop_service:8000
+      # Online payments need the Razorpay keys; without them only cash is offered.
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
 
   notification_service:
     <<: *python-service

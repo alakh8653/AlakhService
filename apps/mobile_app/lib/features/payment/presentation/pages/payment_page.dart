@@ -6,19 +6,24 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../data/payment_api.dart';
+import '../../data/razorpay_checkout.dart';
 
-/// Starts payment for a booking. The server charges the booking's own price, whatever
-/// [amount] shows here.
+/// Pays for a booking. The server charges the booking's own price, whatever [amount] shows here.
+///
+/// Online methods open Razorpay's checkout for the order the server created, then the server
+/// verifies Razorpay's signature before the payment counts. Cash is settled with the provider.
 class PaymentPage extends StatefulWidget {
   final double amount;
   final String bookingId;
   final PaymentApi? paymentApi;
+  final CheckoutLauncher? checkoutLauncher;
 
   const PaymentPage({
     super.key,
     required this.amount,
     required this.bookingId,
     this.paymentApi,
+    this.checkoutLauncher,
   });
 
   @override
@@ -27,6 +32,7 @@ class PaymentPage extends StatefulWidget {
 
 class _PaymentPageState extends State<PaymentPage> {
   late final PaymentApi _api = widget.paymentApi ?? sl<PaymentApi>();
+  late final CheckoutLauncher _checkout = widget.checkoutLauncher ?? RazorpayCheckoutLauncher();
   // One key per attempt on this screen, so a retried tap never creates a second payment.
   final String _idempotencyKey = PaymentApi.newIdempotencyKey();
   String _selectedMethod = 'upi';
@@ -39,35 +45,58 @@ class _PaymentPageState extends State<PaymentPage> {
     _PaymentMethod(id: 'cash', label: 'Pay in cash', icon: Icons.money),
   ];
 
+  void _showMessage(String message, {bool error = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: error ? AppColors.error : null),
+    );
+  }
+
   Future<void> _onPay() async {
     setState(() => _isProcessing = true);
     try {
-      final result = await _api.payForBooking(
+      var result = await _api.payForBooking(
         bookingId: widget.bookingId,
         method: _selectedMethod,
         idempotencyKey: _idempotencyKey,
       );
+      final checkout = result.checkout;
+      if (checkout != null) {
+        final outcome = await _checkout.open(checkout, description: 'Booking #${_shortId(widget.bookingId)}');
+        if (!mounted) return;
+        switch (outcome) {
+          case CheckoutPaid():
+            result = await _api.verify(
+              paymentId: result.id,
+              orderId: outcome.orderId,
+              gatewayPaymentId: outcome.paymentId,
+              signature: outcome.signature,
+            );
+          case CheckoutCancelled():
+            setState(() => _isProcessing = false);
+            return _showMessage('Payment cancelled. You have not been charged.', error: false);
+          case CheckoutFailed(:final message):
+            setState(() => _isProcessing = false);
+            return _showMessage(message);
+        }
+      }
       if (!mounted) return;
       setState(() => _isProcessing = false);
       _showResult(result);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
-      );
+      _showMessage(apiErrorMessage(e));
     }
   }
 
   void _showResult(PaymentResult result) {
     final amount = '₹${result.amount.toStringAsFixed(2)}';
-    final completed = result.status == 'COMPLETED';
+    final completed = result.isCompleted;
     final message = completed
         ? '$amount paid.'
         : _selectedMethod == 'cash'
             ? 'Pay $amount in cash to your provider when the job is done.'
-            : 'Payment of $amount has been started and will be confirmed '
-                'once your bank or UPI app approves it.';
+            : 'Payment of $amount is being confirmed. It will show as paid shortly.';
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -169,7 +198,7 @@ class _AmountSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shortId = bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId;
+    final shortId = _shortId(bookingId);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -193,7 +222,7 @@ class _AmountSummaryCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Text('Booking ID', style: AppTextStyles.caption),
-              Text('#${shortId.toUpperCase()}', style: AppTextStyles.subtitle2),
+              Text('#$shortId', style: AppTextStyles.subtitle2),
             ],
           ),
         ],
@@ -201,6 +230,8 @@ class _AmountSummaryCard extends StatelessWidget {
     );
   }
 }
+
+String _shortId(String id) => (id.length > 8 ? id.substring(0, 8) : id).toUpperCase();
 
 class _PaymentMethod {
   final String id;

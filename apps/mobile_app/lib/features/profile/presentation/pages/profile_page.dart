@@ -10,6 +10,7 @@ import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../data/profile_api.dart';
+import 'addresses_page.dart';
 import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -90,6 +91,11 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 24),
             _ProfileMenuItem(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _editProfile),
             _ProfileMenuItem(icon: Icons.history, label: 'My Bookings', onTap: widget.onOpenBookings),
+            _ProfileMenuItem(
+              icon: Icons.location_on_outlined,
+              label: 'Saved addresses',
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesPage())),
+            ),
             _ProfileMenuItem(
               icon: Icons.notifications_outlined,
               label: 'Notifications',

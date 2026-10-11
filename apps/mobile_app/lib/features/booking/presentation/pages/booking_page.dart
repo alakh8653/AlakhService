@@ -7,6 +7,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/utils/validators.dart';
+import '../../../profile/data/address_api.dart';
 import '../../data/coupon_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
@@ -17,6 +18,7 @@ class BookingPage extends StatefulWidget {
   final String serviceName;
   final double servicePrice;
   final CouponApi? couponApi;
+  final AddressApi? addressApi;
 
   const BookingPage({
     super.key,
@@ -24,6 +26,7 @@ class BookingPage extends StatefulWidget {
     required this.serviceName,
     required this.servicePrice,
     this.couponApi,
+    this.addressApi,
   });
 
   @override
@@ -36,9 +39,21 @@ class _BookingPageState extends State<BookingPage> {
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
   CouponCheck? _coupon;
+  List<SavedAddress> _saved = const [];
   bool _checkingCoupon = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+
+  @override
+  void initState() {
+    super.initState();
+    (widget.addressApi ?? sl<AddressApi>()).list().then((saved) {
+      if (!mounted || saved.isEmpty) return;
+      setState(() => _saved = saved);
+      // Start from the default address; the customer can still type another.
+      if (_addressController.text.isEmpty) _addressController.text = saved.first.oneLine;
+    }).catchError((Object _) {});
+  }
 
   @override
   void dispose() {
@@ -186,6 +201,18 @@ class _BookingPageState extends State<BookingPage> {
                   ],
                 ),
                 const SizedBox(height: 20),
+                if (_saved.isNotEmpty) ...[
+                  DropdownButtonFormField<SavedAddress>(
+                    decoration: const InputDecoration(labelText: 'Use a saved address'),
+                    items: [
+                      for (final a in _saved) DropdownMenuItem(value: a, child: Text('${a.label}: ${a.oneLine}', overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: (a) {
+                      if (a != null) setState(() => _addressController.text = a.oneLine);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 CustomTextField(
                   controller: _addressController,
                   label: 'Service Address',

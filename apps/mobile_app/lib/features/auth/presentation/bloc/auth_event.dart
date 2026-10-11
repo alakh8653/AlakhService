@@ -51,3 +51,17 @@ class LogoutRequested extends AuthEvent {
 class CheckAuthStatus extends AuthEvent {
   const CheckAuthStatus();
 }
+
+/// The stored session was rejected (refresh failed); the user must sign in again.
+class SessionExpired extends AuthEvent {
+  const SessionExpired();
+}
+
+class ResendOtpRequested extends AuthEvent {
+  final String phone;
+
+  const ResendOtpRequested(this.phone);
+
+  @override
+  List<Object> get props => [phone];
+}

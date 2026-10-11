@@ -60,7 +60,10 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     final result = await cancelBookingUseCase(event.bookingId);
     result.fold(
       (failure) => emit(BookingError(failure.message)),
-      (_) => emit(BookingCancelled(event.bookingId)),
+      (_) {
+        emit(BookingCancelled(event.bookingId));
+        add(const LoadUserBookings());
+      },
     );
   }
 

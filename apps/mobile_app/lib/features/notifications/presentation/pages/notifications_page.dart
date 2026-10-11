@@ -1,135 +1,138 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/di/injection_container.dart';
+import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../data/notifications_api.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  final NotificationsApi? notificationsApi;
+
+  const NotificationsPage({super.key, this.notificationsApi});
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  // Simulated notifications
-  final List<_NotificationItem> _notifications = [
-    _NotificationItem(
-      id: '1',
-      title: 'Booking Confirmed',
-      body: 'Your cleaning service booking has been confirmed.',
-      type: 'booking',
-      time: DateTime.now().subtract(const Duration(minutes: 5)),
-      isRead: false,
-    ),
-    _NotificationItem(
-      id: '2',
-      title: 'Provider Assigned',
-      body: 'Ramesh Kumar will be arriving at 10:00 AM.',
-      type: 'tracking',
-      time: DateTime.now().subtract(const Duration(hours: 1)),
-      isRead: false,
-    ),
-    _NotificationItem(
-      id: '3',
-      title: 'Payment Successful',
-      body: '₹499 payment received for booking #B12345.',
-      type: 'payment',
-      time: DateTime.now().subtract(const Duration(hours: 3)),
-      isRead: true,
-    ),
-    _NotificationItem(
-      id: '4',
-      title: 'Service Completed',
-      body: 'Your service has been completed. Rate your experience!',
-      type: 'review',
-      time: DateTime.now().subtract(const Duration(days: 1)),
-      isRead: true,
-    ),
-  ];
+  late final NotificationsApi _api = widget.notificationsApi ?? sl<NotificationsApi>();
+  List<AppNotification>? _items;
+  String? _error;
 
-  IconData _iconForType(String type) {
-    return switch (type) {
-      'booking' => Icons.calendar_today,
-      'tracking' => Icons.location_on,
-      'payment' => Icons.payment,
-      'review' => Icons.star_outline,
-      _ => Icons.notifications,
-    };
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  Color _colorForType(String type) {
-    return switch (type) {
-      'booking' => AppColors.primary,
-      'tracking' => AppColors.accent,
-      'payment' => AppColors.success,
-      'review' => AppColors.starFilled,
-      _ => AppColors.textSecondary,
-    };
+  Future<void> _load() async {
+    try {
+      final items = await _api.list();
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
+    }
+  }
+
+  void _showError(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
+    );
+  }
+
+  Future<void> _markRead(AppNotification n) async {
+    if (n.isRead) return;
+    try {
+      await _api.markRead(n.id);
+      if (!mounted) return;
+      setState(() => _items = [for (final i in _items!) i.id == n.id ? i.read() : i]);
+    } catch (e) {
+      if (mounted) _showError(e);
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      await _api.markAllRead();
+      if (!mounted) return;
+      setState(() => _items = [for (final i in _items ?? <AppNotification>[]) i.read()]);
+    } catch (e) {
+      if (mounted) _showError(e);
+    }
+  }
+
+  IconData _iconFor(AppNotification n) {
+    final text = n.title.toLowerCase();
+    if (text.contains('payment') || text.contains('refund')) return Icons.payment;
+    if (text.contains('booking')) return Icons.calendar_today;
+    if (text.contains('queue')) return Icons.people_outline;
+    return Icons.notifications;
   }
 
   @override
   Widget build(BuildContext context) {
+    final items = _items;
+    final hasUnread = items?.any((n) => !n.isRead) ?? false;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          TextButton(
-            onPressed: () => setState(() {
-              for (final n in _notifications) {
-                n.isRead = true;
-              }
-            }),
-            child: const Text('Mark all read'),
-          ),
+          if (hasUnread)
+            TextButton(onPressed: _markAllRead, child: const Text('Mark all read')),
         ],
       ),
-      body: _notifications.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: Builder(
+          builder: (context) {
+            if (items == null && _error == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (items == null || items.isEmpty) {
+              return ListView(
                 children: [
-                  Icon(
-                    Icons.notifications_off_outlined,
-                    size: 64,
-                    color: AppColors.textDisabled,
+                  const SizedBox(height: 120),
+                  const Icon(Icons.notifications_off_outlined, size: 64, color: AppColors.textDisabled),
+                  const SizedBox(height: 16),
+                  Text(
+                    _error ?? 'No notifications',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.subtitle1,
                   ),
-                  SizedBox(height: 16),
-                  Text('No notifications', style: AppTextStyles.subtitle1),
                 ],
-              ),
-            )
-          : ListView.separated(
-              itemCount: _notifications.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, indent: 72),
+              );
+            }
+            return ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
-                final n = _notifications[index];
-                return _NotificationTile(
-                  item: n,
-                  icon: _iconForType(n.type),
-                  iconColor: _colorForType(n.type),
-                  onTap: () => setState(() => n.isRead = true),
-                );
+                final n = items[index];
+                return _NotificationTile(item: n, icon: _iconFor(n), onTap: () => _markRead(n));
               },
-            ),
+            );
+          },
+        ),
+      ),
     );
   }
 }
 
 class _NotificationTile extends StatelessWidget {
-  final _NotificationItem item;
+  final AppNotification item;
   final IconData icon;
-  final Color iconColor;
   final VoidCallback onTap;
 
-  const _NotificationTile({
-    required this.item,
-    required this.icon,
-    required this.iconColor,
-    required this.onTap,
-  });
+  const _NotificationTile({required this.item, required this.icon, required this.onTap});
 
   String _formatTime(DateTime time) {
     final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return 'now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
@@ -144,10 +147,10 @@ class _NotificationTile extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.15),
+          color: AppColors.primary.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: iconColor, size: 22),
+        child: Icon(icon, color: AppColors.primary, size: 22),
       ),
       title: Text(
         item.title,
@@ -159,38 +162,17 @@ class _NotificationTile extends StatelessWidget {
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_formatTime(item.time), style: AppTextStyles.caption),
+          Text(_formatTime(item.createdAt), style: AppTextStyles.caption),
           if (!item.isRead) ...[
             const SizedBox(height: 4),
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary,
-              ),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
             ),
           ],
         ],
       ),
     );
   }
-}
-
-class _NotificationItem {
-  final String id;
-  final String title;
-  final String body;
-  final String type;
-  final DateTime time;
-  bool isRead;
-
-  _NotificationItem({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.type,
-    required this.time,
-    required this.isRead,
-  });
 }

@@ -47,11 +47,15 @@ class ServiceCategoryCard extends StatelessWidget {
 
 /// Promotional banner shown at the top of the home screen.
 class BannerWidget extends StatelessWidget {
-  const BannerWidget({super.key});
+  final VoidCallback? onTap;
+
+  const BannerWidget({super.key, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       height: 160,
       decoration: BoxDecoration(
@@ -69,7 +73,7 @@ class BannerWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Book a Service\nToday!',
+                  'Track your\nbookings',
                   style: AppTextStyles.heading3.copyWith(
                     color: AppColors.textLight,
                   ),
@@ -83,7 +87,7 @@ class BannerWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Explore',
+                    'My bookings',
                     style: AppTextStyles.subtitle2
                         .copyWith(color: AppColors.primary),
                   ),
@@ -98,69 +102,6 @@ class BannerWidget extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Horizontally scrollable card showing a featured service provider.
-class FeaturedProviderCard extends StatelessWidget {
-  final String? name;
-  final String? service;
-  final double rating;
-
-  const FeaturedProviderCard({
-    super.key,
-    this.name,
-    this.service,
-    this.rating = 4.5,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 150,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.primaryLight,
-            child: Icon(Icons.person, color: AppColors.primary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name ?? 'Provider',
-            style: AppTextStyles.subtitle1,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            service ?? 'General Service',
-            style: AppTextStyles.caption,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              const Icon(Icons.star, size: 14, color: AppColors.starFilled),
-              const SizedBox(width: 4),
-              Text(rating.toString(), style: AppTextStyles.caption),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -169,11 +110,13 @@ class FeaturedProviderCard extends StatelessWidget {
 /// Search bar used at the top of list pages.
 class SearchBarWidget extends StatelessWidget {
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final String hint;
 
   const SearchBarWidget({
     super.key,
     this.onChanged,
+    this.onSubmitted,
     this.hint = 'Search services...',
   });
 
@@ -195,6 +138,8 @@ class SearchBarWidget extends StatelessWidget {
           Expanded(
             child: TextField(
               onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: hint,
                 border: InputBorder.none,

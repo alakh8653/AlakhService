@@ -1,52 +1,100 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
-import '../network/api_client.dart';
-import '../network/network_info.dart';
-import '../../features/auth/data/datasources/auth_remote_datasource.dart';
+
 import '../../features/auth/data/datasources/auth_local_datasource.dart';
+import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/domain/usecases/register_usecase.dart';
+import '../../features/auth/domain/usecases/session_usecases.dart';
 import '../../features/auth/domain/usecases/verify_otp_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/auth_event.dart';
+import '../../features/booking/data/datasources/booking_remote_datasource.dart';
+import '../../features/booking/data/rating_api.dart';
+import '../../features/booking/data/repositories/booking_repository_impl.dart';
+import '../../features/booking/domain/repositories/booking_repository.dart';
+import '../../features/booking/domain/usecases/cancel_booking_usecase.dart';
+import '../../features/booking/domain/usecases/create_booking_usecase.dart';
+import '../../features/booking/presentation/bloc/booking_bloc.dart';
+import '../../features/notifications/data/notifications_api.dart';
+import '../../features/payment/data/payment_api.dart';
+import '../../features/profile/data/profile_api.dart';
+import '../../features/queue/data/queue_api.dart';
+import '../../features/services/data/datasources/service_remote_datasource.dart';
+import '../../features/services/data/repositories/service_repository_impl.dart';
+import '../../features/services/domain/repositories/service_repository.dart';
+import '../../features/services/domain/usecases/get_services_usecase.dart';
+import '../../features/services/domain/usecases/search_services_usecase.dart';
+import '../../features/services/presentation/bloc/service_bloc.dart';
+import '../../features/tracking/data/tracking_api.dart';
+import '../network/api_client.dart';
+import '../network/network_info.dart';
+import '../network/token_store.dart';
 
 final sl = GetIt.instance;
 
-Future<void> init() async {
-  // BLoCs
-  sl.registerFactory(
+/// Registers the app's dependencies. [tokens] can be swapped for a [MemoryTokenStore] in tests.
+Future<void> init({TokenStore? tokens}) async {
+  // Core
+  sl.registerLazySingleton<TokenStore>(() => tokens ?? SecureTokenStore());
+  sl.registerLazySingleton(
+    () => ApiClient(
+      tokens: sl(),
+      // A rejected refresh ends the session everywhere in the app.
+      onSessionExpired: () => sl<AuthBloc>().add(const SessionExpired()),
+    ),
+  );
+  sl.registerLazySingleton(() => Connectivity());
+  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+
+  // Auth: one bloc for the whole app, so session expiry reaches every screen.
+  sl.registerLazySingleton(
     () => AuthBloc(
       loginUseCase: sl(),
       registerUseCase: sl(),
       verifyOtpUseCase: sl(),
+      getCurrentUserUseCase: sl(),
+      logoutUseCase: sl(),
+      resendOtpUseCase: sl(),
     ),
   );
-
-  // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUseCase(sl()));
   sl.registerLazySingleton(() => VerifyOtpUseCase(sl()));
-
-  // Repositories
+  sl.registerLazySingleton(() => GetCurrentUserUseCase(sl()));
+  sl.registerLazySingleton(() => LogoutUseCase(sl()));
+  sl.registerLazySingleton(() => ResendOtpUseCase(sl()));
   sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(
-      remoteDataSource: sl(),
-      localDataSource: sl(),
-      networkInfo: sl(),
-    ),
+    () => AuthRepositoryImpl(remoteDataSource: sl(), localDataSource: sl(), networkInfo: sl(), tokens: sl()),
+  );
+  sl.registerLazySingleton<AuthRemoteDataSource>(() => AuthRemoteDataSourceImpl(apiClient: sl()));
+  sl.registerLazySingleton<AuthLocalDataSource>(() => AuthLocalDataSourceImpl());
+
+  // Services catalogue
+  sl.registerFactory(() => ServiceBloc(getServicesUseCase: sl(), searchServicesUseCase: sl()));
+  sl.registerLazySingleton(() => GetServicesUseCase(sl()));
+  sl.registerLazySingleton(() => SearchServicesUseCase(sl()));
+  sl.registerLazySingleton<ServiceRepository>(() => ServiceRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()));
+  sl.registerLazySingleton<ServiceRemoteDataSource>(() => ServiceRemoteDataSourceImpl(apiClient: sl()));
+
+  // Bookings
+  sl.registerFactory(
+    () => BookingBloc(createBookingUseCase: sl(), cancelBookingUseCase: sl(), bookingRepository: sl()),
+  );
+  sl.registerLazySingleton(() => CreateBookingUseCase(sl()));
+  sl.registerLazySingleton(() => CancelBookingUseCase(sl()));
+  sl.registerLazySingleton<BookingRepository>(() => BookingRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()));
+  sl.registerLazySingleton<BookingRemoteDataSource>(
+    () => BookingRemoteDataSourceImpl(apiClient: sl(), services: sl()),
   );
 
-  // Data sources
-  sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(apiClient: sl()),
-  );
-  sl.registerLazySingleton<AuthLocalDataSource>(
-    () => AuthLocalDataSourceImpl(),
-  );
-
-  // Core
-  sl.registerLazySingleton(() => ApiClient());
-  sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
-  sl.registerLazySingleton(() => Connectivity());
+  // Smaller features talk to their service directly.
+  sl.registerLazySingleton(() => TrackingApi(sl()));
+  sl.registerLazySingleton(() => QueueApi(sl()));
+  sl.registerLazySingleton(() => NotificationsApi(sl()));
+  sl.registerLazySingleton(() => ProfileApi(sl()));
+  sl.registerLazySingleton(() => PaymentApi(sl()));
+  sl.registerLazySingleton(() => RatingApi(sl()));
 }

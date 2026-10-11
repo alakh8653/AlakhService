@@ -12,22 +12,23 @@ class UserModel extends User {
     required super.createdAt,
   });
 
+  /// Reads auth_service's `/auth/me` response (or a cached copy written by [toJson]).
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
-      name: json['name'] as String,
-      phone: json['phone'] as String,
+      name: (json['full_name'] ?? json['name'] ?? '') as String,
+      phone: (json['phone'] as String?) ?? '',
       email: json['email'] as String?,
-      role: json['role'] as String,
+      role: (json['role'] as String?) ?? 'user',
       avatarUrl: json['avatar_url'] as String?,
-      isVerified: json['is_verified'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      isVerified: (json['is_verified'] as bool?) ?? false,
+      createdAt: DateTime.tryParse((json['created_at'] as String?) ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'name': name,
+        'full_name': name,
         'phone': phone,
         'email': email,
         'role': role,
@@ -48,4 +49,17 @@ class UserModel extends User {
       createdAt: user.createdAt,
     );
   }
+}
+
+/// Access and refresh tokens from auth_service.
+class TokenPair {
+  final String accessToken;
+  final String refreshToken;
+
+  const TokenPair({required this.accessToken, required this.refreshToken});
+
+  factory TokenPair.fromJson(Map<String, dynamic> json) => TokenPair(
+        accessToken: json['access_token'] as String,
+        refreshToken: json['refresh_token'] as String,
+      );
 }

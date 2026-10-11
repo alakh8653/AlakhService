@@ -1,42 +1,89 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../../shared/widgets/service_card.dart';
+import '../../../auth/domain/entities/user.dart';
+import '../../../notifications/data/notifications_api.dart';
+import '../../../services/domain/entities/service_entity.dart';
+import '../../../services/domain/repositories/service_repository.dart';
+import '../../../services/presentation/pages/service_detail_page.dart';
 import 'home_widgets.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final User user;
+  final ValueChanged<String> onSearch;
+  final VoidCallback onOpenNotifications;
+  final VoidCallback onOpenBookings;
+
+  const HomePage({
+    super.key,
+    required this.user,
+    required this.onSearch,
+    required this.onOpenNotifications,
+    required this.onOpenBookings,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
-
   static const List<_ServiceCategory> _categories = [
     _ServiceCategory(icon: Icons.cleaning_services, label: 'Cleaning'),
     _ServiceCategory(icon: Icons.plumbing, label: 'Plumbing'),
     _ServiceCategory(icon: Icons.electrical_services, label: 'Electrical'),
     _ServiceCategory(icon: Icons.carpenter, label: 'Carpentry'),
     _ServiceCategory(icon: Icons.ac_unit, label: 'AC Service'),
-    _ServiceCategory(icon: Icons.local_laundry_service, label: 'Laundry'),
+    _ServiceCategory(icon: Icons.content_cut, label: 'Haircut'),
     _ServiceCategory(icon: Icons.pest_control, label: 'Pest Control'),
     _ServiceCategory(icon: Icons.handyman, label: 'Handyman'),
   ];
 
+  late Future<List<ServiceEntity>> _popular;
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _popular = _loadPopular();
+    sl<NotificationsApi>().unreadCount().then((n) {
+      if (mounted) setState(() => _unread = n);
+    }).catchError((_) {});
+  }
+
+  Future<List<ServiceEntity>> _loadPopular() async {
+    final result = await sl<ServiceRepository>().getServices(limit: 5);
+    return result.fold((failure) => throw failure.message, (services) => services);
+  }
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: () async => setState(() => _popular = _loadPopular()),
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SearchBarWidget(onSubmitted: widget.onSearch),
+              ),
               const SizedBox(height: 20),
-              const BannerWidget(),
+              BannerWidget(onTap: widget.onOpenBookings),
               const SizedBox(height: 24),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
@@ -47,38 +94,43 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 24),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Popular Near You', style: AppTextStyles.heading3),
+                child: Text('Popular Services', style: AppTextStyles.heading3),
               ),
               const SizedBox(height: 12),
-              _buildFeaturedProviders(),
+              _buildPopular(),
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: AppBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
   }
 
   Widget _buildHeader() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
+    final firstName = widget.user.name.split(' ').first;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Good Morning 👋', style: AppTextStyles.body2),
-              Text('Find a Service', style: AppTextStyles.heading2),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$_greeting${firstName.isEmpty ? '' : ', $firstName'} 👋', style: AppTextStyles.body2),
+                const Text('Find a Service', style: AppTextStyles.heading2),
+              ],
+            ),
           ),
-          Spacer(),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: AppColors.primaryLight,
-            child: Icon(Icons.person, color: AppColors.primary),
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              widget.onOpenNotifications();
+              setState(() => _unread = 0);
+            },
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text('$_unread'),
+              child: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+            ),
           ),
         ],
       ),
@@ -99,21 +151,46 @@ class _HomePageState extends State<HomePage> {
       itemCount: _categories.length,
       itemBuilder: (context, index) {
         final cat = _categories[index];
-        return ServiceCategoryCard(icon: cat.icon, label: cat.label);
+        return ServiceCategoryCard(icon: cat.icon, label: cat.label, onTap: () => widget.onSearch(cat.label));
       },
     );
   }
 
-  Widget _buildFeaturedProviders() {
-    return SizedBox(
-      height: 180,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: 5,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) => const FeaturedProviderCard(),
-      ),
+  Widget _buildPopular() {
+    return FutureBuilder<List<ServiceEntity>>(
+      future: _popular,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final services = snapshot.data ?? const [];
+        if (snapshot.hasError || services.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              snapshot.hasError ? 'Could not load services. Pull to retry.' : 'No services listed yet.',
+              style: AppTextStyles.body2,
+            ),
+          );
+        }
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: services.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, i) => ServiceCard(
+            service: services[i],
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => ServiceDetailPage(service: services[i])),
+            ),
+          ),
+        );
+      },
     );
   }
 }

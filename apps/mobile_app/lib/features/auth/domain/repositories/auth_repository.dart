@@ -3,11 +3,10 @@ import '../../../../core/errors/failures.dart';
 import '../entities/user.dart';
 
 abstract class AuthRepository {
-  Future<Either<Failure, User>> login({
-    required String phone,
-    required String password,
-  });
+  /// Signs in with an email or phone number and password.
+  Future<Either<Failure, User>> login({required String phone, required String password});
 
+  /// Creates the account and texts a verification code to [phone].
   Future<Either<Failure, bool>> register({
     required String name,
     required String phone,
@@ -15,14 +14,24 @@ abstract class AuthRepository {
     required String role,
   });
 
-  Future<Either<Failure, User>> verifyOtp({
-    required String phone,
-    required String otp,
-  });
+  /// Confirms the registration code, which also signs the user in.
+  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp});
+
+  /// Sends a new registration code.
+  Future<Either<Failure, bool>> resendOtp(String phone);
 
   Future<Either<Failure, bool>> logout();
 
+  /// Texts (or emails) a password reset code.
   Future<Either<Failure, bool>> forgotPassword(String phone);
 
+  /// Sets a new password with the code from [forgotPassword].
+  Future<Either<Failure, bool>> resetPassword({
+    required String phone,
+    required String code,
+    required String newPassword,
+  });
+
+  /// The signed-in user, if a session is stored and still valid.
   Future<Either<Failure, User?>> getCurrentUser();
 }

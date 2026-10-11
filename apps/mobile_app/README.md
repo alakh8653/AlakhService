@@ -18,16 +18,24 @@ cd apps/mobile_app
 # Install dependencies
 flutter pub get
 
-# Copy environment config
-cp .env.example .env
-# Edit .env with your actual keys
-
 # Run code generation
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 
-# Start the app
-flutter run
+# Start the app against your API gateway (defaults to https://api.alakhservice.com).
+# On the Android emulator the host machine is 10.0.2.2.
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ```
+
+All requests go through the API gateway under `/api/v1`. The access and refresh tokens are kept in the
+platform keystore; an expired access token is refreshed once and the request retried, and if the refresh
+token is rejected the app returns to the sign-in screen.
+
+Live tracking needs a Google Maps key: set `GOOGLE_MAPS_API_KEY` in `android/local.properties` or the
+environment.
+
+For local development, start auth_service with `LOG_OTP_CODES=true` to read sign-up and password-reset
+codes from its log instead of configuring Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+`TWILIO_FROM_NUMBER`).
 
 ## Architecture
 
@@ -48,16 +56,17 @@ lib/
 
 ## Features
 
-- 🔐 Phone-based authentication with OTP verification
-- 📍 Real-time service provider tracking (Google Maps)
-- 📅 Service booking and scheduling
-- 💳 Integrated payment flow
-- 🔔 Push notifications
-- 📊 Queue status monitoring
-- 👤 User & provider profile management
+- 🔐 Sign-up by phone with an SMS code; sign-in by phone or email; password reset by SMS code
+- 🔎 Service catalogue browsing and search
+- 📅 Booking, booking history and cancellation
+- 📍 Live provider location while a booking is in progress (Google Maps)
+- 💳 Payment for confirmed bookings (the server prices the booking; gateway checkout is not yet integrated,
+  so online payments are recorded as pending)
+- ⭐ Rating the shop after a completed booking
+- 📊 Joining a walk-in queue and watching your position
+- 🔔 In-app notifications
+- 👤 Profile editing
 - 🌙 Dark / Light theme support
-- 🔒 Biometric authentication
-- 📶 Offline support with sync queue
 
 ## Running Tests
 

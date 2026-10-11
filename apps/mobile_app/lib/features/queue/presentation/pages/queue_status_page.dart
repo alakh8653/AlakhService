@@ -1,172 +1,162 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../../../core/di/injection_container.dart';
+import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/widgets/custom_button.dart';
+import '../../data/queue_api.dart';
 
+/// The customer's live place in a walk-in queue.
 class QueueStatusPage extends StatefulWidget {
-  final String bookingId;
+  final QueueTicket ticket;
+  final String customerId;
+  final String serviceName;
+  final QueueApi? queueApi;
+  final Duration pollInterval;
 
-  const QueueStatusPage({super.key, required this.bookingId});
+  const QueueStatusPage({
+    super.key,
+    required this.ticket,
+    required this.customerId,
+    required this.serviceName,
+    this.queueApi,
+    this.pollInterval = const Duration(seconds: 15),
+  });
 
   @override
   State<QueueStatusPage> createState() => _QueueStatusPageState();
 }
 
-class _QueueStatusPageState extends State<QueueStatusPage>
-    with TickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  // Simulated queue data
-  final int _queuePosition = 3;
-  final int _estimatedMinutes = 12;
+class _QueueStatusPageState extends State<QueueStatusPage> {
+  late final QueueApi _api = widget.queueApi ?? sl<QueueApi>();
+  late QueueTicket? _ticket = widget.ticket;
+  Timer? _timer;
+  String? _error;
+  bool _leaving = false;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+    _timer = Timer.periodic(widget.pollInterval, (_) => _refresh());
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
+  Future<void> _refresh() async {
+    try {
+      final ticket = await _api.position(
+        queueId: widget.ticket.queueId,
+        customerId: widget.customerId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _ticket = ticket;
+        _error = null;
+      });
+      if (ticket == null) _timer?.cancel();
+    } catch (e) {
+      if (mounted) setState(() => _error = apiErrorMessage(e));
+    }
+  }
+
+  Future<void> _leave() async {
+    final entryId = widget.ticket.entryId;
+    if (entryId == null) return;
+    setState(() => _leaving = true);
+    try {
+      await _api.leave(queueId: widget.ticket.queueId, entryId: entryId);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _leaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final ticket = _ticket;
     return Scaffold(
-      appBar: AppBar(title: const Text('Queue Status')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      appBar: AppBar(title: Text(widget.serviceName)),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(24),
           children: [
             const SizedBox(height: 24),
-            ScaleTransition(
-              scale: _pulseAnimation,
-              child: Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primaryLight,
-                  border: Border.all(color: AppColors.primary, width: 3),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '#$_queuePosition',
-                      style: AppTextStyles.heading1
-                          .copyWith(color: AppColors.primary),
-                    ),
-                    const Text('Your Position', style: AppTextStyles.caption),
-                  ],
+            if (ticket == null) ...[
+              const Icon(Icons.check_circle, color: AppColors.success, size: 96),
+              const SizedBox(height: 16),
+              const Text(
+                "It's your turn — you're no longer waiting in this queue.",
+                textAlign: TextAlign.center,
+                style: AppTextStyles.subtitle1,
+              ),
+            ] else ...[
+              Center(
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primaryLight,
+                    border: Border.all(color: AppColors.primary, width: 3),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '#${ticket.position}',
+                        style: AppTextStyles.heading1.copyWith(color: AppColors.primary),
+                      ),
+                      const Text('Your Position', style: AppTextStyles.caption),
+                    ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 32),
+              const Text(
+                'Estimated Wait Time',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.subtitle1,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                ticket.estimatedWaitMinutes == null
+                    ? 'Not available yet'
+                    : '${ticket.estimatedWaitMinutes} min',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.heading2.copyWith(color: AppColors.accent),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              ),
+            ],
             const SizedBox(height: 32),
-            const Text('Estimated Wait Time', style: AppTextStyles.subtitle1),
-            const SizedBox(height: 8),
-            Text(
-              '$_estimatedMinutes min',
-              style: AppTextStyles.heading2.copyWith(color: AppColors.accent),
-            ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 24),
-            const _QueueStep(
-              step: 1,
-              label: 'Booking Confirmed',
-              isDone: true,
-            ),
-            const _QueueStep(
-              step: 2,
-              label: 'Provider Assigned',
-              isDone: true,
-            ),
-            const _QueueStep(
-              step: 3,
-              label: 'Provider En Route',
-              isActive: true,
-            ),
-            const _QueueStep(
-              step: 4,
-              label: 'Service In Progress',
-            ),
-            const _QueueStep(
-              step: 5,
-              label: 'Completed',
-              isLast: true,
-            ),
+            if (ticket != null && widget.ticket.entryId != null)
+              CustomButton(
+                label: 'Leave Queue',
+                variant: ButtonVariant.secondary,
+                onPressed: _leaving ? null : _leave,
+                isLoading: _leaving,
+              ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _QueueStep extends StatelessWidget {
-  final int step;
-  final String label;
-  final bool isDone;
-  final bool isActive;
-  final bool isLast;
-
-  const _QueueStep({
-    required this.step,
-    required this.label,
-    this.isDone = false,
-    this.isActive = false,
-    this.isLast = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isDone
-        ? AppColors.success
-        : isActive
-            ? AppColors.primary
-            : AppColors.textDisabled;
-
-    return Row(
-      children: [
-        Column(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: isDone || isActive ? 1 : 0.2),
-              ),
-              child: Icon(
-                isDone ? Icons.check : Icons.circle,
-                color: isDone || isActive ? Colors.white : AppColors.textDisabled,
-                size: 16,
-              ),
-            ),
-            if (!isLast)
-              Container(width: 2, height: 32, color: color.withValues(alpha: 0.3)),
-          ],
-        ),
-        const SizedBox(width: 12),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            label,
-            style: AppTextStyles.body2.copyWith(
-              color: color,
-              fontWeight: isActive ? FontWeight.w600 : null,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

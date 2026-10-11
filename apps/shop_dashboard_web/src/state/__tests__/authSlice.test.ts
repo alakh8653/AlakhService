@@ -57,4 +57,12 @@ describe('authSlice', () => {
     expect(state.user).toBeNull();
     expect(state.shop).toBeNull();
   });
+
+  it('signs in an owner who has not set up a shop yet, then adds the shop', () => {
+    let state = reducer(undefined, setCredentials({ tokens, user, shop: null }));
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.shop).toBeNull();
+    state = reducer(state, setShop(shop));
+    expect(state.shop?.id).toBe('s1');
+  });
 });

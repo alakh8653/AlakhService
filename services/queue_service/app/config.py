@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
+    # Shared with notification_service; without it customers are not told when they are called.
+    INTERNAL_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

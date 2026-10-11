@@ -19,6 +19,7 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ("booking.cancelled", None): ("Booking cancelled", "Booking {booking_number} for {scheduled_at} was cancelled."),
     ("booking.disputed", None): ("Booking disputed", "Booking {booking_number} is under dispute."),
     ("booking.refunded", None): ("Booking refunded", "Booking {booking_number} has been refunded."),
+    ("queue.called", None): ("It's your turn", "Please come to the counter now."),
     ("payment.completed", "customer"): ("Payment received", "We received your payment of ₹{amount}."),
     ("payment.completed", "shop"): ("Payment received", "A customer paid ₹{amount} for a booking."),
     ("payment.failed", "customer"): ("Payment failed", "Your payment of ₹{amount} did not go through. You can try again."),

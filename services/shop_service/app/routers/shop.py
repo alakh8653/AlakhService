@@ -16,6 +16,9 @@ router = APIRouter()
 async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     # Only admins may open a shop on someone else's behalf.
     ensure_owner(data.owner_id, caller)
+    # An owner runs one shop (the dashboard manages a single shop); a repeat submit must not open a second.
+    if not caller.is_admin and await shop_service.list_shops(db, skip=0, limit=1, owner_id=data.owner_id):
+        raise HTTPException(status_code=409, detail="You already have a shop")
     return await shop_service.create_shop(db, data)
 
 

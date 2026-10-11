@@ -1,6 +1,7 @@
 import 'package:alakh_service/core/constants/api_constants.dart';
 import 'package:alakh_service/core/network/api_client.dart';
 import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/booking/data/dispute_api.dart';
 import 'package:alakh_service/features/booking/data/models/booking_model.dart';
 import 'package:alakh_service/features/booking/domain/entities/booking.dart';
 import 'package:alakh_service/features/payment/data/payment_api.dart';
@@ -57,6 +58,8 @@ void main() {
       expect(done.canTrack, isFalse);
 
       expect(BookingModel.fromJson(bookingJson(status: BookingStatus.pending)).canPay, isFalse);
+      expect(done.canDispute, isTrue);
+      expect(confirmed.canDispute, isFalse);
     });
   });
 
@@ -118,6 +121,17 @@ void main() {
       final ticket = await api.position(queueId: 'q1', customerId: 'u1');
       expect(ticket!.position, 2);
       expect(ticket.estimatedWaitMinutes, 10);
+    });
+
+    test('reporting a problem raises a dispute and marks the booking disputed', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: {}));
+      final api = DisputeApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      await api.report(bookingId: 'b1', type: 'no_show', description: 'Nobody came');
+
+      expect(adapter.requests.map((r) => '${r.method} ${r.path}'), ['POST /api/v1/disputes', 'PUT /api/v1/bookings/b1/status']);
+      expect(adapter.requests.first.data, {'booking_id': 'b1', 'dispute_type': 'no_show', 'description': 'Nobody came'});
+      expect(adapter.requests.last.data, {'status': 'DISPUTED'});
     });
   });
 }

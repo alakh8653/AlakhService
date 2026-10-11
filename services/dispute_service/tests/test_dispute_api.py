@@ -112,6 +112,7 @@ async def test_only_booking_parties_raise_and_see_disputes(client):
     dispute = created.json()
     assert dispute["raised_by"] == "cust-1"  # never the name the client sent
 
+
     url = f"/api/v1/disputes/{dispute['id']}"
     assert (await client.get(url, headers=stranger)).status_code == 404
     assert (await client.get(url, headers=owner)).status_code == 200  # the shop can answer
@@ -128,3 +129,11 @@ async def test_only_booking_parties_raise_and_see_disputes(client):
     assert (await client.post(f"{url}/review", headers=customer)).status_code == 403
     assert (await client.post(f"{url}/resolve", json={"resolution": "refund"}, headers=owner)).status_code == 403
     assert (await client.post(f"{url}/review")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_the_app_raises_disputes_without_naming_anyone(client):
+    body = {"booking_id": "b-1", "dispute_type": "service_quality", "description": "Arrived two hours late"}
+    created = await client.post("/api/v1/disputes", json=body, headers=auth("cust-1", "user"))
+    assert (created.status_code, created.json()["raised_by"]) == (201, "cust-1")
+    assert (await client.post("/api/v1/disputes", json={**body, "description": ""}, headers=auth("cust-1", "user"))).status_code == 422

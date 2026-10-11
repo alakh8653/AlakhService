@@ -1,6 +1,6 @@
-
 import json
 from datetime import datetime, timezone
+from typing import List
 
 import redis.asyncio as aioredis
 import structlog
@@ -147,6 +147,19 @@ def _ensure_party(payment, current_user: dict) -> None:
         raise HTTPException(status_code=404, detail="Payment not found")
 
 
+@router.get("/payments", response_model=List[PaymentResponse])
+async def list_payments(
+    booking_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Payments for a booking: all of them for admins, otherwise those the caller paid or received."""
+    payments = await payment_service.payments_for_booking(db, booking_id)
+    if current_user.get("role") != "admin":
+        payments = [p for p in payments if current_user["sub"] in (p.payer_id, p.payee_id)]
+    return payments
+
+
 @router.get("/payments/{payment_id}", response_model=PaymentResponse)
 async def get_payment(
     payment_id: str,
@@ -160,18 +173,56 @@ async def get_payment(
     return payment
 
 
+@router.post("/payments/{payment_id}/cash-received", response_model=PaymentResponse)
+async def confirm_cash_received(
+    payment_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    notifier: Notifier = Depends(get_notifier),
+):
+    """The shop (payee) confirms a cash payment was handed over, completing it."""
+    payment = await payment_service.get_payment(db, payment_id)
+    if not payment or current_user["sub"] not in (payment.payee_id, payment.payer_id) and current_user.get("role") != "admin":
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if current_user["sub"] != payment.payee_id and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only the shop that was paid can confirm cash")
+    if payment.payment_method != "cash":
+        raise HTTPException(status_code=409, detail="Only cash payments are confirmed by hand")
+    if payment.status != "PENDING":
+        raise HTTPException(status_code=409, detail=f"Payment is already {payment.status.lower()}")
+    await payment_service.mark_completed(db, payment, None, "cash")
+    await db.commit()  # visible before anyone is told
+    background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
+    return payment
+
+
 @router.post("/payments/{payment_id}/refund", response_model=RefundResponse)
 async def request_refund(
     payment_id: str,
     refund_data: RefundRequest,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_admin),
+    gateway: RazorpayGateway = Depends(get_razorpay),
+    notifier: Notifier = Depends(get_notifier),
 ):
-    """Refunds move money out of escrow, so they are issued by admins (e.g. resolving a dispute)."""
+    """Refunds move money out of escrow, so they are issued by admins (e.g. resolving a dispute).
+
+    Card/UPI payments are refunded through Razorpay; cash refunds are recorded as MANUAL.
+    """
     try:
-        refund = await payment_service.request_refund(db, payment_id, refund_data)
+        refund = await payment_service.request_refund(db, payment_id, refund_data, gateway)
+    except GatewayError as e:
+        log.warning("razorpay_refund_failed", payment_id=payment_id, error=str(e))
+        raise HTTPException(status_code=502, detail="Razorpay could not process the refund") from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    payment = await payment_service.get_payment(db, payment_id)
+    await db.commit()  # visible before the customer is told
+    background.add_task(
+        notify_payment, notifier, "payment.refunded", {**payment_snapshot(payment), "amount_cents": refund.amount_cents}
+    )
     return refund
 
 
@@ -218,7 +269,11 @@ async def razorpay_webhook(
     body = await request.body()
     if not gateway.webhook_signature_valid(body, request.headers.get("x-razorpay-signature", "")):
         raise HTTPException(status_code=400, detail="Invalid signature")
-    changed = await payment_service.process_razorpay_event(db, json.loads(body))
+    event = json.loads(body)
+    if str(event.get("event", "")).startswith("refund."):
+        await payment_service.process_refund_event(db, event)
+        return {"status": "processed"}
+    changed = await payment_service.process_razorpay_event(db, event)
     if changed:
         event, payment = changed
         await db.commit()  # visible before anyone is told (the background task delays the session's commit)

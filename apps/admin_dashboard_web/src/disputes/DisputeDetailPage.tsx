@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { currentAdminId } from '../apiClient';
+import BookingPayments from './BookingPayments';
 import {
   addDisputeMessage,
   escalateDispute,
@@ -106,6 +107,8 @@ export default function DisputeDetailPage() {
           </div>
         )}
       </div>
+
+      <BookingPayments bookingId={dispute.bookingId} />
 
       <div className="bg-white rounded-2xl shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Evidence ({dispute.evidenceUrls.length})</h2>

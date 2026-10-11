@@ -4,6 +4,10 @@ import type { Booking, BookingStatus } from '../types';
 import { BOOKING_ACTIONS } from '../services/bookingService';
 import { formatMoney, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
+import CashDue from './CashDue';
+
+// Bookings a customer may already have chosen to pay in cash for.
+const CASH_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'IN_PROGRESS', 'COMPLETED']);
 
 export interface ProviderOption {
   userId: string;
@@ -60,6 +64,7 @@ export default function BookingCard({
       </div>
       <div className="flex flex-col sm:items-end gap-2">
         <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        {CASH_STATUSES.has(booking.status) && <CashDue bookingId={booking.id} />}
         {booking.status === 'CONFIRMED' && onAssign && (
           <select
             aria-label="Assign to"

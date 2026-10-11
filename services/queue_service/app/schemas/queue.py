@@ -9,6 +9,10 @@ class QueueCreate(BaseModel):
     max_capacity: int = 50
 
 
+class QueueUpdate(BaseModel):
+    is_accepting: bool
+
+
 class QueueResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

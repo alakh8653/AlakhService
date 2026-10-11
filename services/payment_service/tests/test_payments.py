@@ -302,3 +302,19 @@ async def test_completing_a_payment_twice_holds_and_credits_once(db_session, pay
     assert (payment.status, payment.gateway, payment.provider_payment_id) == ("COMPLETED", "razorpay", "pay_1")
     platform = await payment_svc.get_or_create_account(db_session, "platform_account", "platform")
     assert await ledger_svc.get_balance(db_session, platform.id) == 7000
+
+
+
+@pytest.mark.anyio
+async def test_cash_payments_are_refunded_manually(db_session, payment_svc, mock_redis, ledger_svc):
+    from app.schemas.payment import RefundRequest
+
+    payment = await payment_svc.initiate_payment(db_session, mock_redis, PaymentInitiate(
+        booking_id="booking-cash-1", payer_id="payer-cash-1", payee_id="payee-cash-1",
+        amount_cents=5000, payment_method="cash", idempotency_key=str(uuid.uuid4()),
+    ))
+    await payment_svc.mark_completed(db_session, payment, None, "cash")
+    refund = await payment_svc.request_refund(db_session, payment.id, RefundRequest(amount_cents=5000, reason="no-show"))
+    assert (refund.status, payment.status) == ("MANUAL", "REFUNDED")
+    payer = await payment_svc.get_or_create_account(db_session, "payer-cash-1")
+    assert await ledger_svc.get_balance(db_session, payer.id) == 5000

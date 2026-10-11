@@ -41,7 +41,7 @@ def get_notifier() -> Notifier:
 
 
 async def notify_payment(notifier: Notifier, event: str, payment: dict) -> None:
-    """payment.completed reaches the payer and the payee; payment.failed only the payer."""
+    """payment.completed reaches the payer and the payee; payment.failed and payment.refunded only the payer."""
     recipients = [{"user_id": payment["payer_id"], "role": "customer"}]
     if event == "payment.completed" and payment["payee_id"] != payment["payer_id"]:
         recipients.append({"user_id": payment["payee_id"], "role": "shop"})

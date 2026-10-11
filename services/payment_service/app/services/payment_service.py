@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 import redis.asyncio as aioredis
 import structlog
@@ -161,17 +161,23 @@ class PaymentService:
         if payment and intent.get("amount_received", intent.get("amount")) == payment.amount_cents:
             await self.mark_completed(db, payment, intent.get("id"), "stripe")
 
-    async def request_refund(self, db: AsyncSession, payment_id: str, refund_data: RefundRequest) -> Refund:
-        result = await db.execute(select(Payment).where(Payment.id == payment_id))
-        payment = result.scalar_one_or_none()
+    async def request_refund(
+        self, db: AsyncSession, payment_id: str, refund_data: RefundRequest, gateway=None
+    ) -> Refund:
+        """Refunds part or all of a payment that is still unrefunded.
+
+        Card/UPI payments are refunded through Razorpay (the request fails if Razorpay refuses);
+        cash payments are recorded as MANUAL refunds, settled in person.
+        """
+        payment = await self.get_payment(db, payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
-
-        if payment.status not in ("COMPLETED",):
+        if payment.status not in ("COMPLETED", "PARTIALLY_REFUNDED"):
             raise ValueError(f"Cannot refund payment with status {payment.status}")
 
-        if refund_data.amount_cents > payment.amount_cents:
-            raise ValueError("Refund amount exceeds payment amount")
+        already = await self._refunded_cents(db, payment.id)
+        if already + refund_data.amount_cents > payment.amount_cents:
+            raise ValueError(f"Refund exceeds what is left to refund ({payment.amount_cents - already} paise)")
 
         now = datetime.now(timezone.utc)
         refund = Refund(
@@ -184,12 +190,78 @@ class PaymentService:
         )
         db.add(refund)
 
-        payment.status = "REFUNDED" if refund_data.amount_cents == payment.amount_cents else "PARTIALLY_REFUNDED"
+        if payment.gateway == "razorpay" and payment.provider_payment_id:
+            if gateway is None or not gateway.configured:
+                raise ValueError("Razorpay is not configured, so this payment cannot be refunded")
+            result = await gateway.refund(
+                payment.provider_payment_id, refund_data.amount_cents, {"refund_id": refund.id, "reason": refund_data.reason[:200]}
+            )
+            refund.gateway_refund_id = result.get("id")
+            refund.status = "PROCESSED" if result.get("status") == "processed" else "PENDING"
+        else:
+            refund.status = "MANUAL"
+
+        refunded_in_full = already + refund_data.amount_cents == payment.amount_cents
+        payment.status = "REFUNDED" if refunded_in_full else "PARTIALLY_REFUNDED"
         payment.updated_at = now
         await db.flush()
+        await self._return_funds(db, payment, refund_data.amount_cents, refunded_in_full, refund_data.reason)
 
-        log.info("refund_requested", payment_id=payment_id, amount=refund_data.amount_cents)
+        log.info("refund_issued", payment_id=payment_id, amount=refund_data.amount_cents, status=refund.status)
         return refund
+
+    async def _refunded_cents(self, db: AsyncSession, payment_id: str) -> int:
+        result = await db.execute(
+            select(func.coalesce(func.sum(Refund.amount_cents), 0)).where(
+                Refund.payment_id == payment_id, Refund.status != "FAILED"
+            )
+        )
+        return int(result.scalar() or 0)
+
+    async def _return_funds(self, db: AsyncSession, payment: Payment, amount_cents: int, in_full: bool, reason: str) -> None:
+        """Moves the refunded amount from the platform back to the payer in the ledger."""
+        try:
+            payer = await self.get_or_create_account(db, payment.payer_id, "user", payment.currency)
+            if in_full and amount_cents == payment.amount_cents:
+                await escrow_service.refund_funds(db, payment.id, payer.id, reason)
+            else:
+                platform = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
+                await ledger.transfer(
+                    db, from_account_id=platform.id, to_account_id=payer.id, amount_cents=amount_cents,
+                    currency=payment.currency, description=f"Refund: {reason}", reference_id=payment.id,
+                    reference_type="refund",
+                )
+        except Exception as e:  # the refund itself stands; the books are reconciled by finance
+            log.warning("refund_ledger_failed", payment_id=payment.id, error=str(e))
+
+    async def process_refund_event(self, db: AsyncSession, event: dict) -> Optional[Refund]:
+        """refund.processed / refund.failed from Razorpay; returns the refund if its status changed."""
+        entity = event.get("payload", {}).get("refund", {}).get("entity", {})
+        if not entity.get("id"):
+            return None
+        refund = (await db.execute(select(Refund).where(Refund.gateway_refund_id == entity["id"]))).scalar_one_or_none()
+        if refund is None:
+            return None
+        if event.get("event") == "refund.processed" and refund.status != "PROCESSED":
+            refund.status = "PROCESSED"
+        elif event.get("event") == "refund.failed" and refund.status != "FAILED":
+            refund.status = "FAILED"
+            # The money never left: the payment is back to what the other refunds leave it at.
+            payment = await self.get_payment(db, refund.payment_id)
+            await db.flush()
+            remaining = await self._refunded_cents(db, refund.payment_id)
+            if payment:
+                payment.status = "COMPLETED" if remaining == 0 else (
+                    "REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED"
+                )
+        else:
+            return None
+        await db.flush()
+        return refund
+
+    async def payments_for_booking(self, db: AsyncSession, booking_id: str) -> List[Payment]:
+        result = await db.execute(select(Payment).where(Payment.booking_id == booking_id).order_by(Payment.created_at))
+        return list(result.scalars().all())
 
     async def get_payment(self, db: AsyncSession, payment_id: str) -> Optional[Payment]:
         result = await db.execute(select(Payment).where(Payment.id == payment_id))

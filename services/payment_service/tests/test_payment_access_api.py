@@ -37,10 +37,20 @@ class RecordingNotifier:
         NOTIFIED.append((event, [(r["user_id"], r["role"]) for r in recipients], data["amount"]))
 
 
+REFUNDS: list = []
+REFUSE_REFUNDS: list = []
+
+
 def razorpay_api(request: httpx.Request) -> httpx.Response:
-    """Stands in for Razorpay's Orders API."""
-    assert request.url.path == "/v1/orders"
+    """Stands in for Razorpay's Orders and Refunds APIs."""
     assert request.headers["authorization"].startswith("Basic ")
+    if request.url.path.endswith("/refund"):
+        if REFUSE_REFUNDS:
+            return httpx.Response(400, json={"error": {"description": "The amount is invalid"}})
+        refund = json.loads(request.content)
+        REFUNDS.append((request.url.path, refund["amount"]))
+        return httpx.Response(200, json={"id": f"rfnd_{len(REFUNDS)}", "status": "processed", **refund})
+    assert request.url.path == "/v1/orders"
     order = json.loads(request.content)
     ORDERS.append(order)
     return httpx.Response(200, json={"id": f"order_{len(ORDERS)}", **order})
@@ -104,6 +114,8 @@ async def client():
     app.dependency_overrides[get_notifier] = RecordingNotifier
     ORDERS.clear()
     NOTIFIED.clear()
+    REFUNDS.clear()
+    REFUSE_REFUNDS.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -232,3 +244,87 @@ async def test_razorpay_webhooks_must_be_signed_with_the_webhook_secret(client):
 async def test_stripe_webhook_is_refused_without_its_secret(client):
     forged = {"type": "payment_intent.succeeded", "data": {"object": {"id": "pi_1", "metadata": {"payment_id": "x"}}}}
     assert (await client.post("/api/v1/webhooks/stripe", json=forged)).status_code == 503
+
+
+async def paid_by_razorpay(client, key: str) -> str:
+    body = {"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": key}
+    payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()
+    order = payment["checkout"]["order_id"]
+    proof = {"razorpay_order_id": order, "razorpay_payment_id": "pay_77",
+             "razorpay_signature": sign(KEY_SECRET, f"{order}|pay_77".encode())}
+    assert (await client.post(f"/api/v1/payments/{payment['id']}/verify", json=proof, headers=auth("cust"))).status_code == 200
+    return payment["id"]
+
+
+@pytest.mark.asyncio
+async def test_refunds_go_back_through_razorpay_up_to_what_was_paid(client):
+    pid = await paid_by_razorpay(client, "key-0010")
+    url, ops = f"/api/v1/payments/{pid}/refund", auth("ops", "admin")
+    status = lambda: client.get(f"/api/v1/payments/{pid}", headers=ops)  # noqa: E731
+
+    first = await client.post(url, json={"amount_cents": 10_000, "reason": "late"}, headers=ops)
+    assert (first.status_code, first.json()["status"], first.json()["gateway_refund_id"]) == (200, "PROCESSED", "rfnd_1")
+    assert REFUNDS == [("/v1/payments/pay_77/refund", 10_000)]
+    assert (await status()).json()["status"] == "PARTIALLY_REFUNDED"
+    assert NOTIFIED[-1] == ("payment.refunded", [("cust", "customer")], "100.00")
+
+    # Never more than was paid, across refunds.
+    too_much = await client.post(url, json={"amount_cents": 40_000, "reason": "x"}, headers=ops)
+    assert too_much.status_code == 400 and "left to refund" in too_much.json()["detail"]
+    rest = await client.post(url, json={"amount_cents": 39_900, "reason": "cancelled"}, headers=ops)
+    assert rest.json()["status"] == "PROCESSED"
+    assert (await status()).json()["status"] == "REFUNDED"
+    assert (await client.post(url, json={"amount_cents": 1, "reason": "x"}, headers=ops)).status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_a_refund_razorpay_refuses_is_not_recorded(client):
+    pid = await paid_by_razorpay(client, "key-0011")
+    REFUSE_REFUNDS.append(True)
+    resp = await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 100, "reason": "x"}, headers=auth("ops", "admin"))
+    assert resp.status_code == 502
+    assert (await client.get(f"/api/v1/payments/{pid}", headers=auth("cust"))).json()["status"] == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_refund_puts_the_payment_back(client):
+    pid = await paid_by_razorpay(client, "key-0012")
+    ops = auth("ops", "admin")
+    await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=ops)
+    event = json.dumps({"event": "refund.failed", "payload": {"refund": {"entity": {"id": "rfnd_1", "payment_id": "pay_77"}}}}).encode()
+    hook = await client.post("/api/v1/webhooks/razorpay", content=event, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event)})
+    assert hook.status_code == 200
+    assert (await client.get(f"/api/v1/payments/{pid}", headers=ops)).json()["status"] == "COMPLETED"
+    # ...so it can be refunded again.
+    assert (await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "retry"}, headers=ops)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_payments_for_a_booking_are_listed_to_its_parties_and_admins(client):
+    pid = await paid_by_razorpay(client, "key-0013")
+    listed = lambda who, role="user": client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=auth(who, role))  # noqa: E731
+    assert [p["id"] for p in (await listed("ops", "admin")).json()] == [pid]
+    assert [p["id"] for p in (await listed("cust")).json()] == [pid]
+    assert [p["id"] for p in (await listed("owner")).json()] == [pid]
+    assert (await listed("stranger")).json() == []
+
+
+@pytest.mark.asyncio
+async def test_the_shop_confirms_cash_and_it_can_then_be_refunded(client):
+    body = {"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-0014"}
+    pid = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"]
+    url = f"/api/v1/payments/{pid}/cash-received"
+    assert (await client.post(url, headers=auth("stranger"))).status_code == 404
+    assert (await client.post(url, headers=auth("cust"))).status_code == 403  # the payer can't mark their own cash received
+
+    done = await client.post(url, headers=auth("owner"))
+    assert (done.status_code, done.json()["status"], done.json()["gateway"]) == (200, "COMPLETED", "cash")
+    assert NOTIFIED[-1][:2] == ("payment.completed", [("cust", "customer"), ("owner", "shop")])
+    assert (await client.post(url, headers=auth("owner"))).status_code == 409
+
+    refund = await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=auth("ops", "admin"))
+    assert refund.json()["status"] == "MANUAL"
+    assert REFUNDS == []  # nothing sent to Razorpay for cash
+
+    upi = await paid_by_razorpay(client, "key-0015")
+    assert (await client.post(f"/api/v1/payments/{upi}/cash-received", headers=auth("owner"))).status_code == 409

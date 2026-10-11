@@ -52,6 +52,21 @@ class RazorpayGateway:
             raise GatewayError(f"Razorpay refused the order ({resp.status_code})")
         return resp.json()["id"]
 
+    async def refund(self, payment_id: str, amount_cents: int, notes: dict) -> dict:
+        """Refunds [amount_cents] of a captured payment; returns Razorpay's refund (id, status)."""
+        try:
+            async with httpx.AsyncClient(timeout=10.0, transport=self._transport) as client:
+                resp = await client.post(
+                    f"{API_URL}/payments/{payment_id}/refund",
+                    auth=(self.key_id, self.key_secret),
+                    json={"amount": amount_cents, "notes": notes},
+                )
+        except httpx.HTTPError as e:
+            raise GatewayError(f"Razorpay unreachable: {e}") from e
+        if resp.status_code >= 400:
+            raise GatewayError(f"Razorpay refused the refund ({resp.status_code}): {resp.text[:200]}")
+        return resp.json()
+
     def checkout_signature_valid(self, order_id: str, payment_id: str, signature: str) -> bool:
         """The signature Razorpay's checkout returns to the app after a successful payment."""
         if not self.key_secret:

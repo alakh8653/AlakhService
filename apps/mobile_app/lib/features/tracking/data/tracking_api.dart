@@ -35,4 +35,27 @@ class TrackingApi {
       throw toServerException(e);
     }
   }
+
+  /// Shares the signed-in provider's position (only their own; the server checks).
+  Future<void> report({
+    required String providerId,
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    double? speed,
+    double? heading,
+  }) async {
+    try {
+      await apiClient.post<dynamic>(ApiConstants.locations, data: {
+        'provider_id': providerId,
+        'latitude': latitude,
+        'longitude': longitude,
+        if (accuracy != null) 'accuracy': accuracy,
+        if (speed != null) 'speed': speed,
+        if (heading != null) 'heading': heading,
+      });
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
 }

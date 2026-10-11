@@ -29,6 +29,8 @@ class ApiConstants {
   static const String bookings = '$apiVersion/bookings';
   static String booking(String id) => '$bookings/$id';
   static String cancelBooking(String id) => '$bookings/$id/cancel';
+  static String bookingStatus(String id) => '$bookings/$id/status';
+  static const String assignedBookings = '$bookings/assigned';
 
   // Shops (shop_service)
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
@@ -47,7 +49,8 @@ class ApiConstants {
   static String leaveQueue(String queueId, String entryId) => '$queues/$queueId/entries/$entryId';
 
   // Tracking (tracking_service)
-  static String providerLocation(String providerId) => '$apiVersion/locations/$providerId';
+  static const String locations = '$apiVersion/locations';
+  static String providerLocation(String providerId) => '$locations/$providerId';
 
   // Notifications (notification_service)
   static const String notifications = '$apiVersion/notifications/me';

@@ -73,8 +73,11 @@ class BookingService:
         page: int = 1,
         per_page: int = 20,
         status_filter: Optional[str] = None,
+        as_provider: bool = False,
     ) -> dict:
-        query = select(Booking).where(Booking.customer_id == user_id)
+        """The customer's own bookings, or with [as_provider] the jobs assigned to them."""
+        owner_column = Booking.provider_id if as_provider else Booking.customer_id
+        query = select(Booking).where(owner_column == user_id)
         if status_filter:
             query = query.where(Booking.status == status_filter)
 

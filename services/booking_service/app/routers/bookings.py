@@ -98,6 +98,9 @@ async def create_booking(
         }
     )
     booking = await booking_service.create_booking(db, customer_id, booking_data)
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
     background.add_task(
         notify_booking, notifier, snapshot(booking, listing.get("name")), "booking.created", customer_id, lookup_owner,
         roles=("shop",),
@@ -116,6 +119,18 @@ async def list_bookings(
     user_id = current_user.get("sub")
     result = await booking_service.list_bookings(db, user_id, page, per_page, status)
     return result
+
+
+@router.get("/bookings/assigned", response_model=BookingListResponse)
+async def list_assigned_bookings(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Jobs assigned to the caller as a provider, newest first."""
+    return await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
 
 
 @router.get("/bookings/shop/{shop_id}", response_model=BookingListResponse)
@@ -219,6 +234,9 @@ async def update_status(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
     background.add_task(
         notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
     )
@@ -250,6 +268,9 @@ async def assign_provider(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
     background.add_task(
         notify_booking, notifier, snapshot(booking), "booking.assigned", current_user.get("sub"), lookup_owner,
         roles=("customer", "provider"),
@@ -274,6 +295,9 @@ async def cancel_booking(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     return booking
 

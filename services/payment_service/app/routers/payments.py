@@ -137,6 +137,7 @@ async def verify_payment(
         raise HTTPException(status_code=400, detail="Payment could not be verified")
     if payment.status != "COMPLETED":
         await payment_service.mark_completed(db, payment, proof.razorpay_payment_id, "razorpay")
+        await db.commit()  # visible before anyone is told (the background task delays the session's commit)
         background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
     return _with_checkout(payment, gateway)
 
@@ -220,6 +221,7 @@ async def razorpay_webhook(
     changed = await payment_service.process_razorpay_event(db, json.loads(body))
     if changed:
         event, payment = changed
+        await db.commit()  # visible before anyone is told (the background task delays the session's commit)
         background.add_task(notify_payment, notifier, event, payment_snapshot(payment))
     return {"status": "processed"}
 

@@ -1,10 +1,14 @@
 import 'package:alakh_service/core/network/api_client.dart';
 import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/jobs/data/jobs_api.dart';
+import 'package:alakh_service/features/jobs/data/location_reporter.dart';
+import 'package:alakh_service/features/jobs/presentation/jobs_page.dart';
 import 'package:alakh_service/features/notifications/data/notifications_api.dart';
 import 'package:alakh_service/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:alakh_service/features/payment/data/payment_api.dart';
 import 'package:alakh_service/features/payment/data/razorpay_checkout.dart';
 import 'package:alakh_service/features/payment/presentation/pages/payment_page.dart';
+import 'package:alakh_service/features/tracking/data/tracking_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +40,7 @@ FakeAdapter paymentServer() => FakeAdapter((r) => r.path.endsWith('/verify')
       }));
 
 void main() {
+  jobsPageTests();
   testWidgets('payment page reports the amount the server charged', (tester) async {
     final adapter = FakeAdapter((_) => (status: 201, body: {'id': 'pay1', 'amount_cents': 59900, 'status': 'PENDING'}));
     await tester.pumpWidget(MaterialApp(
@@ -137,5 +142,62 @@ void main() {
 
     expect(read, isTrue);
     expect(find.text('Mark all read'), findsNothing);
+  });
+}
+
+class _StaticSource implements LocationSource {
+  @override
+  Future<Fix?> current() async => const Fix(18.5, 73.8);
+}
+
+Map<String, dynamic> _job(String status) => {
+      'id': 'j1',
+      'booking_number': 'BK-9',
+      'customer_id': 'c1',
+      'provider_id': 'p1',
+      'service_id': 's1',
+      'status': status,
+      'scheduled_at': '2026-10-12T05:30:00Z',
+      'total_amount': 49900,
+      'notes': 'Address: 12 MG Road\nRing twice',
+      'created_at': '2026-10-11T05:30:00Z',
+    };
+
+void jobsPageTests() {
+  testWidgets('a provider moves a job along and shares location while it is under way', (tester) async {
+    var status = 'ASSIGNED';
+    final adapter = FakeAdapter((r) {
+      if (r.path == '/api/v1/locations') return (status: 201, body: {});
+      if (r.method == 'PUT') {
+        status = r.data['status'] as String;
+        return (status: 200, body: _job(status));
+      }
+      if (r.path.startsWith('/api/v1/services')) return (status: 404, body: {});
+      return (status: 200, body: {'items': [_job(status)], 'total': 1});
+    });
+    final client = clientFor(adapter);
+    final reporter = LocationReporter(tracking: TrackingApi(client), source: _StaticSource(), providerId: 'p1');
+    await tester.pumpWidget(MaterialApp(home: JobsPage(providerId: 'p1', jobsApi: JobsApi(client), reporter: reporter)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('12 MG Road'), findsOneWidget);
+    expect(find.text('Ring twice'), findsOneWidget);
+    expect(reporter.isRunning, isFalse);
+
+    await tester.tap(find.text('Start travelling'));
+    await tester.pumpAndSettle();
+    expect(status, 'PROVIDER_EN_ROUTE');
+    expect(reporter.isRunning, isTrue);
+    expect(adapter.requests.where((r) => r.path == '/api/v1/locations'), isNotEmpty);
+
+    await tester.tap(find.text('Start job'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Complete job'));
+    await tester.pumpAndSettle();
+    expect(status, 'COMPLETED');
+    expect(reporter.isRunning, isFalse);
+    expect(find.text('Earlier'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
   });
 }

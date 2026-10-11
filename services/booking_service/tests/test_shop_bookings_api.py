@@ -18,10 +18,16 @@ from app.main import app
 from app.models.booking import Booking
 
 SENT: list = []
+SESSIONS: dict = {}
 
 
 class RecordingNotifier:
     async def send(self, event, recipients, data):
+        # By the time anyone is told, the change must be committed and visible to other requests.
+        async with SESSIONS["factory"]() as db:
+            stored = await db.get(Booking, data["booking_id"])
+        assert stored is not None
+        assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
         SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))
 
 
@@ -86,6 +92,7 @@ async def client():
 
     app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
     app.dependency_overrides[get_notifier] = RecordingNotifier
+    SESSIONS["factory"] = factory
     SENT.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
@@ -334,3 +341,22 @@ async def test_notifier_posts_to_notification_service_with_the_internal_key():
     # Without a key nothing is sent at all.
     await Notifier("http://notification_service:8000", "", transport=httpx.MockTransport(service)).send("x", [{"user_id": "c1"}], {})
     assert len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_providers_list_the_jobs_assigned_to_them(client):
+    jobs = (await client.get("/api/v1/bookings/assigned", headers=auth("staff-1"))).json()
+    assert sorted(b["id"] for b in jobs["items"]) == ["bk-1", "bk-4"]
+    pending = (await client.get("/api/v1/bookings/assigned", params={"status": "PENDING"}, headers=auth("staff-1"))).json()
+    assert [b["id"] for b in pending["items"]] == ["bk-4"]
+    # Customers' own lists are unchanged, and nobody else's jobs show up.
+    assert (await client.get("/api/v1/bookings/assigned", headers=auth("c1"))).json()["items"] == []
+    assert "bk-4" not in [b["id"] for b in (await client.get("/api/v1/bookings", headers=auth("staff-1"))).json()["items"]]
+
+    # The provider moves their job along; the customer and shop hear about it.
+    await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-1"))
+    await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "staff-1"}, headers=auth("owner-1"))
+    for status in ("PROVIDER_EN_ROUTE", "IN_PROGRESS", "COMPLETED"):
+        resp = await client.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=auth("staff-1"))
+        assert resp.json()["status"] == status
+        assert SENT[-1][:2] == (f"booking.{status.lower()}", [("c3", "customer"), ("owner-1", "shop")])

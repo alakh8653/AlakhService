@@ -65,6 +65,9 @@ lib/
   Online payments need `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` on payment_service;
   without them the app offers cash only
 - ⭐ Rating the shop after a completed booking
+- 🧰 Provider mode: anyone a shop has assigned a job to gets a **Jobs** tab to move each job along
+  (on the way → started → completed). While a job is under way the app shares the provider's location
+  with that customer (foreground only, every 15 s); it stops when the job is done
 - 📊 Joining a walk-in queue and watching your position
 - 🔔 In-app notifications
 - 👤 Profile editing

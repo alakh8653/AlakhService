@@ -8,6 +8,7 @@ import {
   Scale,
   ShieldCheck,
   Wallet,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: 'Operations',
     items: [
+      { to: '/users', label: 'Users', icon: Users },
       { to: '/audit', label: 'Audit Logs', icon: FileClock },
       { to: '/disputes', label: 'Disputes', icon: Scale },
     ],

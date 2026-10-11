@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Shared secret other platform services present on /internal routes (e.g. admin_service bans).
+    INTERNAL_API_KEY: str = ""
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/auth_db"
     REDIS_URL: str = "redis://redis:6379/0"

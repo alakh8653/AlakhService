@@ -1,9 +1,10 @@
 import { LogOut } from 'lucide-react';
+import { signOut } from '../auth/session';
 
 export default function AdminHeader() {
   const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    window.location.assign('/');
+    signOut();
+    window.location.assign('/login');
   };
 
   return (

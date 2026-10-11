@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["*"]
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
+    AUTH_SERVICE_URL: str = "http://auth_service:8000"
+    # Shared with auth_service; bans are enforced there by deactivating the account.
+    INTERNAL_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

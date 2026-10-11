@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/di/injection_container.dart';
+import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../data/profile_api.dart';
 import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -52,6 +55,20 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _deleteAccount() async {
+    final password = await showDialog<String>(context: context, builder: (_) => const _DeleteAccountDialog());
+    if (password == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final auth = context.read<AuthBloc>();
+    try {
+      await sl<ProfileApi>().deleteAccount(password);
+      messenger.showSnackBar(const SnackBar(content: Text('Your account has been deleted.')));
+      auth.add(const LogoutRequested());
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
@@ -84,6 +101,12 @@ class _ProfilePageState extends State<ProfilePage> {
               variant: ButtonVariant.secondary,
               onPressed: _confirmLogout,
             ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _deleteAccount,
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Delete my account'),
+            ),
           ],
         ),
       ),
@@ -106,6 +129,58 @@ class _ProfileMenuItem extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
+    );
+  }
+}
+
+
+/// Explains what deleting removes and asks for the password; pops with it.
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _password = TextEditingController();
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Delete your account?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Your profile, saved addresses and sign-in are removed and cannot be recovered. '
+            'Past bookings and payments are kept without your name for the shops\' records.',
+            style: AppTextStyles.body2,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _password,
+            obscureText: true,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(labelText: 'Password'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: const Text('Delete account'),
+        ),
+      ],
     );
   }
 }

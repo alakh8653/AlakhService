@@ -48,14 +48,14 @@ async def test_pricing_rules(client):
     assert (await client.get("/api/v1/pricing/history/bob", headers=ALICE)).status_code == 403
     assert (await client.get("/api/v1/pricing/history/alice", headers=ALICE)).status_code == 200
 
-    coupon = {"code": "FREE100", "discount_pct": 100}
+    coupon = {"code": "HALFOFF", "discount_pct": 0.5}
     assert (await client.post("/api/v1/coupons", json=coupon, headers=ALICE)).status_code == 403
     assert (await client.post("/api/v1/coupons", json=coupon, headers=ADMIN)).status_code == 201
 
 
 @pytest.mark.asyncio
 async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
-    await client.post("/api/v1/coupons", json={"code": "TWICE", "discount_pct": 10, "max_uses": 2}, headers=ADMIN)
+    await client.post("/api/v1/coupons", json={"code": "TWICE", "discount_pct": 0.10, "max_uses": 2}, headers=ADMIN)
 
     def quote(customer):
         body = {"service_id": "s1", "customer_id": customer, "base_price_cents": 10000, "coupon_code": "TWICE"}
@@ -78,3 +78,14 @@ async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
     carol = (await quote("carol")).json()
     assert carol["coupon_code"] is None  # max_uses reached, so no discount is quoted
     assert (await client.get("/api/v1/coupons/TWICE/validate", headers=ALICE)).json()["is_valid"] is False
+
+
+@pytest.mark.asyncio
+async def test_admins_list_coupons_and_codes_are_case_insensitive(client):
+    assert (await client.post("/api/v1/coupons", json={"code": " diwali25 ", "discount_pct": 0.25}, headers=ADMIN)).json()["code"] == "DIWALI25"
+    assert (await client.post("/api/v1/coupons", json={"code": "BAD", "discount_pct": 0.9}, headers=ADMIN)).status_code == 422
+    assert [c["code"] for c in (await client.get("/api/v1/coupons", headers=ADMIN)).json()] == ["DIWALI25"]
+    assert (await client.get("/api/v1/coupons", headers=ALICE)).status_code == 403
+    assert (await client.get("/api/v1/coupons/diwali25/validate", headers=ALICE)).json()["is_valid"] is True
+    missing = await client.get("/api/v1/coupons/NOPE/validate", headers=ALICE)
+    assert (missing.status_code, missing.json()["detail"]) == (404, "Coupon not found")

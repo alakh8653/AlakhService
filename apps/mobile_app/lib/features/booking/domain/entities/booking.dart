@@ -37,6 +37,10 @@ class Booking extends Equatable {
   final int durationMinutes;
   final String address;
   final double totalAmount;
+
+  /// The catalogue price before a coupon, and the coupon used (if any).
+  final double? listPrice;
+  final String? couponCode;
   final String? notes;
   final DateTime createdAt;
 
@@ -53,6 +57,8 @@ class Booking extends Equatable {
     this.durationMinutes = 0,
     required this.address,
     required this.totalAmount,
+    this.listPrice,
+    this.couponCode,
     this.notes,
     required this.createdAt,
   });

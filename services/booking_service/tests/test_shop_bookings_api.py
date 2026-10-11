@@ -13,11 +13,28 @@ from sqlalchemy.pool import NullPool, StaticPool
 from app.config import settings
 from app.core.notifier import get_notifier
 from app.database import Base, get_db
-from app.dependencies import get_service_lookup, get_shop_owner_lookup, get_staff_lookup
+from app.dependencies import (
+    CouponRejected,
+    get_coupon_pricer,
+    get_service_lookup,
+    get_shop_owner_lookup,
+    get_staff_lookup,
+)
 from app.main import app
 from app.models.booking import Booking
 
 SENT: list = []
+PRICED: list = []
+
+
+async def fake_pricer(token, customer_id, service_id, list_price, code):
+    """Stands in for pricing_engine: WELCOME10 takes 10% off, once per customer."""
+    if code != "WELCOME10":
+        raise CouponRejected("Coupon not found")
+    if (customer_id, code) in [(c, k) for c, _, k in PRICED]:
+        raise CouponRejected("Coupon already used")
+    PRICED.append((customer_id, list_price, code))
+    return int(list_price * 0.9)
 SESSIONS: dict = {}
 
 
@@ -92,6 +109,8 @@ async def client():
 
     app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
     app.dependency_overrides[get_notifier] = RecordingNotifier
+    app.dependency_overrides[get_coupon_pricer] = lambda: fake_pricer
+    PRICED.clear()
     SESSIONS["factory"] = factory
     SENT.clear()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -360,3 +379,21 @@ async def test_providers_list_the_jobs_assigned_to_them(client):
         resp = await client.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=auth("staff-1"))
         assert resp.json()["status"] == status
         assert SENT[-1][:2] == (f"booking.{status.lower()}", [("c3", "customer"), ("owner-1", "shop")])
+
+
+@pytest.mark.asyncio
+async def test_a_coupon_discounts_the_catalogue_price_once(client):
+    body = {"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"}
+    plain = (await client.post("/api/v1/bookings", json=body, headers=auth("c1"))).json()
+    assert (plain["total_amount"], plain["coupon_code"], plain["list_price"]) == (49900, None, 49900)
+
+    discounted = await client.post("/api/v1/bookings", json={**body, "coupon_code": " welcome10 "}, headers=auth("c1"))
+    assert discounted.status_code == 201
+    assert (discounted.json()["total_amount"], discounted.json()["coupon_code"], discounted.json()["list_price"]) == (44910, "WELCOME10", 49900)
+    # Priced from the catalogue, not from anything the client sent.
+    assert PRICED == [("c1", 49900, "WELCOME10")]
+
+    again = await client.post("/api/v1/bookings", json={**body, "coupon_code": "WELCOME10"}, headers=auth("c1"))
+    assert (again.status_code, again.json()["detail"]) == (422, "Coupon already used")
+    bogus = await client.post("/api/v1/bookings", json={**body, "coupon_code": "FREE100", "total_amount": 1}, headers=auth("c2"))
+    assert (bogus.status_code, bogus.json()["detail"]) == (422, "Coupon not found")

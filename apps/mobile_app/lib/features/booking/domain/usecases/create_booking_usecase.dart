@@ -14,6 +14,7 @@ class CreateBookingUseCase {
       scheduledAt: params.scheduledAt,
       address: params.address,
       notes: params.notes,
+      couponCode: params.couponCode,
     );
   }
 }
@@ -23,11 +24,13 @@ class CreateBookingParams {
   final DateTime scheduledAt;
   final String address;
   final String? notes;
+  final String? couponCode;
 
   const CreateBookingParams({
     required this.serviceId,
     required this.scheduledAt,
     required this.address,
     this.notes,
+    this.couponCode,
   });
 }

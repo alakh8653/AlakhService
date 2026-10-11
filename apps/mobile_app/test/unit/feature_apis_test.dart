@@ -1,10 +1,12 @@
 import 'package:alakh_service/core/constants/api_constants.dart';
 import 'package:alakh_service/core/network/api_client.dart';
 import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/booking/data/coupon_api.dart';
 import 'package:alakh_service/features/booking/data/dispute_api.dart';
 import 'package:alakh_service/features/booking/data/models/booking_model.dart';
 import 'package:alakh_service/features/booking/domain/entities/booking.dart';
 import 'package:alakh_service/features/payment/data/payment_api.dart';
+import 'package:alakh_service/features/profile/data/profile_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
 import 'package:alakh_service/features/services/data/models/service_model.dart';
 import 'package:alakh_service/features/tracking/data/tracking_api.dart';
@@ -132,6 +134,41 @@ void main() {
       expect(adapter.requests.map((r) => '${r.method} ${r.path}'), ['POST /api/v1/disputes', 'PUT /api/v1/bookings/b1/status']);
       expect(adapter.requests.first.data, {'booking_id': 'b1', 'dispute_type': 'no_show', 'description': 'Nobody came'});
       expect(adapter.requests.last.data, {'status': 'DISPUTED'});
+    });
+
+    test('payments tell which bookings are already paid or due in cash', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: [
+            {'booking_id': 'b1', 'status': 'COMPLETED', 'payment_method': 'upi'},
+            {'booking_id': 'b1', 'status': 'CANCELLED', 'payment_method': 'cash'},
+            {'booking_id': 'b2', 'status': 'PENDING', 'payment_method': 'cash'},
+            {'booking_id': 'b3', 'status': 'PENDING', 'payment_method': 'upi'},
+          ]));
+      final api = PaymentApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+      expect(await api.paymentStateByBooking(), {'b1': 'paid', 'b2': 'cash'});
+      expect(adapter.requests.single.path, ApiConstants.payments);
+    });
+
+    test('coupons are checked before booking and the booking shows what was saved', () async {
+      final adapter = FakeAdapter((r) => r.path.contains('NOPE')
+          ? (status: 404, body: {'detail': 'Coupon not found'})
+          : (status: 200, body: {'code': 'WELCOME10', 'is_valid': true, 'discount_pct': 0.10, 'message': 'Coupon is valid'}));
+      final api = CouponApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final ok = await api.check(' welcome10 ');
+      expect((ok.code, ok.isValid, ok.discountPct.round()), ('WELCOME10', true, 10));
+      expect(adapter.requests.first.path, '/api/v1/coupons/WELCOME10/validate');
+      final missing = await api.check('nope');
+      expect((missing.isValid, missing.message), (false, 'Coupon not found'));
+
+      final booked = BookingModel.fromJson({...bookingJson(), 'total_amount': 44910, 'list_price': 49900, 'coupon_code': 'WELCOME10'});
+      expect((booked.totalAmount, booked.listPrice, booked.couponCode), (449.1, 499.0, 'WELCOME10'));
+    });
+
+    test('deleting the account sends the password to auth', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: {'message': 'Your account has been deleted'}));
+      await ProfileApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore())).deleteAccount('Passw0rd!');
+      expect(adapter.requests.single.path, '/api/v1/auth/delete-account');
+      expect(adapter.requests.single.data, {'password': 'Passw0rd!'});
     });
   });
 }

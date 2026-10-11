@@ -42,4 +42,14 @@ class ProfileApi {
       throw toServerException(e);
     }
   }
+
+  /// Deletes the signed-in account for good (password required). Profile data is erased and the
+  /// sign-in can't be used again; the caller should then sign out locally.
+  Future<void> deleteAccount(String password) async {
+    try {
+      await apiClient.post<dynamic>(ApiConstants.deleteAccount, data: {'password': password});
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
 }

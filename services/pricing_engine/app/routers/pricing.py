@@ -8,6 +8,7 @@ from app.core.exceptions import (
     CouponAlreadyUsedError,
     CouponExhaustedError,
     CouponExpiredError,
+    CouponNotFoundError,
 )
 from app.database import get_db
 from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
@@ -57,6 +58,14 @@ async def create_coupon(data: CouponCreate, db: AsyncSession = Depends(get_db)):
     return await pricing_service.create_coupon(db, data)
 
 
+@router.get("/coupons", response_model=List[CouponResponse], dependencies=[Depends(require_admin)])
+async def list_coupons(db: AsyncSession = Depends(get_db)):
+    return await pricing_service.list_coupons(db)
+
+
 @router.get("/coupons/{code}/validate", response_model=CouponValidateResponse)
 async def validate_coupon(code: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
-    return await pricing_service.validate_coupon(db, code)
+    try:
+        return await pricing_service.validate_coupon(db, code.strip().upper())
+    except CouponNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Coupon not found") from e

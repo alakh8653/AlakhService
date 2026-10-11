@@ -20,6 +20,7 @@ class ApiConstants {
   static const String logout = '$apiVersion/auth/logout';
   static const String me = '$apiVersion/auth/me';
   static const String resetPassword = '$apiVersion/auth/reset-password';
+  static const String deleteAccount = '$apiVersion/auth/delete-account';
 
   // Catalogue (service_catalog_service)
   static const String services = '$apiVersion/services';
@@ -32,6 +33,7 @@ class ApiConstants {
   static String bookingStatus(String id) => '$bookings/$id/status';
   static const String assignedBookings = '$bookings/assigned';
   static const String disputes = '$apiVersion/disputes';
+  static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
@@ -41,6 +43,7 @@ class ApiConstants {
 
   // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';
+  static const String payments = '$apiVersion/payments';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
 
   // Queues (queue_service)

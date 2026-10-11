@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PriceCalculationRequest(BaseModel):
@@ -31,8 +31,9 @@ class PriceCalculationResponse(BaseModel):
 
 
 class CouponCreate(BaseModel):
-    code: str
-    discount_pct: float
+    code: str = Field(min_length=3, max_length=50, pattern=r"^\s*[A-Za-z0-9_-]+\s*$")
+    # A fraction of the price: 0.10 is 10% off. The pricing rules cap a coupon at 50%.
+    discount_pct: float = Field(gt=0, le=0.5)
     max_uses: Optional[int] = None
     valid_from: Optional[datetime] = None
     valid_to: Optional[datetime] = None

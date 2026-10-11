@@ -92,3 +92,42 @@ async def fetch_shop_provider_ids(shop_id: str, token: str) -> set:
 
 def get_staff_lookup() -> Callable[[str, str], Awaitable[set]]:
     return fetch_shop_provider_ids
+
+
+class CouponRejected(Exception):
+    """The coupon can't be used for this booking; the message says why."""
+
+
+async def price_with_coupon(token: str, customer_id: str, service_id: str, list_price: int, code: str) -> int:
+    """The price after [code]'s discount, with the coupon used up for this customer (pricing_engine).
+
+    Runs as the customer (their token), so the coupon's once-per-customer rule applies to them.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    async with httpx.AsyncClient(base_url=settings.PRICING_ENGINE_URL, timeout=5.0, headers=headers) as client:
+        try:
+            check = await client.get(f"/api/v1/coupons/{code}/validate")
+            if check.status_code == 404:
+                raise CouponRejected("Coupon not found")
+            check.raise_for_status()
+            if not check.json().get("is_valid"):
+                raise CouponRejected(check.json().get("message") or "Coupon is not valid")
+            quote = await client.post(
+                "/api/v1/pricing/calculate",
+                json={"service_id": service_id, "customer_id": customer_id, "base_price_cents": list_price, "coupon_code": code},
+            )
+            quote.raise_for_status()
+            redeemed = await client.post(f"/api/v1/pricing/{quote.json()['id']}/redeem")
+            if redeemed.status_code == 409:
+                raise CouponRejected(redeemed.json().get("detail") or "Coupon already used")
+            redeemed.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Pricing service unavailable") from exc
+    return int(redeemed.json()["final_price_cents"])
+
+
+CouponPricer = Callable[[str, str, str, int, str], Awaitable[int]]
+
+
+def get_coupon_pricer() -> CouponPricer:
+    return price_with_coupon

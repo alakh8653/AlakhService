@@ -23,6 +23,7 @@ TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 BOOKINGS = {
     "bk-1": {"id": "bk-1", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "CONFIRMED", "total_amount": 49900},
+    "bk-2": {"id": "bk-2", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "CONFIRMED", "total_amount": 20000},
     "bk-new": {"id": "bk-new", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "PENDING", "total_amount": 100},
 }
 OWNERS = {"shop-1": "owner"}
@@ -246,8 +247,8 @@ async def test_stripe_webhook_is_refused_without_its_secret(client):
     assert (await client.post("/api/v1/webhooks/stripe", json=forged)).status_code == 503
 
 
-async def paid_by_razorpay(client, key: str) -> str:
-    body = {"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": key}
+async def paid_by_razorpay(client, key: str, booking: str = "bk-1") -> str:
+    body = {"booking_id": booking, "payment_method": "upi", "idempotency_key": key}
     payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()
     order = payment["checkout"]["order_id"]
     proof = {"razorpay_order_id": order, "razorpay_payment_id": "pay_77",
@@ -326,5 +327,23 @@ async def test_the_shop_confirms_cash_and_it_can_then_be_refunded(client):
     assert refund.json()["status"] == "MANUAL"
     assert REFUNDS == []  # nothing sent to Razorpay for cash
 
-    upi = await paid_by_razorpay(client, "key-0015")
+    upi = await paid_by_razorpay(client, "key-0015", booking="bk-2")
     assert (await client.post(f"/api/v1/payments/{upi}/cash-received", headers=auth("owner"))).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_a_booking_is_paid_for_once(client):
+    cash = (await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-0020"}, headers=auth("cust"))).json()
+    pid = await paid_by_razorpay(client, "key-0021")
+    # Paying online made the earlier cash choice moot.
+    assert (await client.get(f"/api/v1/payments/{cash['id']}", headers=auth("cust"))).json()["status"] == "CANCELLED"
+
+    again = await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0022"}, headers=auth("cust"))
+    assert (again.status_code, again.json()["detail"]) == (409, "This booking has already been paid for")
+    # The original attempt's retry still answers with its payment.
+    retry = await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0021"}, headers=auth("cust"))
+    assert (retry.status_code, retry.json()["id"]) == (201, pid)
+
+    mine = (await client.get("/api/v1/payments", headers=auth("cust"))).json()
+    assert {p["id"]: p["status"] for p in mine} == {pid: "COMPLETED", cash["id"]: "CANCELLED"}
+    assert (await client.get("/api/v1/payments", headers=auth("stranger"))).json() == []

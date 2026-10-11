@@ -113,6 +113,15 @@ class PaymentService:
             )
         except Exception as e:
             log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
+        # Other attempts at paying this booking (e.g. a cash choice, then UPI) are now moot.
+        others = await db.execute(
+            select(Payment).where(
+                Payment.booking_id == payment.booking_id, Payment.id != payment.id, Payment.status == "PENDING"
+            )
+        )
+        for other in others.scalars().all():
+            other.status = "CANCELLED"
+            other.updated_at = payment.updated_at
         await db.flush()
         log.info("payment_completed", payment_id=payment.id, gateway=gateway)
         return payment
@@ -258,6 +267,12 @@ class PaymentService:
             return None
         await db.flush()
         return refund
+
+    async def payments_by_payer(self, db: AsyncSession, payer_id: str, limit: int = 100) -> List[Payment]:
+        result = await db.execute(
+            select(Payment).where(Payment.payer_id == payer_id).order_by(Payment.created_at.desc()).limit(limit)
+        )
+        return list(result.scalars().all())
 
     async def payments_for_booking(self, db: AsyncSession, booking_id: str) -> List[Payment]:
         result = await db.execute(select(Payment).where(Payment.booking_id == booking_id).order_by(Payment.created_at))

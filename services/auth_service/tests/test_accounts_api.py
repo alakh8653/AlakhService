@@ -124,3 +124,37 @@ async def test_operators_grant_admin_from_the_command_line():
         with pytest.raises(LookupError):
             await set_role(db, "nobody@example.com", "admin")
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_people_can_delete_their_own_account(client):
+    from app.routers.users import get_profile_eraser
+
+    erased, failing = [], []
+
+    async def fake_erase(token):
+        if failing:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=503, detail="Could not delete your account right now. Please try again.")
+        erased.append(token)
+
+    app.dependency_overrides[get_profile_eraser] = lambda: fake_erase
+    session = (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).json()
+    me = {"Authorization": f"Bearer {session['access_token']}"}
+
+    assert (await client.post("/api/v1/auth/delete-account", json={"password": "wrong"}, headers=me)).status_code == 401
+    failing.append(True)
+    assert (await client.post("/api/v1/auth/delete-account", json={"password": "Passw0rd!"}, headers=me)).status_code == 503
+    # Nothing changed while the profile couldn't be erased.
+    assert (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).status_code == 200
+    failing.clear()
+
+    deleted = await client.post("/api/v1/auth/delete-account", json={"password": "Passw0rd!"}, headers=me)
+    assert deleted.status_code == 200
+    assert erased == [session["access_token"]]
+    assert (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).status_code == 401
+    assert (await client.post("/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]})).status_code == 401
+    # The email is free again for a new account.
+    again = await client.post("/api/v1/auth/register", json={"email": "ravi@example.com", "password": "Passw0rd!", "full_name": "New Ravi"})
+    assert again.status_code == 201

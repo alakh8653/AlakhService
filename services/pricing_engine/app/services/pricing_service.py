@@ -117,7 +117,7 @@ class PricingService:
     async def create_coupon(self, db: AsyncSession, data: CouponCreate) -> Coupon:
         coupon = Coupon(
             id=str(uuid.uuid4()),
-            code=data.code,
+            code=data.code.strip().upper(),
             discount_pct=data.discount_pct,
             max_uses=data.max_uses,
             uses_count=0,
@@ -129,6 +129,10 @@ class PricingService:
         await db.flush()
         log.info("coupon_created", code=data.code, discount_pct=data.discount_pct)
         return coupon
+
+    async def list_coupons(self, db: AsyncSession) -> List[Coupon]:
+        result = await db.execute(select(Coupon).order_by(Coupon.code))
+        return list(result.scalars().all())
 
     async def validate_coupon(self, db: AsyncSession, code: str) -> CouponValidateResponse:
         result = await db.execute(select(Coupon).where(Coupon.code == code))

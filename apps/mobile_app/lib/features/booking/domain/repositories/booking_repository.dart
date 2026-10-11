@@ -8,6 +8,7 @@ abstract class BookingRepository {
     required DateTime scheduledAt,
     required String address,
     String? notes,
+    String? couponCode,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

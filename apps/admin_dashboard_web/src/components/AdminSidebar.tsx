@@ -8,6 +8,7 @@ import {
   Scale,
   ShieldCheck,
   Wallet,
+  TicketPercent,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { to: '/finance/settlements', label: 'Settlements', icon: Wallet },
       { to: '/finance/revenue', label: 'Revenue Report', icon: BarChart3 },
+      { to: '/finance/coupons', label: 'Coupons', icon: TicketPercent },
     ],
   },
   {

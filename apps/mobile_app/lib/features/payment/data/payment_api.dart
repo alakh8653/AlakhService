@@ -71,6 +71,28 @@ class PaymentApi {
     }
   }
 
+  /// How each of the signed-in customer's bookings is being paid: booking id → 'paid' (settled)
+  /// or 'cash' (chose to pay in person, not yet handed over).
+  Future<Map<String, String>> paymentStateByBooking() async {
+    try {
+      final response = await apiClient.get<List<dynamic>>(ApiConstants.payments);
+      final states = <String, String>{};
+      for (final p in response.data ?? const []) {
+        final m = p as Map<String, dynamic>;
+        final status = m['status'] as String;
+        final booking = m['booking_id'] as String;
+        if (const {'COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'}.contains(status)) {
+          states[booking] = 'paid';
+        } else if (status == 'PENDING' && m['payment_method'] == 'cash' && states[booking] != 'paid') {
+          states[booking] = 'cash';
+        }
+      }
+      return states;
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   /// Hands the gateway's signed receipt to the server, which completes the payment if it checks out.
   Future<PaymentResult> verify({
     required String paymentId,

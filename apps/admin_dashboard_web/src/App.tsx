@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from './auth/LoginPage';
 import { isSignedIn } from './auth/session';
 import UsersPage from './users/UsersPage';
+import CouponsPage from './coupons/CouponsPage';
 import AdminSidebar from './components/AdminSidebar';
 import AdminHeader from './components/AdminHeader';
 import AuditLogPage from './audit/AuditLogPage';
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/disputes/:id" element={<DisputeDetailPage />} />
             <Route path="/finance/settlements" element={<SettlementsPage />} />
             <Route path="/finance/revenue" element={<RevenueReportPage />} />
+            <Route path="/finance/coupons" element={<CouponsPage />} />
             <Route path="/monitoring/health" element={<SystemHealthPage />} />
             <Route path="/monitoring/metrics" element={<ServiceMetricsPage />} />
             <Route path="/access/roles" element={<RolesPage />} />

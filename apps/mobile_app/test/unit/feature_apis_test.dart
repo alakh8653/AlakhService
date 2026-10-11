@@ -133,5 +133,17 @@ void main() {
       expect(adapter.requests.first.data, {'booking_id': 'b1', 'dispute_type': 'no_show', 'description': 'Nobody came'});
       expect(adapter.requests.last.data, {'status': 'DISPUTED'});
     });
+
+    test('payments tell which bookings are already paid or due in cash', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: [
+            {'booking_id': 'b1', 'status': 'COMPLETED', 'payment_method': 'upi'},
+            {'booking_id': 'b1', 'status': 'CANCELLED', 'payment_method': 'cash'},
+            {'booking_id': 'b2', 'status': 'PENDING', 'payment_method': 'cash'},
+            {'booking_id': 'b3', 'status': 'PENDING', 'payment_method': 'upi'},
+          ]));
+      final api = PaymentApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+      expect(await api.paymentStateByBooking(), {'b1': 'paid', 'b2': 'cash'});
+      expect(adapter.requests.single.path, ApiConstants.payments);
+    });
   });
 }

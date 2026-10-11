@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 import redis.asyncio as aioredis
 import structlog
@@ -41,6 +41,8 @@ log = structlog.get_logger()
 
 
 # A booking can be paid for once it is confirmed and until it is completed.
+# Payments that mean the booking is settled (refunds included: the customer already paid once).
+PAID_STATUSES = {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
 PAYABLE_STATUSES = {"CONFIRMED", "ASSIGNED", "PROVIDER_EN_ROUTE", "IN_PROGRESS", "COMPLETED"}
 
 
@@ -81,6 +83,10 @@ async def initiate_payment(
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.get("status") not in PAYABLE_STATUSES:
         raise HTTPException(status_code=409, detail="This booking cannot be paid for yet")
+    # One booking is paid for once; a retry with the same key still returns its payment below.
+    for earlier in await payment_service.payments_for_booking(db, checkout.booking_id):
+        if earlier.status in PAID_STATUSES and earlier.idempotency_key != checkout.idempotency_key:
+            raise HTTPException(status_code=409, detail="This booking has already been paid for")
     payee_id = await lookup_owner(booking["shop_id"]) if booking.get("shop_id") else booking.get("provider_id")
     if not payee_id:
         raise HTTPException(status_code=409, detail="This booking has no one to pay yet")
@@ -149,11 +155,14 @@ def _ensure_party(payment, current_user: dict) -> None:
 
 @router.get("/payments", response_model=List[PaymentResponse])
 async def list_payments(
-    booking_id: str,
+    booking_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Payments for a booking: all of them for admins, otherwise those the caller paid or received."""
+    """Payments for a booking (all of them for admins, otherwise those the caller paid or received),
+    or without a booking id the caller's own recent payments."""
+    if booking_id is None:
+        return await payment_service.payments_by_payer(db, current_user["sub"])
     payments = await payment_service.payments_for_booking(db, booking_id)
     if current_user.get("role") != "admin":
         payments = [p for p in payments if current_user["sub"] in (p.payer_id, p.payee_id)]

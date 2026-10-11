@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../payment/data/payment_api.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../tracking/presentation/pages/live_tracking_page.dart';
 import '../../data/dispute_api.dart';
@@ -24,10 +25,23 @@ class BookingHistoryPage extends StatefulWidget {
 }
 
 class _BookingHistoryPageState extends State<BookingHistoryPage> {
+  // booking id → 'paid' or 'cash' (to pay in person), so a paid booking isn't offered for payment again.
+  Map<String, String> _payments = const {};
+
   @override
   void initState() {
     super.initState();
     context.read<BookingBloc>().add(const LoadUserBookings());
+    _loadPayments();
+  }
+
+  Future<void> _loadPayments() async {
+    try {
+      final states = await sl<PaymentApi>().paymentStateByBooking();
+      if (mounted) setState(() => _payments = states);
+    } catch (_) {
+      // Without it the Pay button stays; the server still refuses a second payment.
+    }
   }
 
   static Color statusColor(String status) => switch (status) {
@@ -95,8 +109,11 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     }
   }
 
-  void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page))
-      .then((_) => mounted ? context.read<BookingBloc>().add(const LoadUserBookings()) : null);
+  void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) {
+        if (!mounted) return;
+        context.read<BookingBloc>().add(const LoadUserBookings());
+        _loadPayments();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +150,10 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => context.read<BookingBloc>().add(const RefreshBookings()),
+            onRefresh: () async {
+              context.read<BookingBloc>().add(const RefreshBookings());
+              await _loadPayments();
+            },
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: bookings.length,
@@ -146,7 +166,10 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   statusLabel: statusLabel(b.status),
                   onCancel: b.canCancel ? () => _confirmCancel(b) : null,
                   onTrack: b.canTrack ? () => _open(LiveTrackingPage(booking: b)) : null,
-                  onPay: b.canPay ? () => _open(PaymentPage(bookingId: b.id, amount: b.totalAmount)) : null,
+                  onPay: b.canPay && _payments[b.id] != 'paid'
+                      ? () => _open(PaymentPage(bookingId: b.id, amount: b.totalAmount))
+                      : null,
+                  payment: _payments[b.id],
                   onRate: b.canRate ? () => _rate(b) : null,
                   onReport: b.canDispute ? () => _report(b) : null,
                 );
@@ -174,6 +197,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onPay;
   final VoidCallback? onRate;
   final VoidCallback? onReport;
+  final String? payment;
 
   const _BookingCard({
     required this.booking,
@@ -184,6 +208,7 @@ class _BookingCard extends StatelessWidget {
     this.onPay,
     this.onRate,
     this.onReport,
+    this.payment,
   });
 
   @override
@@ -254,6 +279,13 @@ class _BookingCard extends StatelessWidget {
                   '₹${booking.totalAmount.toStringAsFixed(booking.totalAmount % 1 == 0 ? 0 : 2)}',
                   style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary),
                 ),
+                if (payment != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    payment == 'paid' ? 'Paid' : 'Pay in cash',
+                    style: AppTextStyles.caption.copyWith(color: payment == 'paid' ? AppColors.success : AppColors.warning),
+                  ),
+                ],
                 const Spacer(),
               ],
             ),

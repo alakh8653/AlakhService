@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["*"]
     RAZORPAY_KEY_ID: Optional[str] = None
     RAZORPAY_KEY_SECRET: Optional[str] = None
+    # Set in the Razorpay dashboard when adding the webhook; without it webhooks are refused.
+    RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
     PLATFORM_ACCOUNT_ID: str = "platform_account"

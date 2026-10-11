@@ -28,6 +28,7 @@ dependencies:
   fl_chart: ^1.2.0
   image_picker: ^1.0.4
   permission_handler: ^13.0.2
+  razorpay_flutter: ^1.4.6
 
 dev_dependencies:
   flutter_test:

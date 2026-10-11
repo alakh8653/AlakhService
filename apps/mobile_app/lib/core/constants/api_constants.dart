@@ -38,6 +38,7 @@ class ApiConstants {
 
   // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';
+  static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
 
   // Queues (queue_service)
   static const String queues = '$apiVersion/queues';

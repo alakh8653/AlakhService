@@ -83,9 +83,33 @@ async def join_queue(
         raise HTTPException(status_code=409, detail=str(e)) from e
 
 
+async def _tell_who_is_next(
+    db: AsyncSession, queue_id: str, background: BackgroundTasks, notifier: Notifier, called=None
+) -> None:
+    """After the line moves: commit, then tell the called customer and anyone now near the front."""
+    notices = await queue_service.soon_notices(db, queue_id)
+    await db.commit()  # visible before anyone is told
+    if called is not None:
+        background.add_task(
+            notifier.send, "queue.called", [{"user_id": called.customer_id, "role": "customer"}], {"queue_id": queue_id}
+        )
+    for n in notices:
+        background.add_task(
+            notifier.send,
+            "queue.almost_turn",
+            [{"user_id": n.customer_id, "role": "customer"}],
+            {"queue_id": queue_id, "people_ahead": n.people_ahead, "minutes": n.estimated_wait_minutes},
+        )
+
+
 @router.delete("/queues/{queue_id}/entries/{entry_id}", status_code=204)
 async def leave_queue(
-    queue_id: str, entry_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    queue_id: str,
+    entry_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    notifier: Notifier = Depends(get_notifier),
 ):
     if not caller.is_admin:
         entry = (await db.execute(select(QueueEntry).where(QueueEntry.id == entry_id))).scalar_one_or_none()
@@ -95,6 +119,7 @@ async def leave_queue(
         await queue_service.leave_queue(db, queue_id, entry_id)
     except EntryNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await _tell_who_is_next(db, queue_id, background, notifier)
 
 
 @router.get("/queues/{queue_id}/position/{customer_id}", response_model=QueuePositionResponse)
@@ -126,7 +151,7 @@ async def waiting_list(
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
 ):
-    """Who is waiting, in serving order (the shop only)."""
+    """Who is being served (CALLED, position 0) and who is waiting, in serving order (the shop only)."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
     return await queue_service.waiting_list(db, queue_id)
 
@@ -143,12 +168,41 @@ async def call_next(
     """Calls the next customer (the shop only); they are told it is their turn. Null when nobody is waiting."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
     entry = await queue_service.call_next(db, queue_id)
-    if entry is not None:
-        await db.commit()  # visible before the customer is told
-        background.add_task(
-            notifier.send, "queue.called", [{"user_id": entry.customer_id, "role": "customer"}], {"queue_id": queue_id}
-        )
+    await _tell_who_is_next(db, queue_id, background, notifier, called=entry)
     return entry
+
+
+@router.post("/queues/{queue_id}/entries/{entry_id}/complete", response_model=QueueEntryResponse)
+async def complete_entry(
+    queue_id: str,
+    entry_id: str,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
+):
+    """The shop finished serving a called customer; the time taken refines the queue's wait estimates."""
+    await _owned_queue(db, queue_id, caller, lookup_owner)
+    try:
+        return await queue_service.complete(db, queue_id, entry_id)
+    except EntryNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/queues/{queue_id}/entries/{entry_id}/no-show", response_model=QueueEntryResponse)
+async def no_show_entry(
+    queue_id: str,
+    entry_id: str,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
+):
+    """A called customer did not turn up (the shop only). Called customers are also skipped
+    automatically after the queue's grace period, the next time the shop calls someone."""
+    await _owned_queue(db, queue_id, caller, lookup_owner)
+    try:
+        return await queue_service.no_show(db, queue_id, entry_id)
+    except EntryNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.patch("/queues/{queue_id}", response_model=QueueResponse)
@@ -159,6 +213,7 @@ async def update_queue(
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
 ):
-    """Opens or closes the queue to new customers (the shop only); those already waiting stay."""
+    """Opens or closes the queue to new customers (those already waiting stay), or changes how many
+    staff serve it and its minutes per customer (the shop only)."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
-    return await queue_service.set_accepting(db, queue_id, data.is_accepting)
+    return await queue_service.update_settings(db, queue_id, data)

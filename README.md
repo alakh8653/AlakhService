@@ -300,7 +300,6 @@ The account must sign in again for the change to take effect.
 ```
 AlakhService/
 ├── apps/
-
 │   ├── mobile_app/          # Flutter mobile app
 │   ├── shop_dashboard_web/  # React shop owner dashboard
 │   └── admin_dashboard_web/ # React admin dashboard
@@ -309,12 +308,10 @@ AlakhService/
 │   ├── auth_service/        # Authentication & authorization
 │   ├── booking_service/     # Booking FSM & management
 │   ├── payment_service/     # Payments & ledger
-│   └── ...                  # 20+ more microservices
-├── packages/                # Shared Python SDKs
-├── services/ml_platform/    # ML models & inference
-├── infra/                   # Terraform & Kubernetes
-├── docs/                    # Documentation
-└── scripts/                 # Utility scripts
+│   └── ...                  # 14 more Python microservices (see 🧩 Microservices)
+├── backend/                 # Legacy monolith API (FastAPI)
+├── infra/postgres/          # Creates one database per service on first start
+└── docs/                    # GitHub Pages site
 ```
 
 ## Contributing

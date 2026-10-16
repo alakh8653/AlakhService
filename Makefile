@@ -7,6 +7,9 @@
 
 SHELL := /bin/bash
 .ONESHELL:
+# Each recipe runs in one shell (.ONESHELL); stop at the first failing command so a
+# failed lint/scan is not reported as passed by the success line that follows it.
+.SHELLFLAGS := -e -o pipefail -c
 .DEFAULT_GOAL := help
 
 # ── Project metadata ──────────────────────────────────────────────────────────
@@ -24,8 +27,6 @@ MOBILE_DIR   := $(ROOT_DIR)/apps/mobile_app
 WEB_APPS     := $(ROOT_DIR)/apps/admin_dashboard_web $(ROOT_DIR)/apps/shop_dashboard_web
 NODE_PROJECTS := $(WEB_APPS) $(SERVICES_DIR)/api_gateway
 PY_PROJECTS  := $(wildcard $(SERVICES_DIR)/*/requirements.txt) $(ROOT_DIR)/backend/requirements.txt
-INFRA_DIR    := $(ROOT_DIR)/infra
-DOCS_DIR     := $(ROOT_DIR)/docs
 SCRIPTS_DIR  := $(ROOT_DIR)/scripts
 
 # ── Python settings ───────────────────────────────────────────────────────────
@@ -37,7 +38,6 @@ PYTHON_VENV  := $(VENV)/bin/python
 # ── Node settings ─────────────────────────────────────────────────────────────
 NODE         := node
 NPM          := npm
-PNPM         := pnpm
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 RESET  := \033[0m
@@ -105,7 +105,7 @@ setup-python: ## Create virtualenv and install all Python dependencies
 	$(PIP) install --upgrade pip setuptools wheel
 	@if [ -f requirements.txt ]; then $(PIP) install -r requirements.txt; fi
 	@if [ -f requirements-dev.txt ]; then $(PIP) install -r requirements-dev.txt; fi
-	$(PIP) install ruff pre-commit
+	$(PIP) install ruff pre-commit yamllint "bandit[toml]"
 	@# Services pin different library versions, so each one gets its own virtualenv.
 	@for req in $(PY_PROJECTS); do \
 		dir=$$(dirname "$$req"); \
@@ -136,12 +136,6 @@ setup-mobile: ## Setup Flutter mobile dependencies
 	$(call log,"Setting up Flutter dependencies...")
 	cd $(MOBILE_DIR) && flutter pub get
 	$(call success,"Flutter dependencies installed")
-
-.PHONY: setup-infra
-setup-infra: ## Initialise Terraform
-	$(call log,"Initialising Terraform...")
-	cd $(INFRA_DIR)/terraform && terraform init -upgrade
-	$(call success,"Terraform initialised")
 
 # =============================================================================
 # DEVELOPMENT
@@ -186,11 +180,11 @@ logs: ## Follow logs from all services
 	docker compose logs -f --tail=100
 
 .PHONY: logs/%
-logs/%: ## Follow logs for a specific service: make logs/auth-service
+logs/%: ## Follow logs for a specific service: make logs/auth_service
 	docker compose logs -f --tail=200 $*
 
 .PHONY: shell/%
-shell/%: ## Open a shell in a running service: make shell/api-gateway
+shell/%: ## Open a shell in a running service: make shell/api_gateway
 	docker compose exec $* /bin/sh
 
 # =============================================================================
@@ -228,49 +222,16 @@ test-mobile: ## Run Flutter widget and unit tests
 	cd $(MOBILE_DIR) && flutter pub get && dart run build_runner build && flutter test --coverage
 	$(call success,"Flutter tests passed")
 
-.PHONY: test-e2e
-test-e2e: ## Run end-to-end tests (requires running services)
-	$(call log,"Running E2E tests...")
-	$(PNPM) run test:e2e
-	$(call success,"E2E tests passed")
-
-.PHONY: test-integration
-test-integration: ## Run integration tests
-	$(call log,"Running integration tests...")
-	$(PYTHON_VENV) -m pytest \
-		-m integration \
-		-v \
-		$(SERVICES_DIR)
-	$(call success,"Integration tests passed")
-
-.PHONY: test-load
-test-load: ## Run load/performance tests with Locust
-	$(call log,"Running load tests...")
-	$(PYTHON_VENV) -m locust \
-		--headless \
-		--users 100 \
-		--spawn-rate 10 \
-		--run-time 60s \
-		-f $(SERVICES_DIR)/load_tests/locustfile.py
-	$(call success,"Load tests complete")
-
 .PHONY: test-security
-test-security: ## Run security scans (bandit + npm audit + trivy)
+test-security: ## Run security scans (bandit + npm audit)
 	$(call log,"Running security scans...")
-	$(PYTHON_VENV) -m bandit -r $(SERVICES_DIR) -ll
-	@if [ -f package.json ]; then $(PNPM) audit --audit-level=high; fi
-	@which trivy >/dev/null 2>&1 && \
-		trivy image $(REGISTRY)/api-gateway:$(DOCKER_TAG) || \
-		$(call warn,"trivy not installed, skipping container scan")
+	$(VENV)/bin/bandit -q -r $(SERVICES_DIR) $(ROOT_DIR)/backend -x "*/tests/*,*/node_modules/*,*/.venv/*" \
+		--severity-level medium --confidence-level medium
+	@for app in $(NODE_PROJECTS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) audit --omit=dev --audit-level=high) || exit 1; \
+	done
 	$(call success,"Security scan complete")
-
-.PHONY: coverage
-coverage: ## Open HTML coverage report in browser
-	@if [ -f coverage/python/index.html ]; then \
-		open coverage/python/index.html 2>/dev/null || xdg-open coverage/python/index.html; \
-	else \
-		$(call error,"No coverage report found. Run 'make test' first."); \
-	fi
 
 # =============================================================================
 # LINTING & FORMATTING
@@ -280,7 +241,7 @@ coverage: ## Open HTML coverage report in browser
 lint: lint-python lint-node lint-yaml lint-docker ## Run all linters
 
 .PHONY: lint-python
-lint-python: ## Lint Python code with Ruff + MyPy
+lint-python: ## Lint Python code with Ruff
 	$(call log,"Linting Python...")
 	$(VENV)/bin/ruff check $(SERVICES_DIR) $(ROOT_DIR)/backend
 	$(call success,"Python lint passed")
@@ -295,23 +256,21 @@ lint-node: ## Lint TypeScript/JavaScript with ESLint
 	$(call success,"TypeScript lint passed")
 
 .PHONY: lint-yaml
-lint-yaml: ## Lint YAML files with yamllint
+lint-yaml: ## Lint YAML files with yamllint (config: .yamllint.yml)
 	$(call log,"Linting YAML...")
-	$(PYTHON_VENV) -m yamllint .
+	$(VENV)/bin/yamllint -c .yamllint.yml .
 	$(call success,"YAML lint passed")
 
 .PHONY: lint-docker
-lint-docker: ## Lint Dockerfiles with hadolint
+lint-docker: ## Lint Dockerfiles with hadolint (skipped if hadolint is not installed)
 	$(call log,"Linting Dockerfiles...")
-	@find . -name "Dockerfile*" -not -path "*/node_modules/*" \
-		| xargs -I{} hadolint {}
-	$(call success,"Dockerfile lint passed")
-
-.PHONY: lint-terraform
-lint-terraform: ## Lint Terraform with tflint
-	$(call log,"Linting Terraform...")
-	cd $(INFRA_DIR)/terraform && tflint --recursive
-	$(call success,"Terraform lint passed")
+	@if ! command -v hadolint >/dev/null 2>&1; then \
+		printf "$(BOLD)$(YELLOW)⚠ %s$(RESET)\n" "hadolint not installed, skipping (https://github.com/hadolint/hadolint)"; \
+		exit 0; \
+	fi; \
+	find . -name "Dockerfile*" -not -path "*/node_modules/*" -print0 \
+		| xargs -0 hadolint --ignore DL3008 --ignore DL3013 --ignore DL3018
+	$(call success,"Dockerfile lint done")
 
 .PHONY: format
 format: format-python format-node ## Auto-format all code
@@ -338,12 +297,6 @@ format-mobile: ## Format Dart code
 	$(call log,"Formatting Dart...")
 	cd $(MOBILE_DIR) && dart format .
 	$(call success,"Dart formatted")
-
-.PHONY: format-terraform
-format-terraform: ## Format Terraform files
-	$(call log,"Formatting Terraform...")
-	cd $(INFRA_DIR)/terraform && terraform fmt -recursive
-	$(call success,"Terraform formatted")
 
 # =============================================================================
 # DATABASE
@@ -395,7 +348,7 @@ db-reset: ## Drop all service databases and re-run migrations (DESTRUCTIVE)
 
 .PHONY: db-shell
 db-shell: ## Open a psql shell: make db-shell DB=auth_db
-	docker compose exec postgres psql -U $${POSTGRES_USER:-alakh} $(or $(DB),alakhservice_db)
+	docker compose exec -e DB=$(DB) postgres sh -c 'psql -U "$$POSTGRES_USER" "$${DB:-$$POSTGRES_DB}"'
 
 .PHONY: make-admin
 make-admin: ## Grant admin access to a registered account: make make-admin ACCOUNT=you@example.com
@@ -408,12 +361,12 @@ revoke-admin: ## Return an admin to a normal user: make revoke-admin ACCOUNT=you
 	docker compose exec -T auth_service python -m app.cli revoke-admin "$$ACCOUNT"
 
 .PHONY: db-backup
-db-backup: ## Backup the database to backups/
-	$(call log,"Backing up database...")
+db-backup: ## Back up every service database to backups/
+	$(call log,"Backing up databases...")
 	@mkdir -p backups
-	docker compose exec -T postgres pg_dump -U alakh alakhservice \
+	docker compose exec -T postgres sh -c 'pg_dumpall -U "$$POSTGRES_USER"' \
 		| gzip > backups/alakhservice_$(shell date +%Y%m%d_%H%M%S).sql.gz
-	$(call success,"Database backed up to backups/")
+	$(call success,"Databases backed up to backups/")
 
 # =============================================================================
 # BUILD
@@ -429,7 +382,7 @@ build-images: ## Build all Docker images
 	$(call success,"Docker images built")
 
 .PHONY: build-image/%
-build-image/%: ## Build a specific service image: make build-image/api-gateway
+build-image/%: ## Build a specific service image: make build-image/api_gateway
 	$(call log,"Building image: $*...")
 	docker build \
 		--build-arg VERSION=$(VERSION) \
@@ -461,134 +414,6 @@ build-mobile-ios: ## Build Flutter iOS archive (release)
 	$(call log,"Building iOS archive...")
 	cd $(MOBILE_DIR) && flutter build ios --release
 	$(call success,"iOS archive built")
-
-# =============================================================================
-# PUBLISH / DEPLOY
-# =============================================================================
-
-.PHONY: publish
-publish: ## Push all Docker images to registry
-	$(call log,"Publishing images to $(REGISTRY)...")
-	@for service in api-gateway auth-service user-service shop-service \
-		booking-service payment-service notification-service tracking-service; do \
-		docker push $(REGISTRY)/$$service:$(DOCKER_TAG); \
-		docker push $(REGISTRY)/$$service:latest; \
-	done
-	$(call success,"Images published")
-
-.PHONY: deploy-staging
-deploy-staging: ## Deploy to staging environment
-	$(call log,"Deploying to staging...")
-	./$(SCRIPTS_DIR)/deploy.sh staging $(VERSION)
-	$(call success,"Deployed to staging")
-
-.PHONY: deploy-production
-deploy-production: ## Deploy to production (requires confirmation)
-	$(call warn,"Deploying to PRODUCTION. Are you sure? [y/N]")
-	@read answer; \
-	if [ "$$answer" = "y" ] || [ "$$answer" = "Y" ]; then \
-		./$(SCRIPTS_DIR)/deploy.sh production $(VERSION); \
-	else \
-		echo "Deployment cancelled."; \
-	fi
-
-.PHONY: deploy-k8s
-deploy-k8s: ## Apply Kubernetes manifests
-	$(call log,"Applying Kubernetes manifests...")
-	kubectl apply -f $(INFRA_DIR)/kubernetes/ --recursive
-	$(call success,"Kubernetes manifests applied")
-
-.PHONY: rollout-status
-rollout-status: ## Check Kubernetes rollout status
-	@for deploy in api-gateway auth-service user-service shop-service \
-		booking-service payment-service notification-service tracking-service; do \
-		kubectl rollout status deployment/$$deploy -n alakhservice; \
-	done
-
-.PHONY: helm-install
-helm-install: ## Install Helm chart
-	$(call log,"Installing Helm chart...")
-	helm upgrade --install alakhservice $(INFRA_DIR)/helm/alakhservice \
-		--namespace alakhservice \
-		--create-namespace \
-		--values $(INFRA_DIR)/helm/alakhservice/values.yaml \
-		--set image.tag=$(DOCKER_TAG)
-	$(call success,"Helm chart installed")
-
-# =============================================================================
-# INFRASTRUCTURE (Terraform)
-# =============================================================================
-
-.PHONY: tf-plan
-tf-plan: ## Terraform plan
-	$(call log,"Running terraform plan...")
-	cd $(INFRA_DIR)/terraform && terraform plan -out=tfplan
-
-.PHONY: tf-apply
-tf-apply: ## Terraform apply
-	$(call log,"Running terraform apply...")
-	cd $(INFRA_DIR)/terraform && terraform apply tfplan
-
-.PHONY: tf-destroy
-tf-destroy: ## Terraform destroy (DESTRUCTIVE)
-	$(call warn,"This will DESTROY cloud infrastructure! Ctrl-C to cancel...")
-	@sleep 5
-	cd $(INFRA_DIR)/terraform && terraform destroy
-
-.PHONY: tf-output
-tf-output: ## Show Terraform outputs
-	cd $(INFRA_DIR)/terraform && terraform output
-
-# =============================================================================
-# CODE GENERATION
-# =============================================================================
-
-.PHONY: generate
-generate: generate-proto generate-openapi ## Run all code generators
-
-.PHONY: generate-proto
-generate-proto: ## Generate gRPC / Protobuf code
-	$(call log,"Generating Protobuf code...")
-	@find $(SERVICES_DIR) -name "*.proto" | while read proto; do \
-		python -m grpc_tools.protoc \
-			-I$(SERVICES_DIR)/proto \
-			--python_out=$(SERVICES_DIR) \
-			--pyi_out=$(SERVICES_DIR) \
-			--grpc_python_out=$(SERVICES_DIR) \
-			"$$proto"; \
-	done
-	$(call success,"Protobuf code generated")
-
-.PHONY: generate-openapi
-generate-openapi: ## Generate OpenAPI client code
-	$(call log,"Generating OpenAPI clients...")
-	@if [ -f openapi.yaml ]; then \
-		npx @openapitools/openapi-generator-cli generate \
-			-i openapi.yaml \
-			-g typescript-axios \
-			-o $(WEB_DIR)/src/api/generated; \
-	fi
-	$(call success,"OpenAPI clients generated")
-
-.PHONY: generate-types
-generate-types: ## Generate TypeScript types from Python Pydantic models
-	$(call log,"Generating TypeScript types...")
-	$(PYTHON_VENV) $(SCRIPTS_DIR)/generate_types.py
-	$(call success,"TypeScript types generated")
-
-# =============================================================================
-# DOCUMENTATION
-# =============================================================================
-
-.PHONY: docs
-docs: ## Generate and serve documentation
-	$(call log,"Building documentation...")
-	$(PYTHON_VENV) -m mkdocs build
-	$(call success,"Documentation built in site/")
-
-.PHONY: docs-serve
-docs-serve: ## Serve documentation locally
-	$(PYTHON_VENV) -m mkdocs serve --dev-addr=0.0.0.0:8080
 
 # =============================================================================
 # CLEAN
@@ -644,21 +469,16 @@ version: ## Display project version
 	@echo "$(PROJECT) $(VERSION) ($(COMMIT)) built on $(BUILD_DATE)"
 
 .PHONY: check-deps
-check-deps: ## Check for outdated dependencies
-	$(call log,"Checking Python dependencies...")
-	$(PIP) list --outdated
-	$(call log,"Checking Node dependencies...")
-	@if [ -f package.json ]; then $(PNPM) outdated; fi
-
-.PHONY: update-deps
-update-deps: ## Update dependencies to latest compatible versions
-	$(call log,"Updating Python dependencies...")
-	$(PIP) install --upgrade pip
-	$(PIP) list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 \
-		| xargs -n1 $(PIP) install -U 2>/dev/null || true
-	$(call log,"Updating Node dependencies...")
-	@if [ -f package.json ]; then $(PNPM) update; fi
-	$(call success,"Dependencies updated")
+check-deps: ## List outdated dependencies in every project (needs make setup)
+	@for req in $(PY_PROJECTS); do \
+		dir=$$(dirname "$$req"); \
+		echo "→ $$dir"; \
+		"$$dir/.venv/bin/pip" list --outdated; \
+	done
+	@for app in $(NODE_PROJECTS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && $(NPM) outdated) || true; \
+	done
 
 .PHONY: pre-commit-run
 pre-commit-run: ## Run all pre-commit hooks against all files
@@ -670,28 +490,18 @@ pre-commit-update: ## Update pre-commit hook versions
 
 .PHONY: redis-cli
 redis-cli: ## Open a redis-cli session
-	docker compose exec redis redis-cli -a $${REDIS_PASSWORD:-""}
-
-.PHONY: kafka-topics
-kafka-topics: ## List Kafka topics
-	docker compose exec kafka kafka-topics.sh \
-		--bootstrap-server localhost:9092 --list
-
-.PHONY: kafka-consume/%
-kafka-consume/%: ## Tail a Kafka topic: make kafka-consume/user.events
-	docker compose exec kafka kafka-console-consumer.sh \
-		--bootstrap-server localhost:9092 \
-		--topic $* \
-		--from-beginning
+	docker compose exec redis redis-cli
 
 .PHONY: health
-health: ## Check health of all running services
+health: ## Check health of the gateway and every service (needs make dev)
 	$(call log,"Checking service health...")
-	@for svc_port in "api-gateway:8000" "auth-service:8001" "user-service:8002" \
-		"shop-service:8003" "booking-service:8004" "payment-service:8005" \
-		"notification-service:8006" "tracking-service:8007"; do \
+	@for svc_port in api_gateway:3000 auth_service:8001 user_service:8002 shop_service:8003 \
+		booking_service:8004 payment_service:8005 notification_service:8006 tracking_service:8007 \
+		queue_service:8008 dispatch_service:8009 analytics_service:8010 dispute_service:8011 \
+		trust_risk_service:8012 admin_service:8013 compliance_service:8014 pricing_engine:8015 \
+		service_catalog_service:8016 catalog_service:8017; do \
 		svc=$${svc_port%%:*}; port=$${svc_port##*:}; \
-		status=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null); \
+		status=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null || true); \
 		if [ "$$status" = "200" ]; then \
 			printf "  $(GREEN)✓$(RESET) %-30s $(GREEN)healthy$(RESET)\n" $$svc; \
 		else \

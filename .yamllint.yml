@@ -1,0 +1,17 @@
+# yamllint config, used by `make lint-yaml` and the pre-commit hook.
+extends: default
+
+ignore: |
+  node_modules/
+  build/
+  .dart_tool/
+  .venv/
+
+rules:
+  # Long DATABASE_URL lines in docker-compose.yml cannot be wrapped.
+  line-length:
+    max: 150
+  document-start: disable
+  # GitHub Actions uses `on:` as a key.
+  truthy:
+    check-keys: false

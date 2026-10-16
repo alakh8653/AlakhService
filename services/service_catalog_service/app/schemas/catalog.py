@@ -1,7 +1,20 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# AT_SHOP: the customer comes to the shop. AT_HOME: a provider comes to the customer.
+# PICKUP_DROP: the item (car, bike, laptop, phone, AC...) is collected, serviced and brought back.
+ServiceMode = Literal["AT_SHOP", "AT_HOME", "PICKUP_DROP"]
+MAX_FEE_CENTS = 1_000_000
+
+
+def _unique_modes(modes: Optional[List[str]]) -> Optional[List[str]]:
+    if modes is None:
+        return None
+    if not modes:
+        raise ValueError("A service needs at least one way of being delivered")
+    return list(dict.fromkeys(modes))
 
 
 class CategoryCreate(BaseModel):
@@ -29,6 +42,14 @@ class ServiceListingCreate(BaseModel):
     price_cents: int
     duration_minutes: Optional[int] = None
     tags: Optional[List[str]] = None
+    service_modes: List[ServiceMode] = ["AT_SHOP"]
+    home_visit_fee_cents: int = Field(0, ge=0, le=MAX_FEE_CENTS)
+    pickup_fee_cents: int = Field(0, ge=0, le=MAX_FEE_CENTS)
+
+    @field_validator("service_modes")
+    @classmethod
+    def _check_modes(cls, v):
+        return _unique_modes(v)
 
 
 class ServiceListingUpdate(BaseModel):
@@ -38,6 +59,14 @@ class ServiceListingUpdate(BaseModel):
     duration_minutes: Optional[int] = None
     tags: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    service_modes: Optional[List[ServiceMode]] = None
+    home_visit_fee_cents: Optional[int] = Field(None, ge=0, le=MAX_FEE_CENTS)
+    pickup_fee_cents: Optional[int] = Field(None, ge=0, le=MAX_FEE_CENTS)
+
+    @field_validator("service_modes")
+    @classmethod
+    def _check_modes(cls, v):
+        return _unique_modes(v)
 
 
 class ServiceListingResponse(BaseModel):
@@ -52,6 +81,14 @@ class ServiceListingResponse(BaseModel):
     tags: Optional[str] = None
     is_active: bool
     created_at: datetime
+    service_modes: List[str] = ["AT_SHOP"]
+    home_visit_fee_cents: int = 0
+    pickup_fee_cents: int = 0
+
+    @field_validator("service_modes", mode="before")
+    @classmethod
+    def _split_modes(cls, v):
+        return [m for m in v.split(",") if m] if isinstance(v, str) else v
 
 
 class SearchResult(BaseModel):

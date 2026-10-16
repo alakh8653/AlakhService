@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import ADMIN, SHOP_OWNER, OwnerLookup, may_transition, relationships
-from app.core.fsm import BookingStatus
+from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.database import get_db
 from app.dependencies import (
@@ -33,6 +33,8 @@ from app.schemas.booking import (
     ShopBookingSummary,
 )
 from app.services.booking_service import booking_service
+
+MODE_NAMES = {AT_SHOP: "a visit to the shop", AT_HOME: "a home visit", PICKUP_DROP: "pickup & drop"}
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -95,6 +97,15 @@ async def create_booking(
     duration = listing.get("duration_minutes") or booking_data.duration_minutes
     if not duration:
         raise HTTPException(status_code=422, detail="duration_minutes is required for this service")
+    # How it is delivered: one of the ways the service offers (older listings: at the shop only).
+    mode = booking_data.service_mode
+    if mode not in (listing.get("service_modes") or [AT_SHOP]):
+        raise HTTPException(status_code=422, detail=f"This service is not offered as {MODE_NAMES[mode]}")
+    if mode != AT_SHOP and not booking_data.address_id:
+        raise HTTPException(status_code=422, detail=f"Choose the address for {MODE_NAMES[mode]}")
+    fee = {AT_HOME: listing.get("home_visit_fee_cents") or 0, PICKUP_DROP: listing.get("pickup_fee_cents") or 0}.get(
+        mode, 0
+    )
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
     if code:
@@ -104,15 +115,21 @@ async def create_booking(
             )
         except CouponRejected as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
+    # The coupon applies to the service; the visit or pickup fee is added on top.
     booking_data = booking_data.model_copy(
         update={
             "customer_id": customer_id,
             "shop_id": listing["shop_id"],
-            "total_amount": price,
+            "total_amount": price + fee,
             "duration_minutes": duration,
         }
     )
-    metadata = json.dumps({"coupon_code": code, "list_price": listing["price_cents"]}) if code else None
+    meta = {}
+    if code:
+        meta.update(coupon_code=code, list_price=listing["price_cents"] + fee)
+    if fee:
+        meta["service_mode_fee"] = fee
+    metadata = json.dumps(meta) if meta else None
     booking = await booking_service.create_booking(db, customer_id, booking_data, metadata)
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.

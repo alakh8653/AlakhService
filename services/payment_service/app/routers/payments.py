@@ -43,7 +43,15 @@ log = structlog.get_logger()
 # A booking can be paid for once it is confirmed and until it is completed.
 # Payments that mean the booking is settled (refunds included: the customer already paid once).
 PAID_STATUSES = {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
-PAYABLE_STATUSES = {"CONFIRMED", "ASSIGNED", "PROVIDER_EN_ROUTE", "IN_PROGRESS", "COMPLETED"}
+PAYABLE_STATUSES = {
+    "CONFIRMED",
+    "ASSIGNED",
+    "PROVIDER_EN_ROUTE",
+    "PICKED_UP",
+    "IN_PROGRESS",
+    "OUT_FOR_DELIVERY",
+    "COMPLETED",
+}
 
 
 def _with_checkout(payment: Payment, gateway: RazorpayGateway) -> PaymentCheckoutResponse:

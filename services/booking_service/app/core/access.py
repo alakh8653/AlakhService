@@ -23,13 +23,17 @@ ALLOWED_TARGETS = {
     CUSTOMER: {BookingStatus.CANCELLED, BookingStatus.DISPUTED},
     PROVIDER: {
         BookingStatus.PROVIDER_EN_ROUTE,
+        BookingStatus.PICKED_UP,
         BookingStatus.IN_PROGRESS,
+        BookingStatus.OUT_FOR_DELIVERY,
         BookingStatus.COMPLETED,
     },
     SHOP_OWNER: {
         BookingStatus.CONFIRMED,
         BookingStatus.PROVIDER_EN_ROUTE,
+        BookingStatus.PICKED_UP,
         BookingStatus.IN_PROGRESS,
+        BookingStatus.OUT_FOR_DELIVERY,
         BookingStatus.COMPLETED,
         BookingStatus.CANCELLED,
     },

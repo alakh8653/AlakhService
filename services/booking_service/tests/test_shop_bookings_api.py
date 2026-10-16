@@ -64,6 +64,28 @@ LISTINGS = {
         "is_active": True,
     },
     "svc-off": {"id": "svc-off", "shop_id": "shop-1", "price_cents": 100, "duration_minutes": 30, "is_active": False},
+    # A repair the shop can do while you wait or by collecting the item from home.
+    "svc-repair": {
+        "id": "svc-repair",
+        "name": "Laptop screen repair",
+        "shop_id": "shop-1",
+        "price_cents": 450000,
+        "duration_minutes": 120,
+        "is_active": True,
+        "service_modes": ["AT_SHOP", "PICKUP_DROP"],
+        "pickup_fee_cents": 9900,
+    },
+    # A haircut also offered at the customer's home, for a visit fee.
+    "svc-home": {
+        "id": "svc-home",
+        "name": "Haircut at home",
+        "shop_id": "shop-1",
+        "price_cents": 50000,
+        "duration_minutes": 45,
+        "is_active": True,
+        "service_modes": ["AT_SHOP", "AT_HOME"],
+        "home_visit_fee_cents": 15000,
+    },
 }
 
 
@@ -480,3 +502,110 @@ async def test_a_coupon_discounts_the_catalogue_price_once(client):
         "/api/v1/bookings", json={**body, "coupon_code": "FREE100", "total_amount": 1}, headers=auth("c2")
     )
     assert (bogus.status_code, bogus.json()["detail"]) == (422, "Coupon not found")
+
+
+def new_booking(service, **extra):
+    return {"service_id": service, "scheduled_at": "2026-11-01T10:00:00Z", **extra}
+
+
+async def book(client, service, who="c7", **extra):
+    resp = await client.post("/api/v1/bookings", json=new_booking(service, **extra), headers=auth(who))
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+async def set_status(client, booking_id, status, who):
+    return await client.put(f"/api/v1/bookings/{booking_id}/status", json={"status": status}, headers=auth(who))
+
+
+@pytest.mark.asyncio
+async def test_customers_choose_how_the_service_is_delivered(client):
+    post = lambda body: client.post("/api/v1/bookings", json=body, headers=auth("c7"))  # noqa: E731
+    # A listing without modes is at the shop only.
+    assert (await post(new_booking("svc-a", service_mode="AT_HOME", address_id="addr-1"))).status_code == 422
+    assert (await post(new_booking("svc-repair", service_mode="AT_HOME", address_id="addr-1"))).status_code == 422
+    assert (await post(new_booking("svc-a", service_mode="BY_DRONE"))).status_code == 422
+    # Coming to the customer needs to know where.
+    missing = await post(new_booking("svc-repair", service_mode="PICKUP_DROP"))
+    assert missing.status_code == 422 and "address" in missing.json()["detail"]
+
+    repair = await book(
+        client,
+        "svc-repair",
+        service_mode="PICKUP_DROP",
+        address_id="addr-1",
+        item_description="Dell XPS 13, cracked screen",
+    )
+    assert (repair["service_mode"], repair["item_description"]) == ("PICKUP_DROP", "Dell XPS 13, cracked screen")
+    assert (repair["total_amount"], repair["service_mode_fee"]) == (450000 + 9900, 9900)
+
+    at_shop = await book(client, "svc-repair")
+    assert (at_shop["service_mode"], at_shop["total_amount"], at_shop["service_mode_fee"]) == ("AT_SHOP", 450000, 0)
+
+    # A coupon discounts the service; the visit fee is added on top.
+    home = await book(client, "svc-home", service_mode="AT_HOME", address_id="addr-1", coupon_code="WELCOME10")
+    assert home["total_amount"] == 45000 + 15000
+    assert (home["list_price"], home["service_mode_fee"], home["coupon_code"]) == (65000, 15000, "WELCOME10")
+
+
+@pytest.mark.asyncio
+async def test_pickup_and_drop_collects_the_item_and_brings_it_back(client):
+    job = await book(client, "svc-repair", service_mode="PICKUP_DROP", address_id="addr-1")
+    owner = "owner-1"
+    assert (await set_status(client, job["id"], "CONFIRMED", owner)).status_code == 200
+    assert (
+        await client.post(f"/api/v1/bookings/{job['id']}/assign", json={"provider_id": "staff-1"}, headers=auth(owner))
+    ).status_code == 200
+
+    # Work cannot start before the item is collected, nor finish before it is returned.
+    started = await set_status(client, job["id"], "IN_PROGRESS", "staff-1")
+    assert started.status_code == 400 and "Pick up" in started.json()["detail"]
+    assert (await set_status(client, job["id"], "PROVIDER_EN_ROUTE", "staff-1")).status_code == 200
+    assert (await set_status(client, job["id"], "PICKED_UP", "staff-1")).status_code == 200
+    assert (await set_status(client, job["id"], "IN_PROGRESS", owner)).status_code == 200  # at the shop
+    early = await set_status(client, job["id"], "COMPLETED", owner)
+    assert early.status_code == 400 and "Deliver" in early.json()["detail"]
+    assert (await set_status(client, job["id"], "OUT_FOR_DELIVERY", "staff-1")).status_code == 200
+    assert (await set_status(client, job["id"], "COMPLETED", "staff-1")).status_code == 200
+
+    history = (await client.get(f"/api/v1/bookings/{job['id']}/history", headers=auth(owner))).json()
+    assert [h["to_status"] for h in history] == [
+        "PENDING",
+        "CONFIRMED",
+        "ASSIGNED",
+        "PROVIDER_EN_ROUTE",
+        "PICKED_UP",
+        "IN_PROGRESS",
+        "OUT_FOR_DELIVERY",
+        "COMPLETED",
+    ]
+    told = [
+        (event, recipients)
+        for event, recipients, _ in SENT
+        if event in ("booking.picked_up", "booking.out_for_delivery")
+    ]
+    # Everyone on the booking but the person who made the change hears about it.
+    both = [("c7", "customer"), ("owner-1", "shop")]
+    assert told == [("booking.picked_up", both), ("booking.out_for_delivery", both)]
+    # The customer cannot mark their own item delivered.
+    other = await book(client, "svc-repair", service_mode="PICKUP_DROP", address_id="addr-1")
+    assert (await set_status(client, other["id"], "PICKED_UP", "c7")).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_at_the_shop_the_service_starts_when_the_customer_arrives(client):
+    walk_in = await book(client, "svc-home")
+    assert (await set_status(client, walk_in["id"], "CONFIRMED", "owner-1")).status_code == 200
+    # No provider travels, so the shop starts it straight from confirmed...
+    assert (await set_status(client, walk_in["id"], "IN_PROGRESS", "owner-1")).status_code == 200
+    assert (await set_status(client, walk_in["id"], "COMPLETED", "owner-1")).status_code == 200
+    # ...and pickup steps make no sense for it.
+    second = await book(client, "svc-home")
+    await set_status(client, second["id"], "CONFIRMED", "owner-1")
+    assert (await set_status(client, second["id"], "OUT_FOR_DELIVERY", "owner-1")).status_code == 400
+
+    # A home visit needs a provider assigned before it can start.
+    visit = await book(client, "svc-home", service_mode="AT_HOME", address_id="addr-1")
+    await set_status(client, visit["id"], "CONFIRMED", "owner-1")
+    refused = await set_status(client, visit["id"], "IN_PROGRESS", "owner-1")
+    assert refused.status_code == 400 and "Assign a provider" in refused.json()["detail"]

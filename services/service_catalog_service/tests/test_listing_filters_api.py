@@ -93,3 +93,42 @@ async def test_only_admins_create_categories(client):
     assert (
         await client.post("/api/v1/categories", json={"name": "Hair", "slug": "hair"}, headers=auth("ops", "admin"))
     ).status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_services_say_how_they_are_delivered(client):
+    owner = auth("owner-1")
+    # Default: the customer comes to the shop, no extra fees.
+    plain = (
+        await client.post(
+            "/api/v1/services", json={"shop_id": "shop-1", "name": "Haircut", "price_cents": 30000}, headers=owner
+        )
+    ).json()
+    assert (plain["service_modes"], plain["home_visit_fee_cents"], plain["pickup_fee_cents"]) == (["AT_SHOP"], 0, 0)
+
+    repair = {
+        "shop_id": "shop-1",
+        "name": "Laptop screen repair",
+        "price_cents": 450000,
+        "service_modes": ["AT_SHOP", "PICKUP_DROP", "PICKUP_DROP"],
+        "pickup_fee_cents": 9900,
+    }
+    created = await client.post("/api/v1/services", json=repair, headers=owner)
+    assert created.status_code == 201
+    assert created.json()["service_modes"] == ["AT_SHOP", "PICKUP_DROP"]  # duplicates dropped
+    assert (await client.get(f"/api/v1/services/{created.json()['id']}")).json()["pickup_fee_cents"] == 9900
+
+    for bad in ({"service_modes": []}, {"service_modes": ["TELEPORT"]}, {"pickup_fee_cents": -1}):
+        resp = await client.post("/api/v1/services", json={**repair, **bad}, headers=owner)
+        assert resp.status_code == 422, bad
+
+    # The shop starts doing home visits for haircuts, with a fee.
+    updated = await client.put(
+        f"/api/v1/services/{plain['id']}",
+        json={"service_modes": ["AT_SHOP", "AT_HOME"], "home_visit_fee_cents": 15000},
+        headers=owner,
+    )
+    assert (updated.json()["service_modes"], updated.json()["home_visit_fee_cents"]) == (["AT_SHOP", "AT_HOME"], 15000)
+    # Updating something else leaves the modes alone.
+    renamed = await client.put(f"/api/v1/services/{plain['id']}", json={"name": "Haircut & style"}, headers=owner)
+    assert renamed.json()["service_modes"] == ["AT_SHOP", "AT_HOME"]

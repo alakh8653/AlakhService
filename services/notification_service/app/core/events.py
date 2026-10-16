@@ -25,7 +25,20 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Provider on the way",
         "Your provider is on the way for booking {booking_number}.",
     ),
+    ("booking.picked_up", "customer"): (
+        "Item picked up",
+        "We've collected your item for booking {booking_number}. We'll let you know when it's on its way back.",
+    ),
+    ("booking.picked_up", None): ("Item picked up", "The item for booking {booking_number} has been collected."),
     ("booking.in_progress", None): ("Service started", "Booking {booking_number} is in progress."),
+    ("booking.out_for_delivery", "customer"): (
+        "On its way back",
+        "Your item for booking {booking_number} is on its way back to you.",
+    ),
+    ("booking.out_for_delivery", None): (
+        "Out for delivery",
+        "The item for booking {booking_number} is on its way back to the customer.",
+    ),
     ("booking.completed", "customer"): (
         "Service completed",
         "Booking {booking_number} is complete. Tap to rate your experience.",

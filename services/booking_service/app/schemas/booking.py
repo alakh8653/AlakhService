@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -17,6 +17,11 @@ class BookingCreate(BaseModel):
     total_amount: Optional[int] = None
     # A promo code; the booking is priced with its discount (pricing_engine) and the code is used up.
     coupon_code: Optional[str] = Field(default=None, max_length=50)
+    # How it is delivered: at the shop, at the customer's address, or by collecting the item from
+    # there and bringing it back. Must be one the service offers; the last two need address_id.
+    service_mode: Literal["AT_SHOP", "AT_HOME", "PICKUP_DROP"] = "AT_SHOP"
+    # What is being collected and what is wrong with it (pickup & drop).
+    item_description: Optional[str] = Field(default=None, max_length=500)
 
     @field_validator("duration_minutes")
     @classmethod
@@ -59,9 +64,13 @@ class BookingResponse(BaseModel):
     scheduled_at: datetime
     duration_minutes: int
     address_id: Optional[str] = None
+    service_mode: str = "AT_SHOP"
+    item_description: Optional[str] = None
     notes: Optional[str] = None
     total_amount: int
     list_price: Optional[int] = None
+    # Home visit or pickup fee included in total_amount.
+    service_mode_fee: int = 0
     coupon_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime

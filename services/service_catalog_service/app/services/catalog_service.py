@@ -48,6 +48,9 @@ class CatalogService:
             price_cents=data.price_cents,
             duration_minutes=data.duration_minutes,
             tags=json.dumps(data.tags) if data.tags else None,
+            service_modes=",".join(data.service_modes),
+            home_visit_fee_cents=data.home_visit_fee_cents,
+            pickup_fee_cents=data.pickup_fee_cents,
             is_active=True,
             created_at=datetime.now(timezone.utc),
         )
@@ -124,6 +127,11 @@ class CatalogService:
         update_data = data.model_dump(exclude_unset=True)
         if "tags" in update_data and update_data["tags"] is not None:
             update_data["tags"] = json.dumps(update_data["tags"])
+        if update_data.get("service_modes") is not None:
+            update_data["service_modes"] = ",".join(update_data["service_modes"])
+        for fee in ("home_visit_fee_cents", "pickup_fee_cents", "service_modes"):
+            if fee in update_data and update_data[fee] is None:
+                del update_data[fee]  # these columns are never null
         for field, value in update_data.items():
             setattr(service, field, value)
         await db.flush()

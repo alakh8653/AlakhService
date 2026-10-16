@@ -317,16 +317,20 @@ lint-terraform: ## Lint Terraform with tflint
 format: format-python format-node ## Auto-format all code
 
 .PHONY: format-python
-format-python: ## Format Python code with Black + Ruff
+format-python: ## Format Python code with Ruff (config: ruff.toml)
 	$(call log,"Formatting Python...")
-	$(PYTHON_VENV) -m black $(SERVICES_DIR)
-	$(PYTHON_VENV) -m ruff check --fix $(SERVICES_DIR)
+	$(VENV)/bin/ruff format $(SERVICES_DIR) $(ROOT_DIR)/backend
+	$(VENV)/bin/ruff check --fix $(SERVICES_DIR) $(ROOT_DIR)/backend
 	$(call success,"Python formatted")
 
 .PHONY: format-node
 format-node: ## Format TypeScript/JavaScript/CSS with Prettier
 	$(call log,"Formatting TypeScript...")
-	@if [ -f package.json ]; then $(PNPM) run format; fi
+	# No project lists prettier as a dependency, so run a pinned copy with the root .prettierrc.
+	for app in $(NODE_PROJECTS); do \
+		echo "→ $$app"; \
+		(cd "$$app" && npx --yes prettier@3.6.2 --write src) || exit 1; \
+	done
 	$(call success,"TypeScript/CSS formatted")
 
 .PHONY: format-mobile

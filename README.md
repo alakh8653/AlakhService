@@ -250,8 +250,20 @@ flutter run                   # see android/README.md and ios/README.md for API 
 cd apps/admin_dashboard_web    # or apps/shop_dashboard_web
 cp .env.example .env           # VITE_API_BASE_URL=http://localhost:3000/api/v1 (the gateway)
 npm ci
-npm run dev
+npm run dev                    # shop: http://localhost:5173, admin: http://localhost:5174
 ```
+
+### 7. Create the first admin
+
+The admin dashboard only accepts admin accounts, and there is none by default. Register a normal
+account first (in the shop dashboard, the mobile app or `POST /api/v1/auth/register`), then:
+
+```bash
+make make-admin ACCOUNT=you@example.com     # email or phone number; needs `make dev` running
+make revoke-admin ACCOUNT=you@example.com   # back to a normal user
+```
+
+The account must sign in again for the change to take effect.
 
 ---
 

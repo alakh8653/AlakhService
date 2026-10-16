@@ -217,3 +217,25 @@ describe('request hygiene', () => {
     expect(await check({ id: 'u', sid: 's-2', iat: 5 })).toBe(false);
   });
 });
+
+describe('dropped connections', () => {
+  it('retries a read once when the service closed the connection, but never repeats a write', async () => {
+    let dropped = 0;
+    const shop = await upstream((req, res) => {
+      if (dropped < 1) {
+        dropped++;
+        res.socket?.destroy(); // like a keep-alive socket the service closed a moment earlier
+        return;
+      }
+      res.end('{"ok":true}');
+    });
+    const app = createApp(testConfig({ shop: shop.url }), quiet);
+    const read = await request(app).get('/api/v1/shops');
+    expect(read.status).toBe(200);
+    expect(shop.requests).toHaveLength(2);
+
+    dropped = 0;
+    const write = await request(app).post('/api/v1/shops').set('authorization', `Bearer ${await token()}`).send({});
+    expect(write.status).toBe(502);
+  });
+});

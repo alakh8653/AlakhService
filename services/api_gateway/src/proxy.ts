@@ -60,6 +60,13 @@ function hasBody(req: Request): boolean {
   return req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length'] ?? 0) > 0;
 }
 
+function retriable(req: Request, err: unknown, sentBody: boolean): boolean {
+  if (sentBody || !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return false;
+  if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) return false;
+  const code = (err as { cause?: { code?: string } }).cause?.code;
+  return code === 'UND_ERR_SOCKET' || code === 'ECONNRESET' || code === 'EPIPE';
+}
+
 /** Forwards the request to the upstream service and streams the response back. */
 export async function proxyRequest(req: Request, res: Response, opts: ProxyOptions): Promise<void> {
   const { upstream, breaker, metrics } = opts;
@@ -109,7 +116,15 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
       init.body = Readable.toWeb(counted) as ReadableStream;
       init.duplex = 'half';
     }
-    upstreamResponse = await fetch(upstream.url + opts.path + query, init);
+    const url = upstream.url + opts.path + query;
+    try {
+      upstreamResponse = await fetch(url, init);
+    } catch (err) {
+      // A service closes its keep-alive connection after a 500; the next request can land on that
+      // socket just before the close is noticed. Requests that are safe to repeat get one retry.
+      if (!retriable(req, err, init.body !== undefined)) throw err;
+      upstreamResponse = await fetch(url, init);
+    }
   } catch (err) {
     if (clientGone.signal.aborted) return; // client disconnected; nothing to answer
     if (bodyTooLarge) {

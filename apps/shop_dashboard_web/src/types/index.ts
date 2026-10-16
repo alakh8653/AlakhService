@@ -31,6 +31,8 @@ export interface Booking {
   serviceMode: ServiceMode;
   /** Pickup & drop: what is being collected and what is wrong with it. */
   itemDescription: string | null;
+  /** Pickup & drop: when the shop expects the item to be back with the customer (ISO datetime). */
+  readyBy: string | null;
   addressId: string | null;
   notes: string | null;
   totalAmount: number; // minor units (paise)

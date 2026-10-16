@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { Clock, Home, Package, Store, User, Scissors } from 'lucide-react';
+import { CalendarCheck, Clock, Home, Package, Store, User, Scissors } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
-import { bookingActions } from '../services/bookingService';
+import { READY_BY_STATUSES, bookingActions } from '../services/bookingService';
 import { formatMoney, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
@@ -37,6 +38,46 @@ interface BookingCardProps {
   onChangeStatus: (id: string, status: BookingStatus) => void;
   onCancel: (id: string, reason: string) => void;
   onAssign?: (id: string, providerId: string) => void;
+  /** Pickup & drop: promise (ISO datetime) or clear (null) when the item will be back. */
+  onSetReadyBy?: (id: string, readyBy: string | null) => void;
+}
+
+/** A datetime-local input's value (local time, to the minute) for an ISO datetime. */
+const toLocalInput = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
+
+function ReadyByEditor({ booking, onSave }: { booking: Booking; onSave: (readyBy: string | null) => void }) {
+  const [value, setValue] = useState(booking.readyBy ? toLocalInput(booking.readyBy) : '');
+  const saved = booking.readyBy ? toLocalInput(booking.readyBy) : '';
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="datetime-local"
+        aria-label="Expected back by"
+        value={value}
+        min={toLocalInput(booking.scheduledAt)}
+        onChange={(e) => setValue(e.target.value)}
+        className="text-xs border border-gray-300 rounded-lg px-2 py-1"
+      />
+      <button
+        disabled={!value || value === saved}
+        onClick={() => onSave(new Date(value).toISOString())}
+        className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-2 py-1 hover:bg-indigo-100 disabled:opacity-50"
+      >
+        {booking.readyBy ? 'Update' : 'Tell customer'}
+      </button>
+      {booking.readyBy && (
+        <button
+          onClick={() => {
+            setValue('');
+            onSave(null);
+          }}
+          className="text-xs text-gray-500 hover:text-gray-700 px-1"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function BookingCard({
@@ -46,8 +87,11 @@ export default function BookingCard({
   onChangeStatus,
   onCancel,
   onAssign,
+  onSetReadyBy,
 }: BookingCardProps) {
   const actions = bookingActions(booking);
+  const isPickup = booking.serviceMode === 'PICKUP_DROP';
+  const canSetReadyBy = isPickup && onSetReadyBy && READY_BY_STATUSES.has(booking.status);
   const ModeIcon = MODE_ICONS[booking.serviceMode] ?? Store;
   const providerName = booking.providerId
     ? (providers.find((p) => p.userId === booking.providerId)?.name ?? `Provider ${shortId(booking.providerId)}`)
@@ -85,6 +129,17 @@ export default function BookingCard({
         )}
         {booking.serviceMode !== 'AT_SHOP' && booking.addressId && (
           <p className="text-xs text-gray-400">At the customer's saved address {shortId(booking.addressId)}</p>
+        )}
+        {isPickup && (booking.readyBy || canSetReadyBy) && (
+          <div className="text-sm text-gray-500 space-y-1">
+            <p className="flex items-center gap-1.5">
+              <CalendarCheck size={14} className="text-gray-400" />
+              {booking.readyBy
+                ? `Expected back by ${format(new Date(booking.readyBy), 'MMM d, h:mm a')}`
+                : 'No return time given yet'}
+            </p>
+            {canSetReadyBy && <ReadyByEditor booking={booking} onSave={(at) => onSetReadyBy(booking.id, at)} />}
+          </div>
         )}
         {providerName && <p className="text-sm text-gray-500">Provider: {providerName}</p>}
         {booking.notes && <p className="text-xs text-gray-400 italic">{booking.notes}</p>}

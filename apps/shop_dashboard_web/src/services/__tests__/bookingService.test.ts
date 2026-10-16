@@ -7,6 +7,7 @@ import {
   cancelBooking,
   getShopBookings,
   getShopSummary,
+  setReadyBy,
   updateBookingStatus,
 } from '../bookingService';
 import type { BookingStatus, ServiceMode } from '../../types';
@@ -79,6 +80,16 @@ describe('bookingService', () => {
 
     expect((await cancelBooking('b1', 'Closed today')).status).toBe('CANCELLED');
     expect(api.post).toHaveBeenCalledWith('/bookings/b1/cancel', { reason: 'Closed today' });
+  });
+
+  it('sets and clears when a pickup comes back', async () => {
+    api.put.mockResolvedValueOnce({ data: { ...apiBooking, service_mode: 'PICKUP_DROP', ready_by: '2026-10-12T11:30:00Z' } });
+    expect((await setReadyBy('b1', '2026-10-12T11:30:00Z')).readyBy).toBe('2026-10-12T11:30:00Z');
+    expect(api.put).toHaveBeenCalledWith('/bookings/b1/ready-by', { ready_by: '2026-10-12T11:30:00Z' });
+
+    api.put.mockResolvedValueOnce({ data: { ...apiBooking, service_mode: 'PICKUP_DROP', ready_by: null } });
+    expect((await setReadyBy('b1', null)).readyBy).toBeNull();
+    expect(api.put).toHaveBeenLastCalledWith('/bookings/b1/ready-by', { ready_by: null });
   });
 
   it('assigns a provider through the assign endpoint', async () => {

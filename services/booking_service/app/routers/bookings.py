@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, W
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.access import ADMIN, SHOP_OWNER, OwnerLookup, may_transition, relationships
+from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.database import get_db
@@ -27,6 +27,7 @@ from app.schemas.booking import (
     BookingCancelRequest,
     BookingCreate,
     BookingListResponse,
+    BookingReadyByUpdate,
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
@@ -318,6 +319,38 @@ async def assign_provider(
         lookup_owner,
         roles=("customer", "provider"),
     )
+    return booking
+
+
+@router.put("/bookings/{booking_id}/ready-by", response_model=BookingResponse)
+async def set_ready_by(
+    booking_id: str,
+    body: BookingReadyByUpdate,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    notifier: Notifier = Depends(get_notifier),
+):
+    """When a pickup & drop item should be back with the customer. The shop, its provider or an admin."""
+    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    if not parties & {ADMIN, SHOP_OWNER, PROVIDER}:
+        raise HTTPException(status_code=403, detail="Only the shop or its provider can set the return time")
+    try:
+        booking = await booking_service.set_ready_by(db, booking, body.ready_by)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    await db.commit()
+    if booking.ready_by is not None:
+        background.add_task(
+            notify_booking,
+            notifier,
+            snapshot(booking),
+            "booking.ready_by",
+            current_user.get("sub"),
+            lookup_owner,
+            roles=("customer",),
+        )
     return booking
 
 

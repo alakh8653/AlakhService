@@ -24,6 +24,8 @@ class Booking(Base):
     service_mode = Column(String(20), default="AT_SHOP", server_default="AT_SHOP", nullable=False)
     # For pickup & drop: what is being collected and what is wrong with it.
     item_description = Column(Text, nullable=True)
+    # For pickup & drop: when the shop expects to have the item back with the customer.
+    ready_by = Column(DateTime(timezone=True), nullable=True)
     notes = Column(Text, nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     total_amount = Column(Integer, nullable=False)  # in cents

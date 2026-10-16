@@ -24,7 +24,9 @@ router = APIRouter()
 
 
 @router.post("/locations", response_model=LocationResponse, status_code=201)
-async def update_location(data: LocationUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def update_location(
+    data: LocationUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     # Providers report only their own position.
     ensure_self_or_admin(data.provider_id, caller)
     return await tracking_service.update_location(db, data)

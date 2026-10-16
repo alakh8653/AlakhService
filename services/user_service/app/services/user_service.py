@@ -21,12 +21,13 @@ log = structlog.get_logger()
 
 
 class UserService:
-
     async def get_profile(self, db: AsyncSession, user_id: str) -> Optional[UserProfile]:
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         return result.scalar_one_or_none()
 
-    async def create_or_update_profile(self, db: AsyncSession, user_id: str, profile_data: UserProfileCreate) -> UserProfile:
+    async def create_or_update_profile(
+        self, db: AsyncSession, user_id: str, profile_data: UserProfileCreate
+    ) -> UserProfile:
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = result.scalar_one_or_none()
 
@@ -69,7 +70,9 @@ class UserService:
         await db.flush()
         return address
 
-    async def update_address(self, db: AsyncSession, user_id: str, address_id: str, data: UserAddressUpdate) -> Optional[UserAddress]:
+    async def update_address(
+        self, db: AsyncSession, user_id: str, address_id: str, data: UserAddressUpdate
+    ) -> Optional[UserAddress]:
         result = await db.execute(
             select(UserAddress).where(and_(UserAddress.id == address_id, UserAddress.user_id == user_id))
         )
@@ -95,11 +98,7 @@ class UserService:
         return True
 
     async def set_default_address(self, db: AsyncSession, user_id: str, address_id: str) -> bool:
-        await db.execute(
-            update(UserAddress)
-            .where(UserAddress.user_id == user_id)
-            .values(is_default=False)
-        )
+        await db.execute(update(UserAddress).where(UserAddress.user_id == user_id).values(is_default=False))
         result = await db.execute(
             select(UserAddress).where(and_(UserAddress.id == address_id, UserAddress.user_id == user_id))
         )
@@ -125,7 +124,9 @@ class UserService:
             await db.flush()
         return prefs
 
-    async def update_preferences(self, db: AsyncSession, user_id: str, prefs_data: UserPreferencesUpdate) -> UserPreferences:
+    async def update_preferences(
+        self, db: AsyncSession, user_id: str, prefs_data: UserPreferencesUpdate
+    ) -> UserPreferences:
         prefs = await self.get_preferences(db, user_id)
         for key, value in prefs_data.model_dump(exclude_unset=True).items():
             setattr(prefs, key, value)
@@ -134,9 +135,7 @@ class UserService:
         return prefs
 
     async def register_device(self, db: AsyncSession, user_id: str, device_data: UserDeviceCreate) -> UserDevice:
-        result = await db.execute(
-            select(UserDevice).where(UserDevice.device_id == device_data.device_id)
-        )
+        result = await db.execute(select(UserDevice).where(UserDevice.device_id == device_data.device_id))
         existing = result.scalar_one_or_none()
 
         now = datetime.now(timezone.utc)
@@ -174,9 +173,7 @@ class UserService:
         return True
 
     async def get_active_devices(self, db: AsyncSession, user_id: str) -> List[UserDevice]:
-        result = await db.execute(
-            select(UserDevice).where(and_(UserDevice.user_id == user_id, UserDevice.is_active))
-        )
+        result = await db.execute(select(UserDevice).where(and_(UserDevice.user_id == user_id, UserDevice.is_active)))
         return list(result.scalars().all())
 
     async def upload_avatar(self, db: AsyncSession, user_id: str, file: UploadFile) -> str:
@@ -232,9 +229,7 @@ class UserService:
 
         await db.execute(delete(UserAddress).where(UserAddress.user_id == user_id))
         await db.execute(
-            update(UserDevice)
-            .where(UserDevice.user_id == user_id)
-            .values(is_active=False, device_token="deleted")
+            update(UserDevice).where(UserDevice.user_id == user_id).values(is_active=False, device_token="deleted")
         )
         await db.flush()
 

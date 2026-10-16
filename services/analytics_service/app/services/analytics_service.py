@@ -21,7 +21,6 @@ log = structlog.get_logger()
 
 
 class AnalyticsService:
-
     async def ingest_events(self, db: AsyncSession, data: EventBatchCreate) -> List[AnalyticsEvent]:
         events = []
         for ev in data.events:
@@ -39,7 +38,13 @@ class AnalyticsService:
         log.info("events_ingested", count=len(events))
         return events
 
-    async def get_metrics(self, db: AsyncSession, name: Optional[str] = None, from_date: Optional[datetime] = None, to_date: Optional[datetime] = None) -> List[MetricAggregate]:
+    async def get_metrics(
+        self,
+        db: AsyncSession,
+        name: Optional[str] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
+    ) -> List[MetricAggregate]:
         stmt = select(MetricAggregate)
         if name:
             stmt = stmt.where(MetricAggregate.metric_name == name)
@@ -58,7 +63,9 @@ class AnalyticsService:
         prev_users: Optional[set] = None
 
         for step_event in data.steps:
-            stmt = select(AnalyticsEvent).where(AnalyticsEvent.event_type == step_event, AnalyticsEvent.user_id.isnot(None))
+            stmt = select(AnalyticsEvent).where(
+                AnalyticsEvent.event_type == step_event, AnalyticsEvent.user_id.isnot(None)
+            )
             if data.from_date:
                 stmt = stmt.where(AnalyticsEvent.created_at >= data.from_date)
             if data.to_date:
@@ -86,8 +93,9 @@ class AnalyticsService:
     async def get_cohorts(self, db: AsyncSession) -> List[CohortResponse]:
         # Group users by signup week using created_at of first event
         result = await db.execute(
-            select(AnalyticsEvent.user_id, AnalyticsEvent.created_at)
-            .where(AnalyticsEvent.event_type == "signup", AnalyticsEvent.user_id.isnot(None))
+            select(AnalyticsEvent.user_id, AnalyticsEvent.created_at).where(
+                AnalyticsEvent.event_type == "signup", AnalyticsEvent.user_id.isnot(None)
+            )
         )
         signups = result.all()
         cohorts: dict[str, list[str]] = defaultdict(list)
@@ -97,22 +105,28 @@ class AnalyticsService:
             week = created_at.strftime("%Y-W%W")
             cohorts[week].append(user_id)
 
-        result2 = await db.execute(select(AnalyticsEvent).where(AnalyticsEvent.event_type == "active", AnalyticsEvent.user_id.isnot(None)))
+        result2 = await db.execute(
+            select(AnalyticsEvent).where(AnalyticsEvent.event_type == "active", AnalyticsEvent.user_id.isnot(None))
+        )
         active_events = result2.scalars().all()
 
         cohort_responses = []
         for week, users in sorted(cohorts.items()):
             retained_w1 = sum(1 for u in users if any(e.user_id == u for e in active_events))
-            cohort_responses.append(CohortResponse(
-                cohort_week=week,
-                user_count=len(users),
-                retained_week1=retained_w1,
-                retained_week2=0,
-            ))
+            cohort_responses.append(
+                CohortResponse(
+                    cohort_week=week,
+                    user_count=len(users),
+                    retained_week1=retained_w1,
+                    retained_week2=0,
+                )
+            )
 
         return cohort_responses
 
-    async def record_metric(self, db: AsyncSession, metric_name: str, value: float, dimension: Optional[str] = None) -> MetricAggregate:
+    async def record_metric(
+        self, db: AsyncSession, metric_name: str, value: float, dimension: Optional[str] = None
+    ) -> MetricAggregate:
         now = datetime.now(timezone.utc)
         metric = MetricAggregate(
             id=str(uuid.uuid4()),

@@ -1,4 +1,5 @@
 """API-level tests that run the real ORM against an in-memory SQLite database."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -100,7 +101,11 @@ async def test_category_writes_invalidate_cached_tree(client):
 @pytest.mark.asyncio
 async def test_browsing_is_public_but_changes_are_admin_only(client):
     category = {"name": "Painting", "slug": "painting"}
-    assert (await client.post("/api/v1/catalog/categories", json=category, headers={"Authorization": ""})).status_code == 401
-    assert (await client.post("/api/v1/catalog/categories", json=category, headers=auth("u1", "user"))).status_code == 403
+    assert (
+        await client.post("/api/v1/catalog/categories", json=category, headers={"Authorization": ""})
+    ).status_code == 401
+    assert (
+        await client.post("/api/v1/catalog/categories", json=category, headers=auth("u1", "user"))
+    ).status_code == 403
     assert (await client.post("/api/v1/catalog/categories", json=category)).status_code == 201
     assert (await client.get("/api/v1/catalog/categories", headers={"Authorization": ""})).status_code == 200

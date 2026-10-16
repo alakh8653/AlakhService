@@ -1,4 +1,5 @@
 """Listing a shop's services, and who may create or change them."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -70,7 +71,9 @@ async def test_only_the_shop_owner_or_an_admin_manages_listings(client):
     body = {"shop_id": "shop-1", "name": "Haircut", "price_cents": 50000}
     assert (await client.post("/api/v1/services", json=body)).status_code == 401
     assert (await client.post("/api/v1/services", json=body, headers=auth("owner-2"))).status_code == 403
-    assert (await client.post("/api/v1/services", json={**body, "shop_id": "nope"}, headers=auth("owner-1"))).status_code == 404
+    assert (
+        await client.post("/api/v1/services", json={**body, "shop_id": "nope"}, headers=auth("owner-1"))
+    ).status_code == 404
     created = await client.post("/api/v1/services", json=body, headers=auth("owner-1"))
     assert created.status_code == 201
 
@@ -84,5 +87,9 @@ async def test_only_the_shop_owner_or_an_admin_manages_listings(client):
 
 @pytest.mark.asyncio
 async def test_only_admins_create_categories(client):
-    assert (await client.post("/api/v1/categories", json={"name": "Hair", "slug": "hair"}, headers=auth("owner-1"))).status_code == 403
-    assert (await client.post("/api/v1/categories", json={"name": "Hair", "slug": "hair"}, headers=auth("ops", "admin"))).status_code == 201
+    assert (
+        await client.post("/api/v1/categories", json={"name": "Hair", "slug": "hair"}, headers=auth("owner-1"))
+    ).status_code == 403
+    assert (
+        await client.post("/api/v1/categories", json={"name": "Hair", "slug": "hair"}, headers=auth("ops", "admin"))
+    ).status_code == 201

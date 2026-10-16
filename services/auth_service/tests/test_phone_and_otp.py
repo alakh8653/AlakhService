@@ -1,4 +1,5 @@
 """Phone sign-in and one-time codes: delivered (never logged), rate limited, no account probing."""
+
 import os
 from unittest.mock import MagicMock
 
@@ -122,7 +123,11 @@ async def test_login_code_signs_in_and_reset_code_gives_a_working_reset_token(db
     code = sent[0][1].split("code is ")[1][:6]
 
     with pytest.raises(OTPInvalidError):
-        await verify_otp(OTPVerify(phone_or_email=PHONE, code="000000" if code != "000000" else "111111", purpose="login"), request_, db=db)
+        await verify_otp(
+            OTPVerify(phone_or_email=PHONE, code="000000" if code != "000000" else "111111", purpose="login"),
+            request_,
+            db=db,
+        )
     signed_in = await verify_otp(OTPVerify(phone_or_email=PHONE, code=code, purpose="login"), request_, db=db)
     assert signed_in.access_token and signed_in.refresh_token
     with pytest.raises(OTPInvalidError):  # a code works once

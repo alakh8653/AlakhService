@@ -20,9 +20,7 @@ async def list_services(
     db: AsyncSession = Depends(get_db),
 ):
     """List all active services with optional category filter."""
-    return await service_service.get_services(
-        db, skip=pagination["skip"], limit=pagination["limit"], category=category
-    )
+    return await service_service.get_services(db, skip=pagination["skip"], limit=pagination["limit"], category=category)
 
 
 @router.get("/{service_id}", response_model=ServiceRead)

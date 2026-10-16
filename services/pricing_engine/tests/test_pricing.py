@@ -119,10 +119,18 @@ async def test_chain_of_responsibility():
 
 @pytest.mark.anyio
 async def test_calculate_price_db(db_session, service):
-    calc = await service.calculate_price(db_session, PriceCalculationRequest(
-        service_id="svc-1", customer_id="cust-1", base_price_cents=5000,
-        demand_level=1.0, supply_level=1.0, time_of_day=14, customer_tier="regular"
-    ))
+    calc = await service.calculate_price(
+        db_session,
+        PriceCalculationRequest(
+            service_id="svc-1",
+            customer_id="cust-1",
+            base_price_cents=5000,
+            demand_level=1.0,
+            supply_level=1.0,
+            time_of_day=14,
+            customer_tier="regular",
+        ),
+    )
     assert calc.base_price_cents == 5000
     assert calc.final_price_cents == 5000  # no rules triggered at noon, normal demand
 

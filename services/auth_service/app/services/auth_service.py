@@ -38,7 +38,6 @@ log = structlog.get_logger()
 
 
 class AuthService:
-
     async def register(self, db: AsyncSession, user_create: UserCreate) -> User:
         if user_create.email:
             result = await db.execute(select(User).where(User.email == user_create.email))
@@ -123,7 +122,9 @@ class AuthService:
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
-    async def refresh_tokens(self, db: AsyncSession, redis: aioredis.Redis, refresh_token: str, request) -> TokenResponse:
+    async def refresh_tokens(
+        self, db: AsyncSession, redis: aioredis.Redis, refresh_token: str, request
+    ) -> TokenResponse:
         try:
             payload = decode_token(refresh_token)
         except Exception:
@@ -134,9 +135,7 @@ class AuthService:
 
         token_hash = hash_token(refresh_token)
         result = await db.execute(
-            select(RefreshToken).where(
-                and_(RefreshToken.token_hash == token_hash, RefreshToken.is_revoked == False)
-            )
+            select(RefreshToken).where(and_(RefreshToken.token_hash == token_hash, RefreshToken.is_revoked == False))
         )
         rt = result.scalar_one_or_none()
         if not rt:
@@ -187,9 +186,7 @@ class AuthService:
     async def logout(self, db: AsyncSession, redis: aioredis.Redis, user_id: str, refresh_token: str) -> bool:
         token_hash = hash_token(refresh_token)
         result = await db.execute(
-            select(RefreshToken).where(
-                and_(RefreshToken.token_hash == token_hash, RefreshToken.user_id == user_id)
-            )
+            select(RefreshToken).where(and_(RefreshToken.token_hash == token_hash, RefreshToken.user_id == user_id))
         )
         rt = result.scalar_one_or_none()
         if rt:
@@ -217,9 +214,7 @@ class AuthService:
         log.info("user_logged_out_all", user_id=user_id)
         return True
 
-    async def send_otp(
-        self, db: AsyncSession, redis: aioredis.Redis, otp_request: OTPRequest
-    ) -> Optional[tuple]:
+    async def send_otp(self, db: AsyncSession, redis: aioredis.Redis, otp_request: OTPRequest) -> Optional[tuple]:
         """Create a code for the account, if there is one, and return (user, code) to deliver.
 
         Unknown accounts get the same treatment from the caller's point of view, so the endpoint
@@ -240,7 +235,9 @@ class AuthService:
 
         await db.execute(
             update(OTPCode)
-            .where(and_(OTPCode.user_id == str(user.id), OTPCode.purpose == otp_request.purpose, OTPCode.is_used == False))
+            .where(
+                and_(OTPCode.user_id == str(user.id), OTPCode.purpose == otp_request.purpose, OTPCode.is_used == False)
+            )
             .values(is_used=True)
         )
 
@@ -270,13 +267,15 @@ class AuthService:
 
         now = datetime.now(timezone.utc)
         result = await db.execute(
-            select(OTPCode).where(
+            select(OTPCode)
+            .where(
                 and_(
                     OTPCode.user_id == str(user.id),
                     OTPCode.purpose == otp_verify.purpose,
                     OTPCode.is_used == False,
                 )
-            ).order_by(OTPCode.created_at.desc())
+            )
+            .order_by(OTPCode.created_at.desc())
         )
         otp = result.scalar_one_or_none()
 

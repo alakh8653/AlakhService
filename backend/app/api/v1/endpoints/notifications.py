@@ -25,9 +25,7 @@ async def list_notifications(
     db: AsyncSession = Depends(get_db),
 ):
     """List all notifications for the current user."""
-    return await get_user_notifications(
-        db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"]
-    )
+    return await get_user_notifications(db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"])
 
 
 @router.put("/{notification_id}/read", response_model=NotificationRead)

@@ -1,4 +1,3 @@
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AlreadyExistsException, CredentialsException
@@ -12,9 +11,7 @@ from app.schemas.user import UserCreate
 from app.services.user_service import get_user_by_email
 
 
-async def authenticate_user(
-    db: AsyncSession, email: str, password: str
-) -> User | bool:
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | bool:
     """Verify credentials and return the user, or False on failure."""
     user = await get_user_by_email(db, email=email)
     if not user:

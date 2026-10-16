@@ -31,20 +31,14 @@ async def create_booking(
 
 
 async def get_booking(db: AsyncSession, booking_id: uuid.UUID) -> Booking:
-    result = await db.execute(
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.service))
-    )
+    result = await db.execute(select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.service)))
     booking = result.scalar_one_or_none()
     if not booking:
         raise NotFoundException(resource_name="Booking")
     return booking
 
 
-async def get_user_bookings(
-    db: AsyncSession, user_id: uuid.UUID, skip: int = 0, limit: int = 20
-) -> list[Booking]:
+async def get_user_bookings(db: AsyncSession, user_id: uuid.UUID, skip: int = 0, limit: int = 20) -> list[Booking]:
     result = await db.execute(
         select(Booking)
         .where(Booking.user_id == user_id)
@@ -55,9 +49,7 @@ async def get_user_bookings(
     return list(result.scalars().all())
 
 
-async def update_booking(
-    db: AsyncSession, booking_id: uuid.UUID, booking_update: BookingUpdate
-) -> Booking:
+async def update_booking(db: AsyncSession, booking_id: uuid.UUID, booking_update: BookingUpdate) -> Booking:
     booking = await get_booking(db, booking_id)
     update_data = booking_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -67,9 +59,7 @@ async def update_booking(
     return booking
 
 
-async def cancel_booking(
-    db: AsyncSession, booking_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
+async def cancel_booking(db: AsyncSession, booking_id: uuid.UUID, user_id: uuid.UUID) -> None:
     booking = await get_booking(db, booking_id)
     if booking.user_id != user_id:
         raise PermissionDeniedException()

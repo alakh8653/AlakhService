@@ -15,8 +15,10 @@ class ServiceCategoryBase(BaseModel):
     order: int = 0
     is_active: bool = True
 
+
 class ServiceCategoryCreate(ServiceCategoryBase):
     pass
+
 
 class ServiceCategoryUpdate(BaseModel):
     name: Optional[str] = None
@@ -26,6 +28,7 @@ class ServiceCategoryUpdate(BaseModel):
     parent_id: Optional[str] = None
     order: Optional[int] = None
     is_active: Optional[bool] = None
+
 
 class ServiceCategoryChild(ServiceCategoryBase):
     model_config = ConfigDict(from_attributes=True)
@@ -39,6 +42,7 @@ class ServiceCategoryResponse(ServiceCategoryBase):
     id: str
     children: List[ServiceCategoryChild] = []
 
+
 class PricingTierBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -46,13 +50,16 @@ class PricingTierBase(BaseModel):
     features: Optional[List[str]] = None
     is_popular: bool = False
 
+
 class PricingTierCreate(PricingTierBase):
     pass
+
 
 class PricingTierResponse(PricingTierBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
     service_id: str
+
     @field_validator("features", mode="before")
     @classmethod
     def parse_features(cls, v):
@@ -63,19 +70,23 @@ class PricingTierResponse(PricingTierBase):
                 return []
         return v or []
 
+
 class ServiceMediaBase(BaseModel):
     media_type: str
     url: str
     alt_text: Optional[str] = None
     order: int = 0
 
+
 class ServiceMediaCreate(ServiceMediaBase):
     pass
+
 
 class ServiceMediaResponse(ServiceMediaBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
     service_id: str
+
 
 class ServiceVariantBase(BaseModel):
     name: str
@@ -83,13 +94,16 @@ class ServiceVariantBase(BaseModel):
     duration_modifier_minutes: int = 0
     is_available: bool = True
 
+
 class ServiceVariantCreate(ServiceVariantBase):
     pass
+
 
 class ServiceVariantResponse(ServiceVariantBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
     service_id: str
+
 
 class ServiceItemBase(BaseModel):
     name: str
@@ -102,8 +116,10 @@ class ServiceItemBase(BaseModel):
     is_featured: bool = False
     metadata: Optional[Any] = None
 
+
 class ServiceItemCreate(ServiceItemBase):
     category_id: Optional[str] = None
+
 
 class ServiceItemUpdate(BaseModel):
     name: Optional[str] = None
@@ -116,6 +132,7 @@ class ServiceItemUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_featured: Optional[bool] = None
 
+
 class ServiceItemResponse(ServiceItemBase):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -124,6 +141,7 @@ class ServiceItemResponse(ServiceItemBase):
     pricing_tiers: List[PricingTierResponse] = []
     media: List[ServiceMediaResponse] = []
     variants: List[ServiceVariantResponse] = []
+
     @field_validator("metadata", mode="before")
     @classmethod
     def parse_metadata(cls, v):
@@ -134,11 +152,13 @@ class ServiceItemResponse(ServiceItemBase):
                 return {}
         return v
 
+
 class ServiceItemListResponse(BaseModel):
     items: List[ServiceItemResponse]
     total: int
     page: int
     per_page: int
+
 
 class SearchCatalogParams(BaseModel):
     query: Optional[str] = None

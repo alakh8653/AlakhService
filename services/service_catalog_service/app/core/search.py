@@ -14,7 +14,7 @@ class TFIDFIndex:
         self._idf: dict[str, float] = {}
 
     def _tokenize(self, text: str) -> list[str]:
-        return re.findall(r'\b[a-z]{2,}\b', text.lower())
+        return re.findall(r"\b[a-z]{2,}\b", text.lower())
 
     def add_document(self, doc_id: str, text: str) -> None:
         self._documents[doc_id] = text
@@ -67,10 +67,10 @@ def levenshtein_distance(s1: str, s2: str) -> int:
         dp[0] = i
         for j in range(1, n + 1):
             temp = dp[j]
-            if s1[i-1] == s2[j-1]:
+            if s1[i - 1] == s2[j - 1]:
                 dp[j] = prev
             else:
-                dp[j] = 1 + min(prev, dp[j], dp[j-1])
+                dp[j] = 1 + min(prev, dp[j], dp[j - 1])
             prev = temp
     return dp[n]
 

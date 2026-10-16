@@ -1,4 +1,5 @@
 """Customers pay for their own bookings at the booked price; payments are private; refunds are admin-only."""
+
 import hashlib
 import hmac
 import json
@@ -22,9 +23,30 @@ from app.main import app
 TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 BOOKINGS = {
-    "bk-1": {"id": "bk-1", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "CONFIRMED", "total_amount": 49900},
-    "bk-2": {"id": "bk-2", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "CONFIRMED", "total_amount": 20000},
-    "bk-new": {"id": "bk-new", "customer_id": "cust", "shop_id": "shop-1", "provider_id": None, "status": "PENDING", "total_amount": 100},
+    "bk-1": {
+        "id": "bk-1",
+        "customer_id": "cust",
+        "shop_id": "shop-1",
+        "provider_id": None,
+        "status": "CONFIRMED",
+        "total_amount": 49900,
+    },
+    "bk-2": {
+        "id": "bk-2",
+        "customer_id": "cust",
+        "shop_id": "shop-1",
+        "provider_id": None,
+        "status": "CONFIRMED",
+        "total_amount": 20000,
+    },
+    "bk-new": {
+        "id": "bk-new",
+        "customer_id": "cust",
+        "shop_id": "shop-1",
+        "provider_id": None,
+        "status": "PENDING",
+        "total_amount": 100,
+    },
 }
 OWNERS = {"shop-1": "owner"}
 KEY_SECRET = "rzp-secret"
@@ -127,10 +149,18 @@ async def client():
 
 @pytest.mark.asyncio
 async def test_customers_pay_for_their_own_bookings_at_the_booked_price(client):
-    body = {"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0001",
-            "amount_cents": 1, "payer_id": "someone", "payee_id": "attacker"}
+    body = {
+        "booking_id": "bk-1",
+        "payment_method": "upi",
+        "idempotency_key": "key-0001",
+        "amount_cents": 1,
+        "payer_id": "someone",
+        "payee_id": "attacker",
+    }
     assert (await client.post("/api/v1/payments/initiate", json=body, headers=auth("stranger"))).status_code == 404
-    assert (await client.post("/api/v1/payments/initiate", json={**body, "booking_id": "bk-new"}, headers=auth("cust"))).status_code == 409
+    assert (
+        await client.post("/api/v1/payments/initiate", json={**body, "booking_id": "bk-new"}, headers=auth("cust"))
+    ).status_code == 409
 
     paid = await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))
     assert paid.status_code == 201
@@ -138,7 +168,9 @@ async def test_customers_pay_for_their_own_bookings_at_the_booked_price(client):
     assert (payment["amount_cents"], payment["payer_id"], payment["payee_id"]) == (49900, "cust", "owner")
 
     # Retrying with the same key returns the same payment; nobody else can use the key to read it.
-    assert (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"] == payment["id"]
+    assert (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"] == payment[
+        "id"
+    ]
     assert (await client.post("/api/v1/payments/initiate", json=body, headers=auth("stranger"))).status_code == 404
 
 
@@ -169,10 +201,20 @@ async def test_online_payment_opens_a_razorpay_order_and_completes_only_with_a_v
     payment = started.json()
     assert payment["status"] == "PENDING"
     assert payment["checkout"] == {
-        "gateway": "razorpay", "key_id": "rzp_test_key", "order_id": "order_1", "amount_cents": 49900, "currency": "INR",
+        "gateway": "razorpay",
+        "key_id": "rzp_test_key",
+        "order_id": "order_1",
+        "amount_cents": 49900,
+        "currency": "INR",
     }
-    assert ORDERS == [{"amount": 49900, "currency": "INR", "receipt": payment["id"][:40],
-                       "notes": {"payment_id": payment["id"], "booking_id": "bk-1"}}]
+    assert ORDERS == [
+        {
+            "amount": 49900,
+            "currency": "INR",
+            "receipt": payment["id"][:40],
+            "notes": {"payment_id": payment["id"], "booking_id": "bk-1"},
+        }
+    ]
 
     # A retry reuses the order instead of opening another.
     again = await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))
@@ -180,11 +222,21 @@ async def test_online_payment_opens_a_razorpay_order_and_completes_only_with_a_v
     assert len(ORDERS) == 1
 
     url = f"/api/v1/payments/{payment['id']}/verify"
-    proof = {"razorpay_order_id": "order_1", "razorpay_payment_id": "pay_1",
-             "razorpay_signature": sign(KEY_SECRET, b"order_1|pay_1")}
-    assert (await client.post(url, json={**proof, "razorpay_signature": "forged"}, headers=auth("cust"))).status_code == 400
-    assert (await client.post(url, json={**proof, "razorpay_order_id": "order_9",
-                                         "razorpay_signature": sign(KEY_SECRET, b"order_9|pay_1")}, headers=auth("cust"))).status_code == 400
+    proof = {
+        "razorpay_order_id": "order_1",
+        "razorpay_payment_id": "pay_1",
+        "razorpay_signature": sign(KEY_SECRET, b"order_1|pay_1"),
+    }
+    assert (
+        await client.post(url, json={**proof, "razorpay_signature": "forged"}, headers=auth("cust"))
+    ).status_code == 400
+    assert (
+        await client.post(
+            url,
+            json={**proof, "razorpay_order_id": "order_9", "razorpay_signature": sign(KEY_SECRET, b"order_9|pay_1")},
+            headers=auth("cust"),
+        )
+    ).status_code == 400
     assert (await client.post(url, json=proof, headers=auth("stranger"))).status_code == 404
 
     done = await client.post(url, json=proof, headers=auth("cust"))
@@ -205,8 +257,13 @@ async def test_cash_needs_no_gateway_and_online_needs_one(client):
     cash = await client.post("/api/v1/payments/initiate", json={**body, "payment_method": "cash"}, headers=auth("cust"))
     assert cash.status_code == 201
     assert (cash.json()["status"], cash.json()["checkout"]) == ("PENDING", None)
-    assert (await client.post("/api/v1/payments/initiate", json={**body, "payment_method": "bitcoin",
-                                                                 "idempotency_key": "key-0005"}, headers=auth("cust"))).status_code == 422
+    assert (
+        await client.post(
+            "/api/v1/payments/initiate",
+            json={**body, "payment_method": "bitcoin", "idempotency_key": "key-0005"},
+            headers=auth("cust"),
+        )
+    ).status_code == 422
 
 
 @pytest.mark.asyncio
@@ -215,21 +272,43 @@ async def test_razorpay_webhooks_must_be_signed_with_the_webhook_secret(client):
     payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()
 
     def event(amount: int) -> bytes:
-        return json.dumps({"event": "payment.captured", "payload": {"payment": {"entity": {
-            "id": "pay_9", "order_id": "order_1", "amount": amount, "currency": "INR", "notes": {}}}}}).encode()
+        return json.dumps(
+            {
+                "event": "payment.captured",
+                "payload": {
+                    "payment": {
+                        "entity": {
+                            "id": "pay_9",
+                            "order_id": "order_1",
+                            "amount": amount,
+                            "currency": "INR",
+                            "notes": {},
+                        }
+                    }
+                },
+            }
+        ).encode()
 
     hook = "/api/v1/webhooks/razorpay"
     status = lambda: client.get(f"/api/v1/payments/{payment['id']}", headers=auth("cust"))  # noqa: E731
 
-    assert (await client.post(hook, content=event(49900), headers={"x-razorpay-signature": "forged"})).status_code == 400
+    assert (
+        await client.post(hook, content=event(49900), headers={"x-razorpay-signature": "forged"})
+    ).status_code == 400
     # Signed with the API key secret instead of the webhook secret: still refused.
-    assert (await client.post(hook, content=event(49900), headers={"x-razorpay-signature": sign(KEY_SECRET, event(49900))})).status_code == 400
+    assert (
+        await client.post(hook, content=event(49900), headers={"x-razorpay-signature": sign(KEY_SECRET, event(49900))})
+    ).status_code == 400
     # Signed, but for a different amount: ignored.
-    assert (await client.post(hook, content=event(1), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(1))})).status_code == 200
+    assert (
+        await client.post(hook, content=event(1), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(1))})
+    ).status_code == 200
     assert (await status()).json()["status"] == "PENDING"
 
     assert NOTIFIED == []
-    ok = await client.post(hook, content=event(49900), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(49900))})
+    ok = await client.post(
+        hook, content=event(49900), headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event(49900))}
+    )
     assert ok.status_code == 200
     assert (await status()).json()["status"] == "COMPLETED"
     assert [e for e, _, _ in NOTIFIED] == ["payment.completed"]
@@ -251,9 +330,14 @@ async def paid_by_razorpay(client, key: str, booking: str = "bk-1") -> str:
     body = {"booking_id": booking, "payment_method": "upi", "idempotency_key": key}
     payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()
     order = payment["checkout"]["order_id"]
-    proof = {"razorpay_order_id": order, "razorpay_payment_id": "pay_77",
-             "razorpay_signature": sign(KEY_SECRET, f"{order}|pay_77".encode())}
-    assert (await client.post(f"/api/v1/payments/{payment['id']}/verify", json=proof, headers=auth("cust"))).status_code == 200
+    proof = {
+        "razorpay_order_id": order,
+        "razorpay_payment_id": "pay_77",
+        "razorpay_signature": sign(KEY_SECRET, f"{order}|pay_77".encode()),
+    }
+    assert (
+        await client.post(f"/api/v1/payments/{payment['id']}/verify", json=proof, headers=auth("cust"))
+    ).status_code == 200
     return payment["id"]
 
 
@@ -264,7 +348,11 @@ async def test_refunds_go_back_through_razorpay_up_to_what_was_paid(client):
     status = lambda: client.get(f"/api/v1/payments/{pid}", headers=ops)  # noqa: E731
 
     first = await client.post(url, json={"amount_cents": 10_000, "reason": "late"}, headers=ops)
-    assert (first.status_code, first.json()["status"], first.json()["gateway_refund_id"]) == (200, "PROCESSED", "rfnd_1")
+    assert (first.status_code, first.json()["status"], first.json()["gateway_refund_id"]) == (
+        200,
+        "PROCESSED",
+        "rfnd_1",
+    )
     assert REFUNDS == [("/v1/payments/pay_77/refund", 10_000)]
     assert (await status()).json()["status"] == "PARTIALLY_REFUNDED"
     assert NOTIFIED[-1] == ("payment.refunded", [("cust", "customer")], "100.00")
@@ -282,7 +370,9 @@ async def test_refunds_go_back_through_razorpay_up_to_what_was_paid(client):
 async def test_a_refund_razorpay_refuses_is_not_recorded(client):
     pid = await paid_by_razorpay(client, "key-0011")
     REFUSE_REFUNDS.append(True)
-    resp = await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 100, "reason": "x"}, headers=auth("ops", "admin"))
+    resp = await client.post(
+        f"/api/v1/payments/{pid}/refund", json={"amount_cents": 100, "reason": "x"}, headers=auth("ops", "admin")
+    )
     assert resp.status_code == 502
     assert (await client.get(f"/api/v1/payments/{pid}", headers=auth("cust"))).json()["status"] == "COMPLETED"
 
@@ -292,17 +382,26 @@ async def test_a_failed_refund_puts_the_payment_back(client):
     pid = await paid_by_razorpay(client, "key-0012")
     ops = auth("ops", "admin")
     await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=ops)
-    event = json.dumps({"event": "refund.failed", "payload": {"refund": {"entity": {"id": "rfnd_1", "payment_id": "pay_77"}}}}).encode()
-    hook = await client.post("/api/v1/webhooks/razorpay", content=event, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event)})
+    event = json.dumps(
+        {"event": "refund.failed", "payload": {"refund": {"entity": {"id": "rfnd_1", "payment_id": "pay_77"}}}}
+    ).encode()
+    hook = await client.post(
+        "/api/v1/webhooks/razorpay", content=event, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event)}
+    )
     assert hook.status_code == 200
     assert (await client.get(f"/api/v1/payments/{pid}", headers=ops)).json()["status"] == "COMPLETED"
     # ...so it can be refunded again.
-    assert (await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "retry"}, headers=ops)).status_code == 200
+    assert (
+        await client.post(
+            f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "retry"}, headers=ops
+        )
+    ).status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_payments_for_a_booking_are_listed_to_its_parties_and_admins(client):
     pid = await paid_by_razorpay(client, "key-0013")
+
     def listed(who, role="user"):
         return client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=auth(who, role))
 
@@ -318,14 +417,18 @@ async def test_the_shop_confirms_cash_and_it_can_then_be_refunded(client):
     pid = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"]
     url = f"/api/v1/payments/{pid}/cash-received"
     assert (await client.post(url, headers=auth("stranger"))).status_code == 404
-    assert (await client.post(url, headers=auth("cust"))).status_code == 403  # the payer can't mark their own cash received
+    assert (
+        await client.post(url, headers=auth("cust"))
+    ).status_code == 403  # the payer can't mark their own cash received
 
     done = await client.post(url, headers=auth("owner"))
     assert (done.status_code, done.json()["status"], done.json()["gateway"]) == (200, "COMPLETED", "cash")
     assert NOTIFIED[-1][:2] == ("payment.completed", [("cust", "customer"), ("owner", "shop")])
     assert (await client.post(url, headers=auth("owner"))).status_code == 409
 
-    refund = await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=auth("ops", "admin"))
+    refund = await client.post(
+        f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=auth("ops", "admin")
+    )
     assert refund.json()["status"] == "MANUAL"
     assert REFUNDS == []  # nothing sent to Razorpay for cash
 
@@ -335,15 +438,29 @@ async def test_the_shop_confirms_cash_and_it_can_then_be_refunded(client):
 
 @pytest.mark.asyncio
 async def test_a_booking_is_paid_for_once(client):
-    cash = (await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-0020"}, headers=auth("cust"))).json()
+    cash = (
+        await client.post(
+            "/api/v1/payments/initiate",
+            json={"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-0020"},
+            headers=auth("cust"),
+        )
+    ).json()
     pid = await paid_by_razorpay(client, "key-0021")
     # Paying online made the earlier cash choice moot.
     assert (await client.get(f"/api/v1/payments/{cash['id']}", headers=auth("cust"))).json()["status"] == "CANCELLED"
 
-    again = await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0022"}, headers=auth("cust"))
+    again = await client.post(
+        "/api/v1/payments/initiate",
+        json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0022"},
+        headers=auth("cust"),
+    )
     assert (again.status_code, again.json()["detail"]) == (409, "This booking has already been paid for")
     # The original attempt's retry still answers with its payment.
-    retry = await client.post("/api/v1/payments/initiate", json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0021"}, headers=auth("cust"))
+    retry = await client.post(
+        "/api/v1/payments/initiate",
+        json={"booking_id": "bk-1", "payment_method": "upi", "idempotency_key": "key-0021"},
+        headers=auth("cust"),
+    )
     assert (retry.status_code, retry.json()["id"]) == (201, pid)
 
     mine = (await client.get("/api/v1/payments", headers=auth("cust"))).json()

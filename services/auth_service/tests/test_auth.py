@@ -175,9 +175,7 @@ async def test_logout_invalidates_token(db_session, service, mock_redis, mock_re
 
     # Check that the refresh token is revoked
     token_hash = hash_token(tokens.refresh_token)
-    result = await db_session.execute(
-        sa_select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
+    result = await db_session.execute(sa_select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     assert rt is not None
     assert rt.is_revoked is True

@@ -1,4 +1,5 @@
 """Shop ownership checks and staff management."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -14,7 +15,9 @@ from app.main import app
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -51,7 +54,9 @@ async def client():
 
 
 async def make_shop(client, owner="owner-1", name="Glow Salon"):
-    resp = await client.post("/api/v1/shops", json={"owner_id": owner, "name": name, "category": "salon"}, headers=auth(owner))
+    resp = await client.post(
+        "/api/v1/shops", json={"owner_id": owner, "name": name, "category": "salon"}, headers=auth(owner)
+    )
     assert resp.status_code == 201
     return resp.json()
 
@@ -144,16 +149,20 @@ async def test_customers_rate_a_shop_once_per_completed_booking(client):
     shop = await make_shop(client)
     other = await make_shop(client, owner="owner-2", name="Other")
     BOOKINGS.clear()
-    BOOKINGS.update({
-        "done": {"id": "done", "customer_id": "cust-1", "shop_id": shop["id"], "status": "COMPLETED"},
-        "pending": {"id": "pending", "customer_id": "cust-1", "shop_id": shop["id"], "status": "PENDING"},
-        "elsewhere": {"id": "elsewhere", "customer_id": "cust-1", "shop_id": other["id"], "status": "COMPLETED"},
-    })
+    BOOKINGS.update(
+        {
+            "done": {"id": "done", "customer_id": "cust-1", "shop_id": shop["id"], "status": "COMPLETED"},
+            "pending": {"id": "pending", "customer_id": "cust-1", "shop_id": shop["id"], "status": "PENDING"},
+            "elsewhere": {"id": "elsewhere", "customer_id": "cust-1", "shop_id": other["id"], "status": "COMPLETED"},
+        }
+    )
     url = f"/api/v1/shops/{shop['id']}/rating"
     customer = auth("cust-1")
 
     assert (await client.post(url, json={"booking_id": "done", "rating": 5})).status_code == 401
-    assert (await client.post(url, json={"booking_id": "done", "rating": 5}, headers=auth("stranger"))).status_code == 404
+    assert (
+        await client.post(url, json={"booking_id": "done", "rating": 5}, headers=auth("stranger"))
+    ).status_code == 404
     assert (await client.post(url, json={"booking_id": "elsewhere", "rating": 5}, headers=customer)).status_code == 404
     assert (await client.post(url, json={"booking_id": "pending", "rating": 5}, headers=customer)).status_code == 409
     assert (await client.post(url, json={"booking_id": "done", "rating": 50}, headers=customer)).status_code == 422

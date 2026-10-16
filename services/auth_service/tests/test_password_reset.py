@@ -1,4 +1,5 @@
 """Password reset tokens: single purpose, single use, never logged; only access tokens authenticate."""
+
 import os
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
@@ -54,7 +55,9 @@ def request_():
 
 
 async def signed_up(db, redis, request_):
-    user = await service.register(db, UserCreate(email="reset@example.com", password="Password1", full_name="Reset User"))
+    user = await service.register(
+        db, UserCreate(email="reset@example.com", password="Password1", full_name="Reset User")
+    )
     tokens = await service.login(db, redis, UserLogin(email="reset@example.com", password="Password1"), request_)
     return user, tokens
 

@@ -34,4 +34,5 @@ class BayesianRiskScorer:
             return "HIGH"
         return "CRITICAL"
 
+
 risk_scorer = BayesianRiskScorer()

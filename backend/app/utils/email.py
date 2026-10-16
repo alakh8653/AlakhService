@@ -60,9 +60,9 @@ async def send_booking_confirmation_email(to_email: str, booking_details: dict) 
     subject = f"Booking Confirmed - {settings.APP_NAME}"
     html_body = f"""
     <h2>Your booking is confirmed!</h2>
-    <p><strong>Service:</strong> {booking_details.get('service_name', 'N/A')}</p>
-    <p><strong>Scheduled At:</strong> {booking_details.get('scheduled_at', 'N/A')}</p>
-    <p><strong>Amount:</strong> ₹{booking_details.get('total_amount', 'N/A')}</p>
+    <p><strong>Service:</strong> {booking_details.get("service_name", "N/A")}</p>
+    <p><strong>Scheduled At:</strong> {booking_details.get("scheduled_at", "N/A")}</p>
+    <p><strong>Amount:</strong> ₹{booking_details.get("total_amount", "N/A")}</p>
     <p>Thank you for choosing {settings.APP_NAME}!</p>
     """
     await send_email(to_email, subject, html_body)

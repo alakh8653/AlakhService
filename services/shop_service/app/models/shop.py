@@ -43,7 +43,7 @@ class ShopHours(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
     day_of_week = Column(Integer, nullable=False)  # 0=Monday, 6=Sunday
-    open_time = Column(String, nullable=False)   # "HH:MM"
+    open_time = Column(String, nullable=False)  # "HH:MM"
     close_time = Column(String, nullable=False)  # "HH:MM"
 
 

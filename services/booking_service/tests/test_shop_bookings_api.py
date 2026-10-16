@@ -1,4 +1,5 @@
 """Shop-scoped booking list and summary, with ownership enforced."""
+
 import json
 import os
 from datetime import datetime, timezone
@@ -35,6 +36,8 @@ async def fake_pricer(token, customer_id, service_id, list_price, code):
         raise CouponRejected("Coupon already used")
     PRICED.append((customer_id, list_price, code))
     return int(list_price * 0.9)
+
+
 SESSIONS: dict = {}
 
 
@@ -52,7 +55,14 @@ TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
 STAFF = {"shop-1": {"staff-1", "staff-2"}}  # provider accounts of each shop's active staff
 LISTINGS = {
-    "svc-a": {"id": "svc-a", "name": "Haircut", "shop_id": "shop-1", "price_cents": 49900, "duration_minutes": 45, "is_active": True},
+    "svc-a": {
+        "id": "svc-a",
+        "name": "Haircut",
+        "shop_id": "shop-1",
+        "price_cents": 49900,
+        "duration_minutes": 45,
+        "is_active": True,
+    },
     "svc-off": {"id": "svc-off", "shop_id": "shop-1", "price_cents": 100, "duration_minutes": 30, "is_active": False},
 }
 
@@ -65,9 +75,18 @@ def auth(sub: str, role: str = "user") -> dict:
 def booking(n, shop, status, day, amount=1000, service="svc-a", customer="c1", provider=None):
     at = datetime(2026, 10, day, 10, tzinfo=timezone.utc)
     return Booking(
-        id=f"bk-{n}", booking_number=f"BK-{n}", customer_id=customer, provider_id=provider, service_id=service,
-        shop_id=shop, status=status, scheduled_at=at, duration_minutes=60, total_amount=amount,
-        created_at=at, updated_at=at,
+        id=f"bk-{n}",
+        booking_number=f"BK-{n}",
+        customer_id=customer,
+        provider_id=provider,
+        service_id=service,
+        shop_id=shop,
+        status=status,
+        scheduled_at=at,
+        duration_minutes=60,
+        total_amount=amount,
+        created_at=at,
+        updated_at=at,
     )
 
 
@@ -79,14 +98,16 @@ async def client():
         await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as db:
-        db.add_all([
-            booking(1, "shop-1", "COMPLETED", 1, 5000, "svc-a", "c1", "staff-1"),
-            booking(2, "shop-1", "COMPLETED", 1, 3000, "svc-b", "c2"),
-            booking(3, "shop-1", "CANCELLED", 2, 4000, "svc-a", "c1"),
-            booking(4, "shop-1", "PENDING", 3, 2000, "svc-a", "c3", "staff-1"),
-            booking(5, "shop-1", "COMPLETED", 20, 9000, "svc-a", "c1"),   # outside the summary range
-            booking(6, "shop-2", "COMPLETED", 1, 7000, "svc-z", "c9"),    # another shop
-        ])
+        db.add_all(
+            [
+                booking(1, "shop-1", "COMPLETED", 1, 5000, "svc-a", "c1", "staff-1"),
+                booking(2, "shop-1", "COMPLETED", 1, 3000, "svc-b", "c2"),
+                booking(3, "shop-1", "CANCELLED", 2, 4000, "svc-a", "c1"),
+                booking(4, "shop-1", "PENDING", 3, 2000, "svc-a", "c3", "staff-1"),
+                booking(5, "shop-1", "COMPLETED", 20, 9000, "svc-a", "c1"),  # outside the summary range
+                booking(6, "shop-2", "COMPLETED", 1, 7000, "svc-z", "c9"),  # another shop
+            ]
+        )
         await db.commit()
 
     async def override_get_db():
@@ -98,6 +119,7 @@ async def client():
         return OWNERS.get(shop_id)
 
     app.dependency_overrides[get_db] = override_get_db
+
     async def fake_listing(service_id):
         return LISTINGS.get(service_id)
 
@@ -144,7 +166,9 @@ async def test_list_filters_by_status_provider_and_date(client):
     assert {b["id"] for b in staff["items"]} == {"bk-1", "bk-4"}
 
     window = (
-        await client.get("/api/v1/bookings/shop/shop-1", params={"date_from": "2026-10-02", "date_to": "2026-10-03"}, headers=owner)
+        await client.get(
+            "/api/v1/bookings/shop/shop-1", params={"date_from": "2026-10-02", "date_to": "2026-10-03"}, headers=owner
+        )
     ).json()
     assert {b["id"] for b in window["items"]} == {"bk-3", "bk-4"}
 
@@ -152,12 +176,14 @@ async def test_list_filters_by_status_provider_and_date(client):
 @pytest.mark.asyncio
 async def test_summary(client):
     resp = await client.get(
-        "/api/v1/bookings/shop/shop-1/summary", params={"date_from": "2026-10-01", "date_to": "2026-10-03"}, headers=auth("owner-1")
+        "/api/v1/bookings/shop/shop-1/summary",
+        params={"date_from": "2026-10-01", "date_to": "2026-10-03"},
+        headers=auth("owner-1"),
     )
     assert resp.status_code == 200
     s = resp.json()
     assert s["total_bookings"] == 4
-    assert s["total_revenue"] == 8000              # completed only: 5000 + 3000
+    assert s["total_revenue"] == 8000  # completed only: 5000 + 3000
     assert s["unique_customers"] == 3
     assert s["by_status"] == {"COMPLETED": 2, "CANCELLED": 1, "PENDING": 1}
     assert s["by_day"] == [
@@ -168,7 +194,9 @@ async def test_summary(client):
     assert s["top_services"][0] == {"service_id": "svc-a", "bookings": 3, "revenue": 5000}
 
     bad = await client.get(
-        "/api/v1/bookings/shop/shop-1/summary", params={"date_from": "2026-10-05", "date_to": "2026-10-01"}, headers=auth("owner-1")
+        "/api/v1/bookings/shop/shop-1/summary",
+        params={"date_from": "2026-10-05", "date_to": "2026-10-01"},
+        headers=auth("owner-1"),
     )
     assert bad.status_code == 400
 
@@ -193,10 +221,16 @@ async def test_strangers_cannot_see_or_change_a_booking(client):
     stranger = auth("stranger")
     assert (await client.get("/api/v1/bookings/bk-4", headers=stranger)).status_code == 404
     assert (await client.get("/api/v1/bookings/bk-4/history", headers=stranger)).status_code == 404
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=stranger)).status_code == 404
-    assert (await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=stranger)).status_code == 404
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=stranger)
+    ).status_code == 404
+    assert (
+        await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=stranger)
+    ).status_code == 404
     # Owning a different shop does not help.
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-2"))).status_code == 404
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-2"))
+    ).status_code == 404
 
 
 @pytest.mark.asyncio
@@ -207,9 +241,15 @@ async def test_each_party_may_only_make_its_own_transitions(client):
     assert (await client.get("/api/v1/bookings/bk-4", headers=provider)).status_code == 200
 
     # Confirming is the shop's call, not the customer's or the provider's.
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=customer)).status_code == 403
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=provider)).status_code == 403
-    assert (await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=provider)).status_code == 403
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=customer)
+    ).status_code == 403
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=provider)
+    ).status_code == 403
+    assert (
+        await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "x"}, headers=provider)
+    ).status_code == 403
 
     # The customer may cancel their own booking.
     cancelled = await client.post("/api/v1/bookings/bk-4/cancel", json={"reason": "Changed plans"}, headers=customer)
@@ -220,16 +260,25 @@ async def test_each_party_may_only_make_its_own_transitions(client):
 @pytest.mark.asyncio
 async def test_admin_may_resolve_what_others_cannot(client):
     # bk-1 is COMPLETED; disputing is the customer's call, refunding the admin's.
-    assert (await client.put("/api/v1/bookings/bk-1/status", json={"status": "DISPUTED"}, headers=auth("c1"))).status_code == 200
-    assert (await client.put("/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("owner-1"))).status_code == 403
-    refunded = await client.put("/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("ops", "admin"))
+    assert (
+        await client.put("/api/v1/bookings/bk-1/status", json={"status": "DISPUTED"}, headers=auth("c1"))
+    ).status_code == 200
+    assert (
+        await client.put("/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("owner-1"))
+    ).status_code == 403
+    refunded = await client.put(
+        "/api/v1/bookings/bk-1/status", json={"status": "REFUNDED"}, headers=auth("ops", "admin")
+    )
     assert refunded.status_code == 200
     assert refunded.json()["status"] == "REFUNDED"
 
 
 @pytest.mark.asyncio
 async def test_only_access_tokens_authenticate(client):
-    for claims in ({"sub": "owner-1", "type": "refresh"}, {"sub": "owner-1", "type": "access", "purpose": "password_reset"}):
+    for claims in (
+        {"sub": "owner-1", "type": "refresh"},
+        {"sub": "owner-1", "type": "access", "purpose": "password_reset"},
+    ):
         token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         resp = await client.get("/api/v1/bookings/shop/shop-1", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 401
@@ -253,8 +302,12 @@ async def test_bookings_are_priced_from_the_catalogue(client):
     assert booking["duration_minutes"] == 45
     assert booking["customer_id"] == "c7"
 
-    assert (await client.post("/api/v1/bookings", json={**body, "service_id": "nope"}, headers=auth("c7"))).status_code == 404
-    assert (await client.post("/api/v1/bookings", json={**body, "service_id": "svc-off"}, headers=auth("c7"))).status_code == 409
+    assert (
+        await client.post("/api/v1/bookings", json={**body, "service_id": "nope"}, headers=auth("c7"))
+    ).status_code == 404
+    assert (
+        await client.post("/api/v1/bookings", json={**body, "service_id": "svc-off"}, headers=auth("c7"))
+    ).status_code == 409
 
 
 @pytest.mark.asyncio
@@ -271,8 +324,12 @@ async def test_who_may_track_a_provider(client):
     assert not await allowed(auth("owner-1"))
 
     owner = auth("owner-1")
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)).status_code == 200
-    assert (await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "staff-1"}, headers=owner)).status_code == 200
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)
+    ).status_code == 200
+    assert (
+        await client.post("/api/v1/bookings/bk-4/assign", json={"provider_id": "staff-1"}, headers=owner)
+    ).status_code == 200
     assert await allowed(auth("c3"))  # its customer, while the job is under way
     assert await allowed(owner)  # and the shop running it
     assert not await allowed(auth("c1"))  # another of the provider's customers, finished earlier
@@ -286,10 +343,18 @@ async def test_assigning_a_provider(client):
     await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=owner)
 
     # ASSIGNED is never set without a provider.
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "ASSIGNED"}, headers=owner)).status_code == 400
-    assert (await client.post(url, json={"provider_id": "staff-2"}, headers=auth("c3"))).status_code == 403  # the customer
-    assert (await client.post(url, json={"provider_id": "staff-2"}, headers=auth("owner-2"))).status_code == 404  # another shop
-    assert (await client.post(url, json={"provider_id": "outsider"}, headers=owner)).status_code == 422  # not shop staff
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "ASSIGNED"}, headers=owner)
+    ).status_code == 400
+    assert (
+        await client.post(url, json={"provider_id": "staff-2"}, headers=auth("c3"))
+    ).status_code == 403  # the customer
+    assert (
+        await client.post(url, json={"provider_id": "staff-2"}, headers=auth("owner-2"))
+    ).status_code == 404  # another shop
+    assert (
+        await client.post(url, json={"provider_id": "outsider"}, headers=owner)
+    ).status_code == 422  # not shop staff
 
     assigned = await client.post(url, json={"provider_id": "staff-2"}, headers=owner)
     assert assigned.status_code == 200
@@ -298,7 +363,9 @@ async def test_assigning_a_provider(client):
     assert history[-1]["to_status"] == "ASSIGNED" and history[-1]["changed_by"] == "owner-1"
 
     # The assigned provider now runs the job; assigning again is not a valid transition.
-    assert (await client.put("/api/v1/bookings/bk-4/status", json={"status": "PROVIDER_EN_ROUTE"}, headers=auth("staff-2"))).status_code == 200
+    assert (
+        await client.put("/api/v1/bookings/bk-4/status", json={"status": "PROVIDER_EN_ROUTE"}, headers=auth("staff-2"))
+    ).status_code == 200
     assert (await client.post(url, json={"provider_id": "staff-1"}, headers=owner)).status_code == 400
 
 
@@ -313,7 +380,9 @@ async def test_admins_and_dispatch_can_assign_anyone(client):
 @pytest.mark.asyncio
 async def test_everyone_on_a_booking_hears_about_changes_made_by_someone_else(client):
     created = await client.post(
-        "/api/v1/bookings", json={"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"}, headers=auth("c1"),
+        "/api/v1/bookings",
+        json={"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"},
+        headers=auth("c1"),
     )
     assert created.status_code == 201
     event, recipients, data = SENT[-1]
@@ -356,9 +425,13 @@ async def test_notifier_posts_to_notification_service_with_the_internal_key():
         raise httpx.ConnectError("refused")
 
     # Delivery problems never surface to the caller.
-    await Notifier("http://nowhere", "k3y", transport=httpx.MockTransport(down)).send("booking.confirmed", [{"user_id": "c1"}], {})
+    await Notifier("http://nowhere", "k3y", transport=httpx.MockTransport(down)).send(
+        "booking.confirmed", [{"user_id": "c1"}], {}
+    )
     # Without a key nothing is sent at all.
-    await Notifier("http://notification_service:8000", "", transport=httpx.MockTransport(service)).send("x", [{"user_id": "c1"}], {})
+    await Notifier("http://notification_service:8000", "", transport=httpx.MockTransport(service)).send(
+        "x", [{"user_id": "c1"}], {}
+    )
     assert len(seen) == 1
 
 
@@ -366,11 +439,15 @@ async def test_notifier_posts_to_notification_service_with_the_internal_key():
 async def test_providers_list_the_jobs_assigned_to_them(client):
     jobs = (await client.get("/api/v1/bookings/assigned", headers=auth("staff-1"))).json()
     assert sorted(b["id"] for b in jobs["items"]) == ["bk-1", "bk-4"]
-    pending = (await client.get("/api/v1/bookings/assigned", params={"status": "PENDING"}, headers=auth("staff-1"))).json()
+    pending = (
+        await client.get("/api/v1/bookings/assigned", params={"status": "PENDING"}, headers=auth("staff-1"))
+    ).json()
     assert [b["id"] for b in pending["items"]] == ["bk-4"]
     # Customers' own lists are unchanged, and nobody else's jobs show up.
     assert (await client.get("/api/v1/bookings/assigned", headers=auth("c1"))).json()["items"] == []
-    assert "bk-4" not in [b["id"] for b in (await client.get("/api/v1/bookings", headers=auth("staff-1"))).json()["items"]]
+    assert "bk-4" not in [
+        b["id"] for b in (await client.get("/api/v1/bookings", headers=auth("staff-1"))).json()["items"]
+    ]
 
     # The provider moves their job along; the customer and shop hear about it.
     await client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-1"))
@@ -389,11 +466,17 @@ async def test_a_coupon_discounts_the_catalogue_price_once(client):
 
     discounted = await client.post("/api/v1/bookings", json={**body, "coupon_code": " welcome10 "}, headers=auth("c1"))
     assert discounted.status_code == 201
-    assert (discounted.json()["total_amount"], discounted.json()["coupon_code"], discounted.json()["list_price"]) == (44910, "WELCOME10", 49900)
+    assert (discounted.json()["total_amount"], discounted.json()["coupon_code"], discounted.json()["list_price"]) == (
+        44910,
+        "WELCOME10",
+        49900,
+    )
     # Priced from the catalogue, not from anything the client sent.
     assert PRICED == [("c1", 49900, "WELCOME10")]
 
     again = await client.post("/api/v1/bookings", json={**body, "coupon_code": "WELCOME10"}, headers=auth("c1"))
     assert (again.status_code, again.json()["detail"]) == (422, "Coupon already used")
-    bogus = await client.post("/api/v1/bookings", json={**body, "coupon_code": "FREE100", "total_amount": 1}, headers=auth("c2"))
+    bogus = await client.post(
+        "/api/v1/bookings", json={**body, "coupon_code": "FREE100", "total_amount": 1}, headers=auth("c2")
+    )
     assert (bogus.status_code, bogus.json()["detail"]) == (422, "Coupon not found")

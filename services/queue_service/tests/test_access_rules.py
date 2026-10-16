@@ -1,4 +1,5 @@
 """Queues are opened by the service's shop owner; customers join and leave as themselves."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -15,7 +16,9 @@ from app.main import app
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -80,7 +83,9 @@ async def test_customers_can_find_a_services_open_queues(client):
 
 
 async def join(client, qid, who):
-    resp = await client.post(f"/api/v1/queues/{qid}/join", json={"customer_id": who, "service_id": "svc-1"}, headers=auth(who))
+    resp = await client.post(
+        f"/api/v1/queues/{qid}/join", json={"customer_id": who, "service_id": "svc-1"}, headers=auth(who)
+    )
     assert resp.status_code == 201
     return resp.json()
 
@@ -102,7 +107,12 @@ async def test_positions_move_up_as_people_ahead_are_served_or_leave(client):
     assert (await pos("c3")).json()["position"] == 2
 
     await client.delete(f"/api/v1/queues/{qid}/entries/{second['id']}", headers=auth("c2"))
-    assert (await pos("c3")).json() == {"customer_id": "c3", "queue_id": qid, "position": 1, "estimated_wait_minutes": 0}
+    assert (await pos("c3")).json() == {
+        "customer_id": "c3",
+        "queue_id": qid,
+        "position": 1,
+        "estimated_wait_minutes": 0,
+    }
     waiting = (await client.get(f"/api/v1/queues/{qid}/entries", headers=ALICE)).json()
     assert [(e["customer_id"], e["position"]) for e in waiting] == [("c3", 1)]
     assert (await client.get(f"/api/v1/queues/{qid}", headers=BOB)).json()["current_size"] == 1
@@ -123,7 +133,9 @@ async def test_only_the_shop_manages_its_queue(client):
     assert (await client.post("/api/v1/queues", json={"service_id": "svc-1"}, headers=ALICE)).status_code == 409
     closed = await client.patch(f"/api/v1/queues/{qid}", json={"is_accepting": False}, headers=ALICE)
     assert closed.json()["is_accepting"] is False
-    late = await client.post(f"/api/v1/queues/{qid}/join", json={"customer_id": "c9", "service_id": "svc-1"}, headers=auth("c9"))
+    late = await client.post(
+        f"/api/v1/queues/{qid}/join", json={"customer_id": "c9", "service_id": "svc-1"}, headers=auth("c9")
+    )
     assert late.status_code == 409
     # Customers no longer find it, but the shop still sees it to reopen.
     assert (await client.get("/api/v1/queues", params={"service_id": "svc-1"}, headers=BOB)).json() == []

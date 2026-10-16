@@ -17,7 +17,6 @@ log = structlog.get_logger()
 
 
 class PaymentService:
-
     async def get_or_create_account(
         self,
         db: AsyncSession,
@@ -61,9 +60,7 @@ class PaymentService:
                 return existing
 
         # Idempotency check via DB
-        result = await db.execute(
-            select(Payment).where(Payment.idempotency_key == payment_data.idempotency_key)
-        )
+        result = await db.execute(select(Payment).where(Payment.idempotency_key == payment_data.idempotency_key))
         existing = result.scalar_one_or_none()
         if existing:
             return existing
@@ -86,8 +83,11 @@ class PaymentService:
         await db.flush()
 
         await escrow_service.create_escrow(
-            db, payment.id, payment_data.booking_id,
-            payment_data.amount_cents, payment_data.currency,
+            db,
+            payment.id,
+            payment_data.booking_id,
+            payment_data.amount_cents,
+            payment_data.currency,
         )
 
         await redis.setex(idempotency_key, 86400, payment.id)
@@ -95,7 +95,9 @@ class PaymentService:
         log.info("payment_initiated", payment_id=payment.id, amount_cents=payment_data.amount_cents)
         return payment
 
-    async def mark_completed(self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway: str) -> Payment:
+    async def mark_completed(
+        self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway: str
+    ) -> Payment:
         """Records a confirmed payment once: funds go into escrow and the platform account is credited."""
         if payment.status == "COMPLETED":
             return payment
@@ -107,9 +109,13 @@ class PaymentService:
             await escrow_service.hold_funds(db, payment.id)
             platform_account = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
             await ledger.credit(
-                db, platform_account.id, payment.amount_cents,
-                payment.currency, f"Payment {payment.id} received",
-                payment.id, "payment",
+                db,
+                platform_account.id,
+                payment.amount_cents,
+                payment.currency,
+                f"Payment {payment.id} received",
+                payment.id,
+                "payment",
             )
         except Exception as e:
             log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
@@ -126,7 +132,9 @@ class PaymentService:
         log.info("payment_completed", payment_id=payment.id, gateway=gateway)
         return payment
 
-    async def _find_for_gateway(self, db: AsyncSession, payment_id: Optional[str], order_id: Optional[str]) -> Optional[Payment]:
+    async def _find_for_gateway(
+        self, db: AsyncSession, payment_id: Optional[str], order_id: Optional[str]
+    ) -> Optional[Payment]:
         if payment_id:
             payment = await self.get_payment(db, payment_id)
             if payment:
@@ -142,12 +150,17 @@ class PaymentService:
         Returns what changed (``("payment.completed", payment)`` or ``("payment.failed", payment)``), if anything.
         """
         entity = event.get("payload", {}).get("payment", {}).get("entity", {})
-        payment = await self._find_for_gateway(db, (entity.get("notes") or {}).get("payment_id"), entity.get("order_id"))
+        payment = await self._find_for_gateway(
+            db, (entity.get("notes") or {}).get("payment_id"), entity.get("order_id")
+        )
         if payment is None:
             log.info("razorpay_event_unmatched", event=event.get("event"), order_id=entity.get("order_id"))
             return None
         if event.get("event") in ("payment.captured", "order.paid"):
-            if entity.get("amount") != payment.amount_cents or entity.get("currency", payment.currency) != payment.currency:
+            if (
+                entity.get("amount") != payment.amount_cents
+                or entity.get("currency", payment.currency) != payment.currency
+            ):
                 log.warning("razorpay_amount_mismatch", payment_id=payment.id, amount=entity.get("amount"))
                 return None
             if payment.status == "COMPLETED":
@@ -203,7 +216,9 @@ class PaymentService:
             if gateway is None or not gateway.configured:
                 raise ValueError("Razorpay is not configured, so this payment cannot be refunded")
             result = await gateway.refund(
-                payment.provider_payment_id, refund_data.amount_cents, {"refund_id": refund.id, "reason": refund_data.reason[:200]}
+                payment.provider_payment_id,
+                refund_data.amount_cents,
+                {"refund_id": refund.id, "reason": refund_data.reason[:200]},
             )
             refund.gateway_refund_id = result.get("id")
             refund.status = "PROCESSED" if result.get("status") == "processed" else "PENDING"
@@ -227,7 +242,9 @@ class PaymentService:
         )
         return int(result.scalar() or 0)
 
-    async def _return_funds(self, db: AsyncSession, payment: Payment, amount_cents: int, in_full: bool, reason: str) -> None:
+    async def _return_funds(
+        self, db: AsyncSession, payment: Payment, amount_cents: int, in_full: bool, reason: str
+    ) -> None:
         """Moves the refunded amount from the platform back to the payer in the ledger."""
         try:
             payer = await self.get_or_create_account(db, payment.payer_id, "user", payment.currency)
@@ -236,8 +253,13 @@ class PaymentService:
             else:
                 platform = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
                 await ledger.transfer(
-                    db, from_account_id=platform.id, to_account_id=payer.id, amount_cents=amount_cents,
-                    currency=payment.currency, description=f"Refund: {reason}", reference_id=payment.id,
+                    db,
+                    from_account_id=platform.id,
+                    to_account_id=payer.id,
+                    amount_cents=amount_cents,
+                    currency=payment.currency,
+                    description=f"Refund: {reason}",
+                    reference_id=payment.id,
                     reference_type="refund",
                 )
         except Exception as e:  # the refund itself stands; the books are reconciled by finance
@@ -260,8 +282,10 @@ class PaymentService:
             await db.flush()
             remaining = await self._refunded_cents(db, refund.payment_id)
             if payment:
-                payment.status = "COMPLETED" if remaining == 0 else (
-                    "REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED"
+                payment.status = (
+                    "COMPLETED"
+                    if remaining == 0
+                    else ("REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED")
                 )
         else:
             return None
@@ -295,9 +319,7 @@ class PaymentService:
         offset = (page - 1) * per_page
         entries = await ledger.get_statement(db, account_id, limit=per_page, offset=offset)
 
-        count_result = await db.execute(
-            select(func.count()).where(LedgerEntry.account_id == account_id)
-        )
+        count_result = await db.execute(select(func.count()).where(LedgerEntry.account_id == account_id))
         total = count_result.scalar() or 0
 
         return {"items": entries, "total": total, "page": page, "per_page": per_page}

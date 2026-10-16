@@ -3,6 +3,7 @@
 Tokens are verified here as well as at the API gateway, so the service stays protected when
 its port is reached directly.
 """
+
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 

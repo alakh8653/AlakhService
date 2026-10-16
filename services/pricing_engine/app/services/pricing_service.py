@@ -23,7 +23,6 @@ log = structlog.get_logger()
 
 
 class PricingService:
-
     async def calculate_price(self, db: AsyncSession, data: PriceCalculationRequest) -> PriceCalculation:
         coupon_discount_pct = 0.0
 
@@ -62,11 +61,18 @@ class PricingService:
         )
         db.add(calc)
         await db.flush()
-        log.info("price_calculated", service_id=data.service_id, base=data.base_price_cents, final=result_ctx.final_price_cents)
+        log.info(
+            "price_calculated",
+            service_id=data.service_id,
+            base=data.base_price_cents,
+            final=result_ctx.final_price_cents,
+        )
         return calc
 
     async def get_calculation(self, db: AsyncSession, calculation_id: str) -> PriceCalculation:
-        calc = (await db.execute(select(PriceCalculation).where(PriceCalculation.id == calculation_id))).scalar_one_or_none()
+        calc = (
+            await db.execute(select(PriceCalculation).where(PriceCalculation.id == calculation_id))
+        ).scalar_one_or_none()
         if calc is None:
             raise CalculationNotFoundError()
         return calc
@@ -150,7 +156,9 @@ class PricingService:
             if valid_from.tzinfo is None:
                 valid_from = valid_from.replace(tzinfo=timezone.utc)
             if now < valid_from:
-                return CouponValidateResponse(code=code, is_valid=False, discount_pct=0.0, message="Coupon not yet valid")
+                return CouponValidateResponse(
+                    code=code, is_valid=False, discount_pct=0.0, message="Coupon not yet valid"
+                )
 
         if coupon.valid_to:
             valid_to = coupon.valid_to
@@ -160,9 +168,13 @@ class PricingService:
                 return CouponValidateResponse(code=code, is_valid=False, discount_pct=0.0, message="Coupon has expired")
 
         if coupon.max_uses is not None and coupon.uses_count >= coupon.max_uses:
-            return CouponValidateResponse(code=code, is_valid=False, discount_pct=0.0, message="Coupon has reached maximum uses")
+            return CouponValidateResponse(
+                code=code, is_valid=False, discount_pct=0.0, message="Coupon has reached maximum uses"
+            )
 
-        return CouponValidateResponse(code=code, is_valid=True, discount_pct=coupon.discount_pct, message="Coupon is valid")
+        return CouponValidateResponse(
+            code=code, is_valid=True, discount_pct=coupon.discount_pct, message="Coupon is valid"
+        )
 
 
 pricing_service = PricingService()

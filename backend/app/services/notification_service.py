@@ -42,13 +42,9 @@ async def get_user_notifications(
     return list(result.scalars().all())
 
 
-async def mark_as_read(
-    db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID
-) -> Notification:
+async def mark_as_read(db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
     result = await db.execute(
-        select(Notification).where(
-            Notification.id == notification_id, Notification.user_id == user_id
-        )
+        select(Notification).where(Notification.id == notification_id, Notification.user_id == user_id)
     )
     notification = result.scalar_one_or_none()
     if not notification:
@@ -61,29 +57,21 @@ async def mark_as_read(
 
 async def mark_all_as_read(db: AsyncSession, user_id: uuid.UUID) -> None:
     await db.execute(
-        update(Notification)
-        .where(Notification.user_id == user_id, ~Notification.is_read)
-        .values(is_read=True)
+        update(Notification).where(Notification.user_id == user_id, ~Notification.is_read).values(is_read=True)
     )
     await db.flush()
 
 
-async def send_push_notification(
-    device_token: str, title: str, body: str, data: Any = None
-) -> None:
+async def send_push_notification(device_token: str, title: str, body: str, data: Any = None) -> None:
     """Placeholder for Firebase Cloud Messaging (FCM) push notification."""
     # TODO: integrate with firebase-admin SDK
     # messaging.send(messaging.Message(notification=..., token=device_token))
     pass
 
 
-async def delete_notification(
-    db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
+async def delete_notification(db: AsyncSession, notification_id: uuid.UUID, user_id: uuid.UUID) -> None:
     result = await db.execute(
-        select(Notification).where(
-            Notification.id == notification_id, Notification.user_id == user_id
-        )
+        select(Notification).where(Notification.id == notification_id, Notification.user_id == user_id)
     )
     notification = result.scalar_one_or_none()
     if not notification:

@@ -9,6 +9,7 @@ log = structlog.get_logger()
 
 jinja_env = Environment(loader=BaseLoader(), autoescape=True)
 
+
 class TemplateService:
     def render_template(self, template: NotificationTemplate, variables: dict) -> dict:
         try:
@@ -25,6 +26,7 @@ class TemplateService:
 
     def validate_template_variables(self, template: NotificationTemplate, variables: dict) -> List[str]:
         import json
+
         required: List[str] = []
         if template.variables:
             try:
@@ -33,5 +35,6 @@ class TemplateService:
                 pass
         missing = [v for v in required if v not in variables]
         return missing
+
 
 template_service = TemplateService()

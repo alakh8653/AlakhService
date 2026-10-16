@@ -46,10 +46,16 @@ def service():
 
 @pytest.mark.anyio
 async def test_consent_recording(db_session, service):
-    record = await service.record_consent(db_session, ConsentRecordCreate(
-        user_id="u1", consent_type="marketing_emails", granted=True,
-        ip_address="192.168.1.1", user_agent="Mozilla/5.0"
-    ))
+    record = await service.record_consent(
+        db_session,
+        ConsentRecordCreate(
+            user_id="u1",
+            consent_type="marketing_emails",
+            granted=True,
+            ip_address="192.168.1.1",
+            user_agent="Mozilla/5.0",
+        ),
+    )
     assert record.user_id == "u1"
     assert record.consent_type == "marketing_emails"
     assert record.granted is True
@@ -57,8 +63,12 @@ async def test_consent_recording(db_session, service):
 
 @pytest.mark.anyio
 async def test_consent_versioning(db_session, service):
-    await service.record_consent(db_session, ConsentRecordCreate(user_id="u1", consent_type="privacy_policy", granted=True, version="1.0"))
-    await service.record_consent(db_session, ConsentRecordCreate(user_id="u1", consent_type="privacy_policy", granted=True, version="2.0"))
+    await service.record_consent(
+        db_session, ConsentRecordCreate(user_id="u1", consent_type="privacy_policy", granted=True, version="1.0")
+    )
+    await service.record_consent(
+        db_session, ConsentRecordCreate(user_id="u1", consent_type="privacy_policy", granted=True, version="2.0")
+    )
     consents = await service.get_user_consents(db_session, "u1")
     assert len(consents) == 2
     versions = [c.version for c in consents]
@@ -85,7 +95,9 @@ async def test_data_export_completion(db_session, service):
 
 @pytest.mark.anyio
 async def test_erasure_request(db_session, service):
-    req = await service.request_erasure(db_session, DataErasureRequestCreate(user_id="u2", reason="User requested deletion"))
+    req = await service.request_erasure(
+        db_session, DataErasureRequestCreate(user_id="u2", reason="User requested deletion")
+    )
     assert req.user_id == "u2"
     assert req.status == "PENDING"
     assert req.reason == "User requested deletion"

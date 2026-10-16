@@ -15,10 +15,10 @@ log = structlog.get_logger()
 
 
 class BookingService:
-
     async def _generate_booking_number(self, db: AsyncSession) -> str:
         """Generate a unique booking number with collision detection."""
         from sqlalchemy import select as sa_select
+
         for _ in range(10):
             number = "BK" + str(random.randint(10000000, 99999999))
             result = await db.execute(sa_select(Booking.id).where(Booking.booking_number == number))
@@ -154,12 +154,16 @@ class BookingService:
         )
         return {"items": list(result.scalars().all()), "total": total, "page": page, "per_page": per_page}
 
-    async def shop_summary(self, db: AsyncSession, shop_id: str, date_from: date, date_to: date, top_n: int = 5) -> dict:
+    async def shop_summary(
+        self, db: AsyncSession, shop_id: str, date_from: date, date_to: date, top_n: int = 5
+    ) -> dict:
         """Totals for bookings scheduled in the range; revenue counts completed bookings only."""
         bookings = (await db.execute(self._shop_query(shop_id, date_from=date_from, date_to=date_to))).scalars().all()
 
         by_status: dict = {}
-        by_day = {date_from + timedelta(days=i): {"revenue": 0, "bookings": 0} for i in range((date_to - date_from).days + 1)}
+        by_day = {
+            date_from + timedelta(days=i): {"revenue": 0, "bookings": 0} for i in range((date_to - date_from).days + 1)
+        }
         by_service: dict = {}
         for b in bookings:
             by_status[b.status] = by_status.get(b.status, 0) + 1
@@ -242,9 +246,7 @@ class BookingService:
         return booking
 
     async def cancel_booking(self, db: AsyncSession, booking_id: str, user_id: str, reason: str) -> Booking:
-        booking = await self.transition_status(
-            db, booking_id, BookingStatus.CANCELLED.value, user_id, reason
-        )
+        booking = await self.transition_status(db, booking_id, BookingStatus.CANCELLED.value, user_id, reason)
         booking.cancellation_reason = reason
         # Set explicitly so the column's server-side onupdate does not expire it after the flush.
         booking.updated_at = datetime.now(timezone.utc)
@@ -252,9 +254,7 @@ class BookingService:
         return booking
 
     async def complete_booking(self, db: AsyncSession, booking_id: str, user_id: str) -> Booking:
-        return await self.transition_status(
-            db, booking_id, BookingStatus.COMPLETED.value, user_id, "Service completed"
-        )
+        return await self.transition_status(db, booking_id, BookingStatus.COMPLETED.value, user_id, "Service completed")
 
     async def get_booking_history(self, db: AsyncSession, booking_id: str) -> List[BookingStatusHistory]:
         result = await db.execute(

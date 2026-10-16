@@ -18,7 +18,6 @@ VALID_ESCROW_TRANSITIONS = {
 
 
 class EscrowService:
-
     def _can_transition(self, from_state: str, to_state: str) -> bool:
         return to_state in VALID_ESCROW_TRANSITIONS.get(from_state, set())
 
@@ -63,9 +62,7 @@ class EscrowService:
 
     async def _get_platform_account_id(self, db: AsyncSession) -> str:
         """Resolve the platform account row id by owner_id."""
-        result = await db.execute(
-            select(Account).where(Account.owner_id == settings.PLATFORM_ACCOUNT_ID)
-        )
+        result = await db.execute(select(Account).where(Account.owner_id == settings.PLATFORM_ACCOUNT_ID))
         account = result.scalar_one_or_none()
         if not account:
             raise ValueError(f"Platform account '{settings.PLATFORM_ACCOUNT_ID}' not found")
@@ -105,7 +102,9 @@ class EscrowService:
         log.info("escrow_released", escrow_id=escrow.id, provider_account=provider_account_id)
         return escrow
 
-    async def refund_funds(self, db: AsyncSession, payment_id: str, payer_account_id: str, reason: str = "Refund") -> Escrow:
+    async def refund_funds(
+        self, db: AsyncSession, payment_id: str, payer_account_id: str, reason: str = "Refund"
+    ) -> Escrow:
         result = await db.execute(select(Escrow).where(Escrow.payment_id == payment_id))
         escrow = result.scalar_one_or_none()
         if not escrow:

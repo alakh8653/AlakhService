@@ -1,4 +1,5 @@
 """The operator command that grants and revokes admin access (python -m app.cli)."""
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -17,10 +18,12 @@ async def db():
         await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with factory() as session:
-        session.add_all([
-            User(email="ravi@example.com", hashed_password=hash_password("Passw0rd!"), full_name="Ravi Kumar"),
-            User(phone="+919876543210", hashed_password=hash_password("Passw0rd!"), full_name="Asha Rao"),
-        ])
+        session.add_all(
+            [
+                User(email="ravi@example.com", hashed_password=hash_password("Passw0rd!"), full_name="Ravi Kumar"),
+                User(phone="+919876543210", hashed_password=hash_password("Passw0rd!"), full_name="Asha Rao"),
+            ]
+        )
         await session.commit()
         yield session
     await engine.dispose()

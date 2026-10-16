@@ -84,7 +84,9 @@ async def join_queue(
 
 
 @router.delete("/queues/{queue_id}/entries/{entry_id}", status_code=204)
-async def leave_queue(queue_id: str, entry_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def leave_queue(
+    queue_id: str, entry_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     if not caller.is_admin:
         entry = (await db.execute(select(QueueEntry).where(QueueEntry.id == entry_id))).scalar_one_or_none()
         if entry is None or entry.customer_id != caller.user_id:

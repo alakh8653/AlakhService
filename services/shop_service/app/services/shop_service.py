@@ -14,7 +14,6 @@ log = structlog.get_logger()
 
 
 class ShopService:
-
     async def create_shop(self, db: AsyncSession, data: ShopCreate) -> Shop:
         shop = Shop(
             id=str(uuid.uuid4()),
@@ -51,7 +50,9 @@ class ShopService:
         result = await db.execute(query.order_by(Shop.created_at, Shop.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
-    async def search_shops(self, db: AsyncSession, q: Optional[str] = None, city: Optional[str] = None, category: Optional[str] = None) -> List[Shop]:
+    async def search_shops(
+        self, db: AsyncSession, q: Optional[str] = None, city: Optional[str] = None, category: Optional[str] = None
+    ) -> List[Shop]:
         stmt = select(Shop).where(Shop.is_active == True)
         if city:
             stmt = stmt.where(Shop.city == city)
@@ -85,7 +86,6 @@ class ShopService:
         log.info("shop_rating_updated", shop_id=shop_id, new_avg=shop.rating_avg)
         return shop
 
-
     async def add_rating(
         self, db: AsyncSession, shop_id: str, booking_id: str, customer_id: str, rating: float, comment=None
     ) -> Shop:
@@ -93,7 +93,9 @@ class ShopService:
         existing = await db.execute(select(ShopRating).where(ShopRating.booking_id == booking_id))
         if existing.scalar_one_or_none() is not None:
             raise RatingExistsError()
-        db.add(ShopRating(shop_id=shop_id, booking_id=booking_id, customer_id=customer_id, rating=rating, comment=comment))
+        db.add(
+            ShopRating(shop_id=shop_id, booking_id=booking_id, customer_id=customer_id, rating=rating, comment=comment)
+        )
         try:
             return await self.update_rating(db, shop_id, rating)
         except IntegrityError:  # the same booking rated concurrently

@@ -114,7 +114,12 @@ async def price_with_coupon(token: str, customer_id: str, service_id: str, list_
                 raise CouponRejected(check.json().get("message") or "Coupon is not valid")
             quote = await client.post(
                 "/api/v1/pricing/calculate",
-                json={"service_id": service_id, "customer_id": customer_id, "base_price_cents": list_price, "coupon_code": code},
+                json={
+                    "service_id": service_id,
+                    "customer_id": customer_id,
+                    "base_price_cents": list_price,
+                    "coupon_code": code,
+                },
             )
             quote.raise_for_status()
             redeemed = await client.post(f"/api/v1/pricing/{quote.json()['id']}/redeem")

@@ -1,4 +1,5 @@
 """Outgoing email for account messages (password reset links)."""
+
 from email.message import EmailMessage
 from urllib.parse import urlencode
 

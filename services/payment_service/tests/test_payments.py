@@ -96,9 +96,7 @@ async def test_create_account(db_session, payment_svc):
 @pytest.mark.anyio
 async def test_ledger_credit(db_session, ledger_svc):
     account = await create_account(db_session, "owner-2", balance_cents=0)
-    entry = await ledger_svc.credit(
-        db_session, account.id, 10000, "INR", "Initial deposit", "ref-1", "deposit"
-    )
+    entry = await ledger_svc.credit(db_session, account.id, 10000, "INR", "Initial deposit", "ref-1", "deposit")
     assert entry.entry_type == "CREDIT"
     assert entry.amount_cents == 10000
     assert entry.running_balance == 10000
@@ -132,9 +130,7 @@ async def test_ledger_transfer_insufficient_funds(db_session, ledger_svc):
     acc_b = await create_account(db_session, "owner-d", balance_cents=0)
 
     with pytest.raises(ValueError, match="Insufficient balance"):
-        await ledger_svc.transfer(
-            db_session, acc_a.id, acc_b.id, 5000, "INR", "Too much", "ref-3", "transfer"
-        )
+        await ledger_svc.transfer(db_session, acc_a.id, acc_b.id, 5000, "INR", "Too much", "ref-3", "transfer")
 
 
 @pytest.mark.anyio
@@ -246,6 +242,7 @@ async def test_escrow_held_to_refunded(db_session, escrow_svc, ledger_svc):
 @pytest.mark.anyio
 async def test_initiate_payment_creates_escrow(db_session, payment_svc, mock_redis):
     from sqlalchemy import select as sa_select
+
     payment_data = PaymentInitiate(
         booking_id="booking-init-1",
         payer_id="payer-init-1",
@@ -287,14 +284,18 @@ async def test_idempotency(db_session, payment_svc, mock_redis):
 
 @pytest.mark.anyio
 async def test_completing_a_payment_twice_holds_and_credits_once(db_session, payment_svc, mock_redis, ledger_svc):
-    payment = await payment_svc.initiate_payment(db_session, mock_redis, PaymentInitiate(
-        booking_id="booking-done-1",
-        payer_id="payer-done-1",
-        payee_id="payee-done-1",
-        amount_cents=7000,
-        payment_method="upi",
-        idempotency_key=str(uuid.uuid4()),
-    ))
+    payment = await payment_svc.initiate_payment(
+        db_session,
+        mock_redis,
+        PaymentInitiate(
+            booking_id="booking-done-1",
+            payer_id="payer-done-1",
+            payee_id="payee-done-1",
+            amount_cents=7000,
+            payment_method="upi",
+            idempotency_key=str(uuid.uuid4()),
+        ),
+    )
 
     await payment_svc.mark_completed(db_session, payment, "pay_1", "razorpay")
     await payment_svc.mark_completed(db_session, payment, "pay_1", "razorpay")
@@ -304,17 +305,26 @@ async def test_completing_a_payment_twice_holds_and_credits_once(db_session, pay
     assert await ledger_svc.get_balance(db_session, platform.id) == 7000
 
 
-
 @pytest.mark.anyio
 async def test_cash_payments_are_refunded_manually(db_session, payment_svc, mock_redis, ledger_svc):
     from app.schemas.payment import RefundRequest
 
-    payment = await payment_svc.initiate_payment(db_session, mock_redis, PaymentInitiate(
-        booking_id="booking-cash-1", payer_id="payer-cash-1", payee_id="payee-cash-1",
-        amount_cents=5000, payment_method="cash", idempotency_key=str(uuid.uuid4()),
-    ))
+    payment = await payment_svc.initiate_payment(
+        db_session,
+        mock_redis,
+        PaymentInitiate(
+            booking_id="booking-cash-1",
+            payer_id="payer-cash-1",
+            payee_id="payee-cash-1",
+            amount_cents=5000,
+            payment_method="cash",
+            idempotency_key=str(uuid.uuid4()),
+        ),
+    )
     await payment_svc.mark_completed(db_session, payment, None, "cash")
-    refund = await payment_svc.request_refund(db_session, payment.id, RefundRequest(amount_cents=5000, reason="no-show"))
+    refund = await payment_svc.request_refund(
+        db_session, payment.id, RefundRequest(amount_cents=5000, reason="no-show")
+    )
     assert (refund.status, payment.status) == ("MANUAL", "REFUNDED")
     payer = await payment_svc.get_or_create_account(db_session, "payer-cash-1")
     assert await ledger_svc.get_balance(db_session, payer.id) == 5000

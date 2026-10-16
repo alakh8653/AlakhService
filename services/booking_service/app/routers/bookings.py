@@ -99,7 +99,9 @@ async def create_booking(
     code = (booking_data.coupon_code or "").strip().upper() or None
     if code:
         try:
-            price = await price_with_coupon(credentials.credentials, customer_id, booking_data.service_id, listing["price_cents"], code)
+            price = await price_with_coupon(
+                credentials.credentials, customer_id, booking_data.service_id, listing["price_cents"], code
+            )
         except CouponRejected as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
     booking_data = booking_data.model_copy(
@@ -116,7 +118,12 @@ async def create_booking(
     # (and the caller's next request) must already see the change.
     await db.commit()
     background.add_task(
-        notify_booking, notifier, snapshot(booking, listing.get("name")), "booking.created", customer_id, lookup_owner,
+        notify_booking,
+        notifier,
+        snapshot(booking, listing.get("name")),
+        "booking.created",
+        customer_id,
+        lookup_owner,
         roles=("shop",),
     )
     return booking
@@ -286,7 +293,12 @@ async def assign_provider(
     # (and the caller's next request) must already see the change.
     await db.commit()
     background.add_task(
-        notify_booking, notifier, snapshot(booking), "booking.assigned", current_user.get("sub"), lookup_owner,
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        "booking.assigned",
+        current_user.get("sub"),
+        lookup_owner,
         roles=("customer", "provider"),
     )
     return booking

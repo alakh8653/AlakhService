@@ -16,6 +16,7 @@ async def test_get_service_not_found():
     with pytest.raises(ServiceNotFoundError):
         await svc.get_service(db, "nonexistent-id")
 
+
 @pytest.mark.asyncio
 async def test_create_category_slug_conflict():
     svc = CatalogService()
@@ -25,8 +26,10 @@ async def test_create_category_slug_conflict():
     mock_result.scalar_one_or_none.return_value = existing
     db.execute = AsyncMock(return_value=mock_result)
     from app.schemas.catalog import ServiceCategoryCreate
+
     with pytest.raises(SlugConflictError):
         await svc.create_category(db, ServiceCategoryCreate(name="Test", slug="test-slug"))
+
 
 @pytest.mark.asyncio
 async def test_list_categories_empty():

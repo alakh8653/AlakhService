@@ -1,4 +1,5 @@
 """Risk scores and signals are admin-only."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +14,9 @@ from app.main import app
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -44,4 +47,6 @@ async def test_risk_endpoints_are_admin_only(client):
     assert (await client.get("/api/v1/risk/alice")).status_code == 401
     assert (await client.get("/api/v1/risk/alice", headers=ALICE)).status_code == 403
     assert (await client.get("/api/v1/risk/alice/history", headers=ALICE)).status_code == 403
-    assert (await client.post("/api/v1/risk/alice/signal", json={"signal_type": "x", "value": 1}, headers=ALICE)).status_code == 403
+    assert (
+        await client.post("/api/v1/risk/alice/signal", json={"signal_type": "x", "value": 1}, headers=ALICE)
+    ).status_code == 403

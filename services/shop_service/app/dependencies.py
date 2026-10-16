@@ -3,6 +3,7 @@
 Tokens are verified here rather than trusting gateway-set headers, because the service port can
 be reached without going through the gateway.
 """
+
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 

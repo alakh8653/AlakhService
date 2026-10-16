@@ -1,4 +1,5 @@
 """Roles and permissions for admin users, with every change written to the audit log."""
+
 import json
 import uuid
 from datetime import datetime, timezone
@@ -88,7 +89,9 @@ async def create_role(db: AsyncSession, data: RoleCreate, actor: Optional[str]) 
     return _to_response(role, await _user_counts(db))
 
 
-async def update_permissions(db: AsyncSession, role_id: str, permissions: List[str], actor: Optional[str]) -> RoleResponse:
+async def update_permissions(
+    db: AsyncSession, role_id: str, permissions: List[str], actor: Optional[str]
+) -> RoleResponse:
     role = await _get(db, role_id)
     if role.name in PROTECTED_ROLES:
         raise RoleConflictError(f"The '{role.name}' role always has every permission")

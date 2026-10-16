@@ -81,7 +81,8 @@ async def send_notification(
 ):
     try:
         notif = await notification_service.send(
-            db, redis,
+            db,
+            redis,
             payload.user_id,
             payload.template_name,
             payload.variables,
@@ -180,6 +181,7 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
 )
 async def create_template(payload: NotificationTemplateCreate, db: AsyncSession = Depends(get_db)):
     import json as _json
+
     tmpl = NotificationTemplate(
         name=payload.name,
         channel=payload.channel,
@@ -198,9 +200,7 @@ async def register_device_token(
     payload: DeviceTokenCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
 ):
     ensure_self_or_admin(payload.user_id, caller)
-    result = await db.execute(
-        select(DeviceToken).where(DeviceToken.token == payload.token)
-    )
+    result = await db.execute(select(DeviceToken).where(DeviceToken.token == payload.token))
     existing = result.scalar_one_or_none()
     if existing:
         # A device that signs in as someone else must stop receiving the previous user's pushes.

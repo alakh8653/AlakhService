@@ -45,11 +45,13 @@ def service():
 
 @pytest.mark.anyio
 async def test_event_ingestion(db_session, service):
-    batch = EventBatchCreate(events=[
-        EventCreate(event_type="page_view", user_id="u1", session_id="s1"),
-        EventCreate(event_type="click", user_id="u1", session_id="s1"),
-        EventCreate(event_type="purchase", user_id="u2", session_id="s2"),
-    ])
+    batch = EventBatchCreate(
+        events=[
+            EventCreate(event_type="page_view", user_id="u1", session_id="s1"),
+            EventCreate(event_type="click", user_id="u1", session_id="s1"),
+            EventCreate(event_type="purchase", user_id="u2", session_id="s2"),
+        ]
+    )
     events = await service.ingest_events(db_session, batch)
     assert len(events) == 3
     assert events[0].event_type == "page_view"
@@ -59,14 +61,16 @@ async def test_event_ingestion(db_session, service):
 @pytest.mark.anyio
 async def test_funnel_analysis(db_session, service):
     # Insert events for funnel
-    batch = EventBatchCreate(events=[
-        EventCreate(event_type="visit", user_id="u1"),
-        EventCreate(event_type="visit", user_id="u2"),
-        EventCreate(event_type="visit", user_id="u3"),
-        EventCreate(event_type="signup", user_id="u1"),
-        EventCreate(event_type="signup", user_id="u2"),
-        EventCreate(event_type="purchase", user_id="u1"),
-    ])
+    batch = EventBatchCreate(
+        events=[
+            EventCreate(event_type="visit", user_id="u1"),
+            EventCreate(event_type="visit", user_id="u2"),
+            EventCreate(event_type="visit", user_id="u3"),
+            EventCreate(event_type="signup", user_id="u1"),
+            EventCreate(event_type="signup", user_id="u2"),
+            EventCreate(event_type="purchase", user_id="u1"),
+        ]
+    )
     await service.ingest_events(db_session, batch)
 
     request = FunnelAnalysisRequest(steps=["visit", "signup", "purchase"])
@@ -77,7 +81,7 @@ async def test_funnel_analysis(db_session, service):
     assert result.steps[1].count == 2
     assert result.steps[2].count == 1
     assert len(result.conversion_rates) == 2
-    assert abs(result.conversion_rates[0] - 2/3) < 0.01
+    assert abs(result.conversion_rates[0] - 2 / 3) < 0.01
 
 
 @pytest.mark.anyio

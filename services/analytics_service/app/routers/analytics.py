@@ -20,7 +20,9 @@ router = APIRouter()
 
 
 @router.post("/events", response_model=List[EventResponse], status_code=201)
-async def ingest_events(data: EventBatchCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def ingest_events(
+    data: EventBatchCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     # Users record events as themselves; only admins (e.g. backfills) may attribute them to others.
     if not caller.is_admin:
         data = EventBatchCreate(events=[e.model_copy(update={"user_id": caller.user_id}) for e in data.events])

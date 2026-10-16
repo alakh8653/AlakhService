@@ -102,7 +102,9 @@ async def test_bktree_exact_match():
 
 @pytest.mark.anyio
 async def test_create_category(db_session, service):
-    cat = await service.create_category(db_session, CategoryCreate(name="Beauty", slug="beauty", description="Beauty services"))
+    cat = await service.create_category(
+        db_session, CategoryCreate(name="Beauty", slug="beauty", description="Beauty services")
+    )
     assert cat.id is not None
     assert cat.name == "Beauty"
     assert cat.slug == "beauty"
@@ -110,9 +112,16 @@ async def test_create_category(db_session, service):
 
 @pytest.mark.anyio
 async def test_create_service(db_session, service):
-    svc = await service.create_service(db_session, ServiceListingCreate(
-        shop_id="shop-1", name="Deep Tissue Massage", description="Relaxing massage", price_cents=5000, duration_minutes=60
-    ))
+    svc = await service.create_service(
+        db_session,
+        ServiceListingCreate(
+            shop_id="shop-1",
+            name="Deep Tissue Massage",
+            description="Relaxing massage",
+            price_cents=5000,
+            duration_minutes=60,
+        ),
+    )
     assert svc.id is not None
     assert svc.name == "Deep Tissue Massage"
     assert svc.price_cents == 5000
@@ -120,8 +129,18 @@ async def test_create_service(db_session, service):
 
 @pytest.mark.anyio
 async def test_search_services_tfidf(db_session, service):
-    await service.create_service(db_session, ServiceListingCreate(shop_id="shop-1", name="Swedish Massage Therapy", description="Relaxing full body massage", price_cents=4000))
-    await service.create_service(db_session, ServiceListingCreate(shop_id="shop-1", name="Haircut and Styling", description="Professional hair services", price_cents=1500))
+    await service.create_service(
+        db_session,
+        ServiceListingCreate(
+            shop_id="shop-1", name="Swedish Massage Therapy", description="Relaxing full body massage", price_cents=4000
+        ),
+    )
+    await service.create_service(
+        db_session,
+        ServiceListingCreate(
+            shop_id="shop-1", name="Haircut and Styling", description="Professional hair services", price_cents=1500
+        ),
+    )
 
     results = await service.search_services(db_session, q="massage therapy")
     assert len(results) >= 1
@@ -131,8 +150,12 @@ async def test_search_services_tfidf(db_session, service):
 
 @pytest.mark.anyio
 async def test_update_service(db_session, service):
-    svc = await service.create_service(db_session, ServiceListingCreate(shop_id="s1", name="Basic Manicure", price_cents=1000))
-    updated = await service.update_service(db_session, svc.id, ServiceListingUpdate(price_cents=1200, name="Premium Manicure"))
+    svc = await service.create_service(
+        db_session, ServiceListingCreate(shop_id="s1", name="Basic Manicure", price_cents=1000)
+    )
+    updated = await service.update_service(
+        db_session, svc.id, ServiceListingUpdate(price_cents=1200, name="Premium Manicure")
+    )
     assert updated.price_cents == 1200
     assert updated.name == "Premium Manicure"
 

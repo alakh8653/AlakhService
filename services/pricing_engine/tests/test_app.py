@@ -1,4 +1,5 @@
 """Smoke test: the FastAPI app must import and serve its health endpoint."""
+
 from fastapi.testclient import TestClient
 
 from app.main import app

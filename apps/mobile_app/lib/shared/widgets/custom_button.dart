@@ -51,10 +51,22 @@ class CustomButton extends StatelessWidget {
     );
   }
 
+  /// AppTextStyles.button without its fixed white, so each variant's foreground colour applies
+  /// (otherwise secondary and outlined buttons draw white text on a white background).
+  static final TextStyle _labelStyle = TextStyle(
+    fontSize: AppTextStyles.button.fontSize,
+    fontWeight: AppTextStyles.button.fontWeight,
+    fontFamily: AppTextStyles.button.fontFamily,
+    letterSpacing: AppTextStyles.button.letterSpacing,
+  );
+
   Widget get _child => isLoading
-      ? const SizedBox.square(
+      ? SizedBox.square(
           dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: variant == ButtonVariant.primary ? Colors.white : AppColors.primary,
+          ),
         )
       : Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -64,7 +76,7 @@ class CustomButton extends StatelessWidget {
               Icon(leadingIcon, size: 20),
               const SizedBox(width: 8),
             ],
-            Text(label, style: AppTextStyles.button),
+            Text(label, style: _labelStyle),
           ],
         );
 }

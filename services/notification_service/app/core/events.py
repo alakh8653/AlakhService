@@ -35,6 +35,10 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ("booking.disputed", None): ("Booking disputed", "Booking {booking_number} is under dispute."),
     ("booking.refunded", None): ("Booking refunded", "Booking {booking_number} has been refunded."),
     ("queue.called", None): ("It's your turn", "Please come to the counter now."),
+    ("queue.almost_turn", None): (
+        "Almost your turn",
+        "You're near the front of the queue: about {minutes} min to go. Please be back by then.",
+    ),
     ("payment.completed", "customer"): ("Payment received", "We received your payment of ₹{amount}."),
     ("payment.completed", "shop"): ("Payment received", "A customer paid ₹{amount} for a booking."),
     ("payment.failed", "customer"): (

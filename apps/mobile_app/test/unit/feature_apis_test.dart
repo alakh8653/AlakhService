@@ -126,6 +126,29 @@ void main() {
       expect(ticket.estimatedWaitMinutes, 10);
     });
 
+    test('queue position reads people ahead, the expected call time and the called state', () async {
+      var body = <String, dynamic>{
+        'queue_id': 'q1',
+        'entry_id': 'e1',
+        'status': 'WAITING',
+        'position': 3,
+        'people_ahead': 2,
+        'estimated_wait_minutes': 30,
+        'estimated_call_at': '2026-10-16T05:40:00Z',
+      };
+      final adapter = FakeAdapter((_) => (status: 200, body: body));
+      final api = QueueApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final waiting = (await api.position(queueId: 'q1', customerId: 'u1'))!;
+      expect(waiting.entryId, 'e1');
+      expect(waiting.peopleAhead, 2);
+      expect(waiting.isCalled, isFalse);
+      expect(waiting.estimatedCallAt!.toUtc(), DateTime.utc(2026, 10, 16, 5, 40));
+
+      body = {...body, 'status': 'CALLED', 'position': 0, 'people_ahead': 0, 'estimated_wait_minutes': 0};
+      expect((await api.position(queueId: 'q1', customerId: 'u1'))!.isCalled, isTrue);
+    });
+
     test('reporting a problem raises a dispute and marks the booking disputed', () async {
       final adapter = FakeAdapter((_) => (status: 200, body: {}));
       final api = DisputeApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));

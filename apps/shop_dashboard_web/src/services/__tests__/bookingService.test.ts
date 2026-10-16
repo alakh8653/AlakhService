@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../apiClient';
 import {
-  BOOKING_ACTIONS,
+  MODE_ACTIONS,
   assignProvider,
+  bookingActions,
   cancelBooking,
   getShopBookings,
   getShopSummary,
   updateBookingStatus,
 } from '../bookingService';
-import type { BookingStatus } from '../../types';
+import type { BookingStatus, ServiceMode } from '../../types';
 
 vi.mock('../apiClient', () => ({
   default: { get: vi.fn(), put: vi.fn(), post: vi.fn() },
@@ -35,13 +36,24 @@ const apiBooking = {
 // booking_service's state machine (app/core/fsm.py).
 const BACKEND_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['ASSIGNED', 'CANCELLED'],
-  ASSIGNED: ['PROVIDER_EN_ROUTE', 'CANCELLED'],
-  PROVIDER_EN_ROUTE: ['IN_PROGRESS'],
-  IN_PROGRESS: ['COMPLETED', 'DISPUTED'],
+  CONFIRMED: ['ASSIGNED', 'CANCELLED', 'IN_PROGRESS'],
+  ASSIGNED: ['PROVIDER_EN_ROUTE', 'CANCELLED', 'PICKED_UP'],
+  PROVIDER_EN_ROUTE: ['IN_PROGRESS', 'PICKED_UP'],
+  PICKED_UP: ['IN_PROGRESS'],
+  IN_PROGRESS: ['OUT_FOR_DELIVERY', 'COMPLETED', 'DISPUTED'],
+  OUT_FOR_DELIVERY: ['COMPLETED', 'DISPUTED'],
   COMPLETED: ['DISPUTED'],
   DISPUTED: ['REFUNDED', 'COMPLETED'],
 };
+
+// ...and its per-mode rules (mode_problem in the same file): null when the step fits the mode.
+function modeProblem(mode: ServiceMode, from: string, to: string): string | null {
+  if (mode !== 'PICKUP_DROP' && (to === 'PICKED_UP' || to === 'OUT_FOR_DELIVERY')) return 'pickup steps';
+  if (mode === 'PICKUP_DROP' && to === 'IN_PROGRESS' && from !== 'PICKED_UP') return 'pick up first';
+  if (mode === 'PICKUP_DROP' && to === 'COMPLETED' && from === 'IN_PROGRESS') return 'deliver first';
+  if (from === 'CONFIRMED' && to === 'IN_PROGRESS' && mode !== 'AT_SHOP') return 'assign first';
+  return null;
+}
 
 describe('bookingService', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -101,12 +113,31 @@ describe('bookingService', () => {
     expect(summary.topServices).toEqual([{ serviceId: 'svc1', bookingCount: 3, revenue: 99800 }]);
   });
 
-  it('only offers transitions the backend accepts', () => {
-    for (const [from, actions] of Object.entries(BOOKING_ACTIONS)) {
-      for (const action of actions ?? []) {
-        const target: BookingStatus = action.target === 'CANCEL' ? 'CANCELLED' : action.target;
-        expect(BACKEND_TRANSITIONS[from]).toContain(target);
+  it('only offers transitions the backend accepts for each way of delivering', () => {
+    for (const [mode, byStatus] of Object.entries(MODE_ACTIONS) as [ServiceMode, (typeof MODE_ACTIONS)[ServiceMode]][]) {
+      for (const [from, actions] of Object.entries(byStatus)) {
+        for (const action of actions ?? []) {
+          const target: BookingStatus = action.target === 'CANCEL' ? 'CANCELLED' : action.target;
+          expect(BACKEND_TRANSITIONS[from], `${mode} ${from}`).toContain(target);
+          expect(modeProblem(mode, from, target), `${mode} ${from} -> ${target}`).toBeNull();
+        }
       }
     }
+  });
+
+  it('walks each mode from confirmed to completed with the buttons it shows', () => {
+    // The shop's path (provider assignment aside, which has its own control).
+    const paths: Record<ServiceMode, BookingStatus[]> = {
+      AT_SHOP: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'],
+      AT_HOME: ['ASSIGNED', 'PROVIDER_EN_ROUTE', 'IN_PROGRESS', 'COMPLETED'],
+      PICKUP_DROP: ['ASSIGNED', 'PROVIDER_EN_ROUTE', 'PICKED_UP', 'IN_PROGRESS', 'OUT_FOR_DELIVERY', 'COMPLETED'],
+    };
+    for (const [mode, path] of Object.entries(paths) as [ServiceMode, BookingStatus[]][]) {
+      for (let i = 0; i < path.length - 1; i++) {
+        const targets = bookingActions({ status: path[i], serviceMode: mode }).map((a) => a.target);
+        expect(targets, `${mode} at ${path[i]}`).toContain(path[i + 1]);
+      }
+    }
+    expect(bookingActions({ status: 'IN_PROGRESS', serviceMode: 'PICKUP_DROP' }).map((a) => a.target)).not.toContain('COMPLETED');
   });
 });

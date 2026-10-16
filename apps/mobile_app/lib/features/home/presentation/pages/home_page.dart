@@ -30,13 +30,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Everyday needs: visits (salon, parlour, doctor, offices), repairs with pickup & drop, and home services.
   static const List<_ServiceCategory> _categories = [
+    _ServiceCategory(icon: Icons.content_cut, label: 'Haircut'),
+    _ServiceCategory(icon: Icons.face_retouching_natural, label: 'Beauty Parlour', query: 'Beauty'),
+    _ServiceCategory(icon: Icons.medical_services, label: 'Doctor'),
+    _ServiceCategory(icon: Icons.event_available, label: 'Appointments', query: 'Appointment'),
+    _ServiceCategory(icon: Icons.car_repair, label: 'Car Repair', query: 'Car'),
+    _ServiceCategory(icon: Icons.two_wheeler, label: 'Bike Repair', query: 'Bike'),
+    _ServiceCategory(icon: Icons.devices, label: 'Laptop & Phone', query: 'Repair'),
+    _ServiceCategory(icon: Icons.ac_unit, label: 'AC Repair', query: 'AC'),
     _ServiceCategory(icon: Icons.cleaning_services, label: 'Cleaning'),
     _ServiceCategory(icon: Icons.plumbing, label: 'Plumbing'),
     _ServiceCategory(icon: Icons.electrical_services, label: 'Electrical'),
     _ServiceCategory(icon: Icons.carpenter, label: 'Carpentry'),
-    _ServiceCategory(icon: Icons.ac_unit, label: 'AC Service'),
-    _ServiceCategory(icon: Icons.content_cut, label: 'Haircut'),
     _ServiceCategory(icon: Icons.pest_control, label: 'Pest Control'),
     _ServiceCategory(icon: Icons.handyman, label: 'Handyman'),
   ];
@@ -151,7 +158,7 @@ class _HomePageState extends State<HomePage> {
       itemCount: _categories.length,
       itemBuilder: (context, index) {
         final cat = _categories[index];
-        return ServiceCategoryCard(icon: cat.icon, label: cat.label, onTap: () => widget.onSearch(cat.label));
+        return ServiceCategoryCard(icon: cat.icon, label: cat.label, onTap: () => widget.onSearch(cat.query ?? cat.label));
       },
     );
   }
@@ -199,5 +206,8 @@ class _ServiceCategory {
   final IconData icon;
   final String label;
 
-  const _ServiceCategory({required this.icon, required this.label});
+  /// What tapping it searches for (defaults to the label).
+  final String? query;
+
+  const _ServiceCategory({required this.icon, required this.label, this.query});
 }

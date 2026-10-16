@@ -111,6 +111,29 @@ void main() {
       expect(await api.providerLocation('p1'), isNull);
     });
 
+    test('services and bookings say how they are delivered', () {
+      final repair = ServiceModel.fromJson(const {
+        'id': 's1', 'name': 'Bike service', 'price_cents': 99900, 'shop_id': 'sh1', 'is_active': true,
+        'service_modes': ['AT_SHOP', 'PICKUP_DROP'], 'pickup_fee_cents': 14900,
+      });
+      expect(repair.serviceModes, ['AT_SHOP', 'PICKUP_DROP']);
+      expect(repair.pickupFee, 149);
+      // Listings from before delivery modes are at the shop only.
+      final old = ServiceModel.fromJson(const {'id': 's2', 'name': 'Haircut', 'price_cents': 30000});
+      expect(old.serviceModes, ['AT_SHOP']);
+      expect(old.homeVisitFee, 0);
+
+      final booking = BookingModel.fromJson({
+        ...bookingJson(status: 'PICKED_UP'),
+        'service_mode': 'PICKUP_DROP',
+        'item_description': 'Honda Activa, brakes squeaking',
+      });
+      expect(booking.serviceMode, 'PICKUP_DROP');
+      expect(booking.itemDescription, 'Honda Activa, brakes squeaking');
+      expect(booking.canPay, isTrue); // payable while the item is with the shop
+      expect(BookingModel.fromJson(bookingJson()).serviceMode, 'AT_SHOP');
+    });
+
     test('queue finds an open queue and reports position', () async {
       final adapter = FakeAdapter((r) => r.path == ApiConstants.queues
           ? (status: 200, body: [

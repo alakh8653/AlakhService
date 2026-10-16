@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.fsm import BookingStatus, booking_fsm
+from app.core.fsm import BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
 
@@ -41,6 +41,8 @@ class BookingService:
             scheduled_at=booking_data.scheduled_at,
             duration_minutes=booking_data.duration_minutes,
             address_id=booking_data.address_id,
+            service_mode=booking_data.service_mode,
+            item_description=booking_data.item_description,
             notes=booking_data.notes,
             total_amount=booking_data.total_amount,
             metadata_json=metadata_json,
@@ -121,7 +123,8 @@ class BookingService:
         return query
 
     async def active_bookings_with_provider(self, db: AsyncSession, provider_id: str) -> List[Booking]:
-        """Bookings the provider is currently working on (assigned, on the way, or in progress)."""
+        """Bookings the provider is currently working on (assigned, on the way, holding the
+        customer's item, in progress, or bringing it back)."""
         result = await db.execute(
             select(Booking).where(
                 Booking.provider_id == provider_id,
@@ -129,7 +132,9 @@ class BookingService:
                     [
                         BookingStatus.ASSIGNED.value,
                         BookingStatus.PROVIDER_EN_ROUTE.value,
+                        BookingStatus.PICKED_UP.value,
                         BookingStatus.IN_PROGRESS.value,
+                        BookingStatus.OUT_FOR_DELIVERY.value,
                     ]
                 ),
             )
@@ -204,6 +209,10 @@ class BookingService:
         from_status = BookingStatus(booking.status)
         to_status = BookingStatus(new_status)
 
+        # The delivery mode's reason first: it says what to do instead ("pick up the item first").
+        problem = mode_problem(booking.service_mode, from_status, to_status)
+        if problem:
+            raise ValueError(problem)
         booking_fsm.transition(from_status, to_status)
 
         old_status = booking.status

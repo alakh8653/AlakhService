@@ -20,6 +20,10 @@ class Booking(Base):
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
     duration_minutes = Column(Integer, nullable=False)
     address_id = Column(String, nullable=True)
+    # AT_SHOP, AT_HOME or PICKUP_DROP (see app.core.fsm).
+    service_mode = Column(String(20), default="AT_SHOP", server_default="AT_SHOP", nullable=False)
+    # For pickup & drop: what is being collected and what is wrong with it.
+    item_description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     total_amount = Column(Integer, nullable=False)  # in cents
@@ -32,6 +36,10 @@ class Booking(Base):
             return json.loads(self.metadata_json) if self.metadata_json else {}
         except ValueError:
             return {}
+
+    @property
+    def service_mode_fee(self) -> int:
+        return self._meta().get("service_mode_fee", 0)
 
     @property
     def coupon_code(self):

@@ -30,6 +30,12 @@ class ServiceListing(Base):
     tags = Column(Text, nullable=True)  # JSON list
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # How the service can be delivered, comma-separated: AT_SHOP (the customer comes in),
+    # AT_HOME (a provider visits) and/or PICKUP_DROP (the item is collected and brought back).
+    service_modes = Column(String(100), default="AT_SHOP", server_default="AT_SHOP", nullable=False)
+    # Added to the price when the customer chooses that mode.
+    home_visit_fee_cents = Column(Integer, default=0, server_default="0", nullable=False)
+    pickup_fee_cents = Column(Integer, default=0, server_default="0", nullable=False)
 
 
 class ServiceTag(Base):

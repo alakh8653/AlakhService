@@ -4,6 +4,7 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../services/data/datasources/service_remote_datasource.dart';
+import '../../domain/entities/booking.dart';
 import '../models/booking_model.dart';
 
 abstract class BookingRemoteDataSource {
@@ -13,6 +14,7 @@ abstract class BookingRemoteDataSource {
     required String address,
     String? notes,
     String? couponCode,
+    BookingDelivery delivery = BookingDelivery.atShop,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -52,6 +54,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     required String address,
     String? notes,
     String? couponCode,
+    BookingDelivery delivery = BookingDelivery.atShop,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
@@ -61,6 +64,10 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),
           'notes': BookingModel.composeNotes(address, notes),
           if (couponCode != null && couponCode.trim().isNotEmpty) 'coupon_code': couponCode.trim(),
+          'service_mode': delivery.mode,
+          if (delivery.addressId != null) 'address_id': delivery.addressId,
+          if (delivery.itemDescription != null && delivery.itemDescription!.trim().isNotEmpty)
+            'item_description': delivery.itemDescription!.trim(),
         },
       );
       return await _model(response.data!);

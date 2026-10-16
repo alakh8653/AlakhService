@@ -7,11 +7,16 @@ export type BookingStatus =
   | 'CONFIRMED'
   | 'ASSIGNED'
   | 'PROVIDER_EN_ROUTE'
+  | 'PICKED_UP'
   | 'IN_PROGRESS'
+  | 'OUT_FOR_DELIVERY'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'DISPUTED'
   | 'REFUNDED';
+
+/** How a service is delivered: the customer visits, a provider visits, or the item is collected and returned. */
+export type ServiceMode = 'AT_SHOP' | 'AT_HOME' | 'PICKUP_DROP';
 
 export interface Booking {
   id: string;
@@ -23,6 +28,10 @@ export interface Booking {
   status: BookingStatus;
   scheduledAt: string; // ISO datetime
   durationMinutes: number;
+  serviceMode: ServiceMode;
+  /** Pickup & drop: what is being collected and what is wrong with it. */
+  itemDescription: string | null;
+  addressId: string | null;
   notes: string | null;
   totalAmount: number; // minor units (paise)
   createdAt: string;
@@ -39,6 +48,9 @@ export interface Service {
   durationMinutes: number | null;
   isActive: boolean;
   createdAt: string;
+  serviceModes: ServiceMode[];
+  homeVisitFeeCents: number;
+  pickupFeeCents: number;
 }
 
 export interface StaffMember {
@@ -64,6 +76,9 @@ export interface Shop {
   address: string | null;
   phone: string | null;
   email: string | null;
+  /** Map position customers get directions to (and a cab drop-off at). */
+  latitude: number | null;
+  longitude: number | null;
   ratingAvg: number;
   ratingCount: number;
   isActive: boolean;

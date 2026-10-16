@@ -13,6 +13,9 @@ const booking: Booking = {
   status: 'PENDING',
   scheduledAt: '2026-10-10T10:00:00Z',
   durationMinutes: 45,
+  serviceMode: 'AT_SHOP',
+  itemDescription: null,
+  addressId: null,
   notes: null,
   totalAmount: 49900,
   createdAt: '',
@@ -65,5 +68,34 @@ describe('BookingCard assignment', () => {
     );
     expect(screen.getByText('Provider: Ravi')).toBeInTheDocument();
     expect(screen.queryByLabelText('Assign to')).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingCard delivery modes', () => {
+  it('shows a pickup job with its item and only the pickup steps', () => {
+    const onChangeStatus = vi.fn();
+    const job: Booking = {
+      ...booking,
+      status: 'IN_PROGRESS',
+      serviceMode: 'PICKUP_DROP',
+      itemDescription: 'Dell XPS 13, cracked screen',
+      addressId: 'addr-12345678',
+    };
+    render(<BookingCard booking={job} serviceName="Laptop repair" onChangeStatus={onChangeStatus} onCancel={vi.fn()} />);
+    expect(screen.getByText('Pickup & drop')).toBeInTheDocument();
+    expect(screen.getByText('Dell XPS 13, cracked screen')).toBeInTheDocument();
+    expect(screen.getByText(/saved address ADDR-123/)).toBeInTheDocument();
+    // Repaired items go back to the customer before the job is complete.
+    expect(screen.queryByRole('button', { name: 'Mark complete' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send it back' }));
+    expect(onChangeStatus).toHaveBeenCalledWith('b1', 'OUT_FOR_DELIVERY');
+  });
+
+  it('starts an at-shop booking when the customer arrives', () => {
+    const onChangeStatus = vi.fn();
+    render(<BookingCard booking={{ ...booking, status: 'CONFIRMED' }} onChangeStatus={onChangeStatus} onCancel={vi.fn()} />);
+    expect(screen.getByText('At the shop')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Customer arrived' }));
+    expect(onChangeStatus).toHaveBeenCalledWith('b1', 'IN_PROGRESS');
   });
 });

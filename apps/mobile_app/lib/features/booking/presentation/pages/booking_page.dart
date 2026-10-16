@@ -8,6 +8,8 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/utils/validators.dart';
 import '../../../profile/data/address_api.dart';
+import '../../../services/domain/entities/service_entity.dart';
+import '../../domain/entities/booking.dart';
 import '../../data/coupon_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
@@ -20,6 +22,11 @@ class BookingPage extends StatefulWidget {
   final CouponApi? couponApi;
   final AddressApi? addressApi;
 
+  /// The ways the service is offered (ServiceMode values) and their extra fees.
+  final List<String> serviceModes;
+  final double homeVisitFee;
+  final double pickupFee;
+
   const BookingPage({
     super.key,
     required this.serviceId,
@@ -27,6 +34,9 @@ class BookingPage extends StatefulWidget {
     required this.servicePrice,
     this.couponApi,
     this.addressApi,
+    this.serviceModes = const [ServiceMode.atShop],
+    this.homeVisitFee = 0,
+    this.pickupFee = 0,
   });
 
   @override
@@ -35,11 +45,13 @@ class BookingPage extends StatefulWidget {
 
 class _BookingPageState extends State<BookingPage> {
   final _formKey = GlobalKey<FormState>();
-  final _addressController = TextEditingController();
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
+  final _itemController = TextEditingController();
   CouponCheck? _coupon;
   List<SavedAddress> _saved = const [];
+  late String _mode = widget.serviceModes.isEmpty ? ServiceMode.atShop : widget.serviceModes.first;
+  SavedAddress? _address;
   bool _checkingCoupon = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -49,17 +61,18 @@ class _BookingPageState extends State<BookingPage> {
     super.initState();
     (widget.addressApi ?? sl<AddressApi>()).list().then((saved) {
       if (!mounted || saved.isEmpty) return;
-      setState(() => _saved = saved);
-      // Start from the default address; the customer can still type another.
-      if (_addressController.text.isEmpty) _addressController.text = saved.first.oneLine;
+      setState(() {
+        _saved = saved;
+        _address ??= saved.first; // the default address comes first
+      });
     }).catchError((Object _) {});
   }
 
   @override
   void dispose() {
-    _addressController.dispose();
     _notesController.dispose();
     _couponController.dispose();
+    _itemController.dispose();
     super.dispose();
   }
 
@@ -99,17 +112,35 @@ class _BookingPageState extends State<BookingPage> {
     }
   }
 
+  bool get _needsAddress => ServiceMode.needsAddress.contains(_mode);
+
+  double get _fee => switch (_mode) {
+        ServiceMode.atHome => widget.homeVisitFee,
+        ServiceMode.pickupDrop => widget.pickupFee,
+        _ => 0,
+      };
+
+  /// What the customer will pay: the coupon discounts the service, and the visit or pickup fee is
+  /// added on top (as booking_service prices it).
   double get _price {
     final coupon = _coupon;
-    if (coupon == null || !coupon.isValid) return widget.servicePrice;
-    return widget.servicePrice * (1 - coupon.discountPct / 100);
+    final service = coupon == null || !coupon.isValid ? widget.servicePrice : widget.servicePrice * (1 - coupon.discountPct / 100);
+    return service + _fee;
   }
+
+  double get _listPrice => widget.servicePrice + _fee;
 
   void _onBook() {
     if (_formKey.currentState?.validate() ?? false) {
       if (_selectedDate == null || _selectedTime == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select date and time')),
+        );
+        return;
+      }
+      if (_needsAddress && _address == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose the address we should come to')),
         );
         return;
       }
@@ -124,12 +155,18 @@ class _BookingPageState extends State<BookingPage> {
             CreateBookingRequested(
               serviceId: widget.serviceId,
               scheduledAt: scheduledAt,
-              address: _addressController.text.trim(),
+              // At the shop nobody comes to the customer, so no address goes with it.
+              address: _needsAddress ? _address!.oneLine : '',
               notes: _notesController.text.trim().isEmpty
                   ? null
                   : _notesController.text.trim(),
               // Only a code that checked out is sent; the server applies it to the catalogue price.
               couponCode: (_coupon?.isValid ?? false) ? _coupon!.code : null,
+              delivery: BookingDelivery(
+                mode: _mode,
+                addressId: _needsAddress ? _address!.id : null,
+                itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
+              ),
             ),
           );
     }
@@ -168,9 +205,29 @@ class _BookingPageState extends State<BookingPage> {
                 _SummaryCard(
                   serviceName: widget.serviceName,
                   price: _price,
-                  listPrice: _price == widget.servicePrice ? null : widget.servicePrice,
+                  listPrice: _price == _listPrice ? null : _listPrice,
                 ),
                 const SizedBox(height: 24),
+                if (widget.serviceModes.length > 1) ...[
+                  const Text('How would you like it?', style: AppTextStyles.subtitle1),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final mode in widget.serviceModes)
+                        ChoiceChip(
+                          avatar: Icon(modeIcon(mode), size: 18),
+                          label: Text(modeChoiceLabel(mode, mode == ServiceMode.atHome ? widget.homeVisitFee : mode == ServiceMode.pickupDrop ? widget.pickupFee : 0)),
+                          selected: _mode == mode,
+                          onSelected: (_) => setState(() => _mode = mode),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(modeExplanation(_mode), style: AppTextStyles.caption),
+                  const SizedBox(height: 20),
+                ],
                 const Text('Schedule', style: AppTextStyles.subtitle1),
                 const SizedBox(height: 12),
                 Row(
@@ -201,26 +258,36 @@ class _BookingPageState extends State<BookingPage> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                if (_saved.isNotEmpty) ...[
-                  DropdownButtonFormField<SavedAddress>(
-                    decoration: const InputDecoration(labelText: 'Use a saved address'),
-                    items: [
-                      for (final a in _saved) DropdownMenuItem(value: a, child: Text('${a.label}: ${a.oneLine}', overflow: TextOverflow.ellipsis)),
-                    ],
-                    onChanged: (a) {
-                      if (a != null) setState(() => _addressController.text = a.oneLine);
-                    },
-                  ),
+                if (_needsAddress) ...[
+                  Text(_mode == ServiceMode.pickupDrop ? 'Collect from' : 'Where should we come?', style: AppTextStyles.subtitle1),
                   const SizedBox(height: 12),
+                  if (_saved.isEmpty)
+                    Text(
+                      'Add an address in Profile › Saved addresses first, then come back to book.',
+                      style: AppTextStyles.body2.copyWith(color: AppColors.error),
+                    )
+                  else
+                    DropdownButtonFormField<SavedAddress>(
+                      initialValue: _address,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Saved address'),
+                      items: [
+                        for (final a in _saved) DropdownMenuItem(value: a, child: Text('${a.label}: ${a.oneLine}', overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (a) => setState(() => _address = a),
+                    ),
+                  const SizedBox(height: 16),
                 ],
-                CustomTextField(
-                  controller: _addressController,
-                  label: 'Service Address',
-                  hint: 'Enter full address',
-                  maxLines: 3,
-                  validator: Validators.required,
-                ),
-                const SizedBox(height: 16),
+                if (_mode == ServiceMode.pickupDrop) ...[
+                  CustomTextField(
+                    controller: _itemController,
+                    label: 'What should we collect?',
+                    hint: 'e.g. Honda Activa, brakes squeaking · Dell laptop, cracked screen',
+                    maxLines: 2,
+                    validator: Validators.required,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 CustomTextField(
                   controller: _notesController,
                   label: 'Notes (optional)',
@@ -321,3 +388,25 @@ class _SummaryCard extends StatelessWidget {
     );
   }
 }
+
+IconData modeIcon(String mode) => switch (mode) {
+      ServiceMode.atHome => Icons.home_outlined,
+      ServiceMode.pickupDrop => Icons.local_shipping_outlined,
+      _ => Icons.storefront_outlined,
+    };
+
+/// "Visit the shop", "At my place (+₹150)", "Pickup & drop (+₹99)".
+String modeChoiceLabel(String mode, double fee) {
+  final name = switch (mode) {
+    ServiceMode.atHome => 'At my place',
+    ServiceMode.pickupDrop => 'Pickup & drop',
+    _ => 'Visit the shop',
+  };
+  return fee > 0 ? '$name (+₹${fee.toStringAsFixed(fee % 1 == 0 ? 0 : 2)})' : name;
+}
+
+String modeExplanation(String mode) => switch (mode) {
+      ServiceMode.atHome => 'A professional comes to your address at the time you choose.',
+      ServiceMode.pickupDrop => "We collect your item from your address, service it and bring it back. You'll be told at each step.",
+      _ => 'You go to the shop at the time you choose. See "How to get there" on your booking.',
+    };

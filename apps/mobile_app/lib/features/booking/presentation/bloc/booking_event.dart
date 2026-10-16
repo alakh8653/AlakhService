@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../domain/entities/booking.dart';
+
 abstract class BookingEvent extends Equatable {
   const BookingEvent();
 
@@ -13,6 +15,7 @@ class CreateBookingRequested extends BookingEvent {
   final String address;
   final String? notes;
   final String? couponCode;
+  final BookingDelivery delivery;
 
   const CreateBookingRequested({
     required this.serviceId,
@@ -20,10 +23,11 @@ class CreateBookingRequested extends BookingEvent {
     required this.address,
     this.notes,
     this.couponCode,
+    this.delivery = BookingDelivery.atShop,
   });
 
   @override
-  List<Object?> get props => [serviceId, scheduledAt, address];
+  List<Object?> get props => [serviceId, scheduledAt, address, delivery];
 }
 
 class LoadUserBookings extends BookingEvent {

@@ -6,7 +6,22 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage } from '../services/format';
 
-export const SHOP_CATEGORIES = ['salon', 'spa', 'beauty', 'cleaning', 'repair', 'plumbing', 'electrical', 'other'];
+/** Kinds of place customers book with: salons and parlours, clinics, repair shops, home services, offices. */
+export const SHOP_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'salon', label: 'Salon' },
+  { value: 'beauty', label: 'Beauty parlour' },
+  { value: 'spa', label: 'Spa' },
+  { value: 'clinic', label: 'Doctor / clinic' },
+  { value: 'vehicle_repair', label: 'Car & bike repair' },
+  { value: 'electronics_repair', label: 'Laptop & phone repair' },
+  { value: 'appliance_repair', label: 'AC & appliance repair' },
+  { value: 'cleaning', label: 'Cleaning' },
+  { value: 'plumbing', label: 'Plumbing' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'repair', label: 'Other repairs' },
+  { value: 'office', label: 'Office / appointments' },
+  { value: 'other', label: 'Other' },
+];
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter your shop name'),
@@ -61,8 +76,8 @@ export default function ShopSetupPage() {
             <select id="category" {...register('category')} className={inputClass}>
               <option value="">Choose…</option>
               {SHOP_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c.charAt(0).toUpperCase() + c.slice(1)}
+                <option key={c.value} value={c.value}>
+                  {c.label}
                 </option>
               ))}
             </select>

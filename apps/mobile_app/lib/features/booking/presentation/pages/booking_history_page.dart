@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../directions/presentation/how_to_get_there_sheet.dart';
 import '../../../payment/data/payment_api.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../tracking/presentation/pages/live_tracking_page.dart';
@@ -46,7 +47,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   static Color statusColor(String status) => switch (status) {
         BookingStatus.confirmed || BookingStatus.assigned => AppColors.info,
-        BookingStatus.enRoute || BookingStatus.inProgress => AppColors.primary,
+        BookingStatus.enRoute || BookingStatus.pickedUp || BookingStatus.inProgress || BookingStatus.outForDelivery => AppColors.primary,
         BookingStatus.completed => AppColors.success,
         BookingStatus.pending => AppColors.warning,
         BookingStatus.cancelled || BookingStatus.disputed => AppColors.error,
@@ -58,7 +59,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
         BookingStatus.confirmed => 'Confirmed',
         BookingStatus.assigned => 'Provider assigned',
         BookingStatus.enRoute => 'Provider on the way',
+        BookingStatus.pickedUp => 'Item picked up',
         BookingStatus.inProgress => 'In progress',
+        BookingStatus.outForDelivery => 'On its way back',
         BookingStatus.completed => 'Completed',
         BookingStatus.cancelled => 'Cancelled',
         BookingStatus.disputed => 'Disputed',
@@ -172,6 +175,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   payment: _payments[b.id],
                   onRate: b.canRate ? () => _rate(b) : null,
                   onReport: b.canDispute ? () => _report(b) : null,
+                  onDirections: b.canGetDirections ? () => showHowToGetThere(context, shopId: b.shopId!) : null,
                 );
               },
             ),
@@ -197,6 +201,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onPay;
   final VoidCallback? onRate;
   final VoidCallback? onReport;
+  final VoidCallback? onDirections;
   final String? payment;
 
   const _BookingCard({
@@ -208,12 +213,15 @@ class _BookingCard extends StatelessWidget {
     this.onPay,
     this.onRate,
     this.onReport,
+    this.onDirections,
     this.payment,
   });
 
   @override
   Widget build(BuildContext context) {
     final actions = <Widget>[
+      if (onDirections != null)
+        TextButton.icon(onPressed: onDirections, icon: const Icon(Icons.directions, size: 18), label: const Text('How to get there')),
       if (onTrack != null)
         TextButton.icon(onPressed: onTrack, icon: const Icon(Icons.location_on_outlined, size: 18), label: const Text('Track')),
       if (onPay != null)
@@ -260,6 +268,27 @@ class _BookingCard extends StatelessWidget {
                 Text(_date(booking.scheduledAt), style: AppTextStyles.caption),
               ],
             ),
+            if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(booking.serviceMode == 'PICKUP_DROP' ? Icons.local_shipping_outlined : Icons.home_outlined,
+                      size: 14, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      [
+                        booking.serviceMode == 'PICKUP_DROP' ? 'Pickup & drop' : 'Home visit',
+                        if (booking.itemDescription != null) booking.itemDescription!,
+                      ].join(' · '),
+                      style: AppTextStyles.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (booking.address.isNotEmpty) ...[
               const SizedBox(height: 4),
               Row(

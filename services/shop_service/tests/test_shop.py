@@ -57,6 +57,25 @@ async def test_create_shop(db_session, service):
 
 
 @pytest.mark.anyio
+async def test_create_shop_keeps_its_contact_details_and_location(db_session, service):
+    # Customers get directions to the address/position and call the phone; none may be dropped.
+    data = ShopCreate(
+        owner_id="owner-1",
+        name="Asha Salon",
+        category="salon",
+        city="Pune",
+        address="12 MG Road",
+        phone="+919876543210",
+        email="asha@example.com",
+        latitude=18.5204,
+        longitude=73.8567,
+    )
+    shop = await service.create_shop(db_session, data)
+    assert (shop.address, shop.phone, shop.email) == ("12 MG Road", "+919876543210", "asha@example.com")
+    assert (shop.latitude, shop.longitude) == (18.5204, 73.8567)
+
+
+@pytest.mark.anyio
 async def test_search_shops_by_city(db_session, service):
     await service.create_shop(db_session, ShopCreate(owner_id="o1", name="Mumbai Shop", category="spa", city="Mumbai"))
     await service.create_shop(db_session, ShopCreate(owner_id="o2", name="Delhi Shop", category="spa", city="Delhi"))

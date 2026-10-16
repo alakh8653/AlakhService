@@ -265,6 +265,11 @@ make revoke-admin ACCOUNT=you@example.com   # back to a normal user
 
 The account must sign in again for the change to take effect.
 
+For a ready-made demo instead, `make db-seed` (with `make dev` running) adds `admin@example.com`
+(already an admin), `owner@example.com` with a "Demo Salon" and three services, and
+`customer@example.com` with one booking, all with the password `Demo-pass-1`. It is safe to re-run,
+and refuses to run against anything but `localhost`.
+
 ---
 
 ## 🧩 Microservices

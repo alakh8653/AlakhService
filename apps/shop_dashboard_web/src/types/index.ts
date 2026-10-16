@@ -76,6 +76,9 @@ export interface Shop {
   address: string | null;
   phone: string | null;
   email: string | null;
+  /** Map position customers get directions to (and a cab drop-off at). */
+  latitude: number | null;
+  longitude: number | null;
   ratingAvg: number;
   ratingCount: number;
   isActive: boolean;

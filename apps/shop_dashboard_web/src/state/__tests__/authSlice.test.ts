@@ -12,6 +12,8 @@ const shop: Shop = {
   address: null,
   phone: null,
   email: null,
+  latitude: null,
+  longitude: null,
   ratingAvg: 4.5,
   ratingCount: 10,
   isActive: true,

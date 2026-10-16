@@ -36,6 +36,7 @@ class ApiConstants {
   static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
+  static String shop(String shopId) => '$apiVersion/shops/$shopId';
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
 
   // Profile (user_service)

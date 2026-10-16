@@ -10,6 +10,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../booking/presentation/bloc/booking_bloc.dart';
 import '../../../booking/presentation/pages/booking_page.dart';
+import '../../../directions/presentation/how_to_get_there_sheet.dart';
 import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../domain/entities/service_entity.dart';
@@ -154,6 +155,16 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       variant: ButtonVariant.outlined,
                       isLoading: _joining,
                       onPressed: _joining ? null : _joinQueue,
+                    ),
+                  ],
+                  if (service.shopId != null && service.serviceModes.contains(ServiceMode.atShop)) ...[
+                    const SizedBox(height: 12),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => showHowToGetThere(context, shopId: service.shopId!),
+                        icon: const Icon(Icons.directions),
+                        label: const Text('How to get there'),
+                      ),
                     ),
                   ],
                 ],

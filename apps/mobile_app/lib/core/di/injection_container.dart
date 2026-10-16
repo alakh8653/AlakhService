@@ -24,6 +24,7 @@ import '../../features/notifications/data/notifications_api.dart';
 import '../../features/payment/data/payment_api.dart';
 import '../../features/profile/data/address_api.dart';
 import '../../features/profile/data/profile_api.dart';
+import '../../features/directions/data/shop_location_api.dart';
 import '../../features/queue/data/queue_api.dart';
 import '../../features/services/data/datasources/service_remote_datasource.dart';
 import '../../features/services/data/repositories/service_repository_impl.dart';
@@ -98,6 +99,7 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => TrackingApi(sl()));
   sl.registerLazySingleton(() => JobsApi(sl(), services: sl()));
   sl.registerLazySingleton(() => QueueApi(sl()));
+  sl.registerLazySingleton(() => ShopLocationApi(sl()));
   sl.registerLazySingleton(() => NotificationsApi(sl()));
   sl.registerLazySingleton(() => ProfileApi(sl()));
   sl.registerLazySingleton(() => AddressApi(sl()));

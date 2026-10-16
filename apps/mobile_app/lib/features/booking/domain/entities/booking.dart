@@ -90,6 +90,11 @@ class Booking extends Equatable {
   bool get canTrack => providerId != null && BookingStatus.trackable.contains(status);
   bool get canPay => BookingStatus.payable.contains(status);
   bool get canRate => status == BookingStatus.completed && shopId != null;
+  /// The customer goes to the shop for it, and it is still ahead of them (or under way).
+  bool get canGetDirections =>
+      serviceMode == 'AT_SHOP' &&
+      shopId != null &&
+      const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.inProgress}.contains(status);
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override

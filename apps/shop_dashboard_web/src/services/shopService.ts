@@ -13,6 +13,8 @@ interface ShopResponse {
   address: string | null;
   phone: string | null;
   email: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   rating_avg: number;
   rating_count: number;
   is_active: boolean;
@@ -31,6 +33,8 @@ export function toShop(data: ShopResponse): Shop {
     address: data.address,
     phone: data.phone,
     email: data.email,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
     ratingAvg: data.rating_avg,
     ratingCount: data.rating_count,
     isActive: data.is_active,
@@ -56,6 +60,8 @@ export interface ShopUpdate {
   address?: string | null;
   phone?: string | null;
   email?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface NewShop {

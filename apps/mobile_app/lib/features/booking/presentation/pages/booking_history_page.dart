@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
+import '../../../directions/presentation/how_to_get_there_sheet.dart';
 import '../../../payment/data/payment_api.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../tracking/presentation/pages/live_tracking_page.dart';
@@ -174,6 +175,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   payment: _payments[b.id],
                   onRate: b.canRate ? () => _rate(b) : null,
                   onReport: b.canDispute ? () => _report(b) : null,
+                  onDirections: b.canGetDirections ? () => showHowToGetThere(context, shopId: b.shopId!) : null,
                 );
               },
             ),
@@ -199,6 +201,7 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onPay;
   final VoidCallback? onRate;
   final VoidCallback? onReport;
+  final VoidCallback? onDirections;
   final String? payment;
 
   const _BookingCard({
@@ -210,12 +213,15 @@ class _BookingCard extends StatelessWidget {
     this.onPay,
     this.onRate,
     this.onReport,
+    this.onDirections,
     this.payment,
   });
 
   @override
   Widget build(BuildContext context) {
     final actions = <Widget>[
+      if (onDirections != null)
+        TextButton.icon(onPressed: onDirections, icon: const Icon(Icons.directions, size: 18), label: const Text('How to get there')),
       if (onTrack != null)
         TextButton.icon(onPressed: onTrack, icon: const Icon(Icons.location_on_outlined, size: 18), label: const Text('Track')),
       if (onPay != null)

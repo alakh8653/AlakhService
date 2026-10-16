@@ -1,12 +1,14 @@
 import apiClient from './apiClient';
-import type { Analytics, Booking, BookingStatus, PaginatedResponse } from '../types';
+import type { Analytics, Booking, BookingStatus, PaginatedResponse, ServiceMode } from '../types';
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   'PENDING',
   'CONFIRMED',
   'ASSIGNED',
   'PROVIDER_EN_ROUTE',
+  'PICKED_UP',
   'IN_PROGRESS',
+  'OUT_FOR_DELIVERY',
   'COMPLETED',
   'CANCELLED',
   'DISPUTED',
@@ -19,24 +21,50 @@ export interface BookingAction {
   target: BookingStatus | 'CANCEL';
 }
 
+const CANCEL: BookingAction = { label: 'Cancel', target: 'CANCEL' };
+
 /**
- * Actions a shop can take from each status. Mirrors the transitions
- * booking_service accepts; CONFIRMED bookings are also assigned to a provider
- * (see assignProvider), which moves them to ASSIGNED.
+ * Actions a shop can take from each status, for each way a booking is delivered. Mirrors the
+ * transitions booking_service accepts (app/core/fsm.py, including mode_problem); CONFIRMED bookings
+ * away from the shop are also assigned to a provider (see assignProvider), which moves them to ASSIGNED.
  */
-export const BOOKING_ACTIONS: Partial<Record<BookingStatus, BookingAction[]>> = {
-  PENDING: [
-    { label: 'Confirm', target: 'CONFIRMED' },
-    { label: 'Cancel', target: 'CANCEL' },
-  ],
-  CONFIRMED: [{ label: 'Cancel', target: 'CANCEL' }],
-  ASSIGNED: [
-    { label: 'Provider en route', target: 'PROVIDER_EN_ROUTE' },
-    { label: 'Cancel', target: 'CANCEL' },
-  ],
-  PROVIDER_EN_ROUTE: [{ label: 'Start service', target: 'IN_PROGRESS' }],
-  IN_PROGRESS: [{ label: 'Mark complete', target: 'COMPLETED' }],
+export const MODE_ACTIONS: Record<ServiceMode, Partial<Record<BookingStatus, BookingAction[]>>> = {
+  // The customer comes in: no provider travels.
+  AT_SHOP: {
+    PENDING: [{ label: 'Confirm', target: 'CONFIRMED' }, CANCEL],
+    CONFIRMED: [{ label: 'Customer arrived', target: 'IN_PROGRESS' }, CANCEL],
+    ASSIGNED: [{ label: 'Provider en route', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
+    PROVIDER_EN_ROUTE: [{ label: 'Start service', target: 'IN_PROGRESS' }],
+    IN_PROGRESS: [{ label: 'Mark complete', target: 'COMPLETED' }],
+  },
+  // A provider visits the customer's address.
+  AT_HOME: {
+    PENDING: [{ label: 'Confirm', target: 'CONFIRMED' }, CANCEL],
+    CONFIRMED: [CANCEL],
+    ASSIGNED: [{ label: 'Provider en route', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
+    PROVIDER_EN_ROUTE: [{ label: 'Start service', target: 'IN_PROGRESS' }],
+    IN_PROGRESS: [{ label: 'Mark complete', target: 'COMPLETED' }],
+  },
+  // The item is collected from the customer, serviced at the shop and brought back.
+  PICKUP_DROP: {
+    PENDING: [{ label: 'Confirm', target: 'CONFIRMED' }, CANCEL],
+    CONFIRMED: [CANCEL],
+    ASSIGNED: [
+      { label: 'On the way to collect', target: 'PROVIDER_EN_ROUTE' },
+      { label: 'Item picked up', target: 'PICKED_UP' },
+      CANCEL,
+    ],
+    PROVIDER_EN_ROUTE: [{ label: 'Item picked up', target: 'PICKED_UP' }],
+    PICKED_UP: [{ label: 'Start work', target: 'IN_PROGRESS' }],
+    IN_PROGRESS: [{ label: 'Send it back', target: 'OUT_FOR_DELIVERY' }],
+    OUT_FOR_DELIVERY: [{ label: 'Delivered', target: 'COMPLETED' }],
+  },
 };
+
+/** What the shop can do next with this booking. */
+export function bookingActions(booking: Pick<Booking, 'status' | 'serviceMode'>): BookingAction[] {
+  return MODE_ACTIONS[booking.serviceMode]?.[booking.status] ?? [];
+}
 
 interface BookingResponse {
   id: string;
@@ -48,6 +76,9 @@ interface BookingResponse {
   status: BookingStatus;
   scheduled_at: string;
   duration_minutes: number;
+  service_mode?: ServiceMode;
+  item_description?: string | null;
+  address_id?: string | null;
   notes: string | null;
   total_amount: number;
   created_at: string;
@@ -72,6 +103,9 @@ export function toBooking(data: BookingResponse): Booking {
     status: data.status,
     scheduledAt: data.scheduled_at,
     durationMinutes: data.duration_minutes,
+    serviceMode: data.service_mode ?? 'AT_SHOP',
+    itemDescription: data.item_description ?? null,
+    addressId: data.address_id ?? null,
     notes: data.notes,
     totalAmount: data.total_amount,
     createdAt: data.created_at,

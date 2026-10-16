@@ -1,13 +1,28 @@
 import { format } from 'date-fns';
-import { Clock, User, Scissors } from 'lucide-react';
-import type { Booking, BookingStatus } from '../types';
-import { BOOKING_ACTIONS } from '../services/bookingService';
+import { Clock, Home, Package, Store, User, Scissors } from 'lucide-react';
+import type { Booking, BookingStatus, ServiceMode } from '../types';
+import { bookingActions } from '../services/bookingService';
 import { formatMoney, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
 
 // Bookings a customer may already have chosen to pay in cash for.
-const CASH_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'IN_PROGRESS', 'COMPLETED']);
+const CASH_STATUSES = new Set<BookingStatus>([
+  'CONFIRMED',
+  'ASSIGNED',
+  'PROVIDER_EN_ROUTE',
+  'PICKED_UP',
+  'IN_PROGRESS',
+  'OUT_FOR_DELIVERY',
+  'COMPLETED',
+]);
+
+export const MODE_LABELS: Record<ServiceMode, string> = {
+  AT_SHOP: 'At the shop',
+  AT_HOME: 'Home visit',
+  PICKUP_DROP: 'Pickup & drop',
+};
+const MODE_ICONS = { AT_SHOP: Store, AT_HOME: Home, PICKUP_DROP: Package };
 
 export interface ProviderOption {
   userId: string;
@@ -32,7 +47,8 @@ export default function BookingCard({
   onCancel,
   onAssign,
 }: BookingCardProps) {
-  const actions = BOOKING_ACTIONS[booking.status] ?? [];
+  const actions = bookingActions(booking);
+  const ModeIcon = MODE_ICONS[booking.serviceMode] ?? Store;
   const providerName = booking.providerId
     ? (providers.find((p) => p.userId === booking.providerId)?.name ?? `Provider ${shortId(booking.providerId)}`)
     : null;
@@ -48,6 +64,9 @@ export default function BookingCard({
         <div className="flex items-center gap-2">
           <StatusBadge status={booking.status} />
           <span className="text-xs text-gray-400">#{booking.bookingNumber}</span>
+          <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-100 rounded-full px-2 py-0.5">
+            <ModeIcon size={12} /> {MODE_LABELS[booking.serviceMode] ?? booking.serviceMode}
+          </span>
         </div>
         <p className="font-semibold text-gray-900 flex items-center gap-1.5">
           <User size={14} className="text-gray-400" /> Customer {shortId(booking.customerId)}
@@ -59,6 +78,14 @@ export default function BookingCard({
           <Clock size={14} className="text-gray-400" />
           {format(new Date(booking.scheduledAt), 'MMM d, yyyy h:mm a')}
         </p>
+        {booking.itemDescription && (
+          <p className="text-sm text-gray-700">
+            <span className="text-gray-500">Item:</span> {booking.itemDescription}
+          </p>
+        )}
+        {booking.serviceMode !== 'AT_SHOP' && booking.addressId && (
+          <p className="text-xs text-gray-400">At the customer's saved address {shortId(booking.addressId)}</p>
+        )}
         {providerName && <p className="text-sm text-gray-500">Provider: {providerName}</p>}
         {booking.notes && <p className="text-xs text-gray-400 italic">{booking.notes}</p>}
       </div>

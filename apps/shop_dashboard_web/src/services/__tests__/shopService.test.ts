@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../apiClient';
-import { createShop, createStaffMember, getServices, getShopForOwner, updateService, updateShop } from '../shopService';
+import { createService, createShop, createStaffMember, getServices, getShopForOwner, updateService, updateShop } from '../shopService';
 import { register } from '../authService';
 import { formatMoney, toMinorUnits } from '../format';
 import { toAuthTokens } from '../tokens';
@@ -63,6 +63,44 @@ describe('shopService', () => {
     const service = await updateService('svc1', { isActive: false });
     expect(api.put).toHaveBeenCalledWith('/services/svc1', { is_active: false });
     expect(service).toMatchObject({ priceCents: 50000, isActive: false });
+  });
+
+  it('saves how a service is delivered and its fees', async () => {
+    const listing = {
+      id: 'svc9',
+      category_id: null,
+      shop_id: 's1',
+      name: 'AC repair',
+      description: null,
+      price_cents: 79900,
+      duration_minutes: 60,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      service_modes: ['AT_HOME', 'PICKUP_DROP'],
+      home_visit_fee_cents: 9900,
+      pickup_fee_cents: 19900,
+    };
+    api.post.mockResolvedValueOnce({ data: listing });
+    const created = await createService('s1', {
+      name: 'AC repair',
+      priceCents: 79900,
+      durationMinutes: 60,
+      serviceModes: ['AT_HOME', 'PICKUP_DROP'],
+      homeVisitFeeCents: 9900,
+      pickupFeeCents: 19900,
+    });
+    expect(api.post).toHaveBeenCalledWith('/services', expect.objectContaining({
+      service_modes: ['AT_HOME', 'PICKUP_DROP'],
+      home_visit_fee_cents: 9900,
+      pickup_fee_cents: 19900,
+    }));
+    expect(created).toMatchObject({ serviceModes: ['AT_HOME', 'PICKUP_DROP'], homeVisitFeeCents: 9900, pickupFeeCents: 19900 });
+
+    // Older listings without modes are at the shop only.
+    const { service_modes: _m, home_visit_fee_cents: _h, pickup_fee_cents: _p, ...old } = listing;
+    void _m; void _h; void _p;
+    api.get.mockResolvedValueOnce({ data: [old] });
+    expect((await getServices('s1'))[0]).toMatchObject({ serviceModes: ['AT_SHOP'], homeVisitFeeCents: 0, pickupFeeCents: 0 });
   });
 
   it('creates staff with empty contact fields as null', async () => {

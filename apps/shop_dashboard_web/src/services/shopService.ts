@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { Service, Shop, StaffMember } from '../types';
+import type { Service, ServiceMode, Shop, StaffMember } from '../types';
 
 // ── Shops (shop_service) ─────────────────────────────────────────────────────
 
@@ -99,6 +99,9 @@ interface ServiceResponse {
   duration_minutes: number | null;
   is_active: boolean;
   created_at: string;
+  service_modes?: ServiceMode[];
+  home_visit_fee_cents?: number;
+  pickup_fee_cents?: number;
 }
 
 export function toService(data: ServiceResponse): Service {
@@ -112,6 +115,9 @@ export function toService(data: ServiceResponse): Service {
     durationMinutes: data.duration_minutes,
     isActive: data.is_active,
     createdAt: data.created_at,
+    serviceModes: data.service_modes ?? ['AT_SHOP'],
+    homeVisitFeeCents: data.home_visit_fee_cents ?? 0,
+    pickupFeeCents: data.pickup_fee_cents ?? 0,
   };
 }
 
@@ -127,7 +133,18 @@ export interface ServiceInput {
   description?: string | null;
   priceCents: number;
   durationMinutes?: number | null;
+  serviceModes?: ServiceMode[];
+  homeVisitFeeCents?: number;
+  pickupFeeCents?: number;
 }
+
+const modeFields = (input: Partial<ServiceInput>) => {
+  const body: Record<string, unknown> = {};
+  if (input.serviceModes !== undefined) body.service_modes = input.serviceModes;
+  if (input.homeVisitFeeCents !== undefined) body.home_visit_fee_cents = input.homeVisitFeeCents;
+  if (input.pickupFeeCents !== undefined) body.pickup_fee_cents = input.pickupFeeCents;
+  return body;
+};
 
 export async function createService(shopId: string, input: ServiceInput): Promise<Service> {
   const { data } = await apiClient.post<ServiceResponse>('/services', {
@@ -136,6 +153,7 @@ export async function createService(shopId: string, input: ServiceInput): Promis
     description: input.description ?? null,
     price_cents: input.priceCents,
     duration_minutes: input.durationMinutes ?? null,
+    ...modeFields(input),
   });
   return toService(data);
 }
@@ -150,6 +168,7 @@ export async function updateService(
   if (update.priceCents !== undefined) body.price_cents = update.priceCents;
   if (update.durationMinutes !== undefined) body.duration_minutes = update.durationMinutes;
   if (update.isActive !== undefined) body.is_active = update.isActive;
+  Object.assign(body, modeFields(update));
   const { data } = await apiClient.put<ServiceResponse>(`/services/${id}`, body);
   return toService(data);
 }

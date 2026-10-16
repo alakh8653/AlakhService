@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -42,7 +42,6 @@ class Settings(BaseSettings):
     # Local testing only: log one-time codes when they cannot be delivered.
     LOG_OTP_CODES: bool = False
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings()

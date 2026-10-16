@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,8 +16,7 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: Optional[str] = None
     MAX_AVATAR_SIZE_MB: int = 5
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()

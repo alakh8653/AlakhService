@@ -10,14 +10,38 @@ class QueueTicket {
   final int position;
   final int? estimatedWaitMinutes;
 
-  const QueueTicket({required this.queueId, this.entryId, required this.position, this.estimatedWaitMinutes});
+  /// WAITING, or CALLED once it is the customer's turn.
+  final String status;
+  final int? peopleAhead;
 
-  factory QueueTicket.fromJson(Map<String, dynamic> json) => QueueTicket(
-        queueId: json['queue_id'] as String,
-        entryId: json['id'] as String?,
-        position: (json['position'] as num).toInt(),
-        estimatedWaitMinutes: (json['estimated_wait_minutes'] as num?)?.toInt(),
-      );
+  /// When the customer should expect to be called (a clock time is easier to plan around).
+  final DateTime? estimatedCallAt;
+
+  const QueueTicket({
+    required this.queueId,
+    this.entryId,
+    required this.position,
+    this.estimatedWaitMinutes,
+    this.status = 'WAITING',
+    this.peopleAhead,
+    this.estimatedCallAt,
+  });
+
+  bool get isCalled => status == 'CALLED';
+
+  /// Reads a join response (an entry) or a position response.
+  factory QueueTicket.fromJson(Map<String, dynamic> json) {
+    final callAt = json['estimated_call_at'] as String?;
+    return QueueTicket(
+      queueId: json['queue_id'] as String,
+      entryId: (json['entry_id'] ?? json['id']) as String?,
+      position: (json['position'] as num).toInt(),
+      estimatedWaitMinutes: (json['estimated_wait_minutes'] as num?)?.toInt(),
+      status: (json['status'] as String?) ?? 'WAITING',
+      peopleAhead: (json['people_ahead'] as num?)?.toInt(),
+      estimatedCallAt: callAt == null ? null : DateTime.parse(callAt).toLocal(),
+    );
+  }
 }
 
 /// Walk-in queues for a service (queue_service).
@@ -50,7 +74,8 @@ class QueueApi {
         return QueueTicket.fromJson(response.data!);
       });
 
-  /// The customer's place in the queue, or null once they are no longer waiting.
+  /// The customer's place in the queue (status CALLED when it is their turn), or null once they
+  /// are no longer in it (served, skipped as a no-show, or left).
   Future<QueueTicket?> position({required String queueId, required String customerId}) async {
     try {
       final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.queuePosition(queueId, customerId));

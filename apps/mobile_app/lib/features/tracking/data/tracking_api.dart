@@ -9,13 +9,17 @@ class ProviderLocation {
   final double longitude;
   final DateTime recordedAt;
 
-  const ProviderLocation({required this.latitude, required this.longitude, required this.recordedAt});
+  /// Metres per second, as the provider's phone last reported it.
+  final double? speed;
+
+  const ProviderLocation({required this.latitude, required this.longitude, required this.recordedAt, this.speed});
 
   factory ProviderLocation.fromJson(Map<String, dynamic> json) => ProviderLocation(
         latitude: (json['latitude'] as num).toDouble(),
         longitude: (json['longitude'] as num).toDouble(),
         recordedAt: DateTime.tryParse((json['timestamp'] as String?) ?? '')?.toLocal() ??
             DateTime.now(),
+        speed: (json['speed'] as num?)?.toDouble(),
       );
 }
 

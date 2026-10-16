@@ -289,6 +289,19 @@ class _BookingCard extends StatelessWidget {
                 ],
               ),
             ],
+            if (booking.showsReadyBy) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.event_available, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Expected back by ${_date(booking.readyBy!)}',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ],
             if (booking.address.isNotEmpty) ...[
               const SizedBox(height: 4),
               Row(

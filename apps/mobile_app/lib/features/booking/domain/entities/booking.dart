@@ -65,6 +65,12 @@ class Booking extends Equatable {
   final String serviceMode;
   final String? itemDescription;
 
+  /// The saved address a home visit or pickup goes to.
+  final String? addressId;
+
+  /// Pickup & drop: when the shop expects the item to be back with the customer.
+  final DateTime? readyBy;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -84,6 +90,8 @@ class Booking extends Equatable {
     required this.createdAt,
     this.serviceMode = 'AT_SHOP',
     this.itemDescription,
+    this.addressId,
+    this.readyBy,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);
@@ -95,6 +103,11 @@ class Booking extends Equatable {
       serviceMode == 'AT_SHOP' &&
       shopId != null &&
       const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.inProgress}.contains(status);
+  /// The shop has said when a picked-up item will be back, and it is not back yet.
+  bool get showsReadyBy =>
+      readyBy != null &&
+      serviceMode == 'PICKUP_DROP' &&
+      !const {BookingStatus.completed, BookingStatus.cancelled, BookingStatus.refunded}.contains(status);
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override

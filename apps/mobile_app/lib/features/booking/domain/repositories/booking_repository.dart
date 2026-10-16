@@ -9,6 +9,7 @@ abstract class BookingRepository {
     required String address,
     String? notes,
     String? couponCode,
+    BookingDelivery delivery = BookingDelivery.atShop,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

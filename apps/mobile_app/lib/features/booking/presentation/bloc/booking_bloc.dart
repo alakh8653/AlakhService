@@ -33,6 +33,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         address: event.address,
         notes: event.notes,
         couponCode: event.couponCode,
+        delivery: event.delivery,
       ),
     );
     result.fold(

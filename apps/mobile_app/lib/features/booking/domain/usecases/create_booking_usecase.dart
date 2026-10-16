@@ -15,6 +15,7 @@ class CreateBookingUseCase {
       address: params.address,
       notes: params.notes,
       couponCode: params.couponCode,
+      delivery: params.delivery,
     );
   }
 }
@@ -25,6 +26,7 @@ class CreateBookingParams {
   final String address;
   final String? notes;
   final String? couponCode;
+  final BookingDelivery delivery;
 
   const CreateBookingParams({
     required this.serviceId,
@@ -32,5 +34,6 @@ class CreateBookingParams {
     required this.address,
     this.notes,
     this.couponCode,
+    this.delivery = BookingDelivery.atShop,
   });
 }

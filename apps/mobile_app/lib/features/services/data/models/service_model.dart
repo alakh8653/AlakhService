@@ -15,6 +15,9 @@ class ServiceModel extends ServiceEntity {
     super.tags,
     super.shopId,
     super.durationMinutes,
+    super.serviceModes,
+    super.homeVisitFee,
+    super.pickupFee,
   });
 
   /// Reads a service_catalog listing. Prices arrive in paise (`price_cents`).
@@ -37,6 +40,10 @@ class ServiceModel extends ServiceEntity {
       tags: tags,
       shopId: json['shop_id'] as String?,
       durationMinutes: duration,
+      // Listings from before delivery modes are at the shop only.
+      serviceModes: (json['service_modes'] as List?)?.map((m) => m.toString()).toList() ?? const [ServiceMode.atShop],
+      homeVisitFee: ((json['home_visit_fee_cents'] as num?) ?? 0) / 100,
+      pickupFee: ((json['pickup_fee_cents'] as num?) ?? 0) / 100,
     );
   }
 }

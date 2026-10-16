@@ -44,7 +44,14 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       MaterialPageRoute(
         builder: (_) => BlocProvider<BookingBloc>(
           create: (_) => sl<BookingBloc>(),
-          child: BookingPage(serviceId: service.id, serviceName: service.name, servicePrice: service.basePrice),
+          child: BookingPage(
+            serviceId: service.id,
+            serviceName: service.name,
+            servicePrice: service.basePrice,
+            serviceModes: service.serviceModes,
+            homeVisitFee: service.homeVisitFee,
+            pickupFee: service.pickupFee,
+          ),
         ),
       ),
     );

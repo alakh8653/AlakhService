@@ -21,6 +21,8 @@ class BookingModel extends Booking {
     super.couponCode,
     super.notes,
     required super.createdAt,
+    super.serviceMode,
+    super.itemDescription,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -46,6 +48,8 @@ class BookingModel extends Booking {
       couponCode: json['coupon_code'] as String?,
       notes: otherNotes.isEmpty ? null : otherNotes,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      serviceMode: (json['service_mode'] as String?) ?? 'AT_SHOP',
+      itemDescription: json['item_description'] as String?,
     );
   }
 

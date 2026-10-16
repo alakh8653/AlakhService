@@ -46,7 +46,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   static Color statusColor(String status) => switch (status) {
         BookingStatus.confirmed || BookingStatus.assigned => AppColors.info,
-        BookingStatus.enRoute || BookingStatus.inProgress => AppColors.primary,
+        BookingStatus.enRoute || BookingStatus.pickedUp || BookingStatus.inProgress || BookingStatus.outForDelivery => AppColors.primary,
         BookingStatus.completed => AppColors.success,
         BookingStatus.pending => AppColors.warning,
         BookingStatus.cancelled || BookingStatus.disputed => AppColors.error,
@@ -58,7 +58,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
         BookingStatus.confirmed => 'Confirmed',
         BookingStatus.assigned => 'Provider assigned',
         BookingStatus.enRoute => 'Provider on the way',
+        BookingStatus.pickedUp => 'Item picked up',
         BookingStatus.inProgress => 'In progress',
+        BookingStatus.outForDelivery => 'On its way back',
         BookingStatus.completed => 'Completed',
         BookingStatus.cancelled => 'Cancelled',
         BookingStatus.disputed => 'Disputed',
@@ -260,6 +262,27 @@ class _BookingCard extends StatelessWidget {
                 Text(_date(booking.scheduledAt), style: AppTextStyles.caption),
               ],
             ),
+            if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(booking.serviceMode == 'PICKUP_DROP' ? Icons.local_shipping_outlined : Icons.home_outlined,
+                      size: 14, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      [
+                        booking.serviceMode == 'PICKUP_DROP' ? 'Pickup & drop' : 'Home visit',
+                        if (booking.itemDescription != null) booking.itemDescription!,
+                      ].join(' · '),
+                      style: AppTextStyles.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (booking.address.isNotEmpty) ...[
               const SizedBox(height: 4),
               Row(

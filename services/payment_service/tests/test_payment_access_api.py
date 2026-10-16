@@ -303,7 +303,9 @@ async def test_a_failed_refund_puts_the_payment_back(client):
 @pytest.mark.asyncio
 async def test_payments_for_a_booking_are_listed_to_its_parties_and_admins(client):
     pid = await paid_by_razorpay(client, "key-0013")
-    listed = lambda who, role="user": client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=auth(who, role))  # noqa: E731
+    def listed(who, role="user"):
+        return client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=auth(who, role))
+
     assert [p["id"] for p in (await listed("ops", "admin")).json()] == [pid]
     assert [p["id"] for p in (await listed("cust")).json()] == [pid]
     assert [p["id"] for p in (await listed("owner")).json()] == [pid]

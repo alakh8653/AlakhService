@@ -13,6 +13,10 @@ class SavedAddress {
   final String postalCode;
   final bool isDefault;
 
+  /// Map position, when the address was saved with one.
+  final double? latitude;
+  final double? longitude;
+
   const SavedAddress({
     required this.id,
     required this.label,
@@ -21,6 +25,8 @@ class SavedAddress {
     required this.state,
     required this.postalCode,
     required this.isDefault,
+    this.latitude,
+    this.longitude,
   });
 
   /// One line, as written into a booking.
@@ -34,6 +40,8 @@ class SavedAddress {
         state: (json['state'] as String?) ?? '',
         postalCode: (json['postal_code'] as String?) ?? '',
         isDefault: (json['is_default'] as bool?) ?? false,
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
       );
 }
 

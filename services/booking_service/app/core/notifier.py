@@ -58,6 +58,7 @@ def snapshot(booking, service_name: Optional[str] = None) -> dict:
         "provider_id": booking.provider_id,
         "shop_id": booking.shop_id,
         "scheduled_at": _when(booking.scheduled_at),
+        "ready_by": _when(booking.ready_by) if getattr(booking, "ready_by", None) else None,
         "service_name": service_name,
     }
 
@@ -84,4 +85,6 @@ async def notify_booking(
             seen.add(user_id)
             recipients.append({"user_id": user_id, "role": role})
     data = {k: booking[k] for k in ("booking_id", "booking_number", "scheduled_at", "service_name")}
+    if booking.get("ready_by"):
+        data["ready_by"] = booking["ready_by"]
     await notifier.send(event, recipients, data)

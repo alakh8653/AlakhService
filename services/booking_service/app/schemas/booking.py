@@ -47,6 +47,11 @@ class BookingAssignRequest(BaseModel):
     provider_id: str
 
 
+class BookingReadyByUpdate(BaseModel):
+    # When the item should be back with the customer; null clears it.
+    ready_by: Optional[datetime] = None
+
+
 class BookingCancelRequest(BaseModel):
     reason: str
 
@@ -66,6 +71,7 @@ class BookingResponse(BaseModel):
     address_id: Optional[str] = None
     service_mode: str = "AT_SHOP"
     item_description: Optional[str] = None
+    ready_by: Optional[datetime] = None
     notes: Optional[str] = None
     total_amount: int
     list_price: Optional[int] = None

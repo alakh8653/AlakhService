@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytest_asyncio
@@ -47,7 +47,10 @@ class RecordingNotifier:
         async with SESSIONS["factory"]() as db:
             stored = await db.get(Booking, data["booking_id"])
         assert stored is not None
-        assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
+        if event == "booking.ready_by":
+            assert stored.ready_by is not None
+        else:
+            assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
         SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))
 
 
@@ -609,3 +612,51 @@ async def test_at_the_shop_the_service_starts_when_the_customer_arrives(client):
     await set_status(client, visit["id"], "CONFIRMED", "owner-1")
     refused = await set_status(client, visit["id"], "IN_PROGRESS", "owner-1")
     assert refused.status_code == 400 and "Assign a provider" in refused.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_the_shop_tells_the_customer_when_a_pickup_comes_back(client):
+    job = await book(client, "svc-repair", service_mode="PICKUP_DROP", address_id="addr-1")
+    url = f"/api/v1/bookings/{job['id']}/ready-by"
+    pickup = datetime.fromisoformat(job["scheduled_at"])
+    back = (pickup + timedelta(days=2)).isoformat()
+
+    # The customer and strangers cannot promise a return time.
+    assert (await client.put(url, json={"ready_by": back}, headers=auth("c7"))).status_code == 403
+    assert (await client.put(url, json={"ready_by": back}, headers=auth("someone"))).status_code == 404
+    # It must come after the pickup.
+    early = await client.put(url, json={"ready_by": pickup.isoformat()}, headers=auth("owner-1"))
+    assert early.status_code == 400 and "after the pickup" in early.json()["detail"]
+
+    SENT.clear()
+    set_ = await client.put(url, json={"ready_by": back}, headers=auth("owner-1"))
+    assert set_.status_code == 200
+    assert datetime.fromisoformat(set_.json()["ready_by"]).replace(tzinfo=None) == datetime.fromisoformat(back).replace(
+        tzinfo=None
+    )
+    seen = (await client.get(f"/api/v1/bookings/{job['id']}", headers=auth("c7"))).json()
+    assert seen["ready_by"] is not None
+    # Only the customer is told, with the time.
+    [(event, recipients, data)] = SENT
+    assert (event, recipients) == ("booking.ready_by", [("c7", "customer")]) and data["ready_by"]
+
+    # Clearing it tells nobody.
+    SENT.clear()
+    cleared = await client.put(url, json={"ready_by": None}, headers=auth("owner-1"))
+    assert cleared.status_code == 200 and cleared.json()["ready_by"] is None and SENT == []
+
+    # Only pickup & drop bookings have one, and not once the item is on its way back.
+    at_shop = await book(client, "svc-repair")
+    bad = await client.put(
+        f"/api/v1/bookings/{at_shop['id']}/ready-by", json={"ready_by": back}, headers=auth("owner-1")
+    )
+    assert bad.status_code == 400 and "pickup & drop" in bad.json()["detail"]
+    assert (await set_status(client, job["id"], "CONFIRMED", "owner-1")).status_code == 200
+    await client.post(f"/api/v1/bookings/{job['id']}/assign", json={"provider_id": "staff-1"}, headers=auth("owner-1"))
+    for status in ("PICKED_UP", "IN_PROGRESS"):
+        assert (await set_status(client, job["id"], status, "staff-1")).status_code == 200
+    # The provider may set it too.
+    assert (await client.put(url, json={"ready_by": back}, headers=auth("staff-1"))).status_code == 200
+    assert (await set_status(client, job["id"], "OUT_FOR_DELIVERY", "staff-1")).status_code == 200
+    late = await client.put(url, json={"ready_by": back}, headers=auth("owner-1"))
+    assert late.status_code == 400 and "no longer" in late.json()["detail"]

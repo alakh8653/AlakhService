@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.fsm import BookingStatus, booking_fsm, mode_problem
+from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
 
@@ -249,6 +249,34 @@ class BookingService:
         )
         db.add(assignment)
         booking.provider_id = provider_id
+        # Set explicitly so the column's server-side onupdate does not expire it after the flush.
+        booking.updated_at = datetime.now(timezone.utc)
+        await db.flush()
+        return booking
+
+    # A return time can be promised until the item is on its way back.
+    READY_BY_STATUSES = {
+        BookingStatus.PENDING.value,
+        BookingStatus.CONFIRMED.value,
+        BookingStatus.ASSIGNED.value,
+        BookingStatus.PROVIDER_EN_ROUTE.value,
+        BookingStatus.PICKED_UP.value,
+        BookingStatus.IN_PROGRESS.value,
+    }
+
+    async def set_ready_by(self, db: AsyncSession, booking: Booking, ready_by: Optional[datetime]) -> Booking:
+        """Sets (or with None clears) when a pickup & drop item should be back with the customer."""
+        if booking.service_mode != PICKUP_DROP:
+            raise ValueError("A return time applies only to pickup & drop bookings")
+        if booking.status not in self.READY_BY_STATUSES:
+            raise ValueError("The return time can no longer be changed for this booking")
+        if ready_by is not None:
+            ready_by = ready_by if ready_by.tzinfo else ready_by.replace(tzinfo=timezone.utc)
+            scheduled = booking.scheduled_at
+            scheduled = scheduled if scheduled.tzinfo else scheduled.replace(tzinfo=timezone.utc)
+            if ready_by <= max(scheduled, datetime.now(timezone.utc)):
+                raise ValueError("The return time must be after the pickup and in the future")
+        booking.ready_by = ready_by
         # Set explicitly so the column's server-side onupdate does not expire it after the flush.
         booking.updated_at = datetime.now(timezone.utc)
         await db.flush()

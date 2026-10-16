@@ -6,6 +6,7 @@ import {
   changeBookingStatus,
   assignProviderThunk,
   cancelBookingThunk,
+  setReadyByThunk,
   setFilters,
   clearBookingError,
 } from '../state/bookingSlice';
@@ -53,6 +54,11 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     [dispatch],
   );
 
+  const setReadyBy = useCallback(
+    (id: string, readyBy: string | null) => dispatch(setReadyByThunk({ id, readyBy })),
+    [dispatch],
+  );
+
   const dismissError = useCallback(() => dispatch(clearBookingError()), [dispatch]);
 
   return {
@@ -69,6 +75,7 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     changeStatus,
     assign,
     cancel,
+    setReadyBy,
     dismissError,
   };
 }

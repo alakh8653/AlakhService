@@ -125,6 +125,12 @@ def test_messages_fill_in_what_is_known():
     )
     assert render("payment.completed", "shop", {"amount": "499.00"})[1] == "A customer paid ₹499.00 for a booking."
     assert render("nothing.happened", None, {}) is None
+    assert render("booking.ready_by", "customer", {"booking_number": "BK-1", "ready_by": "18 Oct, 05:00 PM"}) == (
+        "Return time set",
+        "Your item for booking BK-1 should be back with you by 18 Oct, 05:00 PM.",
+    )
+    # Only the customer is told about a return time.
+    assert render("booking.ready_by", "shop", {"booking_number": "BK-1"}) is None
 
 
 @pytest.mark.asyncio

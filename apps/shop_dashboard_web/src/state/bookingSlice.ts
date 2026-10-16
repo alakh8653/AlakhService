@@ -4,6 +4,7 @@ import {
   updateBookingStatus,
   assignProvider,
   cancelBooking,
+  setReadyBy,
   type BookingFilters,
 } from '../services/bookingService';
 import { apiErrorMessage } from '../services/format';
@@ -88,6 +89,17 @@ export const cancelBookingThunk = createAsyncThunk(
   },
 );
 
+export const setReadyByThunk = createAsyncThunk(
+  'bookings/readyBy',
+  async ({ id, readyBy }: { id: string; readyBy: string | null }, { rejectWithValue }) => {
+    try {
+      return await setReadyBy(id, readyBy);
+    } catch (err) {
+      return rejectWithValue(apiErrorMessage(err, 'Could not save the return time'));
+    }
+  },
+);
+
 function replaceBooking(state: BookingState, booking: Booking) {
   const index = state.bookings.findIndex((b) => b.id === booking.id);
   if (index !== -1) {
@@ -143,6 +155,12 @@ const bookingSlice = createSlice({
         replaceBooking(state, action.payload);
       })
       .addCase(cancelBookingThunk.rejected, (state, action) => {
+        state.error = action.payload as string;
+      })
+      .addCase(setReadyByThunk.fulfilled, (state, action) => {
+        replaceBooking(state, action.payload);
+      })
+      .addCase(setReadyByThunk.rejected, (state, action) => {
         state.error = action.payload as string;
       });
   },

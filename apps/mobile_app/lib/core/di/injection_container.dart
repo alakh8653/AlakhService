@@ -22,6 +22,7 @@ import '../../features/booking/domain/usecases/create_booking_usecase.dart';
 import '../../features/booking/presentation/bloc/booking_bloc.dart';
 import '../../features/notifications/data/notifications_api.dart';
 import '../../features/payment/data/payment_api.dart';
+import '../../features/jobs/data/location_reporter.dart';
 import '../../features/profile/data/address_api.dart';
 import '../../features/profile/data/profile_api.dart';
 import '../../features/directions/data/shop_location_api.dart';
@@ -34,6 +35,7 @@ import '../../features/services/domain/usecases/search_services_usecase.dart';
 import '../../features/services/presentation/bloc/service_bloc.dart';
 import '../../features/jobs/data/jobs_api.dart';
 import '../../features/tracking/data/tracking_api.dart';
+import '../../features/tracking/data/tracking_destination.dart';
 import '../network/api_client.dart';
 import '../network/network_info.dart';
 import '../network/token_store.dart';
@@ -103,6 +105,9 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => NotificationsApi(sl()));
   sl.registerLazySingleton(() => ProfileApi(sl()));
   sl.registerLazySingleton(() => AddressApi(sl()));
+  sl.registerLazySingleton(
+    () => TrackingDestinations(shops: sl(), addresses: sl(), device: DeviceLocationSource()),
+  );
   sl.registerLazySingleton(() => PaymentApi(sl()));
   sl.registerLazySingleton(() => RatingApi(sl()));
   sl.registerLazySingleton(() => DisputeApi(sl()));

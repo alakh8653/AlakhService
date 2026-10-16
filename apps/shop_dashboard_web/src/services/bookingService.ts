@@ -78,6 +78,7 @@ interface BookingResponse {
   duration_minutes: number;
   service_mode?: ServiceMode;
   item_description?: string | null;
+  ready_by?: string | null;
   address_id?: string | null;
   notes: string | null;
   total_amount: number;
@@ -105,6 +106,7 @@ export function toBooking(data: BookingResponse): Booking {
     durationMinutes: data.duration_minutes,
     serviceMode: data.service_mode ?? 'AT_SHOP',
     itemDescription: data.item_description ?? null,
+    readyBy: data.ready_by ?? null,
     addressId: data.address_id ?? null,
     notes: data.notes,
     totalAmount: data.total_amount,
@@ -160,6 +162,22 @@ export async function updateBookingStatus(
 /** Give a confirmed booking to one of the shop's staff (their provider account). */
 export async function assignProvider(id: string, providerId: string): Promise<Booking> {
   const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/assign`, { provider_id: providerId });
+  return toBooking(data);
+}
+
+/** Pickup & drop statuses in which the shop may still promise (or change) a return time. */
+export const READY_BY_STATUSES = new Set<BookingStatus>([
+  'PENDING',
+  'CONFIRMED',
+  'ASSIGNED',
+  'PROVIDER_EN_ROUTE',
+  'PICKED_UP',
+  'IN_PROGRESS',
+]);
+
+/** Tells the customer when their item will be back (null clears it). */
+export async function setReadyBy(id: string, readyBy: string | null): Promise<Booking> {
+  const { data } = await apiClient.put<BookingResponse>(`/bookings/${id}/ready-by`, { ready_by: readyBy });
   return toBooking(data);
 }
 

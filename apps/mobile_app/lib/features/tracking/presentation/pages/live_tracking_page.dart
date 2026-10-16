@@ -10,17 +10,22 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../booking/domain/entities/booking.dart';
 import '../../data/tracking_api.dart';
+import '../../data/tracking_destination.dart';
+import '../../domain/travel_estimate.dart';
 
-/// Shows where the provider on a booking is, refreshing every few seconds.
+/// Shows where the provider on a booking is, refreshing every few seconds, and roughly how far
+/// they are from where they are heading.
 class LiveTrackingPage extends StatefulWidget {
   final Booking booking;
   final TrackingApi? trackingApi;
+  final TrackingDestinations? destinations;
   final Duration pollInterval;
 
   const LiveTrackingPage({
     super.key,
     required this.booking,
     this.trackingApi,
+    this.destinations,
     this.pollInterval = const Duration(seconds: 10),
   });
 
@@ -33,6 +38,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
   GoogleMapController? _mapController;
   Timer? _timer;
   ProviderLocation? _location;
+  TrackingTarget? _target;
   String? _error;
   bool _loading = true;
 
@@ -44,6 +50,9 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
   @override
   void initState() {
     super.initState();
+    (widget.destinations ?? sl<TrackingDestinations>()).forBooking(widget.booking).then((target) {
+      if (mounted) setState(() => _target = target);
+    });
     _refresh();
     _timer = Timer.periodic(widget.pollInterval, (_) => _refresh());
   }
@@ -86,6 +95,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
   @override
   Widget build(BuildContext context) {
     final location = _location;
+    final target = _target;
     return Scaffold(
       appBar: AppBar(title: const Text('Live Tracking')),
       body: Stack(
@@ -104,6 +114,13 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
                   position: LatLng(location.latitude, location.longitude),
                   infoWindow: const InfoWindow(title: 'Your provider'),
                 ),
+              if (target != null)
+                Marker(
+                  markerId: const MarkerId('destination'),
+                  position: LatLng(target.latitude, target.longitude),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  infoWindow: InfoWindow(title: target.label),
+                ),
             },
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
@@ -113,9 +130,10 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: _StatusCard(
+            child: TrackingStatusCard(
               booking: widget.booking,
               location: location,
+              target: target,
               loading: _loading,
               error: _error,
             ),
@@ -126,18 +144,39 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+/// The card under the live map: what the provider is doing and, while they travel, how far away.
+class TrackingStatusCard extends StatelessWidget {
   final Booking booking;
   final ProviderLocation? location;
+  final TrackingTarget? target;
   final bool loading;
   final String? error;
 
-  const _StatusCard({
+  const TrackingStatusCard({
+    super.key,
     required this.booking,
     required this.location,
+    this.target,
     required this.loading,
     required this.error,
   });
+
+  /// Distance and ETA, once both ends are known.
+  String? get estimateText {
+    final location = this.location;
+    final target = this.target;
+    if (loading || error != null || location == null || target == null) return null;
+    final estimate = estimateTravel(
+      fromLatitude: location.latitude,
+      fromLongitude: location.longitude,
+      toLatitude: target.latitude,
+      toLongitude: target.longitude,
+      speedMps: location.speed,
+    );
+    if (estimate.arriving) return 'Arriving now';
+    final to = booking.status == BookingStatus.pickedUp ? ' from ${target.label}' : '';
+    return '${estimate.label}$to';
+  }
 
   String get _statusText {
     if (loading) return 'Finding your provider…';
@@ -148,9 +187,13 @@ class _StatusCard extends StatelessWidget {
     }
     final age = DateTime.now().difference(location.recordedAt);
     final ago = age.inMinutes < 1 ? 'just now' : '${age.inMinutes} min ago';
+    final pickup = booking.serviceMode == 'PICKUP_DROP';
     return switch (booking.status) {
-      BookingStatus.enRoute => 'On the way · updated $ago',
-      BookingStatus.inProgress => 'Working on your booking · updated $ago',
+      BookingStatus.enRoute => pickup ? 'Coming to collect your item · updated $ago' : 'On the way · updated $ago',
+      BookingStatus.pickedUp => 'Taking your item to the shop · updated $ago',
+      BookingStatus.inProgress =>
+        pickup ? 'Your item is being worked on · updated $ago' : 'Working on your booking · updated $ago',
+      BookingStatus.outForDelivery => 'Bringing your item back · updated $ago',
       _ => 'Provider assigned · updated $ago',
     };
   }
@@ -179,6 +222,8 @@ class _StatusCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(booking.serviceName, style: AppTextStyles.subtitle1),
+                if (estimateText != null)
+                  Text(estimateText!, style: AppTextStyles.subtitle2.copyWith(color: AppColors.primary)),
                 Text(_statusText, style: AppTextStyles.caption),
               ],
             ),

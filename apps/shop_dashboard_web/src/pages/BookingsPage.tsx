@@ -11,7 +11,7 @@ import type { BookingStatus, StaffMember } from '../types';
 
 export default function BookingsPage() {
   const [activeStatus, setActiveStatus] = useState<BookingStatus | undefined>();
-  const { bookings, isLoading, error, applyFilters, goToPage, page, totalPages, changeStatus, assign, cancel, dismissError } =
+  const { bookings, isLoading, error, applyFilters, goToPage, page, totalPages, changeStatus, assign, cancel, setReadyBy, dismissError } =
     useBookings();
   const { serviceNames } = useShopServices();
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
@@ -53,7 +53,7 @@ export default function BookingsPage() {
       ) : (
         <div className="grid gap-4">
           {bookings.map((b) => (
-            <BookingCard key={b.id} booking={b} serviceName={serviceNames[b.serviceId]} providers={providers} onChangeStatus={changeStatus} onAssign={assign} onCancel={cancel} />
+            <BookingCard key={b.id} booking={b} serviceName={serviceNames[b.serviceId]} providers={providers} onChangeStatus={changeStatus} onAssign={assign} onCancel={cancel} onSetReadyBy={setReadyBy} />
           ))}
           {bookings.length === 0 && <p className="text-gray-400 text-center py-10">No bookings found.</p>}
         </div>

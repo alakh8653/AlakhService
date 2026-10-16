@@ -15,6 +15,7 @@ const booking: Booking = {
   durationMinutes: 45,
   serviceMode: 'AT_SHOP',
   itemDescription: null,
+  readyBy: null,
   addressId: null,
   notes: null,
   totalAmount: 49900,
@@ -97,5 +98,46 @@ describe('BookingCard delivery modes', () => {
     expect(screen.getByText('At the shop')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Customer arrived' }));
     expect(onChangeStatus).toHaveBeenCalledWith('b1', 'IN_PROGRESS');
+  });
+});
+
+describe('BookingCard return time', () => {
+  const pickup: Booking = { ...booking, serviceMode: 'PICKUP_DROP', status: 'PICKED_UP', itemDescription: 'Dell XPS 13' };
+
+  it('tells the customer when their item will be back', () => {
+    const onSetReadyBy = vi.fn();
+    render(<BookingCard booking={pickup} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={onSetReadyBy} />);
+    expect(screen.getByText('No return time given yet')).toBeInTheDocument();
+
+    const save = screen.getByRole('button', { name: 'Tell customer' });
+    expect(save).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Expected back by'), { target: { value: '2026-10-12T17:00' } });
+    fireEvent.click(save);
+    // The input is in the browser's local time; the API gets the same moment as ISO.
+    expect(onSetReadyBy).toHaveBeenCalledWith('b1', new Date('2026-10-12T17:00').toISOString());
+  });
+
+  it('shows, changes and clears a promised time', () => {
+    const onSetReadyBy = vi.fn();
+    const readyBy = new Date('2026-10-12T17:00').toISOString();
+    render(<BookingCard booking={{ ...pickup, readyBy }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={onSetReadyBy} />);
+    expect(screen.getByText('Expected back by Oct 12, 5:00 PM')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(onSetReadyBy).toHaveBeenCalledWith('b1', null);
+  });
+
+  it('only shows the promise once the item is on its way back, and never for other modes', () => {
+    const readyBy = new Date('2026-10-12T17:00').toISOString();
+    const { unmount } = render(
+      <BookingCard booking={{ ...pickup, status: 'OUT_FOR_DELIVERY', readyBy }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={vi.fn()} />,
+    );
+    expect(screen.getByText('Expected back by Oct 12, 5:00 PM')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Expected back by')).not.toBeInTheDocument();
+    unmount();
+
+    render(<BookingCard booking={{ ...booking, status: 'CONFIRMED' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={vi.fn()} />);
+    expect(screen.queryByLabelText('Expected back by')).not.toBeInTheDocument();
+    expect(screen.queryByText(/return time/)).not.toBeInTheDocument();
   });
 });

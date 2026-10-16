@@ -31,6 +31,10 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ),
     ("booking.picked_up", None): ("Item picked up", "The item for booking {booking_number} has been collected."),
     ("booking.in_progress", None): ("Service started", "Booking {booking_number} is in progress."),
+    ("booking.ready_by", "customer"): (
+        "Return time set",
+        "Your item for booking {booking_number} should be back with you by {ready_by}.",
+    ),
     ("booking.out_for_delivery", "customer"): (
         "On its way back",
         "Your item for booking {booking_number} is on its way back to you.",

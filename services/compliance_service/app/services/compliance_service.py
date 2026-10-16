@@ -19,7 +19,6 @@ def k_anonymity_check(user_count: int, k: int = 5) -> bool:
 
 
 class ComplianceService:
-
     async def initiate_export(self, db: AsyncSession, data: DataExportRequestCreate) -> DataExportRequest:
         req = DataExportRequest(
             id=str(uuid.uuid4()),
@@ -78,9 +77,7 @@ class ComplianceService:
 
     async def get_user_consents(self, db: AsyncSession, user_id: str) -> List[ConsentRecord]:
         result = await db.execute(
-            select(ConsentRecord)
-            .where(ConsentRecord.user_id == user_id)
-            .order_by(ConsentRecord.created_at.desc())
+            select(ConsentRecord).where(ConsentRecord.user_id == user_id).order_by(ConsentRecord.created_at.desc())
         )
         return list(result.scalars().all())
 

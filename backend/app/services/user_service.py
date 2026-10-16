@@ -27,9 +27,7 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 20) -> list[Us
     return list(result.scalars().all())
 
 
-async def update_user(
-    db: AsyncSession, user_id: uuid.UUID, user_update: UserUpdate
-) -> User:
+async def update_user(db: AsyncSession, user_id: uuid.UUID, user_update: UserUpdate) -> User:
     user = await get_user(db, user_id)
     update_data = user_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():

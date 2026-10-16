@@ -26,9 +26,7 @@ async def initiate(
     db: AsyncSession = Depends(get_db),
 ):
     """Initiate a payment for a booking and return gateway order details."""
-    return await initiate_payment(
-        db, booking_id=payment_initiate.booking_id, user_id=current_user.id
-    )
+    return await initiate_payment(db, booking_id=payment_initiate.booking_id, user_id=current_user.id)
 
 
 @router.post("/verify")
@@ -58,9 +56,7 @@ async def list_payments(
     db: AsyncSession = Depends(get_db),
 ):
     """List all payments for the current user."""
-    return await get_user_payments(
-        db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"]
-    )
+    return await get_user_payments(db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"])
 
 
 @router.post("/webhook", status_code=status.HTTP_200_OK)

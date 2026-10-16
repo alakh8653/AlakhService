@@ -1,4 +1,5 @@
 """Quotes and history are the customer's own; coupons are created by admins."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +14,9 @@ from app.main import app
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -44,7 +47,9 @@ async def test_pricing_rules(client):
     quote = {"service_id": "s1", "customer_id": "bob", "base_price_cents": 10000}
     assert (await client.post("/api/v1/pricing/calculate", json=quote)).status_code == 401
     assert (await client.post("/api/v1/pricing/calculate", json=quote, headers=ALICE)).status_code == 403
-    assert (await client.post("/api/v1/pricing/calculate", json={**quote, "customer_id": "alice"}, headers=ALICE)).status_code == 201
+    assert (
+        await client.post("/api/v1/pricing/calculate", json={**quote, "customer_id": "alice"}, headers=ALICE)
+    ).status_code == 201
     assert (await client.get("/api/v1/pricing/history/bob", headers=ALICE)).status_code == 403
     assert (await client.get("/api/v1/pricing/history/alice", headers=ALICE)).status_code == 200
 
@@ -71,7 +76,9 @@ async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
     redeemed = await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)
     assert redeemed.status_code == 200 and redeemed.json()["redeemed_at"]
     assert (await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)).status_code == 409  # quote spent
-    assert (await client.post(f"/api/v1/pricing/{quotes[1]['id']}/redeem", headers=ALICE)).status_code == 409  # one use each
+    assert (
+        await client.post(f"/api/v1/pricing/{quotes[1]['id']}/redeem", headers=ALICE)
+    ).status_code == 409  # one use each
 
     bob = (await quote("bob")).json()
     assert (await client.post(f"/api/v1/pricing/{bob['id']}/redeem", headers=BOB)).status_code == 200
@@ -82,8 +89,12 @@ async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
 
 @pytest.mark.asyncio
 async def test_admins_list_coupons_and_codes_are_case_insensitive(client):
-    assert (await client.post("/api/v1/coupons", json={"code": " diwali25 ", "discount_pct": 0.25}, headers=ADMIN)).json()["code"] == "DIWALI25"
-    assert (await client.post("/api/v1/coupons", json={"code": "BAD", "discount_pct": 0.9}, headers=ADMIN)).status_code == 422
+    assert (
+        await client.post("/api/v1/coupons", json={"code": " diwali25 ", "discount_pct": 0.25}, headers=ADMIN)
+    ).json()["code"] == "DIWALI25"
+    assert (
+        await client.post("/api/v1/coupons", json={"code": "BAD", "discount_pct": 0.9}, headers=ADMIN)
+    ).status_code == 422
     assert [c["code"] for c in (await client.get("/api/v1/coupons", headers=ADMIN)).json()] == ["DIWALI25"]
     assert (await client.get("/api/v1/coupons", headers=ALICE)).status_code == 403
     assert (await client.get("/api/v1/coupons/diwali25/validate", headers=ALICE)).json()["is_valid"] is True

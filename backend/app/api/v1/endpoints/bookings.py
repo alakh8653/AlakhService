@@ -27,9 +27,7 @@ async def list_bookings(
     db: AsyncSession = Depends(get_db),
 ):
     """List all bookings for the current user."""
-    return await get_user_bookings(
-        db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"]
-    )
+    return await get_user_bookings(db, user_id=current_user.id, skip=pagination["skip"], limit=pagination["limit"])
 
 
 @router.post("/", response_model=BookingRead, status_code=status.HTTP_201_CREATED)

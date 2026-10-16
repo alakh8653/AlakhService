@@ -1,4 +1,5 @@
 """Read-only finance reports over payments, refunds and escrow."""
+
 from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional, Tuple
 

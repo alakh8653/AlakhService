@@ -84,7 +84,7 @@ repos:
   # Python – Ruff (linter + formatter, replaces flake8/isort/pyupgrade)
   # ---------------------------------------------------------------------------
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+    rev: v0.17.1  # keep in step with the ruff version pinned in .github/workflows/backend-ci.yml
     hooks:
       - id: ruff
         name: Ruff lint
@@ -93,15 +93,6 @@ repos:
       - id: ruff-format
         name: Ruff format
         types_or: [python, pyi]
-
-  # ---------------------------------------------------------------------------
-  # Python – Black (formatter)
-  # ---------------------------------------------------------------------------
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
-        language_version: python3.11
 
   # ---------------------------------------------------------------------------
   # Python – MyPy (type checking)

@@ -20,7 +20,6 @@ _bk_tree = BKTree()
 
 
 class CatalogService:
-
     async def create_category(self, db: AsyncSession, data: CategoryCreate) -> ServiceCategory:
         cat = ServiceCategory(
             id=str(uuid.uuid4()),
@@ -90,7 +89,9 @@ class CatalogService:
         result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
-    async def search_services(self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None) -> List[ServiceListing]:
+    async def search_services(
+        self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None
+    ) -> List[ServiceListing]:
         if q:
             # TF-IDF search
             tfidf_results = _tfidf_index.search(q, top_k=20)
@@ -105,7 +106,7 @@ class CatalogService:
                 # Fallback to LIKE search
                 stmt = select(ServiceListing).where(
                     ServiceListing.is_active == True,
-                    or_(ServiceListing.name.ilike(f"%{q}%"), ServiceListing.description.ilike(f"%{q}%"))
+                    or_(ServiceListing.name.ilike(f"%{q}%"), ServiceListing.description.ilike(f"%{q}%")),
                 )
                 if category:
                     stmt = stmt.where(ServiceListing.category_id == category)

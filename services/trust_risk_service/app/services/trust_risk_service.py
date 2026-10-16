@@ -15,7 +15,6 @@ _scorer = BayesianRiskScorer()
 
 
 class TrustRiskService:
-
     async def get_or_create_profile(self, db: AsyncSession, user_id: str) -> UserRiskProfile:
         result = await db.execute(select(UserRiskProfile).where(UserRiskProfile.user_id == user_id))
         profile = result.scalar_one_or_none()
@@ -62,7 +61,9 @@ class TrustRiskService:
         return profile
 
     async def get_signal_history(self, db: AsyncSession, user_id: str) -> List[RiskSignal]:
-        result = await db.execute(select(RiskSignal).where(RiskSignal.user_id == user_id).order_by(RiskSignal.created_at.desc()))
+        result = await db.execute(
+            select(RiskSignal).where(RiskSignal.user_id == user_id).order_by(RiskSignal.created_at.desc())
+        )
         return list(result.scalars().all())
 
 

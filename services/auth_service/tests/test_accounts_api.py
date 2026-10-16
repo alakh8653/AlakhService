@@ -1,4 +1,5 @@
 """Admins look up accounts; a ban (from admin_service) stops sign-in and ends existing sessions."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -63,7 +64,11 @@ async def client(monkeypatch):
     app.dependency_overrides[get_redis] = override_redis
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         for email, name in (("ravi@example.com", "Ravi Kumar"), ("asha@example.com", "Asha Rao")):
-            assert (await ac.post("/api/v1/auth/register", json={"email": email, "password": "Passw0rd!", "full_name": name})).status_code == 201
+            assert (
+                await ac.post(
+                    "/api/v1/auth/register", json={"email": email, "password": "Passw0rd!", "full_name": name}
+                )
+            ).status_code == 201
         yield ac
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -83,7 +88,9 @@ async def test_only_admins_search_accounts(client):
 
 @pytest.mark.asyncio
 async def test_a_banned_account_cannot_sign_in_or_keep_its_session(client):
-    session = (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).json()
+    session = (
+        await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
+    ).json()
     ravi = (await client.get("/api/v1/auth/users", params={"q": "ravi"}, headers=bearer("ops", "admin"))).json()[0]
     url = f"/internal/users/{ravi['id']}/status"
 
@@ -92,10 +99,16 @@ async def test_a_banned_account_cannot_sign_in_or_keep_its_session(client):
 
     login = await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
     assert (login.status_code, login.json()["detail"]) == (401, "Account is disabled")
-    assert (await client.post("/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]})).status_code == 401
+    assert (
+        await client.post("/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]})
+    ).status_code == 401
 
-    assert (await client.post(url, json={"is_active": True}, headers={"X-Internal-Key": KEY})).json()["is_active"] is True
-    assert (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).status_code == 200
+    assert (await client.post(url, json={"is_active": True}, headers={"X-Internal-Key": KEY})).json()[
+        "is_active"
+    ] is True
+    assert (
+        await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
+    ).status_code == 200
 
 
 @pytest.mark.asyncio
@@ -104,7 +117,9 @@ async def test_only_services_holding_the_key_switch_accounts(client, monkeypatch
     assert (await client.post(url, json={"is_active": False})).status_code == 401
     assert (await client.post(url, json={"is_active": False}, headers=bearer("ops", "admin"))).status_code == 401
     assert (await client.post(url, json={"is_active": False}, headers={"X-Internal-Key": KEY})).status_code == 404
-    assert (await client.post("/api/v1" + url, json={"is_active": False}, headers={"X-Internal-Key": KEY})).status_code == 404
+    assert (
+        await client.post("/api/v1" + url, json={"is_active": False}, headers={"X-Internal-Key": KEY})
+    ).status_code == 404
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
     assert (await client.post(url, json={"is_active": False}, headers={"X-Internal-Key": ""})).status_code == 503
 
@@ -140,21 +155,33 @@ async def test_people_can_delete_their_own_account(client):
         erased.append(token)
 
     app.dependency_overrides[get_profile_eraser] = lambda: fake_erase
-    session = (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).json()
+    session = (
+        await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
+    ).json()
     me = {"Authorization": f"Bearer {session['access_token']}"}
 
     assert (await client.post("/api/v1/auth/delete-account", json={"password": "wrong"}, headers=me)).status_code == 401
     failing.append(True)
-    assert (await client.post("/api/v1/auth/delete-account", json={"password": "Passw0rd!"}, headers=me)).status_code == 503
+    assert (
+        await client.post("/api/v1/auth/delete-account", json={"password": "Passw0rd!"}, headers=me)
+    ).status_code == 503
     # Nothing changed while the profile couldn't be erased.
-    assert (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).status_code == 200
+    assert (
+        await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
+    ).status_code == 200
     failing.clear()
 
     deleted = await client.post("/api/v1/auth/delete-account", json={"password": "Passw0rd!"}, headers=me)
     assert deleted.status_code == 200
     assert erased == [session["access_token"]]
-    assert (await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})).status_code == 401
-    assert (await client.post("/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]})).status_code == 401
+    assert (
+        await client.post("/api/v1/auth/login", json={"email": "ravi@example.com", "password": "Passw0rd!"})
+    ).status_code == 401
+    assert (
+        await client.post("/api/v1/auth/refresh", json={"refresh_token": session["refresh_token"]})
+    ).status_code == 401
     # The email is free again for a new account.
-    again = await client.post("/api/v1/auth/register", json={"email": "ravi@example.com", "password": "Passw0rd!", "full_name": "New Ravi"})
+    again = await client.post(
+        "/api/v1/auth/register", json={"email": "ravi@example.com", "password": "Passw0rd!", "full_name": "New Ravi"}
+    )
     assert again.status_code == 201

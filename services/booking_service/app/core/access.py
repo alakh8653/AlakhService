@@ -5,6 +5,7 @@ owner of its shop, or an admin. Anyone else is told the booking does not
 exist. The state machine (app/core/fsm.py) still decides which transitions
 are valid at all; this only decides who may request them.
 """
+
 from typing import Awaitable, Callable, Optional, Set
 
 from app.core.fsm import BookingStatus

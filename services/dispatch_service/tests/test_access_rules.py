@@ -1,4 +1,5 @@
 """Providers report only their own location; assignment is admin-only."""
+
 import pytest
 import pytest_asyncio
 from fastapi import HTTPException
@@ -17,7 +18,9 @@ from app.models.dispatch import DispatchJob
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -56,9 +59,17 @@ async def test_dispatch_rules(client):
     location = {"provider_id": "bob", "latitude": 18.52, "longitude": 73.85}
     assert (await client.post("/api/v1/providers/location", json=location)).status_code == 401
     assert (await client.post("/api/v1/providers/location", json=location, headers=ALICE)).status_code == 403
-    assert (await client.post("/api/v1/dispatch/assign", json={"booking_id": "b1", "booking_lat": 18.5, "booking_lon": 73.8, "providers": []}, headers=ALICE)).status_code == 403
+    assert (
+        await client.post(
+            "/api/v1/dispatch/assign",
+            json={"booking_id": "b1", "booking_lat": 18.5, "booking_lon": 73.8, "providers": []},
+            headers=ALICE,
+        )
+    ).status_code == 403
     assert (await client.get("/api/v1/providers/available", params={"lat": 18.5, "lon": 73.8})).status_code == 401
-    assert (await client.get("/api/v1/providers/available", params={"lat": 18.5, "lon": 73.8}, headers=ALICE)).status_code == 403
+    assert (
+        await client.get("/api/v1/providers/available", params={"lat": 18.5, "lon": 73.8}, headers=ALICE)
+    ).status_code == 403
 
 
 @pytest.mark.asyncio

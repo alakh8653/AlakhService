@@ -2,6 +2,7 @@
 Double-entry bookkeeping ledger with ACID guarantees.
 Every financial transaction creates balanced debit/credit entries.
 """
+
 import uuid
 from datetime import datetime, timezone
 from typing import List, Tuple
@@ -16,7 +17,6 @@ log = structlog.get_logger()
 
 
 class DoubleEntryLedger:
-
     async def get_balance(self, db: AsyncSession, account_id: str) -> int:
         """Get current balance from running_balance of latest ledger entry."""
         result = await db.execute(
@@ -28,9 +28,7 @@ class DoubleEntryLedger:
         balance = result.scalar_one_or_none()
         if balance is not None:
             return balance
-        result = await db.execute(
-            select(Account.balance_cents).where(Account.id == account_id)
-        )
+        result = await db.execute(select(Account.balance_cents).where(Account.id == account_id))
         balance = result.scalar_one_or_none()
         return balance or 0
 
@@ -52,18 +50,14 @@ class DoubleEntryLedger:
         if amount_cents <= 0:
             raise ValueError(f"Transfer amount must be positive, got {amount_cents}")
 
-        result = await db.execute(
-            select(Account).where(Account.id == from_account_id).with_for_update()
-        )
+        result = await db.execute(select(Account).where(Account.id == from_account_id).with_for_update())
         from_account = result.scalar_one_or_none()
         if not from_account:
             raise ValueError(f"Source account {from_account_id} not found")
         if not from_account.is_active:
             raise ValueError(f"Source account {from_account_id} is inactive")
 
-        result = await db.execute(
-            select(Account).where(Account.id == to_account_id).with_for_update()
-        )
+        result = await db.execute(select(Account).where(Account.id == to_account_id).with_for_update())
         to_account = result.scalar_one_or_none()
         if not to_account:
             raise ValueError(f"Destination account {to_account_id} not found")
@@ -133,9 +127,7 @@ class DoubleEntryLedger:
         reference_type: str,
     ) -> LedgerEntry:
         """Credit an account (increase balance) without a corresponding debit - for external deposits."""
-        result = await db.execute(
-            select(Account).where(Account.id == account_id).with_for_update()
-        )
+        result = await db.execute(select(Account).where(Account.id == account_id).with_for_update())
         account = result.scalar_one_or_none()
         if not account:
             raise ValueError(f"Account {account_id} not found")
@@ -161,7 +153,9 @@ class DoubleEntryLedger:
         await db.flush()
         return entry
 
-    async def get_statement(self, db: AsyncSession, account_id: str, limit: int = 50, offset: int = 0) -> List[LedgerEntry]:
+    async def get_statement(
+        self, db: AsyncSession, account_id: str, limit: int = 50, offset: int = 0
+    ) -> List[LedgerEntry]:
         """Get paginated ledger entries for an account."""
         result = await db.execute(
             select(LedgerEntry)

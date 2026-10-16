@@ -17,7 +17,6 @@ MINUTES_PER_CUSTOMER = 5
 
 
 class QueueService:
-
     async def create_queue(self, db: AsyncSession, data: QueueCreate) -> Queue:
         q = Queue(
             id=str(uuid.uuid4()),
@@ -95,9 +94,7 @@ class QueueService:
         return entry
 
     async def leave_queue(self, db: AsyncSession, queue_id: str, entry_id: str) -> None:
-        result = await db.execute(
-            select(QueueEntry).where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id)
-        )
+        result = await db.execute(select(QueueEntry).where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id))
         entry = result.scalar_one_or_none()
         if not entry:
             raise EntryNotFoundError()

@@ -49,9 +49,7 @@ async def test_refresh_token(client: AsyncClient, test_user):
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     refresh_token = login.json()["refresh_token"]
-    response = await client.post(
-        "/api/v1/auth/refresh", params={"token": refresh_token}
-    )
+    response = await client.post("/api/v1/auth/refresh", params={"token": refresh_token})
     assert response.status_code == 200
     assert "access_token" in response.json()
 

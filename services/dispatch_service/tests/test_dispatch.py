@@ -104,6 +104,8 @@ async def test_dispatch_no_providers(db_session, service):
 
 @pytest.mark.anyio
 async def test_update_provider_location(db_session, service):
-    await service.update_provider_location(db_session, ProviderLocationUpdate(provider_id="p1", latitude=28.6, longitude=77.2))
+    await service.update_provider_location(
+        db_session, ProviderLocationUpdate(provider_id="p1", latitude=28.6, longitude=77.2)
+    )
     providers = await service.get_available_providers(db_session, 28.6, 77.2, radius_km=50.0)
     assert any(p.provider_id == "p1" for p in providers)

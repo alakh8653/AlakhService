@@ -15,13 +15,14 @@ log = structlog.get_logger()
 
 
 class DispatchService:
-
     async def assign(self, db: AsyncSession, data: AssignRequest) -> AssignResponse:
         if not data.providers:
             raise NoProvidersAvailableError()
 
         # Build cost matrix: 1 booking x N providers
-        costs = [[haversine_distance(data.booking_lat, data.booking_lon, p.latitude, p.longitude) for p in data.providers]]
+        costs = [
+            [haversine_distance(data.booking_lat, data.booking_lon, p.latitude, p.longitude) for p in data.providers]
+        ]
         assignments = hungarian_algorithm(costs)
 
         if not assignments:
@@ -42,7 +43,9 @@ class DispatchService:
         )
         db.add(job)
         await db.flush()
-        log.info("dispatch_assigned", booking_id=data.booking_id, provider_id=best_provider.provider_id, distance_km=distance)
+        log.info(
+            "dispatch_assigned", booking_id=data.booking_id, provider_id=best_provider.provider_id, distance_km=distance
+        )
 
         return AssignResponse(
             booking_id=data.booking_id,
@@ -72,13 +75,12 @@ class DispatchService:
         await db.flush()
         return {"status": "updated", "provider_id": data.provider_id}
 
-    async def get_available_providers(self, db: AsyncSession, lat: float, lon: float, radius_km: float) -> List[AvailableProvider]:
+    async def get_available_providers(
+        self, db: AsyncSession, lat: float, lon: float, radius_km: float
+    ) -> List[AvailableProvider]:
         result = await db.execute(select(AvailableProvider).where(AvailableProvider.is_available == True))
         all_providers = list(result.scalars().all())
-        nearby = [
-            p for p in all_providers
-            if haversine_distance(lat, lon, p.latitude, p.longitude) <= radius_km
-        ]
+        nearby = [p for p in all_providers if haversine_distance(lat, lon, p.latitude, p.longitude) <= radius_km]
         return nearby
 
 

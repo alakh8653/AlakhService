@@ -23,6 +23,7 @@ log = structlog.get_logger()
 
 CHANNEL_FALLBACK = ["push", "in_app", "email", "sms"]
 
+
 class NotificationService:
     _fcm: Optional[FCMChannel] = None
 
@@ -36,7 +37,14 @@ class NotificationService:
         return TwilioSMSChannel(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_FROM_NUMBER)
 
     def _get_email(self) -> EmailChannel:
-        return EmailChannel(settings.SMTP_HOST, settings.SMTP_PORT, settings.SMTP_USERNAME, settings.SMTP_PASSWORD, settings.SMTP_FROM_EMAIL, settings.SMTP_FROM_NAME)
+        return EmailChannel(
+            settings.SMTP_HOST,
+            settings.SMTP_PORT,
+            settings.SMTP_USERNAME,
+            settings.SMTP_PASSWORD,
+            settings.SMTP_FROM_EMAIL,
+            settings.SMTP_FROM_NAME,
+        )
 
     async def check_quiet_hours(self, db: AsyncSession, user_id: str) -> bool:
         now_hour = datetime.now(timezone.utc).hour
@@ -59,7 +67,9 @@ class NotificationService:
                     return True
         return False
 
-    async def _get_enabled_channels(self, db: AsyncSession, user_id: str, requested_channels: Optional[List[str]]) -> List[str]:
+    async def _get_enabled_channels(
+        self, db: AsyncSession, user_id: str, requested_channels: Optional[List[str]]
+    ) -> List[str]:
         result = await db.execute(
             select(NotificationPreference).where(
                 NotificationPreference.user_id == user_id,
@@ -137,7 +147,17 @@ class NotificationService:
         await db.flush()
         return notif
 
-    async def _dispatch_channel(self, db: AsyncSession, redis, channel: str, user_id: str, notif: Notification, title: str, body: str, data: dict) -> bool:
+    async def _dispatch_channel(
+        self,
+        db: AsyncSession,
+        redis,
+        channel: str,
+        user_id: str,
+        notif: Notification,
+        title: str,
+        body: str,
+        data: dict,
+    ) -> bool:
         if channel == "push":
             result = await db.execute(
                 select(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.is_active == True)
@@ -237,10 +257,11 @@ class NotificationService:
 
     async def get_unread_count(self, db: AsyncSession, user_id: str) -> int:
         result = await db.execute(
-            select(func.count()).select_from(Notification).where(
-                Notification.user_id == user_id, Notification.is_read == False
-            )
+            select(func.count())
+            .select_from(Notification)
+            .where(Notification.user_id == user_id, Notification.is_read == False)
         )
         return result.scalar_one()
+
 
 notification_service = NotificationService()

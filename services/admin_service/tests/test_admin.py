@@ -45,7 +45,9 @@ def service():
 
 @pytest.mark.anyio
 async def test_create_admin_user(db_session, service):
-    admin = await service.create_admin_user(db_session, AdminUserCreate(user_id="u1", role="superadmin", permissions=["ban_user", "view_logs"]))
+    admin = await service.create_admin_user(
+        db_session, AdminUserCreate(user_id="u1", role="superadmin", permissions=["ban_user", "view_logs"])
+    )
     assert admin.user_id == "u1"
     assert admin.role == "superadmin"
     assert admin.is_active is True
@@ -75,16 +77,24 @@ async def test_audit_log_creation(db_session, service):
 
 @pytest.mark.anyio
 async def test_system_config_update(db_session, service):
-    config = await service.update_system_config(db_session, "max_bookings_per_day", SystemConfigUpdate(value="100", description="Max bookings", updated_by="admin-1"))
+    config = await service.update_system_config(
+        db_session,
+        "max_bookings_per_day",
+        SystemConfigUpdate(value="100", description="Max bookings", updated_by="admin-1"),
+    )
     assert config.key == "max_bookings_per_day"
     assert config.value == "100"
 
     # Update again
-    config2 = await service.update_system_config(db_session, "max_bookings_per_day", SystemConfigUpdate(value="200", updated_by="admin-2"))
+    config2 = await service.update_system_config(
+        db_session, "max_bookings_per_day", SystemConfigUpdate(value="200", updated_by="admin-2")
+    )
     assert config2.value == "200"
 
 
 @pytest.mark.anyio
 async def test_bulk_ban(db_session, service):
-    result = await service.bulk_update(db_session, BulkUpdateRequest(user_ids=["u1", "u2", "u3"], action="ban", admin_id="admin-1", reason="Bulk test"))
+    result = await service.bulk_update(
+        db_session, BulkUpdateRequest(user_ids=["u1", "u2", "u3"], action="ban", admin_id="admin-1", reason="Bulk test")
+    )
     assert result["processed"] == 3

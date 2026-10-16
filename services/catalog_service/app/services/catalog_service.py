@@ -25,6 +25,7 @@ CACHE_KEY_TREE = "catalog:tree"
 CACHE_KEY_FEATURED = "catalog:featured"
 CACHE_KEY_POPULAR = "catalog:popular:{limit}"
 
+
 class CatalogService:
     async def create_category(self, db: AsyncSession, data: ServiceCategoryCreate) -> ServiceCategory:
         existing = await db.execute(select(ServiceCategory).where(ServiceCategory.slug == data.slug))
@@ -38,7 +39,11 @@ class CatalogService:
         return cat
 
     async def get_category(self, db: AsyncSession, category_id: str) -> ServiceCategory:
-        result = await db.execute(select(ServiceCategory).options(selectinload(ServiceCategory.children)).where(ServiceCategory.id == category_id))
+        result = await db.execute(
+            select(ServiceCategory)
+            .options(selectinload(ServiceCategory.children))
+            .where(ServiceCategory.id == category_id)
+        )
         cat = result.scalar_one_or_none()
         if not cat:
             raise CategoryNotFoundError()
@@ -58,7 +63,11 @@ class CatalogService:
         return True
 
     async def list_categories(self, db: AsyncSession, parent_id: Optional[str] = None) -> List[ServiceCategory]:
-        q = select(ServiceCategory).options(selectinload(ServiceCategory.children)).where(ServiceCategory.is_active == True)
+        q = (
+            select(ServiceCategory)
+            .options(selectinload(ServiceCategory.children))
+            .where(ServiceCategory.is_active == True)
+        )
         if parent_id is not None:
             q = q.where(ServiceCategory.parent_id == parent_id)
         else:
@@ -87,9 +96,20 @@ class CatalogService:
             log.warning("catalog_tree_invalidation_failed", error=str(exc))
 
     async def _build_tree_node(self, db: AsyncSession, cat: ServiceCategory) -> dict:
-        result = await db.execute(select(ServiceCategory).where(ServiceCategory.parent_id == cat.id, ServiceCategory.is_active == True).order_by(ServiceCategory.order))
+        result = await db.execute(
+            select(ServiceCategory)
+            .where(ServiceCategory.parent_id == cat.id, ServiceCategory.is_active == True)
+            .order_by(ServiceCategory.order)
+        )
         children = result.scalars().all()
-        return {"id": cat.id, "name": cat.name, "slug": cat.slug, "icon_url": cat.icon_url, "order": cat.order, "children": [await self._build_tree_node(db, c) for c in children]}
+        return {
+            "id": cat.id,
+            "name": cat.name,
+            "slug": cat.slug,
+            "icon_url": cat.icon_url,
+            "order": cat.order,
+            "children": [await self._build_tree_node(db, c) for c in children],
+        }
 
     async def create_service(self, db: AsyncSession, data: ServiceItemCreate) -> ServiceItem:
         existing = await db.execute(select(ServiceItem).where(ServiceItem.slug == data.slug))
@@ -103,14 +123,30 @@ class CatalogService:
         return svc
 
     async def get_service(self, db: AsyncSession, service_id: str) -> ServiceItem:
-        result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.id == service_id))
+        result = await db.execute(
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.id == service_id)
+        )
         svc = result.scalar_one_or_none()
         if not svc:
             raise ServiceNotFoundError()
         return svc
 
     async def get_service_by_slug(self, db: AsyncSession, slug: str) -> ServiceItem:
-        result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.slug == slug, ServiceItem.is_active == True))
+        result = await db.execute(
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.slug == slug, ServiceItem.is_active == True)
+        )
         svc = result.scalar_one_or_none()
         if not svc:
             raise ServiceNotFoundError()
@@ -129,8 +165,18 @@ class CatalogService:
         await db.flush()
         return True
 
-    async def list_services(self, db: AsyncSession, category_id: Optional[str] = None, page: int = 1, per_page: int = 20) -> ServiceItemListResponse:
-        q = select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.is_active == True)
+    async def list_services(
+        self, db: AsyncSession, category_id: Optional[str] = None, page: int = 1, per_page: int = 20
+    ) -> ServiceItemListResponse:
+        q = (
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.is_active == True)
+        )
         if category_id:
             q = q.where(ServiceItem.category_id == category_id)
         count_q = select(func.count()).select_from(ServiceItem).where(ServiceItem.is_active == True)
@@ -141,8 +187,25 @@ class CatalogService:
         items = (await db.execute(q)).scalars().all()
         return ServiceItemListResponse(items=items, total=total, page=page, per_page=per_page)
 
-    async def search_catalog(self, db: AsyncSession, query: Optional[str] = None, category_id: Optional[str] = None, min_price_cents: Optional[int] = None, max_price_cents: Optional[int] = None, page: int = 1, per_page: int = 20) -> ServiceItemListResponse:
-        q = select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.is_active == True)
+    async def search_catalog(
+        self,
+        db: AsyncSession,
+        query: Optional[str] = None,
+        category_id: Optional[str] = None,
+        min_price_cents: Optional[int] = None,
+        max_price_cents: Optional[int] = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> ServiceItemListResponse:
+        q = (
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.is_active == True)
+        )
         if query:
             like = f"%{query}%"
             q = q.where(or_(ServiceItem.name.ilike(like), ServiceItem.description.ilike(like)))
@@ -164,9 +227,27 @@ class CatalogService:
             cached = await redis.get(cache_key)
             if cached:
                 ids = json.loads(cached)
-                result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.id.in_(ids)))
+                result = await db.execute(
+                    select(ServiceItem)
+                    .options(
+                        selectinload(ServiceItem.pricing_tiers),
+                        selectinload(ServiceItem.media),
+                        selectinload(ServiceItem.variants),
+                    )
+                    .where(ServiceItem.id.in_(ids))
+                )
                 return result.scalars().all()
-        result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.is_active == True).order_by(ServiceItem.booking_count.desc()).limit(limit))
+        result = await db.execute(
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.is_active == True)
+            .order_by(ServiceItem.booking_count.desc())
+            .limit(limit)
+        )
         items = result.scalars().all()
         if redis:
             await redis.setex(cache_key, settings.CACHE_TTL_SECONDS, json.dumps([i.id for i in items]))
@@ -177,16 +258,39 @@ class CatalogService:
             cached = await redis.get(CACHE_KEY_FEATURED)
             if cached:
                 ids = json.loads(cached)
-                result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.id.in_(ids)))
+                result = await db.execute(
+                    select(ServiceItem)
+                    .options(
+                        selectinload(ServiceItem.pricing_tiers),
+                        selectinload(ServiceItem.media),
+                        selectinload(ServiceItem.variants),
+                    )
+                    .where(ServiceItem.id.in_(ids))
+                )
                 return result.scalars().all()
-        result = await db.execute(select(ServiceItem).options(selectinload(ServiceItem.pricing_tiers), selectinload(ServiceItem.media), selectinload(ServiceItem.variants)).where(ServiceItem.is_active == True, ServiceItem.is_featured == True))
+        result = await db.execute(
+            select(ServiceItem)
+            .options(
+                selectinload(ServiceItem.pricing_tiers),
+                selectinload(ServiceItem.media),
+                selectinload(ServiceItem.variants),
+            )
+            .where(ServiceItem.is_active == True, ServiceItem.is_featured == True)
+        )
         items = result.scalars().all()
         if redis:
             await redis.setex(CACHE_KEY_FEATURED, settings.CACHE_TTL_SECONDS, json.dumps([i.id for i in items]))
         return items
 
     async def add_pricing_tier(self, db: AsyncSession, service_id: str, data: PricingTierCreate) -> PricingTier:
-        tier = PricingTier(service_id=service_id, name=data.name, description=data.description, price_cents=data.price_cents, features=json.dumps(data.features) if data.features else None, is_popular=data.is_popular)
+        tier = PricingTier(
+            service_id=service_id,
+            name=data.name,
+            description=data.description,
+            price_cents=data.price_cents,
+            features=json.dumps(data.features) if data.features else None,
+            is_popular=data.is_popular,
+        )
         db.add(tier)
         await db.flush()
         return tier
@@ -202,5 +306,6 @@ class CatalogService:
         db.add(variant)
         await db.flush()
         return variant
+
 
 catalog_service = CatalogService()

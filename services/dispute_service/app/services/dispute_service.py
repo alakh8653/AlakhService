@@ -17,7 +17,6 @@ _fsm = DisputeFSM()
 
 
 class DisputeService:
-
     async def create_dispute(self, db: AsyncSession, data: DisputeCreate) -> Dispute:
         dispute = Dispute(
             id=str(uuid.uuid4()),
@@ -99,7 +98,9 @@ class DisputeService:
         return msg
 
     async def get_messages(self, db: AsyncSession, dispute_id: str) -> List[DisputeMessage]:
-        result = await db.execute(select(DisputeMessage).where(DisputeMessage.dispute_id == dispute_id).order_by(DisputeMessage.created_at))
+        result = await db.execute(
+            select(DisputeMessage).where(DisputeMessage.dispute_id == dispute_id).order_by(DisputeMessage.created_at)
+        )
         return list(result.scalars().all())
 
 

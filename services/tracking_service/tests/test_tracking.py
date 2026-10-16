@@ -73,18 +73,18 @@ async def test_kalman_reduces_noise():
 
 @pytest.mark.anyio
 async def test_geofence_check_inside(db_session, service):
-    gf = await service.create_geofence(db_session, GeofenceCreate(
-        name="Test Zone", center_lat=28.6139, center_lng=77.2090, radius_meters=1000.0
-    ))
+    gf = await service.create_geofence(
+        db_session, GeofenceCreate(name="Test Zone", center_lat=28.6139, center_lng=77.2090, radius_meters=1000.0)
+    )
     result = await service.check_geofence(db_session, gf.id, 28.6139, 77.2090)
     assert result.is_inside is True
 
 
 @pytest.mark.anyio
 async def test_geofence_check_outside(db_session, service):
-    gf = await service.create_geofence(db_session, GeofenceCreate(
-        name="Small Zone", center_lat=28.6139, center_lng=77.2090, radius_meters=100.0
-    ))
+    gf = await service.create_geofence(
+        db_session, GeofenceCreate(name="Small Zone", center_lat=28.6139, center_lng=77.2090, radius_meters=100.0)
+    )
     # Point ~50km away
     result = await service.check_geofence(db_session, gf.id, 28.0000, 77.2090)
     assert result.is_inside is False

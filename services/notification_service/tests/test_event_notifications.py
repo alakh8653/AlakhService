@@ -1,4 +1,5 @@
 """Other services report booking and payment events; recipients get a notification they can read."""
+
 import json
 
 import httpx
@@ -23,7 +24,9 @@ KEY = "internal-test-key"
 
 
 def auth(sub: str) -> dict:
-    token = jwt.encode({"sub": sub, "role": "user", "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": "user", "type": "access"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -75,8 +78,12 @@ async def test_services_notify_each_party_in_their_own_words(client):
 
     cust = (await client.get("/api/v1/notifications/me", headers=auth("cust"))).json()["items"]
     prov = (await client.get("/api/v1/notifications/me", headers=auth("prov"))).json()["items"]
-    assert [(n["title"], n["body"]) for n in cust] == [("Provider assigned", "A provider has been assigned to booking BK-7.")]
-    assert [(n["title"], n["body"]) for n in prov] == [("New job", "You have been assigned booking BK-7 for 12 Oct, 10:30.")]
+    assert [(n["title"], n["body"]) for n in cust] == [
+        ("Provider assigned", "A provider has been assigned to booking BK-7.")
+    ]
+    assert [(n["title"], n["body"]) for n in prov] == [
+        ("New job", "You have been assigned booking BK-7 for 12 Oct, 10:30.")
+    ]
     assert json.loads(cust[0]["data"])["booking_id"] == "b7"
     # Open apps hear about it straight away.
     assert [c for c, _ in client.redis.published] == ["notifications:cust", "notifications:prov"]
@@ -90,7 +97,9 @@ async def test_only_services_holding_the_key_can_notify(client, monkeypatch):
     # A user's token is not a service key.
     assert (await client.post(url, json=EVENT, headers=auth("cust"))).status_code == 401
     # The gateway only forwards /api/v1, and nothing is served there for this.
-    assert (await client.post("/api/v1/internal/notifications/events", json=EVENT, headers={"X-Internal-Key": KEY})).status_code == 404
+    assert (
+        await client.post("/api/v1/internal/notifications/events", json=EVENT, headers={"X-Internal-Key": KEY})
+    ).status_code == 404
 
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
     assert (await client.post(url, json=EVENT, headers={"X-Internal-Key": ""})).status_code == 503
@@ -99,15 +108,21 @@ async def test_only_services_holding_the_key_can_notify(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_unknown_events_notify_nobody(client):
     body = {**EVENT, "event": "booking.pending"}
-    assert (await client.post("/internal/notifications/events", json=body, headers={"X-Internal-Key": KEY})).json() == {"created": 0}
+    assert (await client.post("/internal/notifications/events", json=body, headers={"X-Internal-Key": KEY})).json() == {
+        "created": 0
+    }
 
 
 def test_messages_fill_in_what_is_known():
     assert render("booking.confirmed", "customer", {"booking_number": "BK-1", "scheduled_at": "12 Oct, 10:30"}) == (
-        "Booking confirmed", "Your booking BK-1 for 12 Oct, 10:30 is confirmed.",
+        "Booking confirmed",
+        "Your booking BK-1 for 12 Oct, 10:30 is confirmed.",
     )
     # A role without its own wording gets the general message.
-    assert render("booking.cancelled", "shop", {"booking_number": "BK-1", "scheduled_at": "12 Oct"})[0] == "Booking cancelled"
+    assert (
+        render("booking.cancelled", "shop", {"booking_number": "BK-1", "scheduled_at": "12 Oct"})[0]
+        == "Booking cancelled"
+    )
     assert render("payment.completed", "shop", {"amount": "499.00"})[1] == "A customer paid ₹499.00 for a booking."
     assert render("nothing.happened", None, {}) is None
 
@@ -115,7 +130,9 @@ def test_messages_fill_in_what_is_known():
 @pytest.mark.asyncio
 async def test_push_uses_fcm_http_v1_with_a_service_account_token():
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    pem = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    ).decode()
     calls = []
 
     def google(request: httpx.Request) -> httpx.Response:
@@ -125,8 +142,12 @@ async def test_push_uses_fcm_http_v1_with_a_service_account_token():
         return httpx.Response(200, json={"name": "projects/alakh/messages/1"})
 
     fcm = FCMChannel(
-        {"project_id": "alakh", "client_email": "push@alakh.iam.gserviceaccount.com", "private_key": pem,
-         "token_uri": "https://oauth2.googleapis.com/token"},
+        {
+            "project_id": "alakh",
+            "client_email": "push@alakh.iam.gserviceaccount.com",
+            "private_key": pem,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        },
         transport=httpx.MockTransport(google),
     )
     assert await fcm.send("device-1", "Hi", "There", {"booking_id": "b1", "n": 3})
@@ -136,11 +157,16 @@ async def test_push_uses_fcm_http_v1_with_a_service_account_token():
     assert token_call.url.path == "/token"
     assertion = dict(x.split("=") for x in token_call.content.decode().split("&"))["assertion"]
     claims = jwt.get_unverified_claims(assertion)
-    assert (claims["iss"], claims["scope"]) == ("push@alakh.iam.gserviceaccount.com", "https://www.googleapis.com/auth/firebase.messaging")
+    assert (claims["iss"], claims["scope"]) == (
+        "push@alakh.iam.gserviceaccount.com",
+        "https://www.googleapis.com/auth/firebase.messaging",
+    )
     assert send_call.url.path == "/v1/projects/alakh/messages:send"
     assert send_call.headers["authorization"] == "Bearer ya29.token"
     assert json.loads(send_call.content)["message"] == {
-        "token": "device-1", "notification": {"title": "Hi", "body": "There"}, "data": {"booking_id": "b1", "n": "3"},
+        "token": "device-1",
+        "notification": {"title": "Hi", "body": "There"},
+        "data": {"booking_id": "b1", "n": "3"},
     }
     # The OAuth token is reused rather than fetched per message.
     assert second_send.url.path.endswith("messages:send")

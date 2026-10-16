@@ -6,6 +6,7 @@ import structlog
 
 log = structlog.get_logger()
 
+
 class EmailChannel:
     def __init__(self, host: str, port: int, username: str, password: str, from_email: str, from_name: str):
         self.host = host

@@ -1,4 +1,5 @@
 """Finance report API: settlements (escrow) and daily revenue."""
+
 import os
 from datetime import datetime, timezone
 
@@ -40,29 +41,56 @@ async def client():
 
     def payment(pid, day, amount, status="COMPLETED", currency="INR"):
         return Payment(
-            id=pid, booking_id=f"b-{pid}", payer_id="cust-1", payee_id=f"prov-{pid}", amount_cents=amount,
-            currency=currency, status=status, payment_method="card", idempotency_key=pid,
-            created_at=at(day), updated_at=at(day),
+            id=pid,
+            booking_id=f"b-{pid}",
+            payer_id="cust-1",
+            payee_id=f"prov-{pid}",
+            amount_cents=amount,
+            currency=currency,
+            status=status,
+            payment_method="card",
+            idempotency_key=pid,
+            created_at=at(day),
+            updated_at=at(day),
         )
 
     async with factory() as db:
-        db.add_all([
-            payment("p1", 1, 10_000),
-            payment("p2", 1, 5_000, status="PARTIALLY_REFUNDED"),
-            payment("p3", 3, 20_000),
-            payment("p4", 3, 9_999, status="FAILED"),          # never collected
-            payment("p5", 3, 7_000, status="PENDING"),         # not collected yet
-            payment("p6", 2, 50_000, currency="USD"),          # other currency
-        ])
+        db.add_all(
+            [
+                payment("p1", 1, 10_000),
+                payment("p2", 1, 5_000, status="PARTIALLY_REFUNDED"),
+                payment("p3", 3, 20_000),
+                payment("p4", 3, 9_999, status="FAILED"),  # never collected
+                payment("p5", 3, 7_000, status="PENDING"),  # not collected yet
+                payment("p6", 2, 50_000, currency="USD"),  # other currency
+            ]
+        )
         await db.flush()
-        db.add_all([
-            Refund(id="r1", payment_id="p2", amount_cents=2_000, reason="late", status="PENDING", created_at=at(2)),
-            Refund(id="r2", payment_id="p1", amount_cents=1_000, reason="x", status="FAILED", created_at=at(2)),
-            Escrow(id="e1", payment_id="p1", booking_id="b-p1", amount_cents=10_000, currency="INR", status="RELEASED",
-                   held_at=at(1), released_at=at(2)),
-            Escrow(id="e2", payment_id="p3", booking_id="b-p3", amount_cents=20_000, currency="INR", status="HELD",
-                   held_at=at(3)),
-        ])
+        db.add_all(
+            [
+                Refund(id="r1", payment_id="p2", amount_cents=2_000, reason="late", status="PENDING", created_at=at(2)),
+                Refund(id="r2", payment_id="p1", amount_cents=1_000, reason="x", status="FAILED", created_at=at(2)),
+                Escrow(
+                    id="e1",
+                    payment_id="p1",
+                    booking_id="b-p1",
+                    amount_cents=10_000,
+                    currency="INR",
+                    status="RELEASED",
+                    held_at=at(1),
+                    released_at=at(2),
+                ),
+                Escrow(
+                    id="e2",
+                    payment_id="p3",
+                    booking_id="b-p3",
+                    amount_cents=20_000,
+                    currency="INR",
+                    status="HELD",
+                    held_at=at(3),
+                ),
+            ]
+        )
         await db.commit()
 
     async def override_get_db():
@@ -81,27 +109,39 @@ async def client():
 
 @pytest.mark.asyncio
 async def test_revenue_report_aggregates_by_day(client):
-    resp = await client.get("/api/v1/finance/revenue", params={"date_from": "2026-10-01", "date_to": "2026-10-04"}, headers=ADMIN)
+    resp = await client.get(
+        "/api/v1/finance/revenue", params={"date_from": "2026-10-01", "date_to": "2026-10-04"}, headers=ADMIN
+    )
     assert resp.status_code == 200
     report = resp.json()
     assert report["currency"] == "INR"
-    assert report["gross_cents"] == 35_000       # p1 + p2 + p3; FAILED, PENDING and USD excluded
-    assert report["refunds_cents"] == 2_000      # failed refunds excluded
+    assert report["gross_cents"] == 35_000  # p1 + p2 + p3; FAILED, PENDING and USD excluded
+    assert report["refunds_cents"] == 2_000  # failed refunds excluded
     assert report["net_cents"] == 33_000
     assert report["payments"] == 3
     by_day = {p["date"]: p for p in report["series"]}
     assert list(by_day) == ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"]
     assert by_day["2026-10-01"]["gross_cents"] == 15_000
-    assert by_day["2026-10-02"] == {"date": "2026-10-02", "gross_cents": 0, "refunds_cents": 2_000, "net_cents": -2_000, "payments": 0}
+    assert by_day["2026-10-02"] == {
+        "date": "2026-10-02",
+        "gross_cents": 0,
+        "refunds_cents": 2_000,
+        "net_cents": -2_000,
+        "payments": 0,
+    }
     assert by_day["2026-10-04"]["gross_cents"] == 0
 
 
 @pytest.mark.asyncio
 async def test_revenue_report_validates_range(client):
-    bad = await client.get("/api/v1/finance/revenue", params={"date_from": "2026-10-05", "date_to": "2026-10-01"}, headers=ADMIN)
+    bad = await client.get(
+        "/api/v1/finance/revenue", params={"date_from": "2026-10-05", "date_to": "2026-10-01"}, headers=ADMIN
+    )
     assert bad.status_code == 400
     usd = await client.get(
-        "/api/v1/finance/revenue", params={"date_from": "2026-10-01", "date_to": "2026-10-04", "currency": "usd"}, headers=ADMIN
+        "/api/v1/finance/revenue",
+        params={"date_from": "2026-10-01", "date_to": "2026-10-04", "currency": "usd"},
+        headers=ADMIN,
     )
     assert usd.json()["gross_cents"] == 50_000
 

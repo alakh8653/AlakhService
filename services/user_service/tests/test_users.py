@@ -86,12 +86,20 @@ async def test_add_address(db_session, service):
 @pytest.mark.anyio
 async def test_second_address_not_default(db_session, service):
     addr1 = UserAddressCreate(
-        label="Home", street="1 Main St", city="Delhi",
-        state="Delhi", postal_code="110001", country="India",
+        label="Home",
+        street="1 Main St",
+        city="Delhi",
+        state="Delhi",
+        postal_code="110001",
+        country="India",
     )
     addr2 = UserAddressCreate(
-        label="Work", street="2 Business Ave", city="Delhi",
-        state="Delhi", postal_code="110002", country="India",
+        label="Work",
+        street="2 Business Ave",
+        city="Delhi",
+        state="Delhi",
+        postal_code="110002",
+        country="India",
     )
     await service.add_address(db_session, "user-4", addr1)
     second = await service.add_address(db_session, "user-4", addr2)
@@ -101,12 +109,20 @@ async def test_second_address_not_default(db_session, service):
 @pytest.mark.anyio
 async def test_set_default_address(db_session, service):
     addr1 = UserAddressCreate(
-        label="Home", street="1 Main St", city="Delhi",
-        state="Delhi", postal_code="110001", country="India",
+        label="Home",
+        street="1 Main St",
+        city="Delhi",
+        state="Delhi",
+        postal_code="110001",
+        country="India",
     )
     addr2 = UserAddressCreate(
-        label="Work", street="2 Business Ave", city="Delhi",
-        state="Delhi", postal_code="110002", country="India",
+        label="Work",
+        street="2 Business Ave",
+        city="Delhi",
+        state="Delhi",
+        postal_code="110002",
+        country="India",
     )
     await service.add_address(db_session, "user-5", addr1)
     second = await service.add_address(db_session, "user-5", addr2)
@@ -123,8 +139,12 @@ async def test_set_default_address(db_session, service):
 @pytest.mark.anyio
 async def test_delete_address(db_session, service):
     address_data = UserAddressCreate(
-        label="Temp", street="5 Temp St", city="Pune",
-        state="Maharashtra", postal_code="411001", country="India",
+        label="Temp",
+        street="5 Temp St",
+        city="Pune",
+        state="Maharashtra",
+        postal_code="411001",
+        country="India",
     )
     address = await service.add_address(db_session, "user-6", address_data)
     deleted = await service.delete_address(db_session, "user-6", address.id)

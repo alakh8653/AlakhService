@@ -96,7 +96,9 @@ async def test_resolve_dispute(db_session, service):
 async def test_add_and_get_messages(db_session, service):
     dispute = await service.create_dispute(db_session, make_dispute(booking_id="b5"))
     await service.add_message(db_session, dispute.id, DisputeMessageCreate(author_id="u1", content="Hello"))
-    await service.add_message(db_session, dispute.id, DisputeMessageCreate(author_id="admin-1", content="We are reviewing"))
+    await service.add_message(
+        db_session, dispute.id, DisputeMessageCreate(author_id="admin-1", content="We are reviewing")
+    )
     msgs = await service.get_messages(db_session, dispute.id)
     assert len(msgs) == 2
     assert msgs[0].content == "Hello"

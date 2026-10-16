@@ -1,4 +1,5 @@
 """Events are recorded as the caller; reports are admin-only."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +14,9 @@ from app.main import app
 
 
 def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
-    token = jwt.encode({"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(
+        {"sub": sub, "role": role, "type": token_type}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -43,7 +46,9 @@ async def client():
 async def test_events_are_recorded_as_the_caller(client):
     batch = {"events": [{"event_type": "page_view", "user_id": "bob"}]}
     assert (await client.post("/api/v1/events", json=batch)).status_code == 401
-    assert (await client.post("/api/v1/events", json=batch, headers=auth("alice", token_type="refresh"))).status_code == 401
+    assert (
+        await client.post("/api/v1/events", json=batch, headers=auth("alice", token_type="refresh"))
+    ).status_code == 401
     recorded = await client.post("/api/v1/events", json=batch, headers=ALICE)
     assert recorded.status_code == 201
     assert recorded.json()[0]["user_id"] == "alice"

@@ -33,13 +33,17 @@ async def calculate_price(
 
 
 @router.get("/pricing/history/{customer_id}", response_model=List[PriceCalculationResponse])
-async def get_pricing_history(customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def get_pricing_history(
+    customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     ensure_self_or_admin(customer_id, caller)
     return await pricing_service.get_pricing_history(db, customer_id)
 
 
 @router.post("/pricing/{calculation_id}/redeem", response_model=PriceCalculationResponse)
-async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def redeem_quote(
+    calculation_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     """Checkout: commit to a quote, using up its coupon."""
     try:
         calc = await pricing_service.get_calculation(db, calculation_id)

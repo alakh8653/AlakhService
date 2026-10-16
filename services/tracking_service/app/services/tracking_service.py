@@ -18,7 +18,6 @@ _kalman_filters: dict[str, KalmanGPSFilter] = {}
 
 
 class TrackingService:
-
     def _get_filter(self, provider_id: str) -> KalmanGPSFilter:
         if provider_id not in _kalman_filters:
             _kalman_filters[provider_id] = KalmanGPSFilter()

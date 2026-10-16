@@ -28,7 +28,9 @@ async def initiate_export(
 
 
 @router.get("/gdpr/export/{request_id}", response_model=DataExportRequestResponse)
-async def get_export_status(request_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def get_export_status(
+    request_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     try:
         export = await compliance_service.get_export_status(db, request_id)
     except ExportRequestNotFoundError as e:
@@ -48,7 +50,9 @@ async def request_erasure(
 
 
 @router.post("/consent", response_model=ConsentRecordResponse, status_code=201)
-async def record_consent(data: ConsentRecordCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def record_consent(
+    data: ConsentRecordCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
     ensure_self_or_admin(data.user_id, caller)
     return await compliance_service.record_consent(db, data)
 

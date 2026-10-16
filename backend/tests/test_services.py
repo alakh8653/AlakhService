@@ -53,9 +53,7 @@ async def test_create_service_as_admin(client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_create_service_as_user_forbidden(
-    client: AsyncClient, auth_headers: dict
-):
+async def test_create_service_as_user_forbidden(client: AsyncClient, auth_headers: dict):
     response = await client.post(
         "/api/v1/services/",
         json={"name": "Nails", "category": "beauty", "price": "150.00", "duration_minutes": 30},

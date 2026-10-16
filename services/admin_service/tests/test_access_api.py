@@ -1,4 +1,5 @@
 """Roles & permissions API."""
+
 import json
 
 import pytest
@@ -43,12 +44,14 @@ async def ctx():
     async with factory() as db:
         for name, (desc, perms) in DEFAULT_ROLES.items():
             db.add(Role(id=f"role-{name}", name=name, description=desc, permissions=json.dumps(perms), is_system=True))
-        db.add_all([
-            AdminUser(id="a1", user_id="u1", role="admin"),
-            AdminUser(id="a2", user_id="u2", role="support"),
-            AdminUser(id="a3", user_id="u3", role="support"),
-            AdminUser(id="a4", user_id="u4", role="support", is_active=False),
-        ])
+        db.add_all(
+            [
+                AdminUser(id="a1", user_id="u1", role="admin"),
+                AdminUser(id="a2", user_id="u2", role="support"),
+                AdminUser(id="a3", user_id="u3", role="support"),
+                AdminUser(id="a4", user_id="u4", role="support", is_active=False),
+            ]
+        )
         await db.commit()
 
     async def override_get_db():
@@ -89,7 +92,8 @@ async def test_roles_list_with_active_user_counts(ctx):
 async def test_create_role_validates_and_rejects_duplicates(ctx):
     client, _ = ctx
     created = await client.post(
-        "/api/v1/access/roles", json={"name": "auditor", "description": "Audit only", "permissions": ["audit:read", "audit:read"]}
+        "/api/v1/access/roles",
+        json={"name": "auditor", "description": "Audit only", "permissions": ["audit:read", "audit:read"]},
     )
     assert created.status_code == 201
     assert created.json()["permissions"] == ["audit:read"]
@@ -147,7 +151,9 @@ async def test_only_admin_tokens_are_accepted(ctx):
     url = "/api/v1/access/roles"
     assert (await client.get(url, headers={"Authorization": ""})).status_code == 401
     assert (await client.get(url, headers=auth("u2", role="user"))).status_code == 403
-    refresh = jwt.encode({"sub": "u1", "role": "admin", "type": "refresh"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    refresh = jwt.encode(
+        {"sub": "u1", "role": "admin", "type": "refresh"}, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     assert (await client.get(url, headers={"Authorization": f"Bearer {refresh}"})).status_code == 401
     assert (await client.get("/api/v1/audit-logs", headers=auth("u2", role="user"))).status_code == 403
 
@@ -191,6 +197,8 @@ async def test_bans_are_enforced_by_auth_service_before_they_are_recorded(ctx):
         again = (await db.execute(select(BannedUser).where(BannedUser.user_id == "victim"))).scalars().all()
     assert [(b.is_active, b.reason) for b in again] == [(True, "again")]
 
-    bulk = await client.post("/api/v1/admin/actions/bulk-update", json={"user_ids": ["u2", "ghost", "u1"], "action": "ban", "admin_id": "x"})
+    bulk = await client.post(
+        "/api/v1/admin/actions/bulk-update", json={"user_ids": ["u2", "ghost", "u1"], "action": "ban", "admin_id": "x"}
+    )
     statuses = {r["user_id"]: r["status"] for r in bulk.json()["results"]}
     assert statuses == {"u2": "banned", "ghost": "failed", "u1": "failed"}

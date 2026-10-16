@@ -90,7 +90,9 @@ async def test_signal_recording_increases_risk(db_session, service):
     initial_score = profile.risk_score
 
     # Record a risk event
-    updated = await service.record_signal(db_session, "user-1", RiskSignalCreate(signal_type="fraud_attempt", value=1.0, is_risk_event=True))
+    updated = await service.record_signal(
+        db_session, "user-1", RiskSignalCreate(signal_type="fraud_attempt", value=1.0, is_risk_event=True)
+    )
     assert updated.risk_events == 1
     assert updated.risk_score >= initial_score
 
@@ -99,7 +101,9 @@ async def test_signal_recording_increases_risk(db_session, service):
 async def test_safe_signals_lower_risk(db_session, service):
     # Record many safe events
     for _ in range(5):
-        await service.record_signal(db_session, "user-2", RiskSignalCreate(signal_type="successful_payment", value=0.0, is_risk_event=False))
+        await service.record_signal(
+            db_session, "user-2", RiskSignalCreate(signal_type="successful_payment", value=0.0, is_risk_event=False)
+        )
 
     profile = await service.get_or_create_profile(db_session, "user-2")
     assert profile.safe_events == 5
@@ -108,7 +112,11 @@ async def test_safe_signals_lower_risk(db_session, service):
 
 @pytest.mark.anyio
 async def test_signal_history(db_session, service):
-    await service.record_signal(db_session, "user-3", RiskSignalCreate(signal_type="login_from_new_device", value=0.5, is_risk_event=True))
-    await service.record_signal(db_session, "user-3", RiskSignalCreate(signal_type="payment_success", value=0.0, is_risk_event=False))
+    await service.record_signal(
+        db_session, "user-3", RiskSignalCreate(signal_type="login_from_new_device", value=0.5, is_risk_event=True)
+    )
+    await service.record_signal(
+        db_session, "user-3", RiskSignalCreate(signal_type="payment_success", value=0.0, is_risk_event=False)
+    )
     history = await service.get_signal_history(db_session, "user-3")
     assert len(history) == 2

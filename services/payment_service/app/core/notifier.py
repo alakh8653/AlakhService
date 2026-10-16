@@ -45,11 +45,15 @@ async def notify_payment(notifier: Notifier, event: str, payment: dict) -> None:
     recipients = [{"user_id": payment["payer_id"], "role": "customer"}]
     if event == "payment.completed" and payment["payee_id"] != payment["payer_id"]:
         recipients.append({"user_id": payment["payee_id"], "role": "shop"})
-    await notifier.send(event, recipients, {
-        "payment_id": payment["id"],
-        "booking_id": payment["booking_id"],
-        "amount": f"{payment['amount_cents'] / 100:.2f}",
-    })
+    await notifier.send(
+        event,
+        recipients,
+        {
+            "payment_id": payment["id"],
+            "booking_id": payment["booking_id"],
+            "amount": f"{payment['amount_cents'] / 100:.2f}",
+        },
+    )
 
 
 def payment_snapshot(payment) -> dict:

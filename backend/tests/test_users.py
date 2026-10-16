@@ -42,16 +42,12 @@ async def test_list_users_as_admin(client: AsyncClient, db: AsyncSession, test_u
     db.add(admin)
     await db.flush()
     token = create_access_token(data={"sub": admin.email})
-    response = await client.get(
-        "/api/v1/users/", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = await client.get("/api/v1/users/", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
 
 @pytest.mark.asyncio
-async def test_list_users_as_regular_user_forbidden(
-    client: AsyncClient, test_user: User, auth_headers: dict
-):
+async def test_list_users_as_regular_user_forbidden(client: AsyncClient, test_user: User, auth_headers: dict):
     response = await client.get("/api/v1/users/", headers=auth_headers)
     assert response.status_code == 403

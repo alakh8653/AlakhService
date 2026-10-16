@@ -17,7 +17,9 @@ from app.models.user import User
 
 async def set_role(db: AsyncSession, identifier: str, role: str) -> User:
     """Gives the account with this email or phone number [role]; raises LookupError if there is none."""
-    user = (await db.execute(select(User).where(or_(User.email == identifier.lower(), User.phone == identifier)))).scalar_one_or_none()
+    user = (
+        await db.execute(select(User).where(or_(User.email == identifier.lower(), User.phone == identifier)))
+    ).scalar_one_or_none()
     if user is None:
         raise LookupError(f"No account with email or phone {identifier!r}")
     user.role = role

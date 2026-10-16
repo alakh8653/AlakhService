@@ -1,4 +1,5 @@
 """API tests for listing disputes and moving them through review, escalation and resolution."""
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -112,12 +113,13 @@ async def test_only_booking_parties_raise_and_see_disputes(client):
     dispute = created.json()
     assert dispute["raised_by"] == "cust-1"  # never the name the client sent
 
-
     url = f"/api/v1/disputes/{dispute['id']}"
     assert (await client.get(url, headers=stranger)).status_code == 404
     assert (await client.get(url, headers=owner)).status_code == 200  # the shop can answer
 
-    reply = await client.post(f"{url}/messages", json={"author_id": "cust-1", "content": "We were on time"}, headers=owner)
+    reply = await client.post(
+        f"{url}/messages", json={"author_id": "cust-1", "content": "We were on time"}, headers=owner
+    )
     assert reply.status_code == 201
     assert reply.json()["author_id"] == "owner-1"
     assert (await client.get(f"{url}/messages", headers=stranger)).status_code == 404
@@ -136,4 +138,6 @@ async def test_the_app_raises_disputes_without_naming_anyone(client):
     body = {"booking_id": "b-1", "dispute_type": "service_quality", "description": "Arrived two hours late"}
     created = await client.post("/api/v1/disputes", json=body, headers=auth("cust-1", "user"))
     assert (created.status_code, created.json()["raised_by"]) == (201, "cust-1")
-    assert (await client.post("/api/v1/disputes", json={**body, "description": ""}, headers=auth("cust-1", "user"))).status_code == 422
+    assert (
+        await client.post("/api/v1/disputes", json={**body, "description": ""}, headers=auth("cust-1", "user"))
+    ).status_code == 422

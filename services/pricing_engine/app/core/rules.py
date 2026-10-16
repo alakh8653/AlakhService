@@ -9,9 +9,9 @@ class PricingContext:
     base_price_cents: int
     service_id: str
     customer_tier: str = "regular"  # regular, premium, vip
-    demand_level: float = 1.0       # 1.0 = normal, >1 = high demand
-    supply_level: float = 1.0       # 1.0 = normal, <1 = low supply
-    time_of_day: int = 12           # hour 0-23
+    demand_level: float = 1.0  # 1.0 = normal, >1 = high demand
+    supply_level: float = 1.0  # 1.0 = normal, <1 = low supply
+    time_of_day: int = 12  # hour 0-23
     is_peak_hour: bool = False
     coupon_code: Optional[str] = None
     coupon_discount_pct: float = 0.0
@@ -51,6 +51,7 @@ class SurgePricingRule(PricingRule):
 
 class PeakHourRule(PricingRule):
     """Apply peak hour surcharge."""
+
     PEAK_HOURS = {7, 8, 9, 18, 19, 20}
 
     def apply(self, ctx: PricingContext) -> PricingContext:
@@ -63,13 +64,14 @@ class PeakHourRule(PricingRule):
 
 class CustomerTierRule(PricingRule):
     """Discount for premium/VIP customers."""
+
     DISCOUNTS = {"premium": 0.05, "vip": 0.10}
 
     def apply(self, ctx: PricingContext) -> PricingContext:
         discount = self.DISCOUNTS.get(ctx.customer_tier, 0.0)
         if discount > 0:
             ctx.final_price_cents = int(ctx.final_price_cents * (1 - discount))
-            ctx.applied_rules.append(f"tier_discount:-{discount*100:.0f}%")
+            ctx.applied_rules.append(f"tier_discount:-{discount * 100:.0f}%")
         return ctx
 
 
@@ -80,7 +82,7 @@ class CouponRule(PricingRule):
         if ctx.coupon_code and ctx.coupon_discount_pct > 0:
             discount = min(ctx.coupon_discount_pct, 0.50)
             ctx.final_price_cents = int(ctx.final_price_cents * (1 - discount))
-            ctx.applied_rules.append(f"coupon:{ctx.coupon_code}:-{discount*100:.0f}%")
+            ctx.applied_rules.append(f"coupon:{ctx.coupon_code}:-{discount * 100:.0f}%")
         return ctx
 
 

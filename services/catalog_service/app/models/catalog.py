@@ -19,8 +19,11 @@ class ServiceCategory(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
-    children = relationship("ServiceCategory", backref=backref("parent", remote_side=[id]), foreign_keys=[parent_id], lazy="select")
+    children = relationship(
+        "ServiceCategory", backref=backref("parent", remote_side=[id]), foreign_keys=[parent_id], lazy="select"
+    )
     services = relationship("ServiceItem", back_populates="category", lazy="select")
+
 
 class ServiceItem(Base):
     __tablename__ = "service_items"
@@ -40,8 +43,11 @@ class ServiceItem(Base):
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
     category = relationship("ServiceCategory", back_populates="services")
     pricing_tiers = relationship("PricingTier", back_populates="service", cascade="all, delete-orphan")
-    media = relationship("ServiceMedia", back_populates="service", cascade="all, delete-orphan", order_by="ServiceMedia.order")
+    media = relationship(
+        "ServiceMedia", back_populates="service", cascade="all, delete-orphan", order_by="ServiceMedia.order"
+    )
     variants = relationship("ServiceVariant", back_populates="service", cascade="all, delete-orphan")
+
 
 class PricingTier(Base):
     __tablename__ = "pricing_tiers"
@@ -55,6 +61,7 @@ class PricingTier(Base):
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     service = relationship("ServiceItem", back_populates="pricing_tiers")
 
+
 class ServiceMedia(Base):
     __tablename__ = "service_media"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -65,6 +72,7 @@ class ServiceMedia(Base):
     order = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     service = relationship("ServiceItem", back_populates="media")
+
 
 class ServiceVariant(Base):
     __tablename__ = "service_variants"

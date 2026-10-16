@@ -63,7 +63,11 @@ def snapshot(booking, service_name: Optional[str] = None) -> dict:
 
 
 async def notify_booking(
-    notifier: Notifier, booking: dict, event: str, actor_id: Optional[str], lookup_owner: OwnerLookup,
+    notifier: Notifier,
+    booking: dict,
+    event: str,
+    actor_id: Optional[str],
+    lookup_owner: OwnerLookup,
     roles: tuple[str, ...] = ("customer", "provider", "shop"),
 ) -> None:
     """Sends [event] to the booking's customer, provider and shop owner (as [roles] allows), except the actor."""

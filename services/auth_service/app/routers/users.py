@@ -38,7 +38,9 @@ async def search_users(
     stmt = select(User).order_by(User.created_at.desc()).offset(skip).limit(limit)
     if q and q.strip():
         like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(User.full_name.ilike(like), User.email.ilike(like), User.phone.ilike(like), User.id == q.strip()))
+        stmt = stmt.where(
+            or_(User.full_name.ilike(like), User.email.ilike(like), User.phone.ilike(like), User.id == q.strip())
+        )
     return list((await db.execute(stmt)).scalars().all())
 
 
@@ -86,7 +88,9 @@ async def delete_account(
     user.is_verified = False
     user.hashed_password = hash_password(secrets.token_urlsafe(32))
     await db.execute(
-        update(RefreshToken).where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False).values(is_revoked=True)  # noqa: E712
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)
+        .values(is_revoked=True)  # noqa: E712
     )
     await db.flush()
     return {"message": "Your account has been deleted"}
@@ -114,7 +118,9 @@ async def set_account_status(user_id: str, body: AccountStatus, db: AsyncSession
     user.is_active = body.is_active
     if not body.is_active:
         await db.execute(
-            update(RefreshToken).where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False).values(is_revoked=True)  # noqa: E712
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)
+            .values(is_revoked=True)  # noqa: E712
         )
     await db.flush()
     await db.refresh(user)

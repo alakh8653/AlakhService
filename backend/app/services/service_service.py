@@ -38,9 +38,7 @@ async def create_service(db: AsyncSession, service_create: ServiceCreate) -> Ser
     return service
 
 
-async def update_service(
-    db: AsyncSession, service_id: uuid.UUID, service_update: ServiceUpdate
-) -> Service:
+async def update_service(db: AsyncSession, service_id: uuid.UUID, service_update: ServiceUpdate) -> Service:
     service = await get_service(db, service_id)
     update_data = service_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():

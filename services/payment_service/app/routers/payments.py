@@ -138,7 +138,9 @@ async def verify_payment(
     if (
         not payment.provider_order_id
         or proof.razorpay_order_id != payment.provider_order_id
-        or not gateway.checkout_signature_valid(proof.razorpay_order_id, proof.razorpay_payment_id, proof.razorpay_signature)
+        or not gateway.checkout_signature_valid(
+            proof.razorpay_order_id, proof.razorpay_payment_id, proof.razorpay_signature
+        )
     ):
         raise HTTPException(status_code=400, detail="Payment could not be verified")
     if payment.status != "COMPLETED":
@@ -192,7 +194,11 @@ async def confirm_cash_received(
 ):
     """The shop (payee) confirms a cash payment was handed over, completing it."""
     payment = await payment_service.get_payment(db, payment_id)
-    if not payment or current_user["sub"] not in (payment.payee_id, payment.payer_id) and current_user.get("role") != "admin":
+    if (
+        not payment
+        or current_user["sub"] not in (payment.payee_id, payment.payer_id)
+        and current_user.get("role") != "admin"
+    ):
         raise HTTPException(status_code=404, detail="Payment not found")
     if current_user["sub"] != payment.payee_id and current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Only the shop that was paid can confirm cash")
@@ -302,7 +308,9 @@ async def stripe_webhook(
 
     body = await request.body()
     try:
-        stripe.Webhook.construct_event(body, request.headers.get("stripe-signature", ""), settings.STRIPE_WEBHOOK_SECRET)
+        stripe.Webhook.construct_event(
+            body, request.headers.get("stripe-signature", ""), settings.STRIPE_WEBHOOK_SECRET
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid signature") from e
     await payment_service.process_stripe_event(db, json.loads(body))

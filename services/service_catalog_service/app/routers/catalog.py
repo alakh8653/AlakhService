@@ -30,9 +30,7 @@ async def list_categories(db: AsyncSession = Depends(get_db)):
     return await catalog_service.list_categories(db)
 
 
-@router.post(
-    "/categories", response_model=CategoryResponse, status_code=201, dependencies=[Depends(require_admin)]
-)
+@router.post("/categories", response_model=CategoryResponse, status_code=201, dependencies=[Depends(require_admin)])
 async def create_category(data: CategoryCreate, db: AsyncSession = Depends(get_db)):
     return await catalog_service.create_category(db, data)
 

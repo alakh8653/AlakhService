@@ -14,7 +14,6 @@ log = structlog.get_logger()
 
 
 class AdminService:
-
     async def create_admin_user(self, db: AsyncSession, data: AdminUserCreate) -> AdminUser:
         admin = AdminUser(
             id=str(uuid.uuid4()),
@@ -39,21 +38,25 @@ class AdminService:
         existing = result.scalar_one_or_none()
         now = datetime.now(timezone.utc)
         if existing is None:
-            db.add(BannedUser(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
-                reason=data.reason,
-                banned_by=data.banned_by,
-                banned_at=now,
-                is_active=True,
-            ))
+            db.add(
+                BannedUser(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    reason=data.reason,
+                    banned_by=data.banned_by,
+                    banned_at=now,
+                    is_active=True,
+                )
+            )
         elif not existing.is_active:
             existing.is_active = True
             existing.reason = data.reason
             existing.banned_by = data.banned_by
             existing.banned_at = now
 
-        await self._log_audit(db, data.banned_by, "ban_user", "user", user_id, new_values=json.dumps({"reason": data.reason}))
+        await self._log_audit(
+            db, data.banned_by, "ban_user", "user", user_id, new_values=json.dumps({"reason": data.reason})
+        )
         await db.flush()
         log.info("user_banned", user_id=user_id, banned_by=data.banned_by)
         return {"status": "banned", "user_id": user_id}
@@ -68,7 +71,14 @@ class AdminService:
         log.info("user_unbanned", user_id=user_id, admin_id=admin_id)
         return {"status": "unbanned", "user_id": user_id}
 
-    async def get_audit_logs(self, db: AsyncSession, admin_id: Optional[str] = None, action: Optional[str] = None, skip: int = 0, limit: int = 50) -> List[AuditLog]:
+    async def get_audit_logs(
+        self,
+        db: AsyncSession,
+        admin_id: Optional[str] = None,
+        action: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[AuditLog]:
         stmt = select(AuditLog).order_by(AuditLog.created_at.desc()).offset(skip).limit(limit)
         if admin_id:
             stmt = stmt.where(AuditLog.admin_id == admin_id)
@@ -116,7 +126,17 @@ class AdminService:
             results.append(result)
         return {"processed": len(results), "results": results}
 
-    async def _log_audit(self, db: AsyncSession, admin_id: str, action: str, resource_type: str, resource_id: Optional[str] = None, old_values: Optional[str] = None, new_values: Optional[str] = None, ip_address: Optional[str] = None) -> AuditLog:
+    async def _log_audit(
+        self,
+        db: AsyncSession,
+        admin_id: str,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+        old_values: Optional[str] = None,
+        new_values: Optional[str] = None,
+        ip_address: Optional[str] = None,
+    ) -> AuditLog:
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
             admin_id=admin_id,

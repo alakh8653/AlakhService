@@ -198,11 +198,7 @@ async def list_users(
     count_result = await db.execute(select(func.count()).select_from(UserProfile))
     total = count_result.scalar() or 0
 
-    result = await db.execute(
-        select(UserProfile)
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-    )
+    result = await db.execute(select(UserProfile).offset((page - 1) * per_page).limit(per_page))
     items = list(result.scalars().all())
     pages = math.ceil(total / per_page) if per_page > 0 else 0
 

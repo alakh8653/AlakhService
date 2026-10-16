@@ -10,6 +10,7 @@ class QueueItem:
     customer_id: str = field(compare=False)
     weight: float = field(compare=False, default=1.0)
 
+
 class WeightedFairQueue:
     """O(log n) enqueue/dequeue using heap. Fair queuing with weights."""
 
@@ -22,6 +23,7 @@ class WeightedFairQueue:
         self._counter += 1
         last_vft = self._virtual_finish_times.get(customer_id, 0.0)
         import time
+
         now = time.monotonic()
         vft = max(last_vft, now) + (1.0 / max(weight, 0.001)) + base_priority
         self._virtual_finish_times[customer_id] = vft

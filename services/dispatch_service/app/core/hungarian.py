@@ -7,8 +7,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def hungarian_algorithm(cost_matrix: list[list[float]]) -> list[tuple[int, int]]:
@@ -21,7 +21,7 @@ def hungarian_algorithm(cost_matrix: list[list[float]]) -> list[tuple[int, int]]
         return []
     m = max(len(row) for row in cost_matrix)
     size = max(n, m)
-    INF = float('inf')
+    INF = float("inf")
     # Dummy rows use 0.0 so column reduction preserves the real row's relative ordering.
     # Dummy cols use INF to prevent real rows from being assigned there.
     C = []
@@ -31,9 +31,9 @@ def hungarian_algorithm(cost_matrix: list[list[float]]) -> list[tuple[int, int]]
             if i < n and j < m:
                 row.append(float(cost_matrix[i][j]))
             elif i < n:
-                row.append(INF)   # real row, dummy col: forbidden
+                row.append(INF)  # real row, dummy col: forbidden
             else:
-                row.append(0.0)   # dummy row: zero cost for any assignment
+                row.append(0.0)  # dummy row: zero cost for any assignment
         C.append(row)
 
     # Step 1: Row reduction

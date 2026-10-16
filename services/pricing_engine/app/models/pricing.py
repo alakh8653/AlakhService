@@ -45,5 +45,7 @@ class CouponRedemption(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     coupon_id = Column(String, ForeignKey("coupons.id", ondelete="CASCADE"), nullable=False, index=True)
     customer_id = Column(String, nullable=False)
-    calculation_id = Column(String, ForeignKey("price_calculations.id", ondelete="CASCADE"), nullable=False, unique=True)
+    calculation_id = Column(
+        String, ForeignKey("price_calculations.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
     redeemed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

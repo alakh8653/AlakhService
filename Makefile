@@ -330,12 +330,10 @@ db-new-migration: ## Autogenerate a migration (needs make dev): make db-new-migr
 	$(call success,"Migration written to services/$(SERVICE)/migrations/versions")
 
 .PHONY: db-seed
-db-seed: ## Seed databases with development data (scripts/seed_database.py)
-	@if [ -f $(SCRIPTS_DIR)/seed_database.py ]; then \
-		$(PYTHON_VENV) $(SCRIPTS_DIR)/seed_database.py; \
-	else \
-		echo "No seed script yet (expected $(SCRIPTS_DIR)/seed_database.py)"; \
-	fi
+db-seed: ## Add demo accounts, a shop, services and a booking (needs make dev; safe to re-run)
+	$(call log,"Seeding demo data through the gateway...")
+	python3 $(SCRIPTS_DIR)/seed_database.py
+	docker compose exec -T auth_service python -m app.cli make-admin admin@example.com
 
 .PHONY: db-reset
 db-reset: ## Drop all service databases and re-run migrations (DESTRUCTIVE)

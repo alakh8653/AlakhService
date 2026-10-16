@@ -105,7 +105,7 @@ setup-python: ## Create virtualenv and install all Python dependencies
 	$(PIP) install --upgrade pip setuptools wheel
 	@if [ -f requirements.txt ]; then $(PIP) install -r requirements.txt; fi
 	@if [ -f requirements-dev.txt ]; then $(PIP) install -r requirements-dev.txt; fi
-	$(PIP) install ruff pre-commit yamllint "bandit[toml]"
+	$(PIP) install ruff==0.17.1 pre-commit yamllint "bandit[toml]"  # ruff: same version as CI and pre-commit
 	@# Services pin different library versions, so each one gets its own virtualenv.
 	@for req in $(PY_PROJECTS); do \
 		dir=$$(dirname "$$req"); \

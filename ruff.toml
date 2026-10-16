@@ -8,7 +8,7 @@ select = ["E", "F", "W", "I", "B"]
 ignore = [
     "B008",  # FastAPI dependency injection uses calls in argument defaults (Depends/Query/...)
     "E712",  # SQLAlchemy column expressions use `== True` / `== False`
-    "E501",  # line length is left to the formatter (ruff format / black in pre-commit)
+    "E501",  # line length is left to the formatter (ruff format; CI runs `ruff format --check`)
 ]
 
 [lint.per-file-ignores]

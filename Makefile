@@ -397,6 +397,16 @@ db-reset: ## Drop all service databases and re-run migrations (DESTRUCTIVE)
 db-shell: ## Open a psql shell: make db-shell DB=auth_db
 	docker compose exec postgres psql -U $${POSTGRES_USER:-alakh} $(or $(DB),alakhservice_db)
 
+.PHONY: make-admin
+make-admin: ## Grant admin access to a registered account: make make-admin ACCOUNT=you@example.com
+	@test -n "$$ACCOUNT" || { echo "Usage: make make-admin ACCOUNT=<email or phone>"; exit 1; }
+	docker compose exec -T auth_service python -m app.cli make-admin "$$ACCOUNT"
+
+.PHONY: revoke-admin
+revoke-admin: ## Return an admin to a normal user: make revoke-admin ACCOUNT=you@example.com
+	@test -n "$$ACCOUNT" || { echo "Usage: make revoke-admin ACCOUNT=<email or phone>"; exit 1; }
+	docker compose exec -T auth_service python -m app.cli revoke-admin "$$ACCOUNT"
+
 .PHONY: db-backup
 db-backup: ## Backup the database to backups/
 	$(call log,"Backing up database...")

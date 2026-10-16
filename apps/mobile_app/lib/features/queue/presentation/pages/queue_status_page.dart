@@ -40,6 +40,8 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
   @override
   void initState() {
     super.initState();
+    // The join response has no people-ahead or call time; fetch the full picture straight away.
+    _refresh();
     _timer = Timer.periodic(widget.pollInterval, (_) => _refresh());
   }
 

@@ -17,18 +17,27 @@ Widget page(QueueTicket ticket, FakeAdapter adapter) => MaterialApp(
       ),
     );
 
+/// Lets the page's request to the fake server complete and redraw (without waiting for the next poll).
+Future<void> settle(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 50));
+  await tester.pump();
+}
+
 void main() {
   testWidgets('a waiting customer sees people ahead, the wait and when they will be called', (tester) async {
-    final adapter = FakeAdapter((_) => (status: 200, body: {}));
-    final ticket = QueueTicket(
-      queueId: 'q1',
-      entryId: 'e1',
-      position: 3,
-      peopleAhead: 2,
-      estimatedWaitMinutes: 30,
-      estimatedCallAt: DateTime(2026, 10, 16, 11, 40),
-    );
-    await tester.pumpWidget(page(ticket, adapter));
+    final callAt = DateTime(2026, 10, 16, 11, 40);
+    final adapter = FakeAdapter((_) => (status: 200, body: {
+          'queue_id': 'q1',
+          'entry_id': 'e1',
+          'status': 'WAITING',
+          'position': 3,
+          'people_ahead': 2,
+          'estimated_wait_minutes': 30,
+          'estimated_call_at': callAt.toUtc().toIso8601String(),
+        }));
+    // As joined: the join response has no people-ahead or call time; the page fetches them at once.
+    await tester.pumpWidget(page(const QueueTicket(queueId: 'q1', entryId: 'e1', position: 3, estimatedWaitMinutes: 30), adapter));
+    await settle(tester);
 
     expect(find.text('#3'), findsOneWidget);
     expect(find.text('30 min'), findsOneWidget);
@@ -47,10 +56,9 @@ void main() {
           'estimated_wait_minutes': 0,
         }));
     await tester.pumpWidget(page(const QueueTicket(queueId: 'q1', entryId: 'e1', position: 1, estimatedWaitMinutes: 0), adapter));
-    expect(find.text("You're next"), findsOneWidget);
+    expect(find.text("You're next"), findsOneWidget); // before the server answers
 
-    await tester.pump(const Duration(seconds: 1)); // next poll
-    await tester.pump();
+    await settle(tester);
     expect(find.text("It's your turn!"), findsOneWidget);
     expect(find.text('Please go to the counter now.'), findsOneWidget);
     expect(find.text('Leave Queue'), findsNothing); // nothing to leave once called

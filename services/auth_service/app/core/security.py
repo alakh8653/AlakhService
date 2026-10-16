@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
@@ -32,7 +33,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire, "type": "access", "jti": secrets.token_hex(16)})
+    # iat to the millisecond: tokens issued before a sign-out are refused (see core/revocation.py).
+    to_encode.update({"exp": expire, "iat": round(time.time(), 3), "type": "access", "jti": secrets.token_hex(16)})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
@@ -90,10 +92,45 @@ def verify_otp(plain_code: str, hashed_code: str) -> bool:
     return hashlib.sha256(plain_code.encode()).hexdigest() == hashed_code
 
 
+def client_ip(request: Request) -> str:
+    """The caller's address: the gateway puts it in X-Real-IP (overwriting anything the client sent)."""
+    forwarded = (request.headers.get("x-real-ip") or "").strip()
+    if forwarded:
+        return forwarded[:64]
+    return request.client.host if request.client else "unknown"
+
+
+def describe_device(user_agent: Optional[str]) -> str:
+    """A short, human description of a browser or app from its User-Agent, e.g. "Chrome on Windows"."""
+    ua = user_agent or ""
+    if "AlakhService" in ua or "Dart/" in ua or "okhttp" in ua:
+        app = "Alakh app"
+    elif "Edg/" in ua:
+        app = "Edge"
+    elif "Chrome/" in ua and "Chromium" not in ua:
+        app = "Chrome"
+    elif "Firefox/" in ua:
+        app = "Firefox"
+    elif "Safari/" in ua:
+        app = "Safari"
+    else:
+        app = "Unknown browser"
+    for marker, system in (
+        ("Android", "Android"),
+        ("iPhone", "iPhone"),
+        ("iPad", "iPad"),
+        ("Windows", "Windows"),
+        ("Mac OS X", "Mac"),
+        ("Linux", "Linux"),
+    ):
+        if marker in ua:
+            return f"{app} on {system}"
+    return app
+
+
 def get_device_fingerprint(request: Request) -> str:
     user_agent = request.headers.get("user-agent", "")
-    ip = request.client.host if request.client else ""
-    raw = f"{user_agent}:{ip}"
+    raw = f"{user_agent}:{client_ip(request)}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

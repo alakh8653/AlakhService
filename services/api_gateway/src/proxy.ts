@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { Readable, Transform } from 'node:stream';
 import type { Request, Response } from 'express';
 import type { CircuitBreaker } from './circuitBreaker.js';
 import type { Upstream } from './config.js';
@@ -17,7 +17,12 @@ const HOP_BY_HOP = new Set([
   'upgrade',
   'host',
   'content-length',
+  // fetch cannot do "Expect: 100-continue" and fails the whole request (curl sends it on large bodies).
+  'expect',
 ]);
+
+/** Statuses that mean the service itself is in trouble; a 500 is usually one bad request, not an outage. */
+const UNHEALTHY = new Set([502, 503, 504]);
 
 export interface ProxyOptions {
   upstream: Upstream;
@@ -26,6 +31,12 @@ export interface ProxyOptions {
   timeoutMs: number;
   requestId: string;
   metrics?: RollingMetrics;
+  /** Largest body forwarded; a bigger one gets 413 without reaching the service. */
+  maxBodyBytes?: number;
+}
+
+function tooLarge(res: Response, max: number) {
+  res.status(413).json({ detail: `Request body is larger than ${max} bytes` });
 }
 
 function requestHeaders(req: Request, requestId: string): Headers {
@@ -39,6 +50,8 @@ function requestHeaders(req: Request, requestId: string): Headers {
   headers.set('x-forwarded-proto', req.protocol);
   if (req.headers.host) headers.set('x-forwarded-host', req.headers.host);
   headers.set('x-request-id', requestId);
+  // The client's address as the gateway sees it (honouring TRUST_PROXY); replaces any client value.
+  if (req.ip) headers.set('x-real-ip', req.ip);
   return headers;
 }
 
@@ -50,6 +63,11 @@ function hasBody(req: Request): boolean {
 /** Forwards the request to the upstream service and streams the response back. */
 export async function proxyRequest(req: Request, res: Response, opts: ProxyOptions): Promise<void> {
   const { upstream, breaker, metrics } = opts;
+  const max = opts.maxBodyBytes ?? Number.POSITIVE_INFINITY;
+  if (Number(req.headers['content-length'] ?? 0) > max) {
+    tooLarge(res, max);
+    return;
+  }
 
   if (!breaker.tryAcquire()) {
     metrics?.record(0, true);
@@ -65,6 +83,7 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
   });
 
   let upstreamResponse: globalThis.Response;
+  let bodyTooLarge = false;
   const started = performance.now();
   try {
     const init: RequestInit & { duplex?: 'half' } = {
@@ -74,12 +93,30 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
       signal: AbortSignal.any([AbortSignal.timeout(opts.timeoutMs), clientGone.signal]),
     };
     if (hasBody(req)) {
-      init.body = Readable.toWeb(req) as ReadableStream;
+      // A chunked body has no length up front: count it as it streams and stop at the limit.
+      let seen = 0;
+      const counted = req.pipe(
+        new Transform({
+          transform(chunk: Buffer, _encoding, done) {
+            seen += chunk.length;
+            if (seen > max) {
+              bodyTooLarge = true;
+              done(new Error('body too large'));
+            } else done(null, chunk);
+          },
+        }),
+      );
+      init.body = Readable.toWeb(counted) as ReadableStream;
       init.duplex = 'half';
     }
     upstreamResponse = await fetch(upstream.url + opts.path + query, init);
   } catch (err) {
     if (clientGone.signal.aborted) return; // client disconnected; nothing to answer
+    if (bodyTooLarge) {
+      breaker.onSuccess(); // the service is fine; the client sent too much
+      tooLarge(res, max);
+      return;
+    }
     breaker.onFailure();
     metrics?.record(performance.now() - started, true);
     const timedOut = err instanceof Error && err.name === 'TimeoutError';
@@ -89,10 +126,11 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
     return;
   }
 
-  const failed = upstreamResponse.status >= 500;
-  if (failed) breaker.onFailure();
+  // Only an unreachable or overloaded service opens the circuit. Counting every 500 would let
+  // anyone take a service offline for everybody with a handful of requests that make it fail.
+  if (UNHEALTHY.has(upstreamResponse.status)) breaker.onFailure();
   else breaker.onSuccess();
-  metrics?.record(performance.now() - started, failed);
+  metrics?.record(performance.now() - started, upstreamResponse.status >= 500);
 
   res.status(upstreamResponse.status);
   upstreamResponse.headers.forEach((value, name) => {

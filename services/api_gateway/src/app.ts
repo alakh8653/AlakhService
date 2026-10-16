@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, type Store } from 'express-rate-limit';
 import helmet from 'helmet';
+import { RedisStore, type RedisReply } from 'rate-limit-redis';
 import { AuthError, createTokenVerifier, type AuthenticatedUser } from './auth.js';
 import { CircuitBreaker } from './circuitBreaker.js';
 import type { GatewayConfig } from './config.js';
 import { checkAll } from './health.js';
 import { RollingMetrics } from './metrics.js';
 import { proxyRequest } from './proxy.js';
+import { createRevocationCheck, type SendCommand } from './revocation.js';
 import { findRoute, requiredAccess, upstreamPath } from './routes.js';
 
 export interface LogEntry {
@@ -23,7 +25,14 @@ export interface LogEntry {
 export interface AppOptions {
   log?: (entry: LogEntry) => void;
   healthTimeoutMs?: number;
+  /** Raw Redis commands (server.ts connects to REDIS_URL): shared rate limits and revocations. */
+  redis?: SendCommand;
 }
+
+// Sign-in, sign-up, codes and password resets: guessing targets, so they get their own budget.
+const AUTH_LIMITED = /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh)$/;
+// Routes that take file uploads, allowed a larger body.
+const UPLOADS = /^\/api\/v1\/users\/me\/avatar$/;
 
 const defaultLog = (entry: LogEntry) => console.log(JSON.stringify({ msg: 'request', ...entry }));
 
@@ -37,9 +46,19 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
     ]),
   );
   const metrics = new Map(Object.keys(config.upstreams).map((key) => [key, new RollingMetrics()]));
+  const redisError = (err: unknown) =>
+    console.error(JSON.stringify({ msg: 'redis_error', error: err instanceof Error ? err.message : String(err) }));
+  const isRevoked = createRevocationCheck(options.redis, redisError);
+  // Shared across gateway instances when Redis is there; if Redis fails, requests are let through.
+  const limitStore = (prefix: string): Store | undefined =>
+    options.redis
+      ? new RedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })
+      : undefined;
 
   const app = express();
   app.disable('x-powered-by');
+  // Behind a load balancer, the client IP (for rate limits and logs) comes from X-Forwarded-For.
+  app.set('trust proxy', config.trustProxy);
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
 
@@ -74,7 +93,21 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
       limit: config.rateLimit.max,
       standardHeaders: 'draft-8',
       legacyHeaders: false,
+      store: limitStore('rl:api:'),
+      passOnStoreError: true,
       message: { detail: 'Too many requests, please try again later.' },
+    }),
+  );
+  app.use(
+    rateLimit({
+      windowMs: config.authRateLimit.windowMs,
+      limit: config.authRateLimit.max,
+      skip: (req) => !AUTH_LIMITED.test(req.path),
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      store: limitStore('rl:auth:'),
+      passOnStoreError: true,
+      message: { detail: 'Too many sign-in attempts from this network. Please wait a few minutes and try again.' },
     }),
   );
 
@@ -86,6 +119,10 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
     } catch (err) {
       const status = err instanceof AuthError ? err.status : 401;
       res.status(status).setHeader('WWW-Authenticate', 'Bearer').json({ detail: (err as Error).message });
+      return null;
+    }
+    if (await isRevoked(user)) {
+      res.status(401).setHeader('WWW-Authenticate', 'Bearer').json({ detail: 'Session ended, please sign in again' });
       return null;
     }
     if (access === 'admin' && user.role !== 'admin') {
@@ -116,6 +153,12 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
 
   app.use(async (req: Request, res: Response) => {
     const path = req.path;
+    // "/events/../metrics" must not reach a route other than the one it was matched (and
+    // authorised) against; nothing legitimate needs dot segments or empty segments.
+    if (/(^|\/)\.\.?(\/|$)|%2e|%2f|%5c|\/\/|\\/i.test(req.originalUrl.split('?')[0])) {
+      res.status(400).json({ detail: 'Invalid path' });
+      return;
+    }
 
     const route = findRoute(path);
     if (!route) {
@@ -143,6 +186,7 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
       timeoutMs: config.upstreamTimeoutMs,
       requestId: res.locals.requestId,
       metrics: metrics.get(route.upstream),
+      maxBodyBytes: UPLOADS.test(path) ? config.uploadMaxBodyBytes : config.maxBodyBytes,
     });
   });
 

@@ -16,6 +16,11 @@ def check_password_strength(v: str) -> str:
     return v
 
 
+def lower_email(v):
+    """Emails are matched without regard to case: Ravi@Example.com and ravi@example.com are one account."""
+    return v.strip().lower() if isinstance(v, str) and "@" in v else v
+
+
 class UserCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -35,6 +40,8 @@ class UserCreate(BaseModel):
     def validate_password(cls, v: str) -> str:
         return check_password_strength(v)
 
+    _lower = field_validator("email")(lower_email)
+
     @field_validator("email", "phone")
     @classmethod
     def at_least_one_contact(cls, v):
@@ -51,6 +58,8 @@ class UserLogin(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     password: str
+
+    _lower = field_validator("email")(lower_email)
 
     def model_post_init(self, __context) -> None:
         if not self.email and not self.phone:
@@ -76,11 +85,15 @@ class OTPRequest(BaseModel):
     phone_or_email: str
     purpose: Literal["registration", "login", "password_reset"]
 
+    _lower = field_validator("phone_or_email")(lower_email)
+
 
 class OTPVerify(BaseModel):
     phone_or_email: str
     code: str
     purpose: Literal["registration", "login", "password_reset"]
+
+    _lower = field_validator("phone_or_email")(lower_email)
 
 
 class OTPVerifyResponse(BaseModel):
@@ -96,6 +109,8 @@ class OTPVerifyResponse(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
+    _lower = field_validator("email")(lower_email)
 
 
 class PasswordResetConfirm(BaseModel):
@@ -119,3 +134,14 @@ class UserResponse(BaseModel):
     is_verified: bool
     role: str
     created_at: datetime
+
+
+class SessionResponse(BaseModel):
+    """A device the account is signed in on."""
+
+    id: str
+    device: str
+    ip_address: Optional[str] = None
+    signed_in_at: datetime
+    last_active_at: datetime
+    current: bool = False

@@ -29,8 +29,15 @@ class RefreshToken(Base):
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String, unique=True, nullable=False)
     device_fingerprint = Column(String, nullable=True)
+    # One sign-in on one device: kept across refreshes, so the person can see and end it.
+    session_id = Column(String, nullable=True, index=True)
+    user_agent = Column(String(255), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+    signed_in_at = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_revoked = Column(Boolean, default=False, nullable=False)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    # When this token was issued, i.e. the session's last refresh.
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

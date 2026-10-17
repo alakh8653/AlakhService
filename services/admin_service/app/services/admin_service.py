@@ -7,8 +7,9 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.origin import Origin
 from app.models.admin import AdminUser, AuditLog, BannedUser, SystemConfig
-from app.schemas.admin import AdminUserCreate, BanUserRequest, BulkUpdateRequest, SystemConfigUpdate
+from app.schemas.admin import AdminUserCreate, AuditLogReport, BanUserRequest, BulkUpdateRequest, SystemConfigUpdate
 
 log = structlog.get_logger()
 
@@ -32,7 +33,9 @@ class AdminService:
         result = await db.execute(select(AdminUser).where(AdminUser.is_active == True))
         return list(result.scalars().all())
 
-    async def ban_user(self, db: AsyncSession, user_id: str, data: BanUserRequest) -> dict:
+    async def ban_user(
+        self, db: AsyncSession, user_id: str, data: BanUserRequest, origin: Optional[Origin] = None
+    ) -> dict:
         # One row per user (user_id is unique): a repeat ban after an unban reactivates it.
         result = await db.execute(select(BannedUser).where(BannedUser.user_id == user_id))
         existing = result.scalar_one_or_none()
@@ -55,18 +58,24 @@ class AdminService:
             existing.banned_at = now
 
         await self._log_audit(
-            db, data.banned_by, "ban_user", "user", user_id, new_values=json.dumps({"reason": data.reason})
+            db,
+            data.banned_by,
+            "ban_user",
+            "user",
+            user_id,
+            new_values=json.dumps({"reason": data.reason}),
+            origin=origin,
         )
         await db.flush()
         log.info("user_banned", user_id=user_id, banned_by=data.banned_by)
         return {"status": "banned", "user_id": user_id}
 
-    async def unban_user(self, db: AsyncSession, user_id: str, admin_id: str) -> dict:
+    async def unban_user(self, db: AsyncSession, user_id: str, admin_id: str, origin: Optional[Origin] = None) -> dict:
         result = await db.execute(select(BannedUser).where(BannedUser.user_id == user_id, BannedUser.is_active == True))
         banned = result.scalar_one_or_none()
         if banned:
             banned.is_active = False
-        await self._log_audit(db, admin_id, "unban_user", "user", user_id)
+        await self._log_audit(db, admin_id, "unban_user", "user", user_id, origin=origin)
         await db.flush()
         log.info("user_unbanned", user_id=user_id, admin_id=admin_id)
         return {"status": "unbanned", "user_id": user_id}
@@ -76,6 +85,7 @@ class AdminService:
         db: AsyncSession,
         admin_id: Optional[str] = None,
         action: Optional[str] = None,
+        service: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> List[AuditLog]:
@@ -84,6 +94,8 @@ class AdminService:
             stmt = stmt.where(AuditLog.admin_id == admin_id)
         if action:
             stmt = stmt.where(AuditLog.action == action)
+        if service:
+            stmt = stmt.where(AuditLog.service == service)
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
@@ -91,9 +103,12 @@ class AdminService:
         result = await db.execute(select(SystemConfig))
         return list(result.scalars().all())
 
-    async def update_system_config(self, db: AsyncSession, key: str, data: SystemConfigUpdate) -> SystemConfig:
+    async def update_system_config(
+        self, db: AsyncSession, key: str, data: SystemConfigUpdate, origin: Optional[Origin] = None
+    ) -> SystemConfig:
         result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
         config = result.scalar_one_or_none()
+        old = {"value": config.value, "description": config.description} if config else None
         if not config:
             config = SystemConfig(
                 id=str(uuid.uuid4()),
@@ -110,17 +125,29 @@ class AdminService:
                 config.description = data.description
             config.updated_by = data.updated_by
             config.updated_at = datetime.now(timezone.utc)
+        await self._log_audit(
+            db,
+            data.updated_by,
+            "update_system_config",
+            "system_config",
+            key,
+            old_values=json.dumps(old) if old else None,
+            new_values=json.dumps({"value": config.value, "description": config.description}),
+            origin=origin,
+        )
         await db.flush()
         log.info("system_config_updated", key=key, updated_by=data.updated_by)
         return config
 
-    async def bulk_update(self, db: AsyncSession, data: BulkUpdateRequest) -> dict:
+    async def bulk_update(self, db: AsyncSession, data: BulkUpdateRequest, origin: Optional[Origin] = None) -> dict:
         results = []
         for user_id in data.user_ids:
             if data.action == "ban":
-                result = await self.ban_user(db, user_id, BanUserRequest(reason=data.reason, banned_by=data.admin_id))
+                result = await self.ban_user(
+                    db, user_id, BanUserRequest(reason=data.reason, banned_by=data.admin_id), origin
+                )
             elif data.action == "unban":
-                result = await self.unban_user(db, user_id, data.admin_id)
+                result = await self.unban_user(db, user_id, data.admin_id, origin)
             else:
                 result = {"status": "unknown_action", "user_id": user_id}
             results.append(result)
@@ -135,8 +162,9 @@ class AdminService:
         resource_id: Optional[str] = None,
         old_values: Optional[str] = None,
         new_values: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        origin: Optional[Origin] = None,
     ) -> AuditLog:
+        origin = origin or Origin()
         log_entry = AuditLog(
             id=str(uuid.uuid4()),
             admin_id=admin_id,
@@ -145,11 +173,33 @@ class AdminService:
             resource_id=resource_id,
             old_values=old_values,
             new_values=new_values,
-            ip_address=ip_address,
+            ip_address=origin.ip_address,
+            user_agent=origin.user_agent,
+            service="admin_service",
             created_at=datetime.now(timezone.utc),
         )
         db.add(log_entry)
         return log_entry
+
+    async def record_report(self, db: AsyncSession, report: AuditLogReport) -> AuditLog:
+        """An admin action another service carried out, as that service reported it."""
+        entry = AuditLog(
+            id=str(uuid.uuid4()),
+            admin_id=report.admin_id,
+            action=report.action,
+            resource_type=report.resource_type,
+            resource_id=report.resource_id,
+            old_values=json.dumps(report.old_values) if report.old_values is not None else None,
+            new_values=json.dumps(report.new_values) if report.new_values is not None else None,
+            ip_address=report.ip_address,
+            user_agent=report.user_agent,
+            service=report.service,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(entry)
+        await db.flush()
+        log.info("audit_reported", service=report.service, action=report.action, admin_id=report.admin_id)
+        return entry
 
 
 admin_service = AdminService()

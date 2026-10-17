@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
+    # Shared with the services that report signals to /internal; empty turns that API off.
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

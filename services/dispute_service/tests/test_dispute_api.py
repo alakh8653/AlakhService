@@ -1,5 +1,7 @@
 """API tests for listing disputes and moving them through review, escalation and resolution."""
 
+import json
+
 import httpx
 import pytest
 import pytest_asyncio
@@ -9,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 import app.models.dispute  # noqa: F401  (registers the models on Base.metadata)
 from app.config import settings
+from app.core.audit import AuditReporter, get_audit_reporter
 from app.database import Base, get_db
 from app.dependencies import Caller, booking_visible_to, get_booking_check
 from app.main import app
@@ -173,3 +176,71 @@ async def test_booking_ids_cannot_steer_the_party_check_elsewhere(client, monkey
     caller = Caller("stranger", "user", "t")
     assert await booking_visible_to("x/../../bookings", caller) is False
     assert seen == ["/api/v1/bookings/x%2F..%2F..%2Fbookings"]
+
+
+def admin_service_api(reports: list, status: int = 201, fail: bool = False) -> httpx.MockTransport:
+    """Stands in for admin_service's POST /internal/audit-logs."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if fail:
+            raise httpx.ConnectError("admin_service is down")
+        assert request.url.path == "/internal/audit-logs"
+        reports.append((request.headers["x-internal-key"], json.loads(request.content)))
+        return httpx.Response(status)
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_admin_status_changes_are_reported_to_the_audit_log(client):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports)
+    )
+    dispute = await create(client)
+    base = f"/api/v1/disputes/{dispute['id']}"
+    origin = {"X-Real-IP": "203.0.113.4", "User-Agent": "AdminDashboard/2.0"}
+
+    await client.post(f"{base}/review", headers=origin)
+    assert (await client.post(f"{base}/escalate", headers={**origin, **auth("lead")})).status_code == 200
+    await client.post(f"{base}/resolve", json={"resolution": "Refunded 50%"}, headers=origin)
+    # A refused change is not reported.
+    assert (await client.post(f"{base}/review", headers=origin)).status_code == 400
+
+    assert {key for key, _ in reports} == {"audit-key"}
+    entries = [entry for _, entry in reports]
+    assert [(e["admin_id"], e["action"], e["old_values"], e["new_values"]) for e in entries] == [
+        ("ops", "update_dispute_status", {"status": "OPEN"}, {"status": "UNDER_REVIEW"}),
+        ("lead", "update_dispute_status", {"status": "UNDER_REVIEW"}, {"status": "ESCALATED"}),
+        ("ops", "resolve_dispute", {"status": "ESCALATED"}, {"status": "RESOLVED", "resolution": "Refunded 50%"}),
+    ]
+    assert {
+        (e["resource_type"], e["resource_id"], e["ip_address"], e["user_agent"], e["service"]) for e in entries
+    } == {("dispute", dispute["id"], "203.0.113.4", "AdminDashboard/2.0", "dispute_service")}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("broken", [{"status": 500}, {"fail": True}])
+async def test_a_failing_admin_service_never_stops_a_resolution(client, broken):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports, **broken)
+    )
+    dispute = await create(client)
+    resolved = await client.post(f"/api/v1/disputes/{dispute['id']}/resolve", json={"resolution": "Refunded"})
+    assert (resolved.status_code, resolved.json()["status"]) == (200, "RESOLVED")
+    assert (await client.get(f"/api/v1/disputes/{dispute['id']}")).json()["status"] == "RESOLVED"
+
+
+@pytest.mark.asyncio
+async def test_only_admins_change_a_dispute_status(client):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports)
+    )
+    dispute = await create(client)
+    customer = auth("cust-1", "user")
+    for action, body in (("review", None), ("escalate", None), ("resolve", {"resolution": "mine"})):
+        resp = await client.post(f"/api/v1/disputes/{dispute['id']}/{action}", json=body, headers=customer)
+        assert resp.status_code == 403
+    assert reports == []

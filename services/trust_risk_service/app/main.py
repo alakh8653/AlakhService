@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.observability import install_observability
 from app.dependencies import require_admin
+from app.routers.internal import router as internal_router
 from app.routers.trust_risk import router as trust_risk_router
 
 logger = structlog.get_logger()
@@ -30,6 +31,7 @@ app.add_middleware(
 install_observability(app, service="trust_risk_service")
 # Risk scores and signals are for platform admins only (the gateway enforces the same).
 app.include_router(trust_risk_router, prefix="/api/v1", tags=["trust_risk"], dependencies=[Depends(require_admin)])
+app.include_router(internal_router, tags=["internal"])
 
 
 @app.get("/health")

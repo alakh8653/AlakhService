@@ -20,11 +20,16 @@ class Online implements NetworkInfo {
   Future<bool> get isConnected async => true;
 }
 
-/// user_service has one saved address; booking_service accepts the booking.
-FakeAdapter server() => FakeAdapter((r) => r.path.endsWith('/addresses')
+/// user_service has one saved address; booking_service accepts the booking (after [failFirst] tries
+/// that fail, as when the network drops).
+FakeAdapter server({int failFirst = 0}) {
+  var bookingTries = 0;
+  return FakeAdapter((r) => r.path.endsWith('/addresses')
     ? (status: 200, body: [
         {'id': 'addr-1', 'label': 'Home', 'street': '12 MG Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411001', 'is_default': true},
       ])
+    : ++bookingTries <= failFirst
+    ? (status: 503, body: {'detail': 'Booking service unavailable'})
     : (status: 201, body: {
         'id': 'b1',
         'booking_number': 'BK1',
@@ -37,6 +42,11 @@ FakeAdapter server() => FakeAdapter((r) => r.path.endsWith('/addresses')
         'service_mode': 'PICKUP_DROP',
         'created_at': '2026-10-16T00:00:00Z',
       }));
+}
+
+/// The Idempotency-Key header of each booking request sent so far.
+List<Object?> keysSent(FakeAdapter adapter) =>
+    adapter.requests.where((r) => r.method == 'POST').map((r) => r.headers['Idempotency-Key']).toList();
 
 Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop, ServiceMode.pickupDrop]}) {
   final client = ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore());
@@ -108,7 +118,9 @@ void main() {
     );
     await confirm(tester);
 
-    final sent = adapter.requests.singleWhere((r) => r.method == 'POST').data as Map;
+    final request = adapter.requests.singleWhere((r) => r.method == 'POST');
+    final sent = request.data as Map;
+    expect(request.headers['Idempotency-Key'], matches(RegExp(r'^[0-9a-f]{32}$')));
     expect(sent['service_mode'], 'PICKUP_DROP');
     expect(sent['address_id'], 'addr-1');
     expect(sent['item_description'], 'Dell XPS 13, cracked screen');
@@ -129,6 +141,57 @@ void main() {
     expect(sent['service_mode'], 'AT_SHOP');
     expect(sent.containsKey('address_id'), isFalse);
     expect(sent['notes'], isNot(contains('Address:')));
+  });
+
+  testWidgets('a retry after an error sends the same Idempotency-Key; a changed booking gets a new one', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server(failFirst: 2);
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+
+    await confirm(tester);
+    expect(find.text('Booking service unavailable'), findsOneWidget);
+    await confirm(tester); // the customer taps again: the same attempt
+    final keys = keysSent(adapter);
+    expect(keys, hasLength(2));
+    expect(keys[0], matches(RegExp(r'^[0-9a-f]{32}$')));
+    expect(keys[1], keys[0]);
+    final bodies = adapter.requests.where((r) => r.method == 'POST').map((r) => r.data).toList();
+    expect(bodies[1], bodies[0]);
+
+    // Something changed, so it is a different booking request and must not reuse the key.
+    await tester.enterText(
+      find.ancestor(of: find.text('Any special instructions...'), matching: find.byType(TextFormField)),
+      'Please call on arrival',
+    );
+    await confirm(tester);
+    final third = keysSent(adapter)[2];
+    expect(third, matches(RegExp(r'^[0-9a-f]{32}$')));
+    expect(third, isNot(keys[0]));
+  });
+
+  testWidgets('each new booking starts with its own Idempotency-Key', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final first = server();
+    await tester.pumpWidget(page(first, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+    await confirm(tester);
+
+    // Booked: the page closes. Booking again opens a new page.
+    await tester.pumpWidget(const SizedBox());
+    final second = server();
+    await tester.pumpWidget(page(second, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+    await confirm(tester);
+
+    expect(keysSent(first), hasLength(1));
+    expect(keysSent(second), hasLength(1));
+    expect(keysSent(second).single, isNot(keysSent(first).single));
   });
 
   test('mode labels and fees', () {

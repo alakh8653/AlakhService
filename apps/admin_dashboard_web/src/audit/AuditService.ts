@@ -9,12 +9,16 @@ export interface AuditLog {
   oldValues: string | null;
   newValues: string | null;
   ipAddress: string | null;
+  userAgent: string | null;
+  /** The service that carried out the action and recorded it (admin_service, payment_service, ...). */
+  service: string;
   createdAt: string;
 }
 
 export interface AuditLogFilters {
   actorId?: string;
   action?: string;
+  service?: string;
   page?: number;
   perPage?: number;
 }
@@ -36,6 +40,9 @@ interface AuditLogRecord {
   old_values: string | null;
   new_values: string | null;
   ip_address: string | null;
+  user_agent?: string | null;
+  // Entries written before other services reported their actions have no service: admin_service wrote them.
+  service?: string | null;
   created_at: string;
 }
 
@@ -49,6 +56,8 @@ function toAuditLog(r: AuditLogRecord): AuditLog {
     oldValues: r.old_values,
     newValues: r.new_values,
     ipAddress: r.ip_address,
+    userAgent: r.user_agent ?? null,
+    service: r.service || 'admin_service',
     createdAt: r.created_at,
   };
 }
@@ -57,7 +66,13 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<Pagin
   const page = filters.page ?? 1;
   const perPage = filters.perPage ?? 25;
   const { data } = await adminApiClient.get<AuditLogRecord[]>('/admin/audit-logs', {
-    params: { admin_id: filters.actorId, action: filters.action, skip: (page - 1) * perPage, limit: perPage },
+    params: {
+      admin_id: filters.actorId,
+      action: filters.action,
+      service: filters.service,
+      skip: (page - 1) * perPage,
+      limit: perPage,
+    },
   });
   const skipped = (page - 1) * perPage;
   return {
@@ -65,4 +80,41 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<Pagin
     total: data.length === perPage ? skipped + perPage + 1 : skipped + data.length,
     page,
   };
+}
+
+/** The services that report admin actions, with the names the dashboard shows for them. */
+export const AUDIT_SERVICES: Record<string, string> = {
+  admin_service: 'Admin',
+  payment_service: 'Payments',
+  dispute_service: 'Disputes',
+  pricing_engine: 'Pricing',
+};
+
+export function serviceLabel(service: string): string {
+  return AUDIT_SERVICES[service] ?? service;
+}
+
+// Checked in order: Edge and Opera also say "Chrome", and Chrome also says "Safari".
+const BROWSERS: [RegExp, string][] = [
+  [/Edg\//, 'Edge'],
+  [/OPR\//, 'Opera'],
+  [/Firefox\//, 'Firefox'],
+  [/Chrome\//, 'Chrome'],
+  [/Safari\//, 'Safari'],
+];
+const SYSTEMS: [RegExp, string][] = [
+  [/Windows/, 'Windows'],
+  [/Android/, 'Android'],
+  [/iPhone|iPad/, 'iOS'],
+  [/Mac OS X/, 'macOS'],
+  [/Linux/, 'Linux'],
+];
+
+/** A short "Browser on OS" summary of a user agent; the page shows the full string as a tooltip. */
+export function summarizeUserAgent(userAgent: string | null): string {
+  if (!userAgent) return '—';
+  const browser = BROWSERS.find(([re]) => re.test(userAgent))?.[1];
+  const os = SYSTEMS.find(([re]) => re.test(userAgent))?.[1];
+  if (!browser) return userAgent.length > 40 ? `${userAgent.slice(0, 40)}…` : userAgent;
+  return os ? `${browser} on ${os}` : browser;
 }

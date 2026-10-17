@@ -1,12 +1,18 @@
 from datetime import datetime
+from typing import List
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RiskSignalCreate(BaseModel):
-    signal_type: str  # e.g. "fraud_attempt", "successful_payment", "dispute_raised"
-    value: float  # 1.0 = risk event, -1.0 = safe event (or use positive for risk intensity)
+    signal_type: str = Field(min_length=1, max_length=50)  # e.g. "late_cancellation", "payment_completed"
+    # Risk intensity for a risk event; a safe event only counts towards the safe side (send 0.0).
+    value: float = Field(ge=0.0, le=1.0)
     is_risk_event: bool = True  # True = risk event, False = safe event
+
+
+class RiskLevelsRequest(BaseModel):
+    user_ids: List[str] = Field(max_length=200)
 
 
 class UserRiskProfileResponse(BaseModel):

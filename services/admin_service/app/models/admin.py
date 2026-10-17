@@ -28,6 +28,9 @@ class AuditLog(Base):
     old_values = Column(Text, nullable=True)  # JSON
     new_values = Column(Text, nullable=True)  # JSON
     ip_address = Column(String, nullable=True)
+    user_agent = Column(String, nullable=True)
+    # Which service recorded the action: admin_service itself, or one reporting through /internal/audit-logs.
+    service = Column(String, nullable=False, default="admin_service", server_default="admin_service", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 

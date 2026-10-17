@@ -1,9 +1,13 @@
 import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.background import BackgroundTask
 
+from app.core import risk
+from app.core.exceptions import InvalidCredentialsError
 from app.core.mailer import send_otp_code, send_password_reset
 from app.core.security import create_password_reset_token, describe_device
 from app.database import get_db
@@ -41,7 +45,17 @@ async def login(
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
-    return await auth_service.login(db, redis, login_data, request)
+    try:
+        return await auth_service.login(db, redis, login_data, request)
+    except InvalidCredentialsError as e:
+        if not e.locked_out_user_id:
+            raise
+        # Answered here rather than by the app's error handler so the report can go after the response.
+        return JSONResponse(
+            status_code=401,
+            content={"detail": str(e)},
+            background=BackgroundTask(risk.report_risk, e.locked_out_user_id, *risk.LOGIN_LOCKOUT),
+        )
 
 
 @router.post("/auth/refresh", response_model=TokenResponse)

@@ -9,6 +9,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import risk
+from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
@@ -50,6 +52,12 @@ PAYABLE_STATUSES = {
     "OUT_FOR_DELIVERY",
     "COMPLETED",
 }
+
+
+def _report_risk_after(background: BackgroundTasks, event: Optional[str], payment: Payment) -> None:
+    signal = risk.PAYMENT_SIGNALS.get(event)
+    if signal:
+        background.add_task(risk.report_risk, payment.payer_id, *signal)
 
 
 def _with_checkout(payment: Payment, gateway: RazorpayGateway) -> PaymentCheckoutResponse:
@@ -153,6 +161,7 @@ async def verify_payment(
     await db.commit()  # visible before anyone is told (the background task delays the session's commit)
     if changed:
         background.add_task(notify_payment, notifier, changed, payment_snapshot(payment))
+        _report_risk_after(background, changed, payment)
     return _with_checkout(payment, gateway)
 
 
@@ -215,6 +224,7 @@ async def confirm_cash_received(
     await payment_service.mark_completed(db, payment, None, "cash")
     await db.commit()  # visible before anyone is told
     background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
+    _report_risk_after(background, "payment.completed", payment)
     return payment
 
 
@@ -227,6 +237,8 @@ async def request_refund(
     current_user: dict = Depends(require_admin),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
+    audit: AuditReporter = Depends(get_audit_reporter),
+    origin: Origin = Depends(request_origin),
 ):
     """Refunds move money out of escrow, so they are issued by admins (e.g. resolving a dispute).
 
@@ -243,6 +255,22 @@ async def request_refund(
     await db.commit()  # visible before the customer is told
     background.add_task(
         notify_payment, notifier, "payment.refunded", {**payment_snapshot(payment), "amount_cents": refund.amount_cents}
+    )
+    background.add_task(
+        audit.record,
+        current_user["sub"],
+        "refund_payment",
+        "payment",
+        payment_id,
+        origin,
+        new_values={
+            "refund_id": refund.id,
+            "amount_cents": refund.amount_cents,
+            "currency": payment.currency,
+            "reason": refund.reason,
+            "status": refund.status,
+            "payment_status": payment.status,
+        },
     )
     return refund
 
@@ -308,12 +336,14 @@ async def razorpay_webhook(
         event, payment = changed
         await db.commit()  # visible before anyone is told (the background task delays the session's commit)
         background.add_task(notify_payment, notifier, event, payment_snapshot(payment))
+        _report_risk_after(background, event, payment)
     return {"status": "processed"}
 
 
 @router.post("/webhooks/stripe")
 async def stripe_webhook(
     request: Request,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Stripe events, accepted only with a valid Stripe-Signature."""
@@ -328,5 +358,8 @@ async def stripe_webhook(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid signature") from e
-    await payment_service.process_stripe_event(db, json.loads(body))
+    changed = await payment_service.process_stripe_event(db, json.loads(body))
+    if changed:
+        await db.commit()
+        _report_risk_after(background, *changed)
     return {"status": "processed"}

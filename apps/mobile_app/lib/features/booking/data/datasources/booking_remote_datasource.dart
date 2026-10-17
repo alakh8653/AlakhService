@@ -15,6 +15,7 @@ abstract class BookingRemoteDataSource {
     String? notes,
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
+    String? idempotencyKey,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -55,10 +56,13 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     String? notes,
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
+    String? idempotencyKey,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
         ApiConstants.bookings,
+        // booking_service answers a repeat of the key with the booking it already made.
+        options: idempotencyKey == null ? null : Options(headers: {'Idempotency-Key': idempotencyKey}),
         data: {
           'service_id': serviceId,
           'scheduled_at': scheduledAt.toUtc().toIso8601String(),

@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import structlog
 from sqlalchemy import func, select
@@ -275,20 +275,20 @@ class QueueService:
         await db.flush()
         return notices
 
-    async def call_next(self, db: AsyncSession, queue_id: str) -> Optional[QueueEntry]:
+    async def call_next(self, db: AsyncSession, queue_id: str) -> Tuple[Optional[QueueEntry], List[QueueEntry]]:
         """Takes the first waiting customer off the queue (they are being served), or None if it is empty.
 
         Called customers who never turned up within the queue's grace period are skipped as no-shows
-        first, so they stop counting as being served.
+        first, so they stop counting as being served; they are returned alongside.
         """
         # Locked so two "next" taps at once call two different customers, not the same one twice.
         q = await self.get_queue(db, queue_id, lock=True)
         now = datetime.now(timezone.utc)
-        await self._skip_no_shows(db, q, now)
+        no_shows = await self._skip_no_shows(db, q, now)
         waiting = await self._waiting(db, queue_id)
         if not waiting:
             await db.flush()
-            return None
+            return None, no_shows
         head = waiting[0]
         head.status = "CALLED"
         head.position = 0
@@ -296,7 +296,7 @@ class QueueService:
         head.called_at = now
         await self._resize(db, queue_id)
         log.info("queue_called", queue_id=queue_id, entry_id=head.id)
-        return head
+        return head, no_shows
 
     async def _called_entry(self, db: AsyncSession, queue_id: str, entry_id: str) -> QueueEntry:
         result = await db.execute(

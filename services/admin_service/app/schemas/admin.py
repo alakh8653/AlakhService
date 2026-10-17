@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.core.origin import MAX_IP, MAX_USER_AGENT, clip
 
 
 class AdminUserCreate(BaseModel):
@@ -30,7 +32,34 @@ class AuditLogResponse(BaseModel):
     old_values: Optional[str] = None
     new_values: Optional[str] = None
     ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    service: str = "admin_service"
     created_at: datetime
+
+
+class AuditLogReport(BaseModel):
+    """An admin action another service carried out, reported to POST /internal/audit-logs."""
+
+    admin_id: str = Field(min_length=1, max_length=128)
+    action: str = Field(min_length=1, max_length=100)
+    resource_type: str = Field(min_length=1, max_length=100)
+    resource_id: Optional[str] = Field(None, max_length=255)
+    old_values: Optional[Any] = None
+    new_values: Optional[Any] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    service: str = Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+
+    # These come from the admin's request, so an odd header is shortened rather than losing the entry.
+    @field_validator("ip_address")
+    @classmethod
+    def _clip_ip(cls, v: Optional[str]) -> Optional[str]:
+        return clip(v, MAX_IP)
+
+    @field_validator("user_agent")
+    @classmethod
+    def _clip_user_agent(cls, v: Optional[str]) -> Optional[str]:
+        return clip(v, MAX_USER_AGENT)
 
 
 class SystemConfigUpdate(BaseModel):

@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -30,8 +30,15 @@ class Booking(Base):
     cancellation_reason = Column(Text, nullable=True)
     total_amount = Column(Integer, nullable=False)  # in cents
     metadata_json = Column("metadata", Text, nullable=True)
+    # From the Idempotency-Key header: a retry of the same request finds this booking instead of making
+    # another. Unique per customer, so of two requests racing with one key exactly one can insert.
+    idempotency_key = Column(String(128), nullable=True)
+    # Short hash of the request that made the booking: the same key with a different request is refused.
+    request_hash = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("customer_id", "idempotency_key", name="uq_bookings_customer_idempotency_key"),)
 
     def _meta(self) -> dict:
         try:

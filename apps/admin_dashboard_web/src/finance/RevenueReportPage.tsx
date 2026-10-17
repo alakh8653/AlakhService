@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { downloadCsv } from '../lib/csv';
 import { formatMoney, getRevenueReport, type RevenueReport } from './FinanceService';
 
 const toInputDate = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -19,6 +20,18 @@ export default function RevenueReportPage() {
   }, [dateFrom, dateTo]);
 
   const currency = report?.currency ?? 'INR';
+
+  const exportCsv = () => {
+    if (!report) return;
+    downloadCsv(
+      `revenue-${dateFrom}-to-${dateTo}.csv`,
+      ['Date', `Gross (${currency})`, `Refunds (${currency})`, `Net (${currency})`, 'Payments'],
+      [
+        ...report.series.map((p) => [p.date, p.gross.toFixed(2), p.refunds.toFixed(2), p.net.toFixed(2), p.payments]),
+        ['Total', report.gross.toFixed(2), report.refunds.toFixed(2), report.net.toFixed(2), report.payments],
+      ],
+    );
+  };
   const kpis = report
     ? [
         { label: 'Gross collected', value: formatMoney(report.gross, currency) },
@@ -41,6 +54,13 @@ export default function RevenueReportPage() {
             To
             <input type="date" value={dateTo} min={dateFrom} onChange={(e) => setDateTo(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900" />
           </label>
+          <button
+            onClick={exportCsv}
+            disabled={!report}
+            className="self-end border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Export CSV
+          </button>
         </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}

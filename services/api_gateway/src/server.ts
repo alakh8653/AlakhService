@@ -19,7 +19,7 @@ function connectRedis(url: string): SendCommand {
 }
 
 const redis = config.redisUrl ? connectRedis(config.redisUrl) : undefined;
-const server = createApp(config, { redis }).listen(config.port, () => {
+const server = createApp(config, { redis, processMetrics: true }).listen(config.port, () => {
   console.log(JSON.stringify({ msg: 'api_gateway listening', port: config.port, sharedLimits: Boolean(redis) }));
 });
 

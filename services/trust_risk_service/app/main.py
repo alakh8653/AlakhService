@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.dependencies import require_admin
 from app.routers.trust_risk import router as trust_risk_router
 
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_observability(app, service="trust_risk_service")
 # Risk scores and signals are for platform admins only (the gateway enforces the same).
 app.include_router(trust_risk_router, prefix="/api/v1", tags=["trust_risk"], dependencies=[Depends(require_admin)])
 

@@ -221,7 +221,7 @@ describe('request hygiene', () => {
 describe('dropped connections', () => {
   it('retries a read once when the service closed the connection, but never repeats a write', async () => {
     let dropped = 0;
-    const shop = await upstream((req, res) => {
+    const shop = await upstream((_req, res) => {
       if (dropped < 1) {
         dropped++;
         res.socket?.destroy(); // like a keep-alive socket the service closed a moment earlier
@@ -237,5 +237,30 @@ describe('dropped connections', () => {
     dropped = 0;
     const write = await request(app).post('/api/v1/shops').set('authorization', `Bearer ${await token()}`).send({});
     expect(write.status).toBe(502);
+  });
+});
+
+describe('Prometheus metrics', () => {
+  it('counts requests per service and status, with latency and circuit state', async () => {
+    const catalog = await upstream();
+    const app = createApp(testConfig({ catalog: catalog.url }), quiet);
+    await request(app).get('/api/v1/catalog/categories');
+    await request(app).get('/api/v1/nope');
+    const res = await request(app).get('/metrics');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/plain/);
+    expect(res.text).toContain('gateway_http_requests_total{upstream="catalog_service",method="GET",status="200"} 1');
+    expect(res.text).toContain('gateway_http_requests_total{upstream="gateway",method="GET",status="404"} 1');
+    expect(res.text).toContain('gateway_http_request_duration_seconds_count{upstream="catalog_service"} 1');
+    expect(res.text).toContain('gateway_circuit_open{upstream="catalog_service"} 0');
+  });
+
+  it('needs the metrics token when one is set, and is off in production without one', async () => {
+    const guarded = createApp(testConfig({}, { metricsToken: 'scrape-me' }), quiet);
+    expect((await request(guarded).get('/metrics')).status).toBe(401);
+    expect((await request(guarded).get('/metrics').set('authorization', 'Bearer wrong')).status).toBe(401);
+    expect((await request(guarded).get('/metrics').set('authorization', 'Bearer scrape-me')).status).toBe(200);
+    const production = createApp(testConfig({}, { production: true }), quiet);
+    expect((await request(production).get('/metrics')).status).toBe(404);
   });
 });

@@ -9,6 +9,7 @@ import { CircuitBreaker } from './circuitBreaker.js';
 import type { GatewayConfig } from './config.js';
 import { checkAll } from './health.js';
 import { RollingMetrics } from './metrics.js';
+import { GatewayMetrics } from './prometheus.js';
 import { proxyRequest } from './proxy.js';
 import { createRevocationCheck, type SendCommand } from './revocation.js';
 import { findRoute, requiredAccess, upstreamPath } from './routes.js';
@@ -27,6 +28,8 @@ export interface AppOptions {
   healthTimeoutMs?: number;
   /** Raw Redis commands (server.ts connects to REDIS_URL): shared rate limits and revocations. */
   redis?: SendCommand;
+  /** Also export process metrics (CPU, memory, event loop) on /metrics; server.ts turns this on. */
+  processMetrics?: boolean;
 }
 
 // Sign-in, sign-up, codes and password resets: guessing targets, so they get their own budget.
@@ -46,8 +49,15 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
     ]),
   );
   const metrics = new Map(Object.keys(config.upstreams).map((key) => [key, new RollingMetrics()]));
-  const redisError = (err: unknown) =>
+  const prometheus = new GatewayMetrics(
+    breakers,
+    Object.fromEntries(Object.values(config.upstreams).map((u) => [u.key, u.name])),
+    options.processMetrics,
+  );
+  const redisError = (err: unknown) => {
+    prometheus.redisErrors.inc();
     console.error(JSON.stringify({ msg: 'redis_error', error: err instanceof Error ? err.message : String(err) }));
+  };
   const isRevoked = createRevocationCheck(options.redis, redisError);
   // Shared across gateway instances when Redis is there; if Redis fails, requests are let through.
   const limitStore = (prefix: string): Store | undefined =>
@@ -69,18 +79,22 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
     res.locals.requestId = requestId;
     res.setHeader('x-request-id', requestId);
     const started = performance.now();
-    res.on('finish', () =>
+    res.on('finish', () => {
+      const durationMs = performance.now() - started;
+      if (req.path !== '/metrics') prometheus.observe(res.locals.upstream, req.method, res.statusCode, durationMs);
       log({
         requestId,
         method: req.method,
         path: req.path,
         status: res.statusCode,
-        durationMs: Math.round(performance.now() - started),
+        durationMs: Math.round(durationMs),
         upstream: res.locals.upstream,
-      }),
-    );
+      });
+    });
     next();
   });
+
+  app.get('/metrics', prometheus.handler(config.metricsToken, config.production));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'healthy', service: 'api_gateway' });

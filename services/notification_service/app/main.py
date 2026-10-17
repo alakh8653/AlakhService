@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.core.exceptions import NotificationNotFoundError, NotificationServiceError, TemplateNotFoundError
+from app.core.observability import install_observability
 from app.routers.internal import router as internal_router
 from app.routers.notifications import router as notif_router
 
@@ -25,6 +26,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+install_observability(app, service="notification_service", check_redis=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,8 +60,3 @@ app.include_router(internal_router, tags=["internal"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "notification_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

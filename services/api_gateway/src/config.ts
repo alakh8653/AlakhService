@@ -23,6 +23,9 @@ export interface GatewayConfig {
   /** Largest request body accepted, in bytes; uploads get [uploadMaxBodyBytes]. */
   maxBodyBytes: number;
   uploadMaxBodyBytes: number;
+  /** Bearer token Prometheus must send to read /metrics; without one /metrics is open (not in production). */
+  metricsToken?: string;
+  production: boolean;
   upstreamTimeoutMs: number;
   breaker: { failureThreshold: number; resetTimeoutMs: number };
   upstreams: Record<string, Upstream>;
@@ -113,6 +116,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     trustProxy: intFromEnv(env, 'TRUST_PROXY', 0),
     maxBodyBytes: intFromEnv(env, 'MAX_BODY_BYTES', 1_048_576),
     uploadMaxBodyBytes: intFromEnv(env, 'UPLOAD_MAX_BODY_BYTES', 6_291_456),
+    metricsToken: env.METRICS_TOKEN || undefined,
+    production: (env.ENVIRONMENT ?? env.NODE_ENV) === 'production',
     upstreamTimeoutMs: intFromEnv(env, 'UPSTREAM_TIMEOUT_MS', 15_000),
     breaker: {
       failureThreshold: intFromEnv(env, 'BREAKER_FAILURE_THRESHOLD', 5),
@@ -120,7 +125,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     },
     upstreams,
   };
-  if ((env.ENVIRONMENT ?? env.NODE_ENV) === 'production') {
+  if (config.production) {
     const problems = productionProblems(config);
     if (problems.length) throw new Error(`Refusing to start in production: ${problems.join('; ')}`);
   }

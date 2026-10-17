@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.routers.bookings import router as bookings_router
 
 logger = structlog.get_logger()
@@ -22,6 +23,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+install_observability(app, service="booking_service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,8 +39,3 @@ app.include_router(bookings_router, prefix="/api/v1", tags=["bookings"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "booking_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

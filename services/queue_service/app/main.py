@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.routers.queue import router as queue_router
 
 logger = structlog.get_logger()
@@ -25,6 +26,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_observability(app, service="queue_service")
 app.include_router(queue_router, prefix="/api/v1", tags=["queues"])
 
 

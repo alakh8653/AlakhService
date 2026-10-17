@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.routers.users import router as users_router
 
 logger = structlog.get_logger()
@@ -22,6 +23,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+install_observability(app, service="user_service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,8 +39,3 @@ app.include_router(users_router, prefix="/api/v1", tags=["users"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "user_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

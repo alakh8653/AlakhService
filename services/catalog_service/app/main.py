@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.core.exceptions import CatalogServiceError, CategoryNotFoundError, ServiceNotFoundError, SlugConflictError
+from app.core.observability import install_observability
 from app.routers.catalog import router as catalog_router
 
 logger = structlog.get_logger()
@@ -27,6 +28,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_observability(app, service="catalog_service", check_redis=True)
 
 
 @app.exception_handler(CategoryNotFoundError)
@@ -55,8 +57,3 @@ app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "catalog_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

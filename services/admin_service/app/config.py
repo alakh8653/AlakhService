@@ -42,6 +42,11 @@ def production_problems(s: Settings) -> List[str]:
         problems.append("SECRET_KEY is a placeholder or shorter than 32 characters")
     if "*" in s.CORS_ORIGINS:
         problems.append("CORS_ORIGINS must not be *")
+    internal_key = getattr(s, "INTERNAL_API_KEY", None)
+    if internal_key is not None and (
+        internal_key in _PLACEHOLDER_SECRETS or "change" in internal_key or len(internal_key) < 32
+    ):
+        problems.append("INTERNAL_API_KEY must be a random value of at least 32 characters")
     return problems
 
 

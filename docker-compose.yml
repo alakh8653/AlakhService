@@ -42,8 +42,9 @@ x-service-env: &service-env
   # Services that issue/verify JWTs read SECRET_KEY; one shared value across the stack.
   SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
   ENVIRONMENT: ${ENVIRONMENT:-development}
-  # Lets services call each other's /internal routes (e.g. booking -> notification).
-  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+  # Lets services call each other's /internal routes (booking -> notification, coupon redemption).
+  # The default only suits a laptop: production refuses to start without a random 32+ character key.
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
 
 services:
 

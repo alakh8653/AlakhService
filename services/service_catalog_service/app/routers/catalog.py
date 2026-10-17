@@ -37,7 +37,7 @@ async def create_category(data: CategoryCreate, db: AsyncSession = Depends(get_d
 
 @router.get("/services", response_model=List[ServiceListingResponse])
 async def list_services(
-    skip: int = 0,
+    skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=200),
     shop_id: Optional[str] = None,
     include_inactive: bool = False,
@@ -63,9 +63,10 @@ async def create_service(
 async def search_services(
     q: Optional[str] = None,
     category: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    return await catalog_service.search_services(db, q=q, category=category)
+    return await catalog_service.search_services(db, q=q, category=category, limit=limit)
 
 
 @router.get("/services/{service_id}", response_model=ServiceListingResponse)

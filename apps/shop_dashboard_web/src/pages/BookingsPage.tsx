@@ -5,14 +5,32 @@ import { getStaff } from '../services/shopService';
 import { useBookings } from '../hooks/useBookings';
 import { useShopServices } from '../hooks/useShopServices';
 import BookingCard, { type ProviderOption } from '../components/BookingCard';
-import { BOOKING_STATUSES } from '../services/bookingService';
-import { humanize } from '../services/format';
+import { format } from 'date-fns';
+import { BOOKING_STATUSES, getAllShopBookings } from '../services/bookingService';
+import { downloadCsv } from '../services/csv';
+import { humanize, shortId } from '../services/format';
+import { MODE_LABELS } from '../components/BookingCard';
 import type { BookingStatus, StaffMember } from '../types';
 
 export default function BookingsPage() {
   const [activeStatus, setActiveStatus] = useState<BookingStatus | undefined>();
-  const { bookings, isLoading, error, applyFilters, goToPage, page, totalPages, changeStatus, assign, cancel, setReadyBy, dismissError } =
-    useBookings();
+  const {
+    bookings,
+    isLoading,
+    error,
+    activeFilters,
+    applyFilters,
+    goToPage,
+    page,
+    totalPages,
+    changeStatus,
+    assign,
+    cancel,
+    setReadyBy,
+    dismissError,
+  } = useBookings();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const { serviceNames } = useShopServices();
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -28,6 +46,40 @@ export default function BookingsPage() {
     [staff],
   );
 
+  // Everything matching the current filter, for accounts, GST returns or a spreadsheet.
+  const exportCsv = async () => {
+    if (!shopId) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const all = await getAllShopBookings(shopId, activeFilters);
+      const staffName = (id: string | null) =>
+        id ? (staff.find((m) => m.userId === id)?.name ?? shortId(id)) : '';
+      downloadCsv(
+        `bookings-${format(new Date(), 'yyyy-MM-dd')}.csv`,
+        ['Booking', 'Status', 'How', 'Service', 'Scheduled', 'Minutes', 'Customer', 'Provider', 'Item', 'Amount (INR)', 'Notes', 'Booked on'],
+        all.map((b) => [
+          b.bookingNumber,
+          humanize(b.status),
+          MODE_LABELS[b.serviceMode] ?? b.serviceMode,
+          serviceNames[b.serviceId] ?? shortId(b.serviceId),
+          format(new Date(b.scheduledAt), 'yyyy-MM-dd HH:mm'),
+          b.durationMinutes,
+          shortId(b.customerId),
+          staffName(b.providerId),
+          b.itemDescription,
+          (b.totalAmount / 100).toFixed(2),
+          b.notes,
+          b.createdAt ? format(new Date(b.createdAt), 'yyyy-MM-dd HH:mm') : '',
+        ]),
+      );
+    } catch {
+      setExportError('Could not export bookings. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleFilter = (status?: BookingStatus) => {
     setActiveStatus(status);
     applyFilters(status ? { status } : {});
@@ -35,7 +87,17 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+        <button
+          onClick={exportCsv}
+          disabled={exporting || !shopId}
+          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </button>
+      </div>
+      {exportError && <p className="text-red-600 text-sm">{exportError}</p>}
       <div className="flex gap-2 flex-wrap">
         <button onClick={() => handleFilter(undefined)} className={`px-3 py-1 rounded-full text-sm font-medium ${!activeStatus ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>All</button>
         {BOOKING_STATUSES.map((s) => (

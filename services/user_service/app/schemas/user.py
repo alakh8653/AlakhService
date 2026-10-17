@@ -1,7 +1,14 @@
 from datetime import date, datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+def not_null(value):
+    """For partial updates of a column that always has a value: leave it out to keep it, but not null."""
+    if value is None:
+        raise ValueError("may be omitted but not null")
+    return value
 
 
 class UserProfileCreate(BaseModel):
@@ -12,6 +19,9 @@ class UserProfileCreate(BaseModel):
     language: Optional[str] = None
     timezone: Optional[str] = None
 
+    # Only for a value sent explicitly (defaults are not validated); null clears the other fields.
+    _required = field_validator("language", "timezone")(not_null)
+
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -20,6 +30,8 @@ class UserProfileUpdate(BaseModel):
     gender: Optional[str] = None
     language: Optional[str] = None
     timezone: Optional[str] = None
+
+    _required = field_validator("language", "timezone")(not_null)
 
 
 class UserProfileResponse(BaseModel):
@@ -59,6 +71,8 @@ class UserAddressUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
+    _required = field_validator("label", "street", "city", "state", "postal_code", "country")(not_null)
+
 
 class UserAddressResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -86,6 +100,9 @@ class UserPreferencesUpdate(BaseModel):
     language: Optional[str] = None
     currency: Optional[str] = None
     theme: Optional[str] = None
+
+    # Every preference always has a value.
+    _required = field_validator("*")(not_null)
 
 
 class UserPreferencesResponse(BaseModel):

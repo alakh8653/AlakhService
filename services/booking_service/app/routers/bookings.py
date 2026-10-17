@@ -21,6 +21,7 @@ from app.dependencies import (
     get_staff_lookup,
     require_shop_access,
     security,
+    verify_access_token,
 )
 from app.schemas.booking import (
     BookingAssignRequest,
@@ -33,44 +34,52 @@ from app.schemas.booking import (
     BookingStatusUpdate,
     ShopBookingSummary,
 )
-from app.services.booking_service import booking_service
+from app.services.booking_service import ProviderUnavailable, booking_service
 
 MODE_NAMES = {AT_SHOP: "a visit to the shop", AT_HOME: "a home visit", PICKUP_DROP: "pickup & drop"}
 
 router = APIRouter()
 log = structlog.get_logger()
 
+# WebSocket close codes: 4401/4403 mirror HTTP 401/403; 1013 is the standard "try again later".
+WS_UNAUTHENTICATED = 4401
+WS_FORBIDDEN = 4403
+WS_TRY_AGAIN_LATER = 1013
+
 
 class ConnectionManager:
+    # The parties of one booking need a handful of screens open; more is someone hoarding sockets.
+    MAX_PER_BOOKING = 20
+
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = {}
 
-    async def connect(self, booking_id: str, websocket: WebSocket):
+    async def connect(self, booking_id: str, websocket: WebSocket) -> bool:
+        """Accepts the socket and adds it, or closes it again when the booking has too many."""
         await websocket.accept()
-        if booking_id not in self.active_connections:
-            self.active_connections[booking_id] = []
-        self.active_connections[booking_id].append(websocket)
+        # Counted after the accept, with no await in between, so simultaneous handshakes cannot overshoot.
+        sockets = self.active_connections.setdefault(booking_id, [])
+        if len(sockets) >= self.MAX_PER_BOOKING:
+            await websocket.close(code=WS_TRY_AGAIN_LATER)
+            return False
+        sockets.append(websocket)
+        return True
 
     def disconnect(self, booking_id: str, websocket: WebSocket):
-        if booking_id in self.active_connections:
-            try:
-                self.active_connections[booking_id].remove(websocket)
-            except ValueError:
-                pass
+        sockets = self.active_connections.get(booking_id)
+        if sockets is None:
+            return
+        if websocket in sockets:
+            sockets.remove(websocket)
+        if not sockets:
+            del self.active_connections[booking_id]
 
     async def broadcast(self, booking_id: str, data: dict):
-        if booking_id in self.active_connections:
-            dead = []
-            for ws in self.active_connections[booking_id]:
-                try:
-                    await ws.send_json(data)
-                except Exception:
-                    dead.append(ws)
-            for ws in dead:
-                try:
-                    self.active_connections[booking_id].remove(ws)
-                except ValueError:
-                    pass
+        for ws in list(self.active_connections.get(booking_id, [])):
+            try:
+                await ws.send_json(data)
+            except Exception:
+                self.disconnect(booking_id, ws)
 
 
 manager = ConnectionManager()
@@ -304,6 +313,8 @@ async def assign_provider(
             raise HTTPException(status_code=422, detail="Provider is not an active staff member of this shop")
     try:
         booking = await booking_service.assign_provider(db, booking_id, body.provider_id, current_user.get("sub"))
+    except ProviderUnavailable as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
@@ -391,11 +402,39 @@ async def get_history(
 
 
 @router.websocket("/ws/bookings/{booking_id}")
-async def booking_websocket(booking_id: str, websocket: WebSocket):
-    await manager.connect(booking_id, websocket)
+async def booking_websocket(
+    booking_id: str,
+    websocket: WebSocket,
+    token: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+):
+    """Live status of a booking, for the people on it (the same ones who may GET it)."""
+    # Browsers cannot set headers on a WebSocket handshake, so the access token comes as ?token=.
+    try:
+        user = verify_access_token(token or "")
+    except HTTPException:
+        await websocket.close(code=WS_UNAUTHENTICATED)
+        return
+    booking = await booking_service.get_booking(db, booking_id)
+    try:
+        parties = await relationships(booking, user, lookup_owner) if booking else set()
+    except HTTPException:
+        await websocket.close(code=WS_TRY_AGAIN_LATER)  # shop_service is down
+        return
+    # The socket outlives the request; give its database connection back now.
+    await db.close()
+    # Unknown and someone else's bookings look the same, as with GET /bookings/{id}.
+    if not parties:
+        await websocket.close(code=WS_FORBIDDEN)
+        return
+    if not await manager.connect(booking_id, websocket):
+        return
     try:
         while True:
             await websocket.receive_text()
             await websocket.send_json({"type": "pong", "booking_id": booking_id})
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(booking_id, websocket)

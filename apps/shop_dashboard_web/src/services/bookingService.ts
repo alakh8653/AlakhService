@@ -147,6 +147,21 @@ export async function getShopBookings(
   };
 }
 
+/** Every booking matching the filters, page by page (up to [max]), for exports. */
+export async function getAllShopBookings(
+  shopId: string,
+  filters: BookingFilters = {},
+  max = 5000,
+): Promise<Booking[]> {
+  const all: Booking[] = [];
+  for (let page = 1; all.length < max; page++) {
+    const result = await getShopBookings(shopId, { ...filters, page, perPage: 100 });
+    all.push(...result.data);
+    if (page >= result.totalPages) break;
+  }
+  return all.slice(0, max);
+}
+
 export async function updateBookingStatus(
   id: string,
   status: BookingStatus,

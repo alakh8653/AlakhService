@@ -14,6 +14,18 @@ export interface GatewayConfig {
   jwtSecret: string;
   corsOrigins: string[];
   rateLimit: { windowMs: number; max: number };
+  /** Tighter per-client limit on sign-in, sign-up, OTP and password-reset requests. */
+  authRateLimit: { windowMs: number; max: number };
+  /** Shared store for rate limits and token revocation; in-memory limits (per instance) without it. */
+  redisUrl?: string;
+  /** How many proxies in front of the gateway to trust for the client IP (X-Forwarded-For). */
+  trustProxy: number;
+  /** Largest request body accepted, in bytes; uploads get [uploadMaxBodyBytes]. */
+  maxBodyBytes: number;
+  uploadMaxBodyBytes: number;
+  /** Bearer token Prometheus must send to read /metrics; without one /metrics is open (not in production). */
+  metricsToken?: string;
+  production: boolean;
   upstreamTimeoutMs: number;
   breaker: { failureThreshold: number; resetTimeoutMs: number };
   upstreams: Record<string, Upstream>;
@@ -40,6 +52,28 @@ const UPSTREAMS: Record<string, [string, string]> = {
   catalog: ['CATALOG_SERVICE_URL', 'catalog_service'],
 };
 
+/** Placeholder secrets from the examples and compose defaults: never acceptable in production. */
+const KNOWN_DEFAULT_SECRETS = new Set([
+  'changeme',
+  'change-in-production',
+  'change-me',
+  'secret',
+  'dev-secret',
+  'your-secret-key',
+  'your-super-secret-jwt-key-change-in-production',
+]);
+
+/** Refuses to start a production gateway with settings that are only safe on a laptop. */
+export function productionProblems(config: Pick<GatewayConfig, 'jwtSecret' | 'corsOrigins' | 'redisUrl'>): string[] {
+  const problems: string[] = [];
+  if (KNOWN_DEFAULT_SECRETS.has(config.jwtSecret) || config.jwtSecret.length < 32) {
+    problems.push('SECRET_KEY is a placeholder or shorter than 32 characters');
+  }
+  if (config.corsOrigins.includes('*')) problems.push('CORS_ORIGINS must list the dashboard origins, not *');
+  if (!config.redisUrl) problems.push('REDIS_URL is required so rate limits and sign-outs apply across instances');
+  return problems;
+}
+
 function intFromEnv(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
   const raw = env[name];
   if (raw === undefined || raw === '') return fallback;
@@ -63,7 +97,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     upstreams[key] = { key, name: composeName, url };
   }
 
-  return {
+  const config: GatewayConfig = {
     port: intFromEnv(env, 'PORT', 3000),
     jwtSecret,
     corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:5173,http://localhost:5174')
@@ -74,6 +108,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
       windowMs: intFromEnv(env, 'RATE_LIMIT_WINDOW_MS', 60_000),
       max: intFromEnv(env, 'RATE_LIMIT_MAX', 300),
     },
+    authRateLimit: {
+      windowMs: intFromEnv(env, 'AUTH_RATE_LIMIT_WINDOW_MS', 600_000),
+      max: intFromEnv(env, 'AUTH_RATE_LIMIT_MAX', 60),
+    },
+    redisUrl: env.REDIS_URL || undefined,
+    trustProxy: intFromEnv(env, 'TRUST_PROXY', 0),
+    maxBodyBytes: intFromEnv(env, 'MAX_BODY_BYTES', 1_048_576),
+    uploadMaxBodyBytes: intFromEnv(env, 'UPLOAD_MAX_BODY_BYTES', 6_291_456),
+    metricsToken: env.METRICS_TOKEN || undefined,
+    production: (env.ENVIRONMENT ?? env.NODE_ENV) === 'production',
     upstreamTimeoutMs: intFromEnv(env, 'UPSTREAM_TIMEOUT_MS', 15_000),
     breaker: {
       failureThreshold: intFromEnv(env, 'BREAKER_FAILURE_THRESHOLD', 5),
@@ -81,4 +125,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     },
     upstreams,
   };
+  if (config.production) {
+    const problems = productionProblems(config);
+    if (problems.length) throw new Error(`Refusing to start in production: ${problems.join('; ')}`);
+  }
+  return config;
 }

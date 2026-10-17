@@ -13,6 +13,7 @@ from app.core.exceptions import (
     OTPTooManyAttemptsError,
     UserAlreadyExistsError,
 )
+from app.core.observability import install_observability
 from app.routers.auth import router as auth_router
 from app.routers.users import internal_router
 from app.routers.users import router as users_router
@@ -32,6 +33,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+install_observability(app, service="auth_service", check_redis=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,8 +67,3 @@ app.include_router(internal_router, tags=["internal"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "auth_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

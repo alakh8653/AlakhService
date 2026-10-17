@@ -10,6 +10,7 @@ from app.core.exceptions import (
     CouponExpiredError,
     CouponNotFoundError,
 )
+from app.core.internal import require_internal
 from app.database import get_db
 from app.dependencies import Caller, ensure_self_or_admin, require_admin, require_caller
 from app.schemas.pricing import (
@@ -22,6 +23,7 @@ from app.schemas.pricing import (
 from app.services.pricing_service import pricing_service
 
 router = APIRouter()
+internal_router = APIRouter(dependencies=[Depends(require_internal)])
 
 
 @router.post("/pricing/calculate", response_model=PriceCalculationResponse, status_code=201)
@@ -40,17 +42,17 @@ async def get_pricing_history(
     return await pricing_service.get_pricing_history(db, customer_id)
 
 
-@router.post("/pricing/{calculation_id}/redeem", response_model=PriceCalculationResponse)
-async def redeem_quote(
-    calculation_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
-):
-    """Checkout: commit to a quote, using up its coupon."""
+@internal_router.post("/internal/pricing/{calculation_id}/redeem", response_model=PriceCalculationResponse)
+async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db)):
+    """Checkout: commit to a quote, using up its coupon.
+
+    Only booking_service calls this, for the quote it made from the catalogue price while creating
+    a booking; open to customers, it let anyone use up a limited coupon without booking anything.
+    """
     try:
         calc = await pricing_service.get_calculation(db, calculation_id)
     except CalculationNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    if not caller.is_admin and calc.customer_id != caller.user_id:
-        raise HTTPException(status_code=404, detail="Price calculation not found")
     try:
         return await pricing_service.redeem(db, calc)
     except (CouponAlreadyUsedError, CouponExhaustedError, CouponExpiredError) as e:

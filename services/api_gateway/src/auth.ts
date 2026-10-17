@@ -3,6 +3,10 @@ import { errors, jwtVerify, type JWTPayload } from 'jose';
 export interface AuthenticatedUser {
   id: string;
   role: string;
+  /** Token id and issue time, for revocation checks. */
+  sid?: string;
+  jti?: string;
+  iat?: number;
 }
 
 export class AuthError extends Error {
@@ -38,6 +42,12 @@ export function createTokenVerifier(secret: string) {
     if (payload.type !== 'access' || payload.purpose !== undefined || typeof payload.sub !== 'string') {
       throw new AuthError('Invalid token', 401);
     }
-    return { id: payload.sub, role: typeof payload.role === 'string' ? payload.role : 'user' };
+    return {
+      id: payload.sub,
+      role: typeof payload.role === 'string' ? payload.role : 'user',
+      sid: typeof payload.sid === 'string' ? payload.sid : undefined,
+      jti: typeof payload.jti === 'string' ? payload.jti : undefined,
+      iat: typeof payload.iat === 'number' ? payload.iat : undefined,
+    };
   };
 }

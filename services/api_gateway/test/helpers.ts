@@ -58,7 +58,7 @@ export function testConfig(urls: Record<string, string> = {}, overrides: Partial
 export async function token(claims: Record<string, unknown> = {}, expiresIn = '15m'): Promise<string> {
   return new SignJWT({ type: 'access', role: 'user', ...claims })
     .setProtectedHeader({ alg: 'HS256' })
-    .setSubject('user-1')
+    .setSubject(typeof claims.sub === 'string' ? claims.sub : 'user-1')
     .setIssuedAt()
     .setExpirationTime(expiresIn)
     .sign(new TextEncoder().encode(SECRET));

@@ -6,6 +6,7 @@ its port is reached directly.
 
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -72,10 +73,11 @@ async def _get_json(base_url: str, path: str) -> Optional[dict]:
 
 async def fetch_service_owner(service_id: str) -> Optional[str]:
     """Owner of the shop that offers a catalogue service, or None if either does not exist."""
-    listing = await _get_json(settings.SERVICE_CATALOG_URL, f"/api/v1/services/{service_id}")
+    # Ids are quoted so one like "../x" names a (missing) service instead of another endpoint.
+    listing = await _get_json(settings.SERVICE_CATALOG_URL, f"/api/v1/services/{quote(service_id, safe='')}")
     if not listing:
         return None
-    shop = await _get_json(settings.SHOP_SERVICE_URL, f"/api/v1/shops/{listing['shop_id']}")
+    shop = await _get_json(settings.SHOP_SERVICE_URL, f"/api/v1/shops/{quote(str(listing['shop_id']), safe='')}")
     return shop.get("owner_id") if shop else None
 
 

@@ -34,15 +34,13 @@ from app.schemas.payment import (
     RefundResponse,
     TransactionHistoryResponse,
 )
-from app.services.payment_service import payment_service
+from app.services.payment_service import PAID_STATUSES, payment_service
 
 router = APIRouter()
 log = structlog.get_logger()
 
 
 # A booking can be paid for once it is confirmed and until it is completed.
-# Payments that mean the booking is settled (refunds included: the customer already paid once).
-PAID_STATUSES = {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
 PAYABLE_STATUSES = {
     "CONFIRMED",
     "ASSIGNED",
@@ -151,10 +149,10 @@ async def verify_payment(
         )
     ):
         raise HTTPException(status_code=400, detail="Payment could not be verified")
-    if payment.status != "COMPLETED":
-        await payment_service.mark_completed(db, payment, proof.razorpay_payment_id, "razorpay")
-        await db.commit()  # visible before anyone is told (the background task delays the session's commit)
-        background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
+    changed = await payment_service.record_capture(db, payment, proof.razorpay_payment_id, "razorpay", gateway)
+    await db.commit()  # visible before anyone is told (the background task delays the session's commit)
+    if changed:
+        background.add_task(notify_payment, notifier, changed, payment_snapshot(payment))
     return _with_checkout(payment, gateway)
 
 
@@ -249,9 +247,17 @@ async def request_refund(
     return refund
 
 
-def _ensure_own_account(account_id: str, current_user: dict) -> None:
-    if current_user.get("role") != "admin" and account_id != current_user["sub"]:
+async def _own_ledger_account(db: AsyncSession, account_id: str, current_user: dict) -> Optional[str]:
+    """The ledger account id behind [account_id]: callers name theirs by their user id or its account id.
+
+    Admins name any account by its account id. None means the caller has no account yet.
+    """
+    if current_user.get("role") == "admin":
+        return account_id
+    account = await payment_service.account_for_owner(db, current_user["sub"])
+    if account_id != current_user["sub"] and (account is None or account_id != account.id):
         raise HTTPException(status_code=404, detail="Account not found")
+    return account.id if account else None
 
 
 @router.get("/accounts/{account_id}/balance")
@@ -260,8 +266,8 @@ async def get_account_balance(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    _ensure_own_account(account_id, current_user)
-    balance = await payment_service.get_account_balance(db, account_id)
+    ledger_account_id = await _own_ledger_account(db, account_id, current_user)
+    balance = await payment_service.get_account_balance(db, ledger_account_id) if ledger_account_id else 0
     return {"account_id": account_id, "balance_cents": balance}
 
 
@@ -273,9 +279,10 @@ async def get_transaction_history(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    _ensure_own_account(account_id, current_user)
-    result = await payment_service.get_transaction_history(db, account_id, page, per_page)
-    return result
+    ledger_account_id = await _own_ledger_account(db, account_id, current_user)
+    if ledger_account_id is None:
+        return {"items": [], "total": 0, "page": page, "per_page": per_page}
+    return await payment_service.get_transaction_history(db, ledger_account_id, page, per_page)
 
 
 @router.post("/webhooks/razorpay")
@@ -296,7 +303,7 @@ async def razorpay_webhook(
     if str(event.get("event", "")).startswith("refund."):
         await payment_service.process_refund_event(db, event)
         return {"status": "processed"}
-    changed = await payment_service.process_razorpay_event(db, event)
+    changed = await payment_service.process_razorpay_event(db, event, gateway)
     if changed:
         event, payment = changed
         await db.commit()  # visible before anyone is told (the background task delays the session's commit)

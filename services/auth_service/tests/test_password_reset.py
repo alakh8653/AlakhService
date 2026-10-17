@@ -43,6 +43,7 @@ def redis():
     r = AsyncMock()
     r.get = AsyncMock(return_value=None)
     r.ttl = AsyncMock(return_value=-1)
+    r.incr = AsyncMock(return_value=1)  # like Redis: the new count
     return r
 
 

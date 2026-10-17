@@ -13,6 +13,24 @@ from app.schemas.booking import BookingCreate
 
 log = structlog.get_logger()
 
+# A provider with a booking in one of these is busy for its scheduled time.
+ACTIVE_STATUSES = [
+    BookingStatus.ASSIGNED.value,
+    BookingStatus.PROVIDER_EN_ROUTE.value,
+    BookingStatus.PICKED_UP.value,
+    BookingStatus.IN_PROGRESS.value,
+    BookingStatus.OUT_FOR_DELIVERY.value,
+]
+
+
+class ProviderUnavailable(Exception):
+    """The provider already has an active job at the booking's time."""
+
+
+def _utc(at: datetime) -> datetime:
+    # SQLite hands back naive datetimes; they are stored as UTC.
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
 
 class BookingService:
     async def _generate_booking_number(self, db: AsyncSession) -> str:
@@ -126,20 +144,21 @@ class BookingService:
         """Bookings the provider is currently working on (assigned, on the way, holding the
         customer's item, in progress, or bringing it back)."""
         result = await db.execute(
-            select(Booking).where(
-                Booking.provider_id == provider_id,
-                Booking.status.in_(
-                    [
-                        BookingStatus.ASSIGNED.value,
-                        BookingStatus.PROVIDER_EN_ROUTE.value,
-                        BookingStatus.PICKED_UP.value,
-                        BookingStatus.IN_PROGRESS.value,
-                        BookingStatus.OUT_FOR_DELIVERY.value,
-                    ]
-                ),
-            )
+            select(Booking).where(Booking.provider_id == provider_id, Booking.status.in_(ACTIVE_STATUSES))
         )
         return list(result.scalars().all())
+
+    async def overlapping_job(self, db: AsyncSession, booking: Booking, provider_id: str) -> Optional[Booking]:
+        """One of the provider's active jobs whose time overlaps [booking]'s, if any."""
+        start = _utc(booking.scheduled_at)
+        end = start + timedelta(minutes=booking.duration_minutes)
+        # Compared in Python: interval arithmetic on columns differs between SQLite and PostgreSQL.
+        for other in await self.active_bookings_with_provider(db, provider_id):
+            other_start = _utc(other.scheduled_at)
+            other_end = other_start + timedelta(minutes=other.duration_minutes)
+            if other.id != booking.id and other_start < end and start < other_end:
+                return other
+        return None
 
     async def list_shop_bookings(
         self,
@@ -237,6 +256,16 @@ class BookingService:
     async def assign_provider(
         self, db: AsyncSession, booking_id: str, provider_id: str, assigned_by: Optional[str] = None
     ) -> Booking:
+        booking = await self.get_booking(db, booking_id)
+        # Only when the booking could be assigned at all, so an invalid transition still says why.
+        if booking and booking_fsm.can_transition(BookingStatus(booking.status), BookingStatus.ASSIGNED):
+            clash = await self.overlapping_job(db, booking, provider_id)
+            if clash:
+                raise ProviderUnavailable(
+                    f"Provider is busy with booking {clash.booking_number} "
+                    f"({_utc(clash.scheduled_at):%Y-%m-%d %H:%M} UTC, {clash.duration_minutes} min), "
+                    "which overlaps this one"
+                )
         booking = await self.transition_status(
             db, booking_id, BookingStatus.ASSIGNED.value, assigned_by or provider_id, "Provider assigned"
         )

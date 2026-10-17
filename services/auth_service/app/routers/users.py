@@ -5,18 +5,20 @@ import secrets
 from typing import List, Optional
 
 import httpx
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.security import hash_password, verify_password
 from app.database import get_db
-from app.dependencies import get_current_user, security
-from app.models.user import RefreshToken, User
+from app.dependencies import get_current_user, get_redis, security
+from app.models.user import User
 from app.schemas.auth import UserResponse
+from app.services.auth_service import auth_service
 
 router = APIRouter()
 internal_router = APIRouter()
@@ -67,6 +69,7 @@ def get_profile_eraser():
 async def delete_account(
     body: AccountDeletion,
     db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     erase=Depends(get_profile_eraser),
@@ -87,12 +90,7 @@ async def delete_account(
     user.is_active = False
     user.is_verified = False
     user.hashed_password = hash_password(secrets.token_urlsafe(32))
-    await db.execute(
-        update(RefreshToken)
-        .where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)
-        .values(is_revoked=True)  # noqa: E712
-    )
-    await db.flush()
+    await auth_service.revoke_all_sessions(db, redis, user.id)
     return {"message": "Your account has been deleted"}
 
 
@@ -110,18 +108,20 @@ class AccountStatus(BaseModel):
 @internal_router.post(
     "/internal/users/{user_id}/status", response_model=UserResponse, dependencies=[Depends(require_internal)]
 )
-async def set_account_status(user_id: str, body: AccountStatus, db: AsyncSession = Depends(get_db)):
-    """Bans and unbans. A deactivated account cannot sign in or refresh, and its sessions are ended."""
+async def set_account_status(
+    user_id: str,
+    body: AccountStatus,
+    db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+):
+    """Bans and unbans. A deactivated account cannot sign in or refresh, and its sessions are ended
+    at once (its access tokens are refused at the gateway too)."""
     user = await db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_active = body.is_active
     if not body.is_active:
-        await db.execute(
-            update(RefreshToken)
-            .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)
-            .values(is_revoked=True)  # noqa: E712
-        )
+        await auth_service.revoke_all_sessions(db, redis, user_id)
     await db.flush()
     await db.refresh(user)
     return user

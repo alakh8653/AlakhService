@@ -6,6 +6,7 @@ its port is reached directly.
 
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -65,8 +66,9 @@ async def booking_visible_to(booking_id: str, caller: Caller) -> bool:
     """
     async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
         try:
+            # Quoted so an id like "../bookings" cannot point the check at another endpoint.
             resp = await client.get(
-                f"/api/v1/bookings/{booking_id}", headers={"Authorization": f"Bearer {caller.token}"}
+                f"/api/v1/bookings/{quote(booking_id, safe='')}", headers={"Authorization": f"Bearer {caller.token}"}
             )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Booking service unavailable") from exc

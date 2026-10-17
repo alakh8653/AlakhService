@@ -134,11 +134,13 @@ async def search_catalog(params: SearchCatalogParams, db: AsyncSession = Depends
 @router.post(
     "/catalog/services", response_model=ServiceItemResponse, status_code=201, dependencies=[Depends(require_admin)]
 )
-async def create_service(payload: ServiceItemCreate, db: AsyncSession = Depends(get_db)):
+async def create_service(payload: ServiceItemCreate, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     try:
-        return await catalog_service.create_service(db, payload)
+        svc = await catalog_service.create_service(db, payload)
     except SlugConflictError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    await catalog_service.invalidate_service_lists(redis)
+    return svc
 
 
 @router.get("/catalog/services/{service_id}", response_model=ServiceItemResponse)
@@ -158,20 +160,27 @@ async def get_service_by_slug(slug: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/catalog/services/{service_id}", response_model=ServiceItemResponse, dependencies=[Depends(require_admin)])
-async def update_service(service_id: str, payload: ServiceItemUpdate, db: AsyncSession = Depends(get_db)):
+async def update_service(
+    service_id: str, payload: ServiceItemUpdate, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
+):
     try:
-        return await catalog_service.update_service(db, service_id, payload)
+        svc = await catalog_service.update_service(db, service_id, payload)
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except SlugConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    await catalog_service.invalidate_service_lists(redis)
+    return svc
 
 
 @router.delete("/catalog/services/{service_id}", dependencies=[Depends(require_admin)])
-async def delete_service(service_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_service(service_id: str, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     try:
         await catalog_service.delete_service(db, service_id)
-        return {"success": True}
     except ServiceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await catalog_service.invalidate_service_lists(redis)
+    return {"success": True}
 
 
 @router.post(

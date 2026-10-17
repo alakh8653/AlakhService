@@ -6,6 +6,7 @@ be reached without going through the gateway.
 
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -15,6 +16,14 @@ from jose import JWTError, jwt
 from app.config import settings
 
 bearer = HTTPBearer(auto_error=False)
+
+
+def path_segment(value: str) -> str:
+    """A client-supplied id as exactly one URL path segment of an internal call.
+
+    quote() leaves "." alone and httpx resolves "..", so dots are escaped too.
+    """
+    return quote(value, safe="").replace(".", "%2E")
 
 
 @dataclass(frozen=True)
@@ -55,7 +64,7 @@ async def fetch_booking(booking_id: str, caller: Caller) -> Optional[dict]:
     async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(
-                f"/api/v1/bookings/{booking_id}", headers={"Authorization": f"Bearer {caller.token}"}
+                f"/api/v1/bookings/{path_segment(booking_id)}", headers={"Authorization": f"Bearer {caller.token}"}
             )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Booking service unavailable") from exc

@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.routers.dispatch import router as dispatch_router
 
 logger = structlog.get_logger()
@@ -25,6 +26,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+install_observability(app, service="dispatch_service")
 app.include_router(dispatch_router, prefix="/api/v1", tags=["dispatch"])
 
 

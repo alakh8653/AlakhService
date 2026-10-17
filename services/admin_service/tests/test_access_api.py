@@ -2,6 +2,7 @@
 
 import json
 
+import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from app.config import settings
-from app.core.accounts import get_account_switch
+from app.core.accounts import get_account_switch, set_account_active
 from app.core.permissions import DEFAULT_ROLES, PERMISSIONS
 from app.database import Base, get_db
 from app.main import app
@@ -202,3 +203,26 @@ async def test_bans_are_enforced_by_auth_service_before_they_are_recorded(ctx):
     )
     statuses = {r["user_id"]: r["status"] for r in bulk.json()["results"]}
     assert statuses == {"u2": "banned", "ghost": "failed", "u1": "failed"}
+
+
+@pytest.mark.asyncio
+async def test_audit_log_paging_is_bounded(ctx):
+    client, _ = ctx
+    assert (await client.get("/api/v1/audit-logs", params={"skip": 0, "limit": 200})).status_code == 200
+    for params in ({"skip": -1}, {"limit": 0}, {"limit": -5}, {"limit": 201}, {"limit": 10**9}):
+        assert (await client.get("/api/v1/audit-logs", params=params)).status_code == 422, params
+
+
+@pytest.mark.asyncio
+async def test_account_switch_keeps_the_user_id_inside_its_path_segment(monkeypatch):
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.raw_path.decode())
+        return httpx.Response(200)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(**kw, transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", "k")
+    await set_account_active("../../admin/x", False)
+    assert seen == ["/internal/users/..%2F..%2Fadmin%2Fx/status"]

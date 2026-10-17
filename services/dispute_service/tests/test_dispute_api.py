@@ -1,5 +1,6 @@
 """API tests for listing disputes and moving them through review, escalation and resolution."""
 
+import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -9,11 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import app.models.dispute  # noqa: F401  (registers the models on Base.metadata)
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_booking_check
+from app.dependencies import Caller, booking_visible_to, get_booking_check
 from app.main import app
 
+B1, B2 = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"
 # Who booking_service would show each booking to.
-BOOKING_PARTIES = {"b-1": {"cust-1", "owner-1"}}
+BOOKING_PARTIES = {B1: {"cust-1", "owner-1"}}
 
 
 def auth(sub: str, role: str = "admin") -> dict:
@@ -45,7 +47,7 @@ async def client():
     await engine.dispose()
 
 
-async def create(client, booking_id="b-1", raised_by="cust-1", dispute_type="service_quality"):
+async def create(client, booking_id=B1, raised_by="cust-1", dispute_type="service_quality"):
     resp = await client.post(
         "/api/v1/disputes",
         json={"booking_id": booking_id, "raised_by": raised_by, "dispute_type": dispute_type, "description": "Late"},
@@ -56,7 +58,7 @@ async def create(client, booking_id="b-1", raised_by="cust-1", dispute_type="ser
 
 @pytest.mark.asyncio
 async def test_list_disputes_paginates_newest_first(client):
-    ids = [(await create(client, booking_id=f"b-{i}"))["id"] for i in range(3)]
+    ids = [(await create(client, booking_id=f"00000000-0000-4000-8000-00000000001{i}"))["id"] for i in range(3)]
 
     resp = await client.get("/api/v1/disputes", params={"page": 1, "per_page": 2})
     assert resp.status_code == 200
@@ -72,15 +74,15 @@ async def test_list_disputes_paginates_newest_first(client):
 
 @pytest.mark.asyncio
 async def test_list_disputes_filters(client):
-    first = await create(client, booking_id="b-1", raised_by="cust-1")
-    await create(client, booking_id="b-2", raised_by="cust-2")
+    first = await create(client, booking_id=B1, raised_by="cust-1")
+    await create(client, booking_id=B2, raised_by="cust-2")
     await client.post(f"/api/v1/disputes/{first['id']}/review")
 
     by_status = (await client.get("/api/v1/disputes", params={"status": "UNDER_REVIEW"})).json()
     assert [d["id"] for d in by_status["data"]] == [first["id"]]
 
     by_customer = (await client.get("/api/v1/disputes", params={"raised_by": "cust-2"})).json()
-    assert by_customer["total"] == 1 and by_customer["data"][0]["booking_id"] == "b-2"
+    assert by_customer["total"] == 1 and by_customer["data"][0]["booking_id"] == B2
 
     assert (await client.get("/api/v1/disputes", params={"status": "NOPE"})).status_code == 422
 
@@ -104,7 +106,7 @@ async def test_review_escalate_resolve_flow(client):
 @pytest.mark.asyncio
 async def test_only_booking_parties_raise_and_see_disputes(client):
     customer, owner, stranger = auth("cust-1", "user"), auth("owner-1", "user"), auth("stranger", "user")
-    body = {"booking_id": "b-1", "raised_by": "someone-else", "dispute_type": "service_quality", "description": "Late"}
+    body = {"booking_id": B1, "raised_by": "someone-else", "dispute_type": "service_quality", "description": "Late"}
 
     assert (await client.post("/api/v1/disputes", json=body, headers={"Authorization": ""})).status_code == 401
     assert (await client.post("/api/v1/disputes", json=body, headers=stranger)).status_code == 404
@@ -135,9 +137,39 @@ async def test_only_booking_parties_raise_and_see_disputes(client):
 
 @pytest.mark.asyncio
 async def test_the_app_raises_disputes_without_naming_anyone(client):
-    body = {"booking_id": "b-1", "dispute_type": "service_quality", "description": "Arrived two hours late"}
+    body = {"booking_id": B1, "dispute_type": "service_quality", "description": "Arrived two hours late"}
     created = await client.post("/api/v1/disputes", json=body, headers=auth("cust-1", "user"))
     assert (created.status_code, created.json()["raised_by"]) == (201, "cust-1")
     assert (
         await client.post("/api/v1/disputes", json={**body, "description": ""}, headers=auth("cust-1", "user"))
     ).status_code == 422
+
+
+def booking_service_answering(monkeypatch, handler):
+    """Point the real booking check at a fake booking_service; returns the paths it was asked for."""
+    seen = []
+
+    def record(request):
+        seen.append(request.url.raw_path.decode())
+        return handler(request)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real_client(**kw, transport=httpx.MockTransport(record)))
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_booking_ids_cannot_steer_the_party_check_elsewhere(client, monkeypatch):
+    # booking_service lists the caller's own bookings at /api/v1/bookings, which always answers 200.
+    seen = booking_service_answering(
+        monkeypatch, lambda req: httpx.Response(200 if req.url.path == "/api/v1/bookings" else 404)
+    )
+    del app.dependency_overrides[get_booking_check]
+    body = {"booking_id": "../bookings", "dispute_type": "service_quality", "description": "Late"}
+    resp = await client.post("/api/v1/disputes", json=body, headers=auth("stranger", "user"))
+    assert resp.status_code == 422
+    assert seen == []
+
+    caller = Caller("stranger", "user", "t")
+    assert await booking_visible_to("x/../../bookings", caller) is False
+    assert seen == ["/api/v1/bookings/x%2F..%2F..%2Fbookings"]

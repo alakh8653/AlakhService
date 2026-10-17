@@ -1,7 +1,14 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def not_null(value):
+    """For partial updates of a column that always has a value: leave it out to keep it, but not null."""
+    if value is None:
+        raise ValueError("may be omitted but not null")
+    return value
 
 
 class ShopCreate(BaseModel):
@@ -28,6 +35,9 @@ class ShopUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_active: Optional[bool] = None
+
+    # Only for a value sent explicitly (defaults are not validated); null clears the other fields.
+    _required = field_validator("name", "category", "is_active")(not_null)
 
 
 class ShopResponse(BaseModel):
@@ -110,6 +120,9 @@ class StaffUpdate(BaseModel):
     user_id: Optional[str] = None
     service_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
+
+    # null service_ids means none; the other fields always have a value.
+    _required = field_validator("name", "role", "is_active")(not_null)
 
 
 class StaffResponse(BaseModel):

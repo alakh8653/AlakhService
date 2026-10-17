@@ -41,6 +41,8 @@ async def assign_dispatch(
 async def update_provider_location(
     data: ProviderLocationUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
 ):
+    # Tokens carry no provider role (being someone's provider is a booking relationship), so any
+    # signed-in user may report themselves available; they can only ever report themselves.
     ensure_self_or_admin(data.provider_id, caller)
     return await dispatch_service.update_provider_location(db, data)
 
@@ -50,9 +52,9 @@ async def update_provider_location(
     "/providers/available", response_model=List[AvailableProviderResponse], dependencies=[Depends(require_admin)]
 )
 async def get_available_providers(
-    lat: float = Query(...),
-    lon: float = Query(...),
-    radius_km: float = Query(default=10.0),
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(default=10.0, gt=0),
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
 ):

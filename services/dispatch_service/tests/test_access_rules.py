@@ -94,3 +94,21 @@ async def test_dispatch_records_the_chosen_provider_on_the_booking(client):
     async with app.state.test_session_factory() as db:
         jobs = (await db.execute(select(DispatchJob.booking_id))).scalars().all()
     assert jobs == ["b1"]
+
+
+@pytest.mark.asyncio
+async def test_providers_cannot_report_a_position_that_is_not_on_earth(client):
+    for lat, lon in ((91, 73.85), (-90.5, 73.85), (18.52, 180.1), (18.52, -999)):
+        location = {"provider_id": "bob", "latitude": lat, "longitude": lon}
+        assert (await client.post("/api/v1/providers/location", json=location, headers=BOB)).status_code == 422
+    edge = {"provider_id": "bob", "latitude": -90, "longitude": 180}
+    assert (await client.post("/api/v1/providers/location", json=edge, headers=BOB)).status_code == 200
+    # Reporting for someone else is still refused, whatever the coordinates.
+    other = {"provider_id": "alice", "latitude": 18.52, "longitude": 73.85}
+    assert (await client.post("/api/v1/providers/location", json=other, headers=BOB)).status_code == 403
+    nearby = await client.get("/api/v1/providers/available", params={"lat": 95, "lon": 73.8}, headers=ADMIN)
+    assert nearby.status_code == 422
+    assign = {"booking_id": "b1", "booking_lat": 18.5, "booking_lon": 73.8}
+    bogus = [{"provider_id": "bob", "latitude": 18.5, "longitude": 500}]
+    resp = await client.post("/api/v1/dispatch/assign", json={**assign, "providers": bogus}, headers=ADMIN)
+    assert resp.status_code == 422

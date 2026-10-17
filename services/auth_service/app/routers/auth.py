@@ -1,11 +1,11 @@
 import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.mailer import send_otp_code, send_password_reset
-from app.core.security import create_password_reset_token
+from app.core.security import create_password_reset_token, describe_device
 from app.database import get_db
 from app.dependencies import get_current_user, get_redis
 from app.models.user import User
@@ -16,6 +16,7 @@ from app.schemas.auth import (
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshTokenRequest,
+    SessionResponse,
     TokenResponse,
     UserCreate,
     UserLogin,
@@ -114,8 +115,10 @@ async def forgot_password(
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
+    result = await db.execute(
+        select(User).where(func.lower(User.email) == body.email).order_by(User.created_at).limit(1)
+    )
+    user = result.scalars().first()
     if user and user.is_active:
         reset_token = create_password_reset_token(str(user.id), user.hashed_password)
         log.info("password_reset_requested", user_id=user.id)
@@ -128,8 +131,9 @@ async def forgot_password(
 async def reset_password(
     body: PasswordResetConfirm,
     db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
 ):
-    await auth_service.reset_password(db, body.token, body.new_password)
+    await auth_service.reset_password(db, body.token, body.new_password, redis)
     return {"message": "Password reset successfully"}
 
 
@@ -144,3 +148,37 @@ async def get_me(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.get("/auth/sessions", response_model=list[SessionResponse])
+async def list_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Where the caller is signed in: one entry per device, the one making this request marked current."""
+    rows = await auth_service.list_sessions(db, current_user["sub"])
+    current = current_user.get("sid")
+    return [
+        SessionResponse(
+            id=row.session_id or row.id,
+            device=describe_device(row.user_agent),
+            ip_address=row.ip_address,
+            signed_in_at=row.signed_in_at or row.created_at,
+            last_active_at=row.created_at,
+            current=bool(current) and row.session_id == current,
+        )
+        for row in rows
+    ]
+
+
+@router.delete("/auth/sessions/{session_id}")
+async def end_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+    current_user: dict = Depends(get_current_user),
+):
+    """Signs one device out (its refresh and access tokens stop working)."""
+    if not await auth_service.end_session(db, redis, current_user["sub"], session_id):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"message": "Signed out of that device"}

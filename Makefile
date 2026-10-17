@@ -359,12 +359,31 @@ revoke-admin: ## Return an admin to a normal user: make revoke-admin ACCOUNT=you
 	docker compose exec -T auth_service python -m app.cli revoke-admin "$$ACCOUNT"
 
 .PHONY: db-backup
-db-backup: ## Back up every service database to backups/
+db-backup: ## Back up every service database now (verified) to backups/<timestamp>/
 	$(call log,"Backing up databases...")
 	@mkdir -p backups
-	docker compose exec -T postgres sh -c 'pg_dumpall -U "$$POSTGRES_USER"' \
-		| gzip > backups/alakhservice_$(shell date +%Y%m%d_%H%M%S).sql.gz
-	$(call success,"Databases backed up to backups/")
+	docker compose run --rm --no-deps --entrypoint /scripts/backup.sh backup
+	docker compose run --rm --no-deps --entrypoint /scripts/verify.sh backup
+	$(call success,"Backup written and verified; see backups/LATEST")
+
+.PHONY: db-verify-backup
+db-verify-backup: ## Prove a backup restores: make db-verify-backup [BACKUP=backups/<timestamp>]
+	docker compose run --rm --no-deps --entrypoint /scripts/verify.sh backup $(if $(BACKUP),/backups/$(notdir $(BACKUP)))
+
+.PHONY: db-restore
+db-restore: ## Restore a backup next to the live data as <db>_restored: make db-restore BACKUP=backups/<timestamp> [DBS="booking_db"]
+	@test -n "$(BACKUP)" || { echo "Usage: make db-restore BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	docker compose run --rm --no-deps --entrypoint /scripts/restore.sh backup /backups/$(notdir $(BACKUP)) $(DBS)
+
+.PHONY: db-restore-in-place
+db-restore-in-place: ## Replace live databases from a backup (DESTRUCTIVE; stops the services first)
+	@test -n "$(BACKUP)" || { echo "Usage: make db-restore-in-place BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	$(call warn,"This REPLACES live databases with $(BACKUP). Press Ctrl-C to cancel...")
+	@sleep 5
+	docker compose stop $(shell docker compose config --services | grep -E '_service$$|^pricing_engine$$|^api_gateway$$')
+	docker compose run --rm --no-deps --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
+	docker compose up -d
+	$(call success,"Restored; services restarted")
 
 # =============================================================================
 # BUILD

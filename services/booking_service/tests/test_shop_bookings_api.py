@@ -2,15 +2,21 @@
 
 import json
 import os
+from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
+from urllib.parse import unquote
 
+import httpx
 import pytest
 import pytest_asyncio
+from fastapi.testclient import TestClient
+from fastapi.websockets import WebSocketDisconnect
 from httpx import ASGITransport, AsyncClient
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
+from app import dependencies
 from app.config import settings
 from app.core.notifier import get_notifier
 from app.database import Base, get_db
@@ -23,6 +29,7 @@ from app.dependencies import (
 )
 from app.main import app
 from app.models.booking import Booking
+from app.routers.bookings import ConnectionManager, manager
 
 SENT: list = []
 PRICED: list = []
@@ -115,8 +122,8 @@ def booking(n, shop, status, day, amount=1000, service="svc-a", customer="c1", p
     )
 
 
-@pytest_asyncio.fixture
-async def client():
+async def open_service():
+    """Fresh database with the seed bookings, and fakes for the other services; returns the engine."""
     engine = create_async_engine(TEST_DB, poolclass=StaticPool if ":memory:" in TEST_DB else NullPool)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -160,12 +167,31 @@ async def client():
     PRICED.clear()
     SESSIONS["factory"] = factory
     SENT.clear()
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
+    return engine
+
+
+async def close_service(engine):
     app.dependency_overrides.clear()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client():
+    engine = await open_service()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+    await close_service(engine)
+
+
+@pytest.fixture
+def ws_client():
+    """A synchronous client that can open WebSockets; the database lives on the app's own event loop."""
+    with TestClient(app) as tc:
+        engine = tc.portal.call(open_service)
+        yield tc
+        tc.portal.call(close_service, engine)
 
 
 @pytest.mark.asyncio
@@ -315,7 +341,7 @@ async def test_bookings_are_priced_from_the_catalogue(client):
         "customer_id": "someone-else",
         "service_id": "svc-a",
         "shop_id": "shop-2",
-        "scheduled_at": "2026-11-01T10:00:00Z",
+        "scheduled_at": "2030-11-01T10:00:00Z",
         "duration_minutes": 5,
         "total_amount": 1,
     }
@@ -406,7 +432,7 @@ async def test_admins_and_dispatch_can_assign_anyone(client):
 async def test_everyone_on_a_booking_hears_about_changes_made_by_someone_else(client):
     created = await client.post(
         "/api/v1/bookings",
-        json={"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"},
+        json={"service_id": "svc-a", "scheduled_at": "2030-10-12T05:00:00Z"},
         headers=auth("c1"),
     )
     assert created.status_code == 201
@@ -485,7 +511,7 @@ async def test_providers_list_the_jobs_assigned_to_them(client):
 
 @pytest.mark.asyncio
 async def test_a_coupon_discounts_the_catalogue_price_once(client):
-    body = {"service_id": "svc-a", "scheduled_at": "2026-10-12T05:00:00Z"}
+    body = {"service_id": "svc-a", "scheduled_at": "2030-10-12T05:00:00Z"}
     plain = (await client.post("/api/v1/bookings", json=body, headers=auth("c1"))).json()
     assert (plain["total_amount"], plain["coupon_code"], plain["list_price"]) == (49900, None, 49900)
 
@@ -508,7 +534,7 @@ async def test_a_coupon_discounts_the_catalogue_price_once(client):
 
 
 def new_booking(service, **extra):
-    return {"service_id": service, "scheduled_at": "2026-11-01T10:00:00Z", **extra}
+    return {"service_id": service, "scheduled_at": "2030-11-01T10:00:00Z", **extra}
 
 
 async def book(client, service, who="c7", **extra):
@@ -660,3 +686,197 @@ async def test_the_shop_tells_the_customer_when_a_pickup_comes_back(client):
     assert (await set_status(client, job["id"], "OUT_FOR_DELIVERY", "staff-1")).status_code == 200
     late = await client.put(url, json={"ready_by": back}, headers=auth("owner-1"))
     assert late.status_code == 400 and "no longer" in late.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_coupon_is_redeemed_through_pricing_engines_internal_route(monkeypatch):
+    import httpx
+
+    from app import dependencies
+
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, request.headers.get("X-Internal-Key")))
+        if request.url.path.endswith("/validate"):
+            return httpx.Response(200, json={"is_valid": True})
+        if request.url.path == "/api/v1/pricing/calculate":
+            return httpx.Response(201, json={"id": "q1"})
+        return httpx.Response(200, json={"final_price_cents": 900})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        dependencies.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", "k")
+
+    assert await dependencies.price_with_coupon("tok", "cust-1", "svc-1", 1000, "WELCOME10") == 900
+    assert calls[-1] == ("POST", "/internal/pricing/q1/redeem", "k")
+
+
+@pytest.mark.asyncio
+async def test_a_provider_is_never_given_two_jobs_at_the_same_time(client):
+    owner = "owner-1"
+
+    async def confirmed(at):
+        job = await book(client, "svc-a", scheduled_at=at)  # 45 minutes
+        assert (await set_status(client, job["id"], "CONFIRMED", owner)).status_code == 200
+        return job
+
+    async def assign(job, provider, who=owner):
+        return await client.post(
+            f"/api/v1/bookings/{job['id']}/assign", json={"provider_id": provider}, headers=auth(who)
+        )
+
+    first = await confirmed("2030-11-01T10:00:00Z")
+    assert (await assign(first, "staff-1")).status_code == 200
+
+    # Starting before the first one ends: refused, for the shop and admins alike.
+    clash = await confirmed("2030-11-01T10:30:00Z")
+    refused = await assign(clash, "staff-1")
+    assert refused.status_code == 409
+    assert first["booking_number"] in refused.json()["detail"] and "overlaps" in refused.json()["detail"]
+    admin_refused = await client.post(
+        f"/api/v1/bookings/{clash['id']}/assign", json={"provider_id": "staff-1"}, headers=auth("ops", "admin")
+    )
+    assert admin_refused.status_code == 409
+    seen = (await client.get(f"/api/v1/bookings/{clash['id']}", headers=auth(owner))).json()
+    assert (seen["status"], seen["provider_id"]) == ("CONFIRMED", None)
+    assert not [e for e, _, data in SENT if e == "booking.assigned" and data["booking_id"] == clash["id"]]
+    # Someone else is free then.
+    assert (await assign(clash, "staff-2")).status_code == 200
+
+    # Back to back is fine.
+    after = await confirmed("2030-11-01T10:45:00Z")
+    assert (await assign(after, "staff-1")).status_code == 200
+
+    # A job that is no longer active frees its time.
+    assert (
+        await client.post(f"/api/v1/bookings/{first['id']}/cancel", json={"reason": "x"}, headers=auth(owner))
+    ).status_code == 200
+    again = await confirmed("2030-11-01T10:00:00Z")
+    assert (await assign(again, "staff-1")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_bookings_cannot_be_made_for_a_time_already_gone(client):
+    now = datetime.now(timezone.utc)
+
+    async def at(when):
+        return await client.post(
+            "/api/v1/bookings", json=new_booking("svc-a", scheduled_at=when.isoformat()), headers=auth("c7")
+        )
+
+    yesterday = await at(now - timedelta(days=1))
+    assert yesterday.status_code == 422 and "past" in json.dumps(yesterday.json()["detail"])
+    assert (await at(now - timedelta(minutes=10))).status_code == 422
+    assert (await at((now - timedelta(days=1)).replace(tzinfo=None))).status_code == 422  # naive means UTC
+    # A client clock a little behind ours is not the customer's fault.
+    assert (await at(now - timedelta(minutes=2))).status_code == 201
+    assert (await at(now + timedelta(hours=1))).status_code == 201
+
+
+def watch(tc, booking_id, who=None, role="user", token=None):
+    if who:
+        token = auth(who, role)["Authorization"].split()[1]
+    return tc.websocket_connect(f"/api/v1/ws/bookings/{booking_id}" + (f"?token={token}" if token else ""))
+
+
+def ping(ws):
+    ws.send_text("ping")
+    return ws.receive_json()
+
+
+def refused_with(tc, booking_id, **who) -> int:
+    """The close code the socket gets instead of being let in."""
+    with pytest.raises(WebSocketDisconnect) as e:
+        with watch(tc, booking_id, **who) as ws:
+            ping(ws)
+    return e.value.code
+
+
+def test_only_the_people_on_a_booking_can_watch_it_live(ws_client):
+    # bk-4: customer c3, provider staff-1, shop-1 (owner-1).
+    assert refused_with(ws_client, "bk-4") == 4401
+    assert refused_with(ws_client, "bk-4", token="not-a-token") == 4401
+    for claims in (
+        {"sub": "c3", "type": "refresh"},
+        {"sub": "c3", "type": "access", "purpose": "password_reset"},
+    ):
+        token = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        assert refused_with(ws_client, "bk-4", token=token) == 4401
+    assert refused_with(ws_client, "bk-4", who="stranger") == 4403
+    assert refused_with(ws_client, "bk-4", who="owner-2") == 4403
+    # Unknown bookings look the same as other people's.
+    assert refused_with(ws_client, "bk-nope", who="c3") == 4403
+
+    parties = [("c3", "user"), ("staff-1", "user"), ("owner-1", "user"), ("ops", "admin")]
+    with ExitStack() as stack:
+        sockets = [stack.enter_context(watch(ws_client, "bk-4", who, role)) for who, role in parties]
+        for ws in sockets:
+            assert ping(ws) == {"type": "pong", "booking_id": "bk-4"}
+        resp = ws_client.put("/api/v1/bookings/bk-4/status", json={"status": "CONFIRMED"}, headers=auth("owner-1"))
+        assert resp.status_code == 200
+        for ws in sockets:
+            assert ws.receive_json() == {"booking_id": "bk-4", "status": "CONFIRMED"}
+
+
+def test_a_booking_has_a_limited_number_of_live_watchers(ws_client):
+    with ExitStack() as stack:
+        for _ in range(ConnectionManager.MAX_PER_BOOKING):
+            ping(stack.enter_context(watch(ws_client, "bk-4", "c3")))
+        assert refused_with(ws_client, "bk-4", who="c3") == 1013
+    # Closed sockets give their place back.
+    assert "bk-4" not in manager.active_connections
+    with watch(ws_client, "bk-4", "c3") as ws:
+        assert ping(ws)["type"] == "pong"
+
+
+@pytest.mark.asyncio
+async def test_ids_from_the_client_stay_one_path_segment_of_internal_calls(monkeypatch):
+    paths = []
+
+    def other_service(request):
+        paths.append(request.url.raw_path)
+        return httpx.Response(404, json={"detail": "Not found"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        dependencies.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(other_service), **kw)
+    )
+    tricky = ["..", "../admin/x", "svc?is_active=true#x"]
+    for value in tricky:
+        assert await dependencies.fetch_shop_owner(value) is None
+        assert await dependencies.fetch_service_listing(value) is None
+        with pytest.raises(CouponRejected):
+            await dependencies.price_with_coupon("t", "c1", "svc-a", 100, value)
+    for prefix, suffix in ((b"/api/v1/shops/", b""), (b"/api/v1/services/", b""), (b"/api/v1/coupons/", b"/validate")):
+        sent = [p[len(prefix) : len(p) - len(suffix)] for p in paths if p.startswith(prefix) and p.endswith(suffix)]
+        assert [unquote(s.decode()) for s in sent] == tricky
+        assert not any(b"/" in s or b"?" in s for s in sent)
+    assert len(paths) == 3 * len(tricky)
+
+
+@pytest.mark.asyncio
+async def test_watchers_whose_connection_died_are_dropped():
+    class Socket:
+        def __init__(self, alive):
+            self.alive, self.got = alive, []
+
+        async def accept(self):
+            pass
+
+        async def send_json(self, data):
+            if not self.alive:
+                raise RuntimeError("Cannot call send once a close message has been sent")
+            self.got.append(data)
+
+    hub = ConnectionManager()
+    live, dead = Socket(True), Socket(False)
+    for ws in (live, dead):
+        assert await hub.connect("bk-1", ws)
+    await hub.broadcast("bk-1", {"status": "CONFIRMED"})
+    assert live.got == [{"status": "CONFIRMED"}]
+    assert hub.active_connections["bk-1"] == [live]
+    hub.disconnect("bk-1", live)
+    assert hub.active_connections == {}

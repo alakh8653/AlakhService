@@ -68,8 +68,8 @@ async def unban_user(
 async def get_audit_logs(
     admin_id: Optional[str] = None,
     action: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
     return await admin_service.get_audit_logs(db, admin_id=admin_id, action=action, skip=skip, limit=limit)

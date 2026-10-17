@@ -39,8 +39,8 @@ class ServiceListingCreate(BaseModel):
     shop_id: str
     name: str
     description: Optional[str] = None
-    price_cents: int
-    duration_minutes: Optional[int] = None
+    price_cents: int = Field(ge=0)
+    duration_minutes: Optional[int] = Field(None, ge=1)
     tags: Optional[List[str]] = None
     service_modes: List[ServiceMode] = ["AT_SHOP"]
     home_visit_fee_cents: int = Field(0, ge=0, le=MAX_FEE_CENTS)
@@ -55,8 +55,8 @@ class ServiceListingCreate(BaseModel):
 class ServiceListingUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    price_cents: Optional[int] = None
-    duration_minutes: Optional[int] = None
+    price_cents: Optional[int] = Field(None, ge=0)
+    duration_minutes: Optional[int] = Field(None, ge=1)
     tags: Optional[List[str]] = None
     is_active: Optional[bool] = None
     service_modes: Optional[List[ServiceMode]] = None

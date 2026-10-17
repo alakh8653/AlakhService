@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -52,6 +52,17 @@ class Payment(Base):
     metadata_json = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+
+    # A booking is paid for once, even if two checkouts are confirmed at the same moment.
+    __table_args__ = (
+        Index(
+            "uq_payments_booking_completed",
+            "booking_id",
+            unique=True,
+            sqlite_where=text("status = 'COMPLETED'"),
+            postgresql_where=text("status = 'COMPLETED'"),
+        ),
+    )
 
 
 class Escrow(Base):

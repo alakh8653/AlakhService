@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
@@ -24,8 +24,8 @@ async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db), call
 
 @router.get("/shops", response_model=List[ShopResponse])
 async def list_shops(
-    skip: int = 0,
-    limit: int = 20,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     owner_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
@@ -37,9 +37,10 @@ async def search_shops(
     q: Optional[str] = None,
     city: Optional[str] = None,
     category: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    return await shop_service.search_shops(db, q=q, city=city, category=category)
+    return await shop_service.search_shops(db, q=q, city=city, category=category, limit=limit)
 
 
 @router.get("/shops/{shop_id}", response_model=ShopResponse)

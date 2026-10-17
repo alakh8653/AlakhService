@@ -1,4 +1,5 @@
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -10,10 +11,22 @@ from app.config import settings
 security = HTTPBearer()
 
 
+def path_segment(value: str) -> str:
+    """A client-supplied id as exactly one URL path segment of an internal call.
+
+    quote() leaves "." alone and httpx resolves "..", so dots are escaped too.
+    """
+    return quote(value, safe="").replace(".", "%2E")
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    token = credentials.credentials
+    return verify_access_token(credentials.credentials)
+
+
+def verify_access_token(token: str) -> dict:
+    """The claims of a valid access token; 401 for anything else."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
@@ -28,7 +41,7 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     """Owner user id of a shop according to shop_service, or None if the shop does not exist."""
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
-            resp = await client.get(f"/api/v1/shops/{shop_id}")
+            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}")
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code == 404:
@@ -62,7 +75,7 @@ async def fetch_service_listing(service_id: str) -> Optional[dict]:
     """The service catalogue's listing (price_cents, duration_minutes, shop_id, is_active), or None."""
     async with httpx.AsyncClient(base_url=settings.SERVICE_CATALOG_URL, timeout=5.0) as client:
         try:
-            resp = await client.get(f"/api/v1/services/{service_id}")
+            resp = await client.get(f"/api/v1/services/{path_segment(service_id)}")
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Service catalogue unavailable") from exc
     if resp.status_code == 404:
@@ -106,13 +119,13 @@ async def price_with_coupon(token: str, customer_id: str, service_id: str, list_
     headers = {"Authorization": f"Bearer {token}"}
     async with httpx.AsyncClient(base_url=settings.PRICING_ENGINE_URL, timeout=5.0, headers=headers) as client:
         try:
-            check = await client.get(f"/api/v1/coupons/{code}/validate")
+            check = await client.get(f"/api/v1/coupons/{path_segment(code)}/validate")
             if check.status_code == 404:
                 raise CouponRejected("Coupon not found")
             check.raise_for_status()
             if not check.json().get("is_valid"):
                 raise CouponRejected(check.json().get("message") or "Coupon is not valid")
-            quote = await client.post(
+            priced = await client.post(
                 "/api/v1/pricing/calculate",
                 json={
                     "service_id": service_id,
@@ -121,8 +134,12 @@ async def price_with_coupon(token: str, customer_id: str, service_id: str, list_
                     "coupon_code": code,
                 },
             )
-            quote.raise_for_status()
-            redeemed = await client.post(f"/api/v1/pricing/{quote.json()['id']}/redeem")
+            priced.raise_for_status()
+            # Only services may redeem, so a coupon is used up only by a booking made here.
+            redeemed = await client.post(
+                f"/internal/pricing/{path_segment(str(priced.json()['id']))}/redeem",
+                headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
+            )
             if redeemed.status_code == 409:
                 raise CouponRejected(redeemed.json().get("detail") or "Coupon already used")
             redeemed.raise_for_status()

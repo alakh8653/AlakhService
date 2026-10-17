@@ -1,5 +1,7 @@
 """Shop ownership checks and staff management."""
 
+from urllib.parse import unquote
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -171,3 +173,67 @@ async def test_customers_rate_a_shop_once_per_completed_booking(client):
     assert rated.status_code == 200
     assert rated.json()["rating_avg"] == 4.0 and rated.json()["rating_count"] == 1
     assert (await client.post(url, json={"booking_id": "done", "rating": 1}, headers=customer)).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_shop_lists_are_paged_within_bounds(client):
+    for n in range(3):
+        await make_shop(client, owner=f"owner-{n}", name=f"Glow Salon {n}")
+    for params in ({"skip": -1}, {"limit": 0}, {"limit": -1}, {"limit": 101}):
+        assert (await client.get("/api/v1/shops", params=params)).status_code == 422
+    everything = [s["id"] for s in (await client.get("/api/v1/shops", params={"limit": 100})).json()]
+    assert len(everything) == 3
+    page = (await client.get("/api/v1/shops", params={"skip": 1, "limit": 1})).json()
+    assert [s["id"] for s in page] == everything[1:2]
+
+    # Search is bounded the same way.
+    for limit in (0, 101):
+        assert (await client.get("/api/v1/shops/search", params={"q": "Glow", "limit": limit})).status_code == 422
+    found = (await client.get("/api/v1/shops/search", params={"q": "Glow", "limit": 2})).json()
+    assert [s["id"] for s in found] == everything[:2]
+    assert len((await client.get("/api/v1/shops/search", params={"q": "Glow"})).json()) == 3
+
+
+@pytest.mark.asyncio
+async def test_fields_a_shop_always_has_cannot_be_cleared(client):
+    shop = await make_shop(client)
+    url = f"/api/v1/shops/{shop['id']}"
+    for field in ("name", "category", "is_active"):
+        assert (await client.put(url, json={field: None}, headers=OWNER)).status_code == 422, field
+    # Optional details can be cleared, and leaving a field out keeps it.
+    await client.put(url, json={"phone": "+911234567"}, headers=OWNER)
+    cleared = await client.put(url, json={"phone": None}, headers=OWNER)
+    assert cleared.status_code == 200
+    assert (cleared.json()["phone"], cleared.json()["name"], cleared.json()["is_active"]) == (None, "Glow Salon", True)
+
+    staff = await client.post("/api/v1/staff", json={"shop_id": shop["id"], "name": "Asha"}, headers=OWNER)
+    staff_url = f"/api/v1/staff/{staff.json()['id']}"
+    for field in ("name", "role", "is_active"):
+        assert (await client.put(staff_url, json={field: None}, headers=OWNER)).status_code == 422, field
+    # No services is a value of its own.
+    none = await client.put(staff_url, json={"service_ids": None}, headers=OWNER)
+    assert none.status_code == 200 and none.json()["service_ids"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_booking_id_from_the_client_stays_one_path_segment(monkeypatch):
+    import httpx
+
+    from app import dependencies
+
+    paths = []
+
+    def booking_service(request):
+        paths.append(request.url.raw_path)
+        return httpx.Response(404)
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        dependencies.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(booking_service), **kw)
+    )
+    ids = ["..", "../shops/x", "bk-1?status=COMPLETED#x", "%2e%2e"]
+    for booking_id in ids:
+        assert await dependencies.fetch_booking(booking_id, dependencies.Caller("cust-1", "user", "t")) is None
+    prefix = b"/api/v1/bookings/"
+    assert all(p.startswith(prefix) and b"/" not in p[len(prefix) :] and b"?" not in p for p in paths)
+    assert [unquote(p[len(prefix) :].decode()) for p in paths] == ids

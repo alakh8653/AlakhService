@@ -46,7 +46,12 @@ def service():
 
 
 def make_dispute(**kwargs):
-    defaults = {"booking_id": "b1", "raised_by": "u1", "dispute_type": "quality", "description": "Service was poor"}
+    defaults = {
+        "booking_id": "00000000-0000-4000-8000-000000000001",
+        "raised_by": "u1",
+        "dispute_type": "quality",
+        "description": "Service was poor",
+    }
     defaults.update(kwargs)
     return DisputeCreate(**defaults)
 
@@ -56,7 +61,7 @@ async def test_create_dispute(db_session, service):
     dispute = await service.create_dispute(db_session, make_dispute())
     assert dispute.id is not None
     assert dispute.status == "OPEN"
-    assert dispute.booking_id == "b1"
+    assert dispute.booking_id == "00000000-0000-4000-8000-000000000001"
 
 
 @pytest.mark.anyio
@@ -69,14 +74,14 @@ async def test_fsm_open_to_under_review(db_session, service):
 @pytest.mark.anyio
 async def test_fsm_invalid_transition(db_session, service):
     # OPEN -> ESCALATED is invalid (must go through UNDER_REVIEW first)
-    dispute = await service.create_dispute(db_session, make_dispute(booking_id="b2"))
+    dispute = await service.create_dispute(db_session, make_dispute(booking_id="00000000-0000-4000-8000-000000000002"))
     with pytest.raises(ValueError):
         await service.transition(db_session, dispute.id, "ESCALATED")
 
 
 @pytest.mark.anyio
 async def test_fsm_under_review_to_escalated(db_session, service):
-    dispute = await service.create_dispute(db_session, make_dispute(booking_id="b3"))
+    dispute = await service.create_dispute(db_session, make_dispute(booking_id="00000000-0000-4000-8000-000000000003"))
     await service.transition(db_session, dispute.id, "UNDER_REVIEW")
     updated = await service.transition(db_session, dispute.id, "ESCALATED")
     assert updated.status == "ESCALATED"
@@ -84,7 +89,7 @@ async def test_fsm_under_review_to_escalated(db_session, service):
 
 @pytest.mark.anyio
 async def test_resolve_dispute(db_session, service):
-    dispute = await service.create_dispute(db_session, make_dispute(booking_id="b4"))
+    dispute = await service.create_dispute(db_session, make_dispute(booking_id="00000000-0000-4000-8000-000000000004"))
     await service.transition(db_session, dispute.id, "UNDER_REVIEW")
     resolved = await service.resolve(db_session, dispute.id, "Refund issued")
     assert resolved.status == "RESOLVED"
@@ -94,7 +99,7 @@ async def test_resolve_dispute(db_session, service):
 
 @pytest.mark.anyio
 async def test_add_and_get_messages(db_session, service):
-    dispute = await service.create_dispute(db_session, make_dispute(booking_id="b5"))
+    dispute = await service.create_dispute(db_session, make_dispute(booking_id="00000000-0000-4000-8000-000000000005"))
     await service.add_message(db_session, dispute.id, DisputeMessageCreate(author_id="u1", content="Hello"))
     await service.add_message(
         db_session, dispute.id, DisputeMessageCreate(author_id="admin-1", content="We are reviewing")

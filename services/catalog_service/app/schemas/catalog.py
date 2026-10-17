@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class ServiceCategoryBase(BaseModel):
@@ -141,6 +141,9 @@ class ServiceItemResponse(ServiceItemBase):
     pricing_tiers: List[PricingTierResponse] = []
     media: List[ServiceMediaResponse] = []
     variants: List[ServiceVariantResponse] = []
+    # The ORM column attribute is metadata_json: a plain "metadata" lookup would read the declarative
+    # Base.metadata (a MetaData object) instead.
+    metadata: Optional[Any] = Field(None, validation_alias=AliasChoices("metadata_json", "metadata"))
 
     @field_validator("metadata", mode="before")
     @classmethod
@@ -165,5 +168,5 @@ class SearchCatalogParams(BaseModel):
     category_id: Optional[str] = None
     min_price_cents: Optional[int] = None
     max_price_cents: Optional[int] = None
-    page: int = 1
-    per_page: int = 20
+    page: int = Field(1, ge=1)
+    per_page: int = Field(20, ge=1, le=100)

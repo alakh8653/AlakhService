@@ -7,6 +7,7 @@ on:
       - "services/**"
       - "backend/**"
       - "ruff.toml"
+      - "scripts/backup/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [main, develop]
@@ -14,6 +15,7 @@ on:
       - "services/**"
       - "backend/**"
       - "ruff.toml"
+      - "scripts/backup/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -237,3 +239,64 @@ jobs:
           name: test-results-${{ matrix.service }}
           path: ${{ env.SERVICE_DIR }}/junit.xml
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Disaster-recovery drill: back up, prove the backup restores, lose data, get it back
+  # ---------------------------------------------------------------------------
+  backup-drill:
+    name: Backup & restore drill
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U drill" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: drill
+      PGPASSWORD: drill
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create databases with data
+        run: |
+          # The scripts run in the same image as the compose backup service (its sh and busybox).
+          cat > /tmp/pg.sh <<'SH'
+          pg() {
+            docker run --rm --network host -e PGHOST -e PGUSER -e PGPASSWORD \
+              -v "$GITHUB_WORKSPACE/scripts/backup:/scripts:ro" -v /tmp/backups:/backups postgres:16-alpine "$@"
+          }
+          SH
+          . /tmp/pg.sh
+          for db in booking_db payment_db; do
+            pg psql -d postgres -c "create database $db"
+            pg psql -d $db -c "create table alembic_version (version_num varchar(32) primary key); insert into alembic_version values ('drill1');
+              create table records (id serial primary key, body text, amount int);
+              insert into records (body, amount) select md5(g::text), g from generate_series(1, 5000) g;"
+          done
+
+      - name: Back up and verify
+        run: |
+          . /tmp/pg.sh
+          pg /scripts/backup.sh
+          pg /scripts/verify.sh
+
+      - name: Lose data, restore it, compare
+        run: |
+          . /tmp/pg.sh
+          fingerprint() { pg psql -d booking_db -Atc "select count(*), sum(amount), md5(string_agg(body, '' order by id)) from records"; }
+          before=$(fingerprint)
+          pg psql -d booking_db -c "delete from records where id % 2 = 0"
+          [ "$(fingerprint)" != "$before" ]
+          latest=$(cat /tmp/backups/LATEST)
+          # Refuses to overwrite without --yes, and refuses a tampered backup.
+          ! pg /scripts/restore.sh --in-place "/backups/$latest" booking_db
+          sudo cp -r "/tmp/backups/$latest" /tmp/backups/tampered && echo x | sudo tee -a /tmp/backups/tampered/booking_db.dump > /dev/null
+          ! pg /scripts/restore.sh --in-place --yes /backups/tampered booking_db
+          pg /scripts/restore.sh --in-place --yes "/backups/$latest" booking_db
+          [ "$(fingerprint)" = "$before" ] && echo "restored: $before"
+

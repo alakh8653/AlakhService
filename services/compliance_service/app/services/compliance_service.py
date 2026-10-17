@@ -1,16 +1,18 @@
 import uuid
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional, Union
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ExportRequestNotFoundError
+from app.core.exceptions import ErasureRequestNotFoundError, ExportRequestNotFoundError
 from app.models.compliance import ConsentRecord, DataErasureRequest, DataExportRequest
 from app.schemas.compliance import ConsentRecordCreate, DataErasureRequestCreate, DataExportRequestCreate
 
 log = structlog.get_logger()
+
+GdprRequest = Union[DataExportRequest, DataErasureRequest]
 
 
 def k_anonymity_check(user_count: int, k: int = 5) -> bool:
@@ -59,14 +61,64 @@ class ComplianceService:
         log.info("erasure_requested", user_id=data.user_id, request_id=req.id)
         return req
 
-    async def record_consent(self, db: AsyncSession, data: ConsentRecordCreate) -> ConsentRecord:
+    async def get_erasure_request(self, db: AsyncSession, request_id: str) -> DataErasureRequest:
+        result = await db.execute(select(DataErasureRequest).where(DataErasureRequest.id == request_id))
+        req = result.scalar_one_or_none()
+        if not req:
+            raise ErasureRequestNotFoundError()
+        return req
+
+    async def list_requests(
+        self,
+        db: AsyncSession,
+        model: type,
+        user_id: Optional[str] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[GdprRequest]:
+        query = select(model)
+        if user_id:
+            query = query.where(model.user_id == user_id)
+        if status:
+            query = query.where(model.status == status)
+        # Oldest first: the statutory clock runs from the request date.
+        query = query.order_by(model.requested_at.asc()).offset(skip).limit(limit)
+        return list((await db.execute(query)).scalars().all())
+
+    async def decide_request(
+        self,
+        db: AsyncSession,
+        req: GdprRequest,
+        status: str,
+        admin_id: str,
+        note: Optional[str] = None,
+        export_url: Optional[str] = None,
+    ) -> GdprRequest:
+        req.status = status
+        req.processed_by = admin_id
+        req.resolution_note = note
+        if export_url is not None:
+            req.export_url = export_url
+        req.completed_at = datetime.now(timezone.utc)
+        await db.flush()
+        log.info("gdpr_request_decided", request_id=req.id, status=status, admin_id=admin_id)
+        return req
+
+    async def record_consent(
+        self,
+        db: AsyncSession,
+        data: ConsentRecordCreate,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> ConsentRecord:
         record = ConsentRecord(
             id=str(uuid.uuid4()),
             user_id=data.user_id,
             consent_type=data.consent_type,
             granted=data.granted,
-            ip_address=data.ip_address,
-            user_agent=data.user_agent,
+            ip_address=ip_address,
+            user_agent=user_agent,
             version=data.version,
             created_at=datetime.now(timezone.utc),
         )

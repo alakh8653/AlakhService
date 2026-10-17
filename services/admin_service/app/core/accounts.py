@@ -1,6 +1,7 @@
 """Switches accounts on and off in auth_service, which is what makes a ban stop someone signing in."""
 
 from typing import Awaitable, Callable
+from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException
@@ -15,8 +16,9 @@ async def set_account_active(user_id: str, active: bool) -> None:
         raise HTTPException(status_code=503, detail="Bans cannot be enforced: INTERNAL_API_KEY is not configured")
     try:
         async with httpx.AsyncClient(base_url=settings.AUTH_SERVICE_URL, timeout=5.0) as client:
+            # Quoted so a user id like "../x" cannot aim the internal key at another endpoint.
             resp = await client.post(
-                f"/internal/users/{user_id}/status",
+                f"/internal/users/{quote(user_id, safe='')}/status",
                 json={"is_active": active},
                 headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
             )

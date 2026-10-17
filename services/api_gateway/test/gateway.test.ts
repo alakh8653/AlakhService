@@ -213,15 +213,25 @@ describe('gateway', () => {
       expect(Number(rejected.headers['retry-after'])).toBeGreaterThan(0);
     });
 
-    it('counts 5xx responses as failures', async () => {
+    it('counts a service saying it is unavailable as a failure', async () => {
       const catalog = await upstream((_req, res) => {
-        res.statusCode = 500;
+        res.statusCode = 503;
         res.end();
       });
       const app = createApp(testConfig({ catalog: catalog.url }, { breaker: { failureThreshold: 1, resetTimeoutMs: 60_000 } }), quiet);
-      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(500);
+      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(503);
       expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(503);
       expect(catalog.requests).toHaveLength(1);
+    });
+
+    it('does not let requests that crash a service take it offline for everyone', async () => {
+      const catalog = await upstream((req, res) => {
+        res.statusCode = req.url.includes('skip=-1') ? 500 : 200;
+        res.end('{}');
+      });
+      const app = createApp(testConfig({ catalog: catalog.url }, { breaker: { failureThreshold: 2, resetTimeoutMs: 60_000 } }), quiet);
+      for (let i = 0; i < 5; i++) expect((await request(app).get('/api/v1/catalog/categories?skip=-1')).status).toBe(500);
+      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
     });
 
     it('returns 504 when a service is too slow', async () => {

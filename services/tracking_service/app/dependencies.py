@@ -6,6 +6,7 @@ its port is reached directly.
 
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -59,10 +60,12 @@ def ensure_self_or_admin(user_id: Optional[str], caller: Caller) -> None:
 
 async def may_track(provider_id: str, caller: Caller) -> bool:
     """Ask booking_service whether the caller has a live booking with this provider."""
+    # Quoted so a provider id like "../x" cannot point the call at another booking_service endpoint.
     async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(
-                f"/api/v1/bookings/tracking/{provider_id}", headers={"Authorization": f"Bearer {caller.token}"}
+                f"/api/v1/bookings/tracking/{quote(provider_id, safe='')}",
+                headers={"Authorization": f"Bearer {caller.token}"},
             )
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Booking service unavailable") from exc

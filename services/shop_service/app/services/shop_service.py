@@ -54,7 +54,12 @@ class ShopService:
         return list(result.scalars().all())
 
     async def search_shops(
-        self, db: AsyncSession, q: Optional[str] = None, city: Optional[str] = None, category: Optional[str] = None
+        self,
+        db: AsyncSession,
+        q: Optional[str] = None,
+        city: Optional[str] = None,
+        category: Optional[str] = None,
+        limit: int = 20,
     ) -> List[Shop]:
         stmt = select(Shop).where(Shop.is_active == True)
         if city:
@@ -63,7 +68,8 @@ class ShopService:
             stmt = stmt.where(Shop.category == category)
         if q:
             stmt = stmt.where(or_(Shop.name.ilike(f"%{q}%"), Shop.description.ilike(f"%{q}%")))
-        result = await db.execute(stmt)
+        # Same stable order as list_shops, so the limit cuts the same matches every time.
+        result = await db.execute(stmt.order_by(Shop.created_at, Shop.id).limit(limit))
         return list(result.scalars().all())
 
     async def update_shop(self, db: AsyncSession, shop_id: str, data: ShopUpdate) -> Shop:

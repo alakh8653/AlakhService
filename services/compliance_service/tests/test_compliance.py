@@ -52,10 +52,11 @@ async def test_consent_recording(db_session, service):
             user_id="u1",
             consent_type="marketing_emails",
             granted=True,
-            ip_address="192.168.1.1",
-            user_agent="Mozilla/5.0",
         ),
+        ip_address="192.168.1.1",
+        user_agent="Mozilla/5.0",
     )
+    assert record.ip_address == "192.168.1.1"
     assert record.user_id == "u1"
     assert record.consent_type == "marketing_emails"
     assert record.granted is True

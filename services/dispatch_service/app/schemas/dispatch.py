@@ -1,19 +1,23 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+# A position on Earth; anything else is a client bug or someone gaming the nearest-provider match.
+Latitude = Annotated[float, Field(ge=-90, le=90)]
+Longitude = Annotated[float, Field(ge=-180, le=180)]
 
 
 class ProviderInfo(BaseModel):
     provider_id: str
-    latitude: float
-    longitude: float
+    latitude: Latitude
+    longitude: Longitude
 
 
 class AssignRequest(BaseModel):
     booking_id: str
-    booking_lat: float
-    booking_lon: float
+    booking_lat: Latitude
+    booking_lon: Longitude
     providers: List[ProviderInfo]
 
 
@@ -26,8 +30,8 @@ class AssignResponse(BaseModel):
 
 class ProviderLocationUpdate(BaseModel):
     provider_id: str
-    latitude: float
-    longitude: float
+    latitude: Latitude
+    longitude: Longitude
     is_available: bool = True
 
 

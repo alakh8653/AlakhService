@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.observability import install_observability
 from app.routers.finance import router as finance_router
 from app.routers.payments import router as payments_router
 
@@ -23,6 +24,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+install_observability(app, service="payment_service", check_redis=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,8 +41,3 @@ app.include_router(finance_router, prefix="/api/v1", tags=["finance"])
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "payment_service"}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready"}

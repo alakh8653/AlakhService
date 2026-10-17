@@ -54,6 +54,8 @@ async def test_tracking_rules(client):
     assert (await client.post("/api/v1/locations", json=location)).status_code == 401
     assert (await client.post("/api/v1/locations", json=location, headers=ALICE)).status_code == 403
     assert (await client.post("/api/v1/locations", json=location, headers=BOB)).status_code == 201
+    for off_earth in ({"latitude": 91}, {"longitude": -180.5}):
+        assert (await client.post("/api/v1/locations", json={**location, **off_earth}, headers=BOB)).status_code == 422
     assert (await client.get("/api/v1/locations/bob")).status_code == 401
     assert (await client.get("/api/v1/locations/bob", headers=ALICE)).status_code == 404  # not her provider
     assert (await client.get("/api/v1/locations/bob", headers=auth("carol"))).status_code == 200

@@ -6,6 +6,7 @@ its port is reached directly.
 
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -59,10 +60,11 @@ def ensure_self_or_admin(user_id: Optional[str], caller: Caller) -> None:
 
 async def assign_in_booking_service(booking_id: str, provider_id: str, caller: Caller) -> None:
     """Record the chosen provider on the booking (moving it to ASSIGNED), as the calling operator."""
+    # Quoted so a booking id like "../x" cannot point the call at another booking_service endpoint.
     async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.post(
-                f"/api/v1/bookings/{booking_id}/assign",
+                f"/api/v1/bookings/{quote(booking_id, safe='')}/assign",
                 json={"provider_id": provider_id},
                 headers={"Authorization": f"Bearer {caller.token}"},
             )

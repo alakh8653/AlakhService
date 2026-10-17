@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import EntryNotFoundError, QueueFullError, QueueNotFoundError
@@ -62,8 +63,14 @@ class QueueService:
         result = await db.execute(stmt.order_by(Queue.created_at))
         return list(result.scalars().all())
 
-    async def get_queue(self, db: AsyncSession, queue_id: str) -> Queue:
-        result = await db.execute(select(Queue).where(Queue.id == queue_id))
+    async def get_queue(self, db: AsyncSession, queue_id: str, lock: bool = False) -> Queue:
+        """The queue; with `lock`, its row stays locked until the transaction ends, so changes to the
+        line (joining, leaving, calling the next customer) happen one at a time per queue."""
+        stmt = select(Queue).where(Queue.id == queue_id)
+        if lock:
+            # Re-read after waiting for the lock: another request may have changed the queue meanwhile.
+            stmt = stmt.with_for_update().execution_options(populate_existing=True)
+        result = await db.execute(stmt)
         q = result.scalar_one_or_none()
         if not q:
             raise QueueNotFoundError()
@@ -75,6 +82,7 @@ class QueueService:
             select(QueueEntry)
             .where(QueueEntry.queue_id == queue_id, QueueEntry.status == "WAITING")
             .order_by(QueueEntry.priority.desc(), QueueEntry.entered_at, QueueEntry.id)
+            .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -105,13 +113,21 @@ class QueueService:
         entry.estimated_wait_minutes = self.wait_minutes(q, ahead, in_service)
         return entry
 
-    async def join_queue(self, db: AsyncSession, queue_id: str, data: QueueJoinRequest) -> QueueEntry:
-        q = await self.get_queue(db, queue_id)
-        waiting = await self._waiting(db, queue_id)
-        # Joining again (e.g. a retried tap) returns the place already held.
-        mine = next((e for e in waiting if e.customer_id == data.customer_id), None)
+    async def _held_place(self, db: AsyncSession, q: Queue, customer_id: str) -> Optional[QueueEntry]:
+        """The customer's current entry in the queue (waiting, or called and being served), if any."""
+        waiting = await self._waiting(db, q.id)
+        mine = next((e for e in waiting if e.customer_id == customer_id), None)
         if mine is not None:
-            return self._place(q, mine, waiting, await self._in_service(db, queue_id))
+            return self._place(q, mine, waiting, await self._in_service(db, q.id))
+        return next((e for e in await self._called(db, q.id) if e.customer_id == customer_id), None)
+
+    async def join_queue(self, db: AsyncSession, queue_id: str, data: QueueJoinRequest) -> QueueEntry:
+        q = await self.get_queue(db, queue_id, lock=True)
+        # Joining again (e.g. a retried tap) returns the place already held.
+        mine = await self._held_place(db, q, data.customer_id)
+        if mine is not None:
+            return mine
+        waiting = await self._waiting(db, queue_id)
         if not q.is_accepting:
             raise QueueFullError("Queue is not accepting new entries")
         if len(waiting) >= q.max_capacity:
@@ -130,9 +146,16 @@ class QueueService:
             entered_at=now,
             expires_at=now + timedelta(hours=2),
         )
-        db.add(entry)
-        q.current_size = len(waiting) + 1
-        await db.flush()
+        try:
+            async with db.begin_nested():
+                db.add(entry)
+                q.current_size = len(waiting) + 1
+        except IntegrityError:
+            # The one-open-entry-per-customer index caught a join that did not go through the lock.
+            mine = await self._held_place(db, await self.get_queue(db, queue_id, lock=True), data.customer_id)
+            if mine is None:
+                raise
+            return mine
         self._place(q, entry, await self._waiting(db, queue_id), await self._in_service(db, queue_id))
         # Someone who joins already near the front can see that; no "almost your turn" notice.
         entry.notified_soon = entry.position - 1 < q.notify_ahead
@@ -140,7 +163,12 @@ class QueueService:
         return entry
 
     async def leave_queue(self, db: AsyncSession, queue_id: str, entry_id: str) -> None:
-        result = await db.execute(select(QueueEntry).where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id))
+        await self.get_queue(db, queue_id, lock=True)
+        result = await db.execute(
+            select(QueueEntry)
+            .where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id)
+            .execution_options(populate_existing=True)
+        )
         entry = result.scalar_one_or_none()
         if not entry:
             raise EntryNotFoundError()
@@ -214,6 +242,7 @@ class QueueService:
             select(QueueEntry)
             .where(QueueEntry.queue_id == queue_id, QueueEntry.status == "CALLED")
             .order_by(QueueEntry.called_at, QueueEntry.id)
+            .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -252,7 +281,8 @@ class QueueService:
         Called customers who never turned up within the queue's grace period are skipped as no-shows
         first, so they stop counting as being served.
         """
-        q = await self.get_queue(db, queue_id)
+        # Locked so two "next" taps at once call two different customers, not the same one twice.
+        q = await self.get_queue(db, queue_id, lock=True)
         now = datetime.now(timezone.utc)
         await self._skip_no_shows(db, q, now)
         waiting = await self._waiting(db, queue_id)
@@ -269,7 +299,11 @@ class QueueService:
         return head
 
     async def _called_entry(self, db: AsyncSession, queue_id: str, entry_id: str) -> QueueEntry:
-        result = await db.execute(select(QueueEntry).where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id))
+        result = await db.execute(
+            select(QueueEntry)
+            .where(QueueEntry.id == entry_id, QueueEntry.queue_id == queue_id)
+            .execution_options(populate_existing=True)
+        )
         entry = result.scalar_one_or_none()
         if entry is None or entry.status != "CALLED":
             raise EntryNotFoundError("No called customer with this entry")
@@ -277,7 +311,7 @@ class QueueService:
 
     async def complete(self, db: AsyncSession, queue_id: str, entry_id: str) -> QueueEntry:
         """The shop has finished serving a called customer; the queue learns how long it took."""
-        q = await self.get_queue(db, queue_id)
+        q = await self.get_queue(db, queue_id, lock=True)
         entry = await self._called_entry(db, queue_id, entry_id)
         now = datetime.now(timezone.utc)
         entry.status = "SERVED"
@@ -291,6 +325,7 @@ class QueueService:
 
     async def no_show(self, db: AsyncSession, queue_id: str, entry_id: str) -> QueueEntry:
         """The shop marks a called customer who did not turn up, freeing their place for the next."""
+        await self.get_queue(db, queue_id, lock=True)
         entry = await self._called_entry(db, queue_id, entry_id)
         entry.status = "NO_SHOW"
         entry.finished_at = datetime.now(timezone.utc)
@@ -298,7 +333,7 @@ class QueueService:
         return entry
 
     async def update_settings(self, db: AsyncSession, queue_id: str, data: QueueUpdate) -> Queue:
-        q = await self.get_queue(db, queue_id)
+        q = await self.get_queue(db, queue_id, lock=True)
         for field, value in data.model_dump(exclude_none=True).items():
             setattr(q, field, value)
         await db.flush()

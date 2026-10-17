@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -26,8 +26,22 @@ class Queue(Base):
     notify_ahead = Column(Integer, default=2, server_default="2", nullable=False)
 
 
+# Entries that still hold a place in the line; a customer has at most one of these per queue.
+OPEN_ENTRY = text("status IN ('WAITING', 'CALLED')")
+
+
 class QueueEntry(Base):
     __tablename__ = "queue_entries"
+    __table_args__ = (
+        Index(
+            "uq_queue_entries_open_customer",
+            "queue_id",
+            "customer_id",
+            unique=True,
+            postgresql_where=OPEN_ENTRY,
+            sqlite_where=OPEN_ENTRY,
+        ),
+    )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     queue_id = Column(String, ForeignKey("queues.id", ondelete="CASCADE"), nullable=False, index=True)

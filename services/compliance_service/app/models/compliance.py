@@ -15,6 +15,8 @@ class DataExportRequest(Base):
     export_url = Column(String, nullable=True)
     requested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    processed_by = Column(String, nullable=True)
+    resolution_note = Column(Text, nullable=True)
 
 
 class ConsentRecord(Base):
@@ -39,3 +41,5 @@ class DataErasureRequest(Base):
     reason = Column(Text, nullable=True)
     requested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    processed_by = Column(String, nullable=True)
+    resolution_note = Column(Text, nullable=True)

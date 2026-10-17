@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DisputeCreate(BaseModel):
@@ -11,6 +12,12 @@ class DisputeCreate(BaseModel):
     dispute_type: str = Field(min_length=1, max_length=50)
     description: str = Field(min_length=3, max_length=2000)
     evidence_urls: Optional[List[str]] = None
+
+    @field_validator("booking_id")
+    @classmethod
+    def booking_id_is_uuid(cls, v: str) -> str:
+        # booking_service ids are UUIDs; anything else would be spliced into its URL.
+        return str(UUID(v))
 
 
 class DisputeResolve(BaseModel):

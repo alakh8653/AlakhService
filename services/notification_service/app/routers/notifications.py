@@ -1,8 +1,9 @@
+import asyncio
 import json
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +29,7 @@ from app.schemas.notification import (
     NotificationTemplateResponse,
 )
 from app.services.notification_service import notification_service
+from app.services.template_service import template_service
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -149,22 +151,49 @@ async def ws_notifications(websocket: WebSocket, user_id: str, token: str = Quer
         await websocket.close(code=1008)
         return
     await ws_manager.connect(user_id, websocket)
+    channel = f"notifications:{user_id}"
     r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = r.pubsub()
-    await pubsub.subscribe(f"notifications:{user_id}")
-    try:
+    await pubsub.subscribe(channel)
+
+    async def forward_notifications():
         async for message in pubsub.listen():
-            if message["type"] == "message":
-                try:
-                    data = json.loads(message["data"])
-                    await websocket.send_json(data)
-                except Exception:
-                    pass
-    except WebSocketDisconnect:
-        ws_manager.disconnect(user_id, websocket)
+            if message["type"] != "message":
+                continue
+            try:
+                data = json.loads(message["data"])
+            except ValueError:
+                log.warning("ws_notification_not_json", user_id=user_id)
+                continue
+            # A failed send means the socket is gone; let it end the connection.
+            await websocket.send_json(data)
+
+    async def wait_for_disconnect():
+        # Clients send nothing we use, but only reading the socket reveals that they left.
+        while (await websocket.receive())["type"] != "websocket.disconnect":
+            pass
+
+    forward = asyncio.create_task(forward_notifications())
+    client = asyncio.create_task(wait_for_disconnect())
+    try:
+        await asyncio.wait({forward, client}, return_when=asyncio.FIRST_COMPLETED)
+        if forward.done() and not forward.cancelled() and forward.exception():
+            log.warning("ws_notification_forward_failed", user_id=user_id, error=str(forward.exception()))
+        if not client.done():
+            try:
+                await websocket.close(code=1011)
+            except Exception:
+                pass
     finally:
-        await pubsub.unsubscribe(f"notifications:{user_id}")
-        await r.aclose()
+        for task in (forward, client):
+            task.cancel()
+        await asyncio.gather(forward, client, return_exceptions=True)
+        ws_manager.disconnect(user_id, websocket)
+        try:
+            await pubsub.unsubscribe(channel)
+        finally:
+            await pubsub.aclose()
+            await r.aclose()
 
 
 @router.get("/notifications/templates", response_model=list[NotificationTemplateResponse])
@@ -182,6 +211,12 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
 async def create_template(payload: NotificationTemplateCreate, db: AsyncSession = Depends(get_db)):
     import json as _json
 
+    for source in (payload.subject_template, payload.body_template):
+        if source:
+            try:
+                template_service.check_syntax(source)
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=str(e)) from e
     tmpl = NotificationTemplate(
         name=payload.name,
         channel=payload.channel,

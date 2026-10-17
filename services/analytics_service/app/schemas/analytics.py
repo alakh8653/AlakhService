@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventCreate(BaseModel):
@@ -11,8 +11,11 @@ class EventCreate(BaseModel):
     properties: Optional[Dict[str, Any]] = None
 
 
+MAX_EVENTS_PER_BATCH = 100
+
+
 class EventBatchCreate(BaseModel):
-    events: List[EventCreate]
+    events: List[EventCreate] = Field(max_length=MAX_EVENTS_PER_BATCH)
 
 
 class EventResponse(BaseModel):

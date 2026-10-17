@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analytics import AnalyticsEvent, MetricAggregate
@@ -18,6 +18,11 @@ from app.schemas.analytics import (
 )
 
 log = structlog.get_logger()
+
+
+def _aware(ts: datetime) -> datetime:
+    # SQLite hands back naive datetimes; they are stored as UTC.
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
 
 
 class AnalyticsService:
@@ -91,38 +96,43 @@ class AnalyticsService:
         return FunnelAnalysisResponse(steps=step_counts, conversion_rates=conversion_rates)
 
     async def get_cohorts(self, db: AsyncSession) -> List[CohortResponse]:
-        # Group users by signup week using created_at of first event
-        result = await db.execute(
+        # Each user belongs to the week of their first signup event, however many they send.
+        signups = (
+            await db.execute(
+                select(AnalyticsEvent.user_id, func.min(AnalyticsEvent.created_at))
+                .where(AnalyticsEvent.event_type == "signup", AnalyticsEvent.user_id.isnot(None))
+                .group_by(AnalyticsEvent.user_id)
+            )
+        ).all()
+        signed_up_at = {user_id: _aware(created_at) for user_id, created_at in signups}
+
+        active_at: dict[str, list[datetime]] = defaultdict(list)
+        actives = await db.execute(
             select(AnalyticsEvent.user_id, AnalyticsEvent.created_at).where(
-                AnalyticsEvent.event_type == "signup", AnalyticsEvent.user_id.isnot(None)
+                AnalyticsEvent.event_type == "active", AnalyticsEvent.user_id.in_(list(signed_up_at))
             )
         )
-        signups = result.all()
+        for user_id, created_at in actives:
+            active_at[user_id].append(_aware(created_at))
+
+        def active_between(user_id: str, start_day: int, end_day: int) -> bool:
+            start = signed_up_at[user_id] + timedelta(days=start_day)
+            end = signed_up_at[user_id] + timedelta(days=end_day)
+            return any(start <= t < end for t in active_at[user_id])
+
         cohorts: dict[str, list[str]] = defaultdict(list)
-        for user_id, created_at in signups:
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            week = created_at.strftime("%Y-W%W")
-            cohorts[week].append(user_id)
+        for user_id, created_at in signed_up_at.items():
+            cohorts[created_at.strftime("%Y-W%W")].append(user_id)
 
-        result2 = await db.execute(
-            select(AnalyticsEvent).where(AnalyticsEvent.event_type == "active", AnalyticsEvent.user_id.isnot(None))
-        )
-        active_events = result2.scalars().all()
-
-        cohort_responses = []
-        for week, users in sorted(cohorts.items()):
-            retained_w1 = sum(1 for u in users if any(e.user_id == u for e in active_events))
-            cohort_responses.append(
-                CohortResponse(
-                    cohort_week=week,
-                    user_count=len(users),
-                    retained_week1=retained_w1,
-                    retained_week2=0,
-                )
+        return [
+            CohortResponse(
+                cohort_week=week,
+                user_count=len(users),
+                retained_week1=sum(1 for u in users if active_between(u, 7, 14)),
+                retained_week2=sum(1 for u in users if active_between(u, 14, 21)),
             )
-
-        return cohort_responses
+            for week, users in sorted(cohorts.items())
+        ]
 
     async def record_metric(
         self, db: AsyncSession, metric_name: str, value: float, dimension: Optional[str] = None

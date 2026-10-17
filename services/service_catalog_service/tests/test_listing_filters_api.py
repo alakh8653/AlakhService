@@ -132,3 +132,70 @@ async def test_services_say_how_they_are_delivered(client):
     # Updating something else leaves the modes alone.
     renamed = await client.put(f"/api/v1/services/{plain['id']}", json={"name": "Haircut & style"}, headers=owner)
     assert renamed.json()["service_modes"] == ["AT_SHOP", "AT_HOME"]
+
+
+async def create_listing(client, name: str, **extra) -> dict:
+    body = {"shop_id": "shop-1", "name": name, "price_cents": 50000, **extra}
+    resp = await client.post("/api/v1/services", json=body, headers=auth("owner-1"))
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+async def search(client, **params) -> list:
+    resp = await client.get("/api/v1/services/search", params=params)
+    assert resp.status_code == 200, resp.text
+    return [s["id"] for s in resp.json()]
+
+
+@pytest.mark.asyncio
+async def test_search_returns_only_matching_listings_best_first_and_follows_edits(client):
+    beard = await create_listing(client, "Haircut and beard trim")
+    haircut = await create_listing(client, "Haircut")
+    await create_listing(client, "Deep tissue massage")
+
+    assert await search(client, q="haircut") == [haircut["id"], beard["id"]]
+
+    owner = auth("owner-1")
+    await client.put(f"/api/v1/services/{haircut['id']}", json={"name": "Buzz cut"}, headers=owner)
+    assert await search(client, q="haircut") == [beard["id"]]
+    assert await search(client, q="buzz") == [haircut["id"]]
+
+    await client.put(f"/api/v1/services/{beard['id']}", json={"is_active": False}, headers=owner)
+    assert await search(client, q="beard trim") == []
+
+
+@pytest.mark.asyncio
+async def test_search_index_is_rebuilt_from_the_database_after_a_restart(client):
+    from app.services import catalog_service as module
+
+    massage = await create_listing(client, "Deep tissue massage")
+    # A fresh process starts with an empty in-memory index.
+    module._tfidf_index.clear()
+    module._index_state["loaded"] = False
+    assert await search(client, q="tissue deep") == [massage["id"]]
+
+
+@pytest.mark.asyncio
+async def test_listing_and_search_pages_are_bounded(client):
+    for name in ("Alpha", "Beta", "Gamma"):
+        await create_listing(client, name)
+    assert len(await search(client, limit=2)) == 2
+    assert (await client.get("/api/v1/services/search", params={"limit": 0})).status_code == 422
+    assert (await client.get("/api/v1/services/search", params={"limit": 101})).status_code == 422
+    assert (await client.get("/api/v1/services", params={"skip": -1})).status_code == 422
+    assert (await client.get("/api/v1/services", params={"limit": 0})).status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad",
+    [{"price_cents": -1}, {"duration_minutes": 0}, {"duration_minutes": -30}, {"home_visit_fee_cents": -1}],
+)
+async def test_negative_prices_and_durations_are_rejected(client, bad):
+    owner = auth("owner-1")
+    body = {"shop_id": "shop-1", "name": "Haircut", "price_cents": 50000}
+    assert (await client.post("/api/v1/services", json={**body, **bad}, headers=owner)).status_code == 422
+    listing = await create_listing(client, "Haircut")
+    resp = await client.put(f"/api/v1/services/{listing['id']}", json=bad, headers=owner)
+    assert resp.status_code == 422
+    assert (await client.get(f"/api/v1/services/{listing['id']}")).json()["price_cents"] == 50000

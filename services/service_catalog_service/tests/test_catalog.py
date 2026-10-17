@@ -164,3 +164,23 @@ async def test_update_service(db_session, service):
 async def test_service_not_found(db_session, service):
     with pytest.raises(ServiceListingNotFoundError):
         await service.get_service(db_session, "nonexistent-id")
+
+
+@pytest.mark.anyio
+async def test_tfidf_search_skips_documents_without_a_query_term():
+    index = TFIDFIndex()
+    index.add_document("d1", "haircut and beard trim")
+    index.add_document("d2", "deep tissue massage")
+    index.add_document("d3", "haircut")
+    assert [doc_id for doc_id, _ in index.search("haircut")] == ["d3", "d1"]
+
+
+@pytest.mark.anyio
+async def test_tfidf_readding_a_document_replaces_its_text():
+    index = TFIDFIndex()
+    index.add_document("d1", "basic manicure")
+    index.add_document("d1", "premium pedicure")
+    assert index.search("manicure") == []
+    assert [doc_id for doc_id, _ in index.search("pedicure")] == ["d1"]
+    index.add_document("d2", "")
+    index.remove_document("d2")  # documents without indexable words can be removed too

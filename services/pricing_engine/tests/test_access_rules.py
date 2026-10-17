@@ -21,10 +21,16 @@ def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
 
 
 ALICE, BOB, ADMIN = auth("alice"), auth("bob"), auth("ops", "admin")
+INTERNAL = {"X-Internal-Key": "test-internal-key"}
+
+
+def redeem(client, quote_id: str, headers=INTERNAL):
+    return client.post(f"/internal/pricing/{quote_id}/redeem", headers=headers)
 
 
 @pytest_asyncio.fixture
-async def client():
+async def client(monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", INTERNAL["X-Internal-Key"])
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", poolclass=StaticPool)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -72,16 +78,14 @@ async def test_quotes_do_not_use_up_coupons_redeeming_does(client):
     assert (await client.get("/api/v1/coupons/TWICE/validate", headers=ALICE)).json()["is_valid"] is True
 
     first = quotes[0]["id"]
-    assert (await client.post(f"/api/v1/pricing/{first}/redeem", headers=BOB)).status_code == 404  # not Bob's quote
-    redeemed = await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)
+    redeemed = await redeem(client, first)
     assert redeemed.status_code == 200 and redeemed.json()["redeemed_at"]
-    assert (await client.post(f"/api/v1/pricing/{first}/redeem", headers=ALICE)).status_code == 409  # quote spent
-    assert (
-        await client.post(f"/api/v1/pricing/{quotes[1]['id']}/redeem", headers=ALICE)
-    ).status_code == 409  # one use each
+    assert (await redeem(client, first)).status_code == 409  # quote spent
+    assert (await redeem(client, quotes[1]["id"])).status_code == 409  # one use each
+    assert (await redeem(client, "missing")).status_code == 404
 
     bob = (await quote("bob")).json()
-    assert (await client.post(f"/api/v1/pricing/{bob['id']}/redeem", headers=BOB)).status_code == 200
+    assert (await redeem(client, bob["id"])).status_code == 200
     carol = (await quote("carol")).json()
     assert carol["coupon_code"] is None  # max_uses reached, so no discount is quoted
     assert (await client.get("/api/v1/coupons/TWICE/validate", headers=ALICE)).json()["is_valid"] is False
@@ -100,3 +104,23 @@ async def test_admins_list_coupons_and_codes_are_case_insensitive(client):
     assert (await client.get("/api/v1/coupons/diwali25/validate", headers=ALICE)).json()["is_valid"] is True
     missing = await client.get("/api/v1/coupons/NOPE/validate", headers=ALICE)
     assert (missing.status_code, missing.json()["detail"]) == (404, "Coupon not found")
+
+
+@pytest.mark.asyncio
+async def test_customers_cannot_use_up_coupons_without_booking(client):
+    await client.post("/api/v1/coupons", json={"code": "ONCE", "discount_pct": 0.5, "max_uses": 1}, headers=ADMIN)
+    body = {"service_id": "anything", "customer_id": "alice", "base_price_cents": 1, "coupon_code": "ONCE"}
+    quote = (await client.post("/api/v1/pricing/calculate", json=body, headers=ALICE)).json()
+
+    # Redeeming is booking_service's job (checkout), never a customer's or a browser's.
+    assert (await client.post(f"/api/v1/pricing/{quote['id']}/redeem", headers=ALICE)).status_code == 404
+    assert (await redeem(client, quote["id"], headers=ALICE)).status_code == 401
+    assert (await redeem(client, quote["id"], headers=ADMIN)).status_code == 401
+    assert (await redeem(client, quote["id"], headers={"X-Internal-Key": "guess"})).status_code == 401
+    assert (await client.get("/api/v1/coupons/ONCE/validate", headers=BOB)).json()["is_valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_redeeming_is_refused_when_no_internal_key_is_configured(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
+    assert (await redeem(client, "any", headers={"X-Internal-Key": ""})).status_code == 503

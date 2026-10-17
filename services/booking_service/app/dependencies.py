@@ -122,7 +122,11 @@ async def price_with_coupon(token: str, customer_id: str, service_id: str, list_
                 },
             )
             quote.raise_for_status()
-            redeemed = await client.post(f"/api/v1/pricing/{quote.json()['id']}/redeem")
+            # Only services may redeem, so a coupon is used up only by a booking made here.
+            redeemed = await client.post(
+                f"/internal/pricing/{quote.json()['id']}/redeem",
+                headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
+            )
             if redeemed.status_code == 409:
                 raise CouponRejected(redeemed.json().get("detail") or "Coupon already used")
             redeemed.raise_for_status()

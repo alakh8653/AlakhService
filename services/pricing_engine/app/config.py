@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
+    # Shared with booking_service, which redeems quotes at checkout (/internal routes).
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

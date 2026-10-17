@@ -660,3 +660,29 @@ async def test_the_shop_tells_the_customer_when_a_pickup_comes_back(client):
     assert (await set_status(client, job["id"], "OUT_FOR_DELIVERY", "staff-1")).status_code == 200
     late = await client.put(url, json={"ready_by": back}, headers=auth("owner-1"))
     assert late.status_code == 400 and "no longer" in late.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_coupon_is_redeemed_through_pricing_engines_internal_route(monkeypatch):
+    import httpx
+
+    from app import dependencies
+
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path, request.headers.get("X-Internal-Key")))
+        if request.url.path.endswith("/validate"):
+            return httpx.Response(200, json={"is_valid": True})
+        if request.url.path == "/api/v1/pricing/calculate":
+            return httpx.Response(201, json={"id": "q1"})
+        return httpx.Response(200, json={"final_price_cents": 900})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        dependencies.httpx, "AsyncClient", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", "k")
+
+    assert await dependencies.price_with_coupon("tok", "cust-1", "svc-1", 1000, "WELCOME10") == 900
+    assert calls[-1] == ("POST", "/internal/pricing/q1/redeem", "k")

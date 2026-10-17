@@ -17,23 +17,25 @@ class TFIDFIndex:
         return re.findall(r"\b[a-z]{2,}\b", text.lower())
 
     def add_document(self, doc_id: str, text: str) -> None:
+        # Re-adding an id replaces it, so an edited listing does not keep matching its old text.
+        self.remove_document(doc_id)
         self._documents[doc_id] = text
         tokens = self._tokenize(text)
-        if not tokens:
-            return
-        freq: dict[str, int] = defaultdict(int)
-        for t in tokens:
-            freq[t] += 1
-        self._tf[doc_id] = {t: c / len(tokens) for t, c in freq.items()}
-        for term in freq:
-            self._df[term] += 1
+        if tokens:
+            freq: dict[str, int] = defaultdict(int)
+            for t in tokens:
+                freq[t] += 1
+            self._tf[doc_id] = {t: c / len(tokens) for t, c in freq.items()}
+            for term in freq:
+                self._df[term] += 1
         self._compute_idf()
 
     def _compute_idf(self) -> None:
         N = max(len(self._documents), 1)
         self._idf = {t: math.log((N + 1) / (df + 1)) + 1.0 for t, df in self._df.items()}
 
-    def search(self, query: str, top_k: int = 10) -> list[tuple[str, float]]:
+    def search(self, query: str, top_k: Optional[int] = 10) -> list[tuple[str, float]]:
+        """Documents containing at least one query term, best score first (all of them if top_k is None)."""
         tokens = self._tokenize(query)
         if not tokens:
             return []
@@ -44,18 +46,26 @@ class TFIDFIndex:
             idf = self._idf[t]
             for doc_id, tf_dict in self._tf.items():
                 tf = tf_dict.get(t, 0.0)
-                scores[doc_id] += tf * idf
-        return sorted(scores.items(), key=lambda x: -x[1])[:top_k]
+                if tf > 0:
+                    scores[doc_id] += tf * idf
+        ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+        return ranked if top_k is None else ranked[:top_k]
 
     def remove_document(self, doc_id: str) -> None:
         if doc_id not in self._documents:
             return
-        tokens = set(self._tokenize(self._documents[doc_id]))
         del self._documents[doc_id]
-        del self._tf[doc_id]
-        for term in tokens:
-            self._df[term] = max(0, self._df[term] - 1)
+        for term in self._tf.pop(doc_id, {}):
+            self._df[term] -= 1
+            if self._df[term] <= 0:
+                del self._df[term]
         self._compute_idf()
+
+    def clear(self) -> None:
+        self._documents.clear()
+        self._tf.clear()
+        self._df.clear()
+        self._idf = {}
 
 
 def levenshtein_distance(s1: str, s2: str) -> int:

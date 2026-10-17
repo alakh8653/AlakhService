@@ -14,9 +14,22 @@ from app.schemas.catalog import CategoryCreate, ServiceListingCreate, ServiceLis
 
 log = structlog.get_logger()
 
-# In-memory search indices
+# In-memory search indices. They live per process, so each process rebuilds them from the
+# database before its first search (see _ensure_index) and keeps them current on writes.
 _tfidf_index = TFIDFIndex()
 _bk_tree = BKTree()
+_index_state = {"loaded": False}
+
+
+def _index_listing(service: ServiceListing) -> None:
+    if not service.is_active:
+        _tfidf_index.remove_document(service.id)
+        return
+    _tfidf_index.add_document(service.id, f"{service.name} {service.description or ''}")
+    # Add name tokens to BK-tree for fuzzy search
+    for word in service.name.lower().split():
+        if len(word) >= 2:
+            _bk_tree.add(word)
 
 
 class CatalogService:
@@ -57,15 +70,7 @@ class CatalogService:
         db.add(service)
         await db.flush()
 
-        # Index in TF-IDF
-        doc_text = f"{data.name} {data.description or ''}"
-        _tfidf_index.add_document(service.id, doc_text)
-
-        # Add name tokens to BK-tree for fuzzy search
-        for word in data.name.lower().split():
-            if len(word) >= 2:
-                _bk_tree.add(word)
-
+        _index_listing(service)
         log.info("service_created", service_id=service.id, name=data.name)
         return service
 
@@ -92,35 +97,34 @@ class CatalogService:
         result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
+    async def _ensure_index(self, db: AsyncSession) -> None:
+        if _index_state["loaded"]:
+            return
+        result = await db.execute(select(ServiceListing).where(ServiceListing.is_active == True))
+        _tfidf_index.clear()
+        for service in result.scalars().all():
+            _index_listing(service)
+        _index_state["loaded"] = True
+        log.info("search_index_built")
+
     async def search_services(
-        self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None
+        self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None, limit: int = 20
     ) -> List[ServiceListing]:
+        base = select(ServiceListing).where(ServiceListing.is_active == True)
+        if category:
+            base = base.where(ServiceListing.category_id == category)
         if q:
-            # TF-IDF search
-            tfidf_results = _tfidf_index.search(q, top_k=20)
-            if tfidf_results:
-                ids = [r[0] for r in tfidf_results]
-                stmt = select(ServiceListing).where(ServiceListing.id.in_(ids), ServiceListing.is_active == True)
-                if category:
-                    stmt = stmt.where(ServiceListing.category_id == category)
-                result = await db.execute(stmt)
-                return list(result.scalars().all())
-            else:
-                # Fallback to LIKE search
-                stmt = select(ServiceListing).where(
-                    ServiceListing.is_active == True,
-                    or_(ServiceListing.name.ilike(f"%{q}%"), ServiceListing.description.ilike(f"%{q}%")),
-                )
-                if category:
-                    stmt = stmt.where(ServiceListing.category_id == category)
-                result = await db.execute(stmt)
-                return list(result.scalars().all())
-        else:
-            stmt = select(ServiceListing).where(ServiceListing.is_active == True)
-            if category:
-                stmt = stmt.where(ServiceListing.category_id == category)
-            result = await db.execute(stmt)
-            return list(result.scalars().all())
+            await self._ensure_index(db)
+            # Only listings that contain a query term, best match first.
+            ranked = [doc_id for doc_id, _ in _tfidf_index.search(q, top_k=None)]
+            if ranked:
+                result = await db.execute(base.where(ServiceListing.id.in_(ranked)))
+                by_id = {s.id: s for s in result.scalars().all()}
+                return [by_id[i] for i in ranked if i in by_id][:limit]
+            # Fallback to LIKE search (substrings and words the tokenizer drops)
+            base = base.where(or_(ServiceListing.name.ilike(f"%{q}%"), ServiceListing.description.ilike(f"%{q}%")))
+        result = await db.execute(base.order_by(ServiceListing.name, ServiceListing.id).limit(limit))
+        return list(result.scalars().all())
 
     async def update_service(self, db: AsyncSession, service_id: str, data: ServiceListingUpdate) -> ServiceListing:
         service = await self.get_service(db, service_id)
@@ -129,12 +133,14 @@ class CatalogService:
             update_data["tags"] = json.dumps(update_data["tags"])
         if update_data.get("service_modes") is not None:
             update_data["service_modes"] = ",".join(update_data["service_modes"])
-        for fee in ("home_visit_fee_cents", "pickup_fee_cents", "service_modes"):
+        for fee in ("name", "price_cents", "is_active", "home_visit_fee_cents", "pickup_fee_cents", "service_modes"):
             if fee in update_data and update_data[fee] is None:
                 del update_data[fee]  # these columns are never null
         for field, value in update_data.items():
             setattr(service, field, value)
         await db.flush()
+        # Re-index so search matches the new name/description and stops returning deactivated listings.
+        _index_listing(service)
         log.info("service_updated", service_id=service_id)
         return service
 

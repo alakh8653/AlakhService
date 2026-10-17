@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     PRICING_ENGINE_URL: str = "http://pricing_engine:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
-    # Shared with notification_service; without it no notifications are sent.
+    TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
+    # Shared with notification_service and trust_risk_service; without it no notifications or risk
+    # signals are sent.
     INTERNAL_API_KEY: str = ""
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"

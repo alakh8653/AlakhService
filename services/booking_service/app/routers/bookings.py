@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, W
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import risk
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
@@ -255,10 +256,18 @@ async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
     return booking, parties
 
 
-async def _authorize_transition(db, booking_id: str, target: str, user: dict, lookup_owner) -> None:
-    _, parties = await _visible_booking(db, booking_id, user, lookup_owner)
+async def _authorize_transition(db, booking_id: str, target: str, user: dict, lookup_owner) -> str:
+    """Refuses a change the caller may not make; returns the booking's status before it."""
+    booking, parties = await _visible_booking(db, booking_id, user, lookup_owner)
     if not may_transition(parties, target):
         raise HTTPException(status_code=403, detail=f"Not allowed to set this booking to {target}")
+    return booking.status
+
+
+def _report_risk_after(background: BackgroundTasks, booking, previous_status: str, actor_id: Optional[str]) -> None:
+    signal = risk.booking_signal(booking, previous_status, actor_id)
+    if signal:
+        background.add_task(risk.report_risk, booking.customer_id, *signal)
 
 
 @router.put("/bookings/{booking_id}/status", response_model=BookingResponse)
@@ -274,7 +283,7 @@ async def update_status(
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
         raise HTTPException(status_code=400, detail="Use POST /bookings/{id}/assign to assign a provider")
-    await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
+    previous_status = await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
     try:
         booking = await booking_service.transition_status(
             db, booking_id, update_data.status, user_id, update_data.reason
@@ -288,6 +297,7 @@ async def update_status(
     background.add_task(
         notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
     )
+    _report_risk_after(background, booking, previous_status, user_id)
     return booking
 
 
@@ -376,7 +386,9 @@ async def cancel_booking(
     notifier: Notifier = Depends(get_notifier),
 ):
     user_id = current_user.get("sub")
-    await _authorize_transition(db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner)
+    previous_status = await _authorize_transition(
+        db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner
+    )
     try:
         booking = await booking_service.cancel_booking(db, booking_id, user_id, body.reason)
     except ValueError as e:
@@ -386,6 +398,7 @@ async def cancel_booking(
     # (and the caller's next request) must already see the change.
     await db.commit()
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
+    _report_risk_after(background, booking, previous_status, user_id)
     return booking
 
 

@@ -3,7 +3,9 @@ class AuthServiceError(Exception):
 
 
 class InvalidCredentialsError(AuthServiceError):
-    def __init__(self, msg="Invalid credentials"):
+    def __init__(self, msg="Invalid credentials", locked_out_user_id=None):
+        # Set when this failure locked a real account out, so the caller can report it.
+        self.locked_out_user_id = locked_out_user_id
         super().__init__(msg)
 
 

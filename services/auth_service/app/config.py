@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     # Shared secret other platform services present on /internal routes (e.g. admin_service bans).
     INTERNAL_API_KEY: str = ""
+    # Sign-in lockouts are reported here (needs INTERNAL_API_KEY).
+    TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
     # Profile data erased when someone deletes their account.
     USER_SERVICE_URL: str = "http://user_service:8000"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7

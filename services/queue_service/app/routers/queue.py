@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import risk
 from app.core.exceptions import EntryNotFoundError, QueueFullError, QueueNotFoundError
 from app.core.notifier import Notifier, get_notifier
 from app.database import get_db
@@ -167,8 +168,10 @@ async def call_next(
 ):
     """Calls the next customer (the shop only); they are told it is their turn. Null when nobody is waiting."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
-    entry = await queue_service.call_next(db, queue_id)
+    entry, no_shows = await queue_service.call_next(db, queue_id)
     await _tell_who_is_next(db, queue_id, background, notifier, called=entry)
+    for skipped in no_shows:
+        background.add_task(risk.report_risk, skipped.customer_id, *risk.NO_SHOW)
     return entry
 
 
@@ -192,6 +195,7 @@ async def complete_entry(
 async def no_show_entry(
     queue_id: str,
     entry_id: str,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
@@ -200,9 +204,12 @@ async def no_show_entry(
     automatically after the queue's grace period, the next time the shop calls someone."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
     try:
-        return await queue_service.no_show(db, queue_id, entry_id)
+        entry = await queue_service.no_show(db, queue_id, entry_id)
     except EntryNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    await db.commit()
+    background.add_task(risk.report_risk, entry.customer_id, *risk.NO_SHOW)
+    return entry
 
 
 @router.patch("/queues/{queue_id}", response_model=QueueResponse)

@@ -74,9 +74,15 @@ class TrustRiskService:
         log.info("risk_signal_recorded", user_id=user_id, signal_type=data.signal_type, new_score=profile.risk_score)
         return profile
 
-    async def get_signal_history(self, db: AsyncSession, user_id: str) -> List[RiskSignal]:
+    async def get_profiles(self, db: AsyncSession, user_ids: List[str]) -> List[UserRiskProfile]:
+        if not user_ids:
+            return []
+        result = await db.execute(select(UserRiskProfile).where(UserRiskProfile.user_id.in_(set(user_ids))))
+        return list(result.scalars().all())
+
+    async def get_signal_history(self, db: AsyncSession, user_id: str, limit: int = 100) -> List[RiskSignal]:
         result = await db.execute(
-            select(RiskSignal).where(RiskSignal.user_id == user_id).order_by(RiskSignal.created_at.desc())
+            select(RiskSignal).where(RiskSignal.user_id == user_id).order_by(RiskSignal.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 

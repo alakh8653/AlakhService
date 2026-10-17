@@ -88,10 +88,10 @@ class AuthService:
 
         if not user or not verify_password(login_data.password, user.hashed_password):
             await self._record_login_attempt(db, identifier, ip, False)
-            await self._count_failure(redis, identifier, ip)
+            locked = await self._count_failure(redis, identifier, ip)
             # Keep the audit row: the error makes the request's session roll back.
             await db.commit()
-            raise InvalidCredentialsError()
+            raise InvalidCredentialsError(locked_out_user_id=user.id if locked and user else None)
 
         if not user.is_active:
             raise InvalidCredentialsError("Account is disabled")
@@ -398,19 +398,24 @@ class AuthService:
                 ttl = await redis.ttl(key)
                 raise AccountLockedError(lockout_seconds=int(ttl if ttl > 0 else settings.LOCKOUT_DURATION_SECONDS))
 
-    async def _count_failure(self, redis: aioredis.Redis, identifier: str, ip: str):
+    async def _count_failure(self, redis: aioredis.Redis, identifier: str, ip: str) -> bool:
+        """Counts a failed sign-in; True when it triggered a lockout."""
+        locked = False
         here = f"auth:attempts:{identifier}:{ip}"
         failures = await redis.incr(here)
         await redis.expire(here, 86400)  # how far back repeated lockouts escalate
         if failures % settings.MAX_LOGIN_ATTEMPTS == 0:
             lockout = settings.LOCKOUT_DURATION_SECONDS * 2 ** (failures // settings.MAX_LOGIN_ATTEMPTS - 1)
             await redis.set(f"auth:locked:{identifier}:{ip}", "1", ex=min(lockout, self.MAX_LOCKOUT_SECONDS))
+            locked = True
         everywhere = f"auth:attempts:{identifier}"
         total = await redis.incr(everywhere)
         await redis.expire(everywhere, self.ACCOUNT_WIDE_LOCKOUT_SECONDS)
         if total >= self.ACCOUNT_WIDE_FAILURES:
             await redis.set(f"auth:locked:{identifier}", "1", ex=self.ACCOUNT_WIDE_LOCKOUT_SECONDS)
             await redis.delete(everywhere)
+            locked = True
+        return locked
 
     async def _record_login_attempt(self, db: AsyncSession, identifier: str, ip: str, success: bool):
         attempt = LoginAttempt(

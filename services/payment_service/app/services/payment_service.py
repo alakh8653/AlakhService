@@ -10,10 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
+from app.core.razorpay import GatewayError
 from app.models.payment import Account, LedgerEntry, Payment, Refund
 from app.schemas.payment import PaymentInitiate, RefundRequest
 
 log = structlog.get_logger()
+
+# Payments that mean the booking is settled (refunds included: the customer already paid once).
+PAID_STATUSES = {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
+# Never settled on our books, so a capture the gateway reports for one is new money, not a replay.
+UNSETTLED_STATUSES = {"PENDING", "CANCELLED", "FAILED"}
+DUPLICATE_REFUND_REASON = "Booking was already paid for"
 
 
 class PaymentService:
@@ -24,8 +31,7 @@ class PaymentService:
         owner_type: str = "user",
         currency: str = "INR",
     ) -> Account:
-        result = await db.execute(select(Account).where(Account.owner_id == owner_id))
-        account = result.scalar_one_or_none()
+        account = await self.account_for_owner(db, owner_id)
         if not account:
             now = datetime.now(timezone.utc)
             account = Account(
@@ -41,6 +47,10 @@ class PaymentService:
             db.add(account)
             await db.flush()
         return account
+
+    async def account_for_owner(self, db: AsyncSession, owner_id: str) -> Optional[Account]:
+        result = await db.execute(select(Account).where(Account.owner_id == owner_id))
+        return result.scalar_one_or_none()
 
     async def initiate_payment(
         self,
@@ -98,8 +108,11 @@ class PaymentService:
     async def mark_completed(
         self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway: str
     ) -> Payment:
-        """Records a confirmed payment once: funds go into escrow and the platform account is credited."""
-        if payment.status == "COMPLETED":
+        """Records a confirmed payment once: funds go into escrow and the platform account is credited.
+
+        Only a pending payment completes; one already settled (or refunded, failed, cancelled) stays as it is.
+        """
+        if payment.status != "PENDING":
             return payment
         payment.status = "COMPLETED"
         payment.provider_payment_id = provider_payment_id
@@ -132,6 +145,78 @@ class PaymentService:
         log.info("payment_completed", payment_id=payment.id, gateway=gateway)
         return payment
 
+    async def record_capture(
+        self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway_name: str, gateway=None
+    ) -> Optional[str]:
+        """The gateway says it captured money for [payment]; returns the event to announce, if anything changed.
+
+        A replayed confirmation changes nothing. Money captured for a booking that is already paid for
+        (a second checkout was paid too) is not kept: it is refunded through Razorpay, or marked DUPLICATE
+        for an admin to refund when that is not possible.
+        """
+        # Lock the booking's payments so two checkouts confirmed at once cannot both complete.
+        result = await db.execute(
+            select(Payment)
+            .where(Payment.booking_id == payment.booking_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        siblings = list(result.scalars().all())
+        if payment.status not in UNSETTLED_STATUSES:
+            return None
+        if any(p.id != payment.id and p.status in PAID_STATUSES for p in siblings):
+            payment.provider_payment_id = provider_payment_id
+            payment.gateway = gateway_name
+            payment.updated_at = datetime.now(timezone.utc)
+            await self._refund_duplicate(db, payment, gateway)
+            return "payment.refunded" if payment.status == "REFUNDED" else None
+        if payment.status != "PENDING":
+            log.warning("capture_for_closed_payment", payment_id=payment.id, status=payment.status)
+            return None
+        await self.mark_completed(db, payment, provider_payment_id, gateway_name)
+        return "payment.completed"
+
+    async def _refund_duplicate(self, db: AsyncSession, payment: Payment, gateway) -> None:
+        """Gives a second payment for a booking back in full. It never reached escrow or the ledger."""
+        if payment.gateway == "razorpay" and gateway is not None and gateway.configured:
+            refund = Refund(
+                id=str(uuid.uuid4()),
+                payment_id=payment.id,
+                amount_cents=payment.amount_cents,
+                reason=DUPLICATE_REFUND_REASON,
+                status="PENDING",
+                created_at=payment.updated_at,
+            )
+            try:
+                result = await gateway.refund(
+                    payment.provider_payment_id,
+                    payment.amount_cents,
+                    {"refund_id": refund.id, "reason": DUPLICATE_REFUND_REASON},
+                )
+            except GatewayError as e:
+                log.warning("duplicate_refund_failed", payment_id=payment.id, error=str(e))
+            else:
+                refund.gateway_refund_id = result.get("id")
+                refund.status = "PROCESSED" if result.get("status") == "processed" else "PENDING"
+                db.add(refund)
+                payment.status = "REFUNDED"
+                await db.flush()
+                log.warning("duplicate_payment_refunded", payment_id=payment.id, booking_id=payment.booking_id)
+                return
+        payment.status = "DUPLICATE"
+        await db.flush()
+        log.warning("duplicate_payment_needs_refund", payment_id=payment.id, booking_id=payment.booking_id)
+
+    async def _another_paid(self, db: AsyncSession, payment: Payment) -> bool:
+        result = await db.execute(
+            select(Payment.id).where(
+                Payment.booking_id == payment.booking_id,
+                Payment.id != payment.id,
+                Payment.status.in_(PAID_STATUSES),
+            )
+        )
+        return result.first() is not None
+
     async def _find_for_gateway(
         self, db: AsyncSession, payment_id: Optional[str], order_id: Optional[str]
     ) -> Optional[Payment]:
@@ -144,10 +229,12 @@ class PaymentService:
             return result.scalar_one_or_none()
         return None
 
-    async def process_razorpay_event(self, db: AsyncSession, event: dict) -> Optional[tuple[str, Payment]]:
+    async def process_razorpay_event(
+        self, db: AsyncSession, event: dict, gateway=None
+    ) -> Optional[tuple[str, Payment]]:
         """Applies a Razorpay webhook event whose signature has already been checked.
 
-        Returns what changed (``("payment.completed", payment)`` or ``("payment.failed", payment)``), if anything.
+        Returns what changed (e.g. ``("payment.completed", payment)`` or ``("payment.failed", payment)``), if anything.
         """
         entity = event.get("payload", {}).get("payment", {}).get("entity", {})
         payment = await self._find_for_gateway(
@@ -163,10 +250,8 @@ class PaymentService:
             ):
                 log.warning("razorpay_amount_mismatch", payment_id=payment.id, amount=entity.get("amount"))
                 return None
-            if payment.status == "COMPLETED":
-                return None
-            await self.mark_completed(db, payment, entity.get("id"), "razorpay")
-            return "payment.completed", payment
+            changed = await self.record_capture(db, payment, entity.get("id"), "razorpay", gateway)
+            return (changed, payment) if changed else None
         if event.get("event") == "payment.failed" and payment.status == "PENDING":
             payment.status = "FAILED"
             payment.updated_at = datetime.now(timezone.utc)
@@ -181,7 +266,7 @@ class PaymentService:
         intent = event.get("data", {}).get("object", {})
         payment = await self._find_for_gateway(db, (intent.get("metadata") or {}).get("payment_id"), None)
         if payment and intent.get("amount_received", intent.get("amount")) == payment.amount_cents:
-            await self.mark_completed(db, payment, intent.get("id"), "stripe")
+            await self.record_capture(db, payment, intent.get("id"), "stripe")
 
     async def request_refund(
         self, db: AsyncSession, payment_id: str, refund_data: RefundRequest, gateway=None
@@ -194,8 +279,11 @@ class PaymentService:
         payment = await self.get_payment(db, payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
-        if payment.status not in ("COMPLETED", "PARTIALLY_REFUNDED"):
+        if payment.status not in ("COMPLETED", "PARTIALLY_REFUNDED", "DUPLICATE"):
             raise ValueError(f"Cannot refund payment with status {payment.status}")
+        duplicate = payment.status == "DUPLICATE"
+        if duplicate and refund_data.amount_cents != payment.amount_cents:
+            raise ValueError("A duplicate payment is refunded in full")
 
         already = await self._refunded_cents(db, payment.id)
         if already + refund_data.amount_cents > payment.amount_cents:
@@ -229,7 +317,8 @@ class PaymentService:
         payment.status = "REFUNDED" if refunded_in_full else "PARTIALLY_REFUNDED"
         payment.updated_at = now
         await db.flush()
-        await self._return_funds(db, payment, refund_data.amount_cents, refunded_in_full, refund_data.reason)
+        if not duplicate:  # a duplicate never reached escrow or the ledger
+            await self._return_funds(db, payment, refund_data.amount_cents, refunded_in_full, refund_data.reason)
 
         log.info("refund_issued", payment_id=payment_id, amount=refund_data.amount_cents, status=refund.status)
         return refund
@@ -281,12 +370,11 @@ class PaymentService:
             payment = await self.get_payment(db, refund.payment_id)
             await db.flush()
             remaining = await self._refunded_cents(db, refund.payment_id)
-            if payment:
-                payment.status = (
-                    "COMPLETED"
-                    if remaining == 0
-                    else ("REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED")
-                )
+            if payment and remaining == 0:
+                # A duplicate whose refund failed still has to be refunded, not counted as the booking's payment.
+                payment.status = "DUPLICATE" if await self._another_paid(db, payment) else "COMPLETED"
+            elif payment:
+                payment.status = "REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED"
         else:
             return None
         await db.flush()

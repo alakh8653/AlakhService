@@ -466,3 +466,145 @@ async def test_a_booking_is_paid_for_once(client):
     mine = (await client.get("/api/v1/payments", headers=auth("cust"))).json()
     assert {p["id"]: p["status"] for p in mine} == {pid: "COMPLETED", cash["id"]: "CANCELLED"}
     assert (await client.get("/api/v1/payments", headers=auth("stranger"))).json() == []
+
+
+async def open_checkout(client, key: str, booking: str = "bk-1") -> tuple[str, dict]:
+    """Starts an online payment; returns it with the proof Razorpay's checkout would hand the app once paid."""
+    body = {"booking_id": booking, "payment_method": "upi", "idempotency_key": key}
+    payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()
+    order = payment["checkout"]["order_id"]
+    proof = {
+        "razorpay_order_id": order,
+        "razorpay_payment_id": f"pay_{key}",
+        "razorpay_signature": sign(KEY_SECRET, f"{order}|pay_{key}".encode()),
+    }
+    return payment["id"], proof
+
+
+async def razorpay_captured(client, pid: str, proof: dict, amount: int = 49900):
+    entity = {
+        "id": proof["razorpay_payment_id"],
+        "order_id": proof["razorpay_order_id"],
+        "amount": amount,
+        "currency": "INR",
+        "notes": {"payment_id": pid},
+    }
+    event = json.dumps({"event": "payment.captured", "payload": {"payment": {"entity": entity}}}).encode()
+    return await client.post(
+        "/api/v1/webhooks/razorpay", content=event, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event)}
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_replayed_confirmation_never_reopens_a_refunded_payment(client):
+    ops = auth("ops", "admin")
+    status = lambda pid: client.get(f"/api/v1/payments/{pid}", headers=ops)  # noqa: E731
+    escrows = lambda: client.get("/api/v1/finance/settlements", headers=ops)  # noqa: E731
+
+    pid, proof = await open_checkout(client, "key-0030")
+    verify = lambda: client.post(f"/api/v1/payments/{pid}/verify", json=proof, headers=auth("cust"))  # noqa: E731
+    await verify()
+    await client.post(f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=ops)
+    notified, settled = len(NOTIFIED), (await escrows()).json()
+
+    replay = await verify()
+    assert (replay.status_code, replay.json()["status"]) == (200, "REFUNDED")
+    await razorpay_captured(client, pid, proof)
+    assert (await status(pid)).json()["status"] == "REFUNDED"
+    assert (await escrows()).json() == settled
+    assert len(NOTIFIED) == notified
+
+    partly, proof = await open_checkout(client, "key-0031", booking="bk-2")
+    await client.post(f"/api/v1/payments/{partly}/verify", json=proof, headers=auth("cust"))
+    await client.post(f"/api/v1/payments/{partly}/refund", json={"amount_cents": 100, "reason": "x"}, headers=ops)
+    await client.post(f"/api/v1/payments/{partly}/verify", json=proof, headers=auth("cust"))
+    await razorpay_captured(client, partly, proof, amount=20000)
+    assert (await status(partly)).json()["status"] == "PARTIALLY_REFUNDED"
+
+
+@pytest.mark.asyncio
+async def test_a_confirmation_for_a_failed_payment_does_not_complete_it(client):
+    pid, proof = await open_checkout(client, "key-0032")
+    entity = {"id": "pay_x", "order_id": proof["razorpay_order_id"], "notes": {"payment_id": pid}}
+    failed = json.dumps({"event": "payment.failed", "payload": {"payment": {"entity": entity}}}).encode()
+    await client.post(
+        "/api/v1/webhooks/razorpay", content=failed, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, failed)}
+    )
+    verified = await client.post(f"/api/v1/payments/{pid}/verify", json=proof, headers=auth("cust"))
+    assert (verified.status_code, verified.json()["status"]) == (200, "FAILED")
+    assert [e for e, _, _ in NOTIFIED] == ["payment.failed"]
+
+
+@pytest.mark.asyncio
+async def test_a_second_checkout_paid_for_the_same_booking_is_refunded(client):
+    first, first_proof = await open_checkout(client, "key-0040")
+    second, second_proof = await open_checkout(client, "key-0041")  # e.g. a retry in another tab
+    await client.post(f"/api/v1/payments/{first}/verify", json=first_proof, headers=auth("cust"))
+
+    late = await client.post(f"/api/v1/payments/{second}/verify", json=second_proof, headers=auth("cust"))
+    assert (late.status_code, late.json()["status"]) == (200, "REFUNDED")
+    assert REFUNDS == [("/v1/payments/pay_key-0041/refund", 49900)]
+    assert NOTIFIED[-1] == ("payment.refunded", [("cust", "customer")], "499.00")
+    pays = (await client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=auth("cust"))).json()
+    assert {p["id"]: p["status"] for p in pays} == {first: "COMPLETED", second: "REFUNDED"}
+
+    # Razorpay's webhook for the same capture, or a replayed confirmation, refunds nothing more.
+    await razorpay_captured(client, second, second_proof)
+    await client.post(f"/api/v1/payments/{second}/verify", json=second_proof, headers=auth("cust"))
+    assert len(REFUNDS) == 1
+    # The duplicate never reached escrow; the booking's own payment is held as usual.
+    escrows = (await client.get("/api/v1/finance/settlements", headers=auth("ops", "admin"))).json()
+    assert {s["payment_id"]: s["status"] for s in escrows["data"]} == {first: "HELD", second: "CREATED"}
+
+
+@pytest.mark.asyncio
+async def test_a_duplicate_razorpay_will_not_refund_is_left_for_an_admin_to_refund(client):
+    first, first_proof = await open_checkout(client, "key-0042")
+    second, second_proof = await open_checkout(client, "key-0043")
+    await client.post(f"/api/v1/payments/{first}/verify", json=first_proof, headers=auth("cust"))
+    REFUSE_REFUNDS.append(True)
+    await razorpay_captured(client, second, second_proof)
+    ops = auth("ops", "admin")
+    assert (await client.get(f"/api/v1/payments/{second}", headers=ops)).json()["status"] == "DUPLICATE"
+
+    REFUSE_REFUNDS.clear()
+    url = f"/api/v1/payments/{second}/refund"
+    assert (await client.post(url, json={"amount_cents": 100, "reason": "x"}, headers=ops)).status_code == 400
+    refund = await client.post(url, json={"amount_cents": 49_900, "reason": "paid twice"}, headers=ops)
+    assert (refund.status_code, refund.json()["status"]) == (200, "PROCESSED")
+    assert REFUNDS == [("/v1/payments/pay_key-0043/refund", 49900)]
+    pays = (await client.get("/api/v1/payments", params={"booking_id": "bk-1"}, headers=ops)).json()
+    assert {p["id"]: p["status"] for p in pays} == {first: "COMPLETED", second: "REFUNDED"}
+
+    # If that refund fails after all, the payment is a duplicate again, not a second completed payment.
+    event = json.dumps({"event": "refund.failed", "payload": {"refund": {"entity": {"id": "rfnd_1"}}}}).encode()
+    await client.post(
+        "/api/v1/webhooks/razorpay", content=event, headers={"x-razorpay-signature": sign(WEBHOOK_SECRET, event)}
+    )
+    assert (await client.get(f"/api/v1/payments/{second}", headers=ops)).json()["status"] == "DUPLICATE"
+
+
+@pytest.mark.asyncio
+async def test_customers_see_their_own_balance_and_history(client):
+    pid, proof = await open_checkout(client, "key-0050")
+    await client.post(f"/api/v1/payments/{pid}/verify", json=proof, headers=auth("cust"))
+    await client.post(
+        f"/api/v1/payments/{pid}/refund", json={"amount_cents": 10_000, "reason": "late"}, headers=auth("ops", "admin")
+    )
+
+    balance = await client.get("/api/v1/accounts/cust/balance", headers=auth("cust"))
+    assert balance.json() == {"account_id": "cust", "balance_cents": 10_000}
+    history = (await client.get("/api/v1/accounts/cust/transactions", headers=auth("cust"))).json()
+    assert (history["total"], history["items"][0]["amount_cents"]) == (1, 10_000)
+
+    # The account can also be named by its own id (as admins do); it stays private to its owner.
+    account_id = history["items"][0]["account_id"]
+    for who, role in (("cust", "user"), ("ops", "admin")):
+        named = await client.get(f"/api/v1/accounts/{account_id}/balance", headers=auth(who, role))
+        assert named.json()["balance_cents"] == 10_000
+    assert (await client.get(f"/api/v1/accounts/{account_id}/balance", headers=auth("owner"))).status_code == 404
+    assert (await client.get(f"/api/v1/accounts/{account_id}/transactions", headers=auth("owner"))).status_code == 404
+
+    # Someone whose money has not moved yet sees an empty account rather than an error.
+    assert (await client.get("/api/v1/accounts/owner/balance", headers=auth("owner"))).json()["balance_cents"] == 0
+    assert (await client.get("/api/v1/accounts/owner/transactions", headers=auth("owner"))).json()["total"] == 0

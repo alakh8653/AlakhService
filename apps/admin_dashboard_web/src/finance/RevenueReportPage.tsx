@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { format, subDays } from 'date-fns';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { downloadCsv } from '../lib/csv';
+import { downloadCsv } from '../shared/csv';
 import { formatMoney, getRevenueReport, type RevenueReport } from './FinanceService';
 
 const toInputDate = (d: Date) => format(d, 'yyyy-MM-dd');

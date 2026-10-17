@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RoleConflictError, RoleNotFoundError
+from app.core.origin import Origin, request_origin
 from app.database import get_db
 from app.dependencies import Caller, require_admin
 from app.schemas.access import PermissionResponse, RoleCreate, RolePermissionsUpdate, RoleResponse
@@ -30,9 +31,14 @@ async def list_roles(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/access/roles", response_model=RoleResponse, status_code=201)
-async def create_role(data: RoleCreate, db: AsyncSession = Depends(get_db), actor_id: ActorId = Depends(actor)):
+async def create_role(
+    data: RoleCreate,
+    db: AsyncSession = Depends(get_db),
+    actor_id: ActorId = Depends(actor),
+    origin: Origin = Depends(request_origin),
+):
     try:
-        return await access_service.create_role(db, data, actor_id)
+        return await access_service.create_role(db, data, actor_id, origin)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except RoleConflictError as e:
@@ -41,10 +47,14 @@ async def create_role(data: RoleCreate, db: AsyncSession = Depends(get_db), acto
 
 @router.put("/access/roles/{role_id}/permissions", response_model=RoleResponse)
 async def update_role_permissions(
-    role_id: str, data: RolePermissionsUpdate, db: AsyncSession = Depends(get_db), actor_id: ActorId = Depends(actor)
+    role_id: str,
+    data: RolePermissionsUpdate,
+    db: AsyncSession = Depends(get_db),
+    actor_id: ActorId = Depends(actor),
+    origin: Origin = Depends(request_origin),
 ):
     try:
-        return await access_service.update_permissions(db, role_id, data.permissions, actor_id)
+        return await access_service.update_permissions(db, role_id, data.permissions, actor_id, origin)
     except RoleNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
@@ -54,9 +64,14 @@ async def update_role_permissions(
 
 
 @router.delete("/access/roles/{role_id}", status_code=204)
-async def delete_role(role_id: str, db: AsyncSession = Depends(get_db), actor_id: ActorId = Depends(actor)):
+async def delete_role(
+    role_id: str,
+    db: AsyncSession = Depends(get_db),
+    actor_id: ActorId = Depends(actor),
+    origin: Origin = Depends(request_origin),
+):
     try:
-        await access_service.delete_role(db, role_id, actor_id)
+        await access_service.delete_role(db, role_id, actor_id, origin)
     except RoleNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except RoleConflictError as e:

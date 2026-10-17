@@ -1,8 +1,9 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.exceptions import (
     CalculationNotFoundError,
     CouponAlreadyUsedError,
@@ -59,9 +60,27 @@ async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=409, detail=str(e)) from e
 
 
-@router.post("/coupons", response_model=CouponResponse, status_code=201, dependencies=[Depends(require_admin)])
-async def create_coupon(data: CouponCreate, db: AsyncSession = Depends(get_db)):
-    return await pricing_service.create_coupon(db, data)
+@router.post("/coupons", response_model=CouponResponse, status_code=201)
+async def create_coupon(
+    data: CouponCreate,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+    origin: Origin = Depends(request_origin),
+    audit: AuditReporter = Depends(get_audit_reporter),
+):
+    coupon = await pricing_service.create_coupon(db, data)
+    await db.commit()  # only a coupon that exists is reported
+    background.add_task(
+        audit.record,
+        caller.user_id,
+        "create_coupon",
+        "coupon",
+        coupon.id,
+        origin,
+        new_values=CouponResponse.model_validate(coupon).model_dump(mode="json"),
+    )
+    return coupon
 
 
 @router.get("/coupons", response_model=List[CouponResponse], dependencies=[Depends(require_admin)])

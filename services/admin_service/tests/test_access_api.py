@@ -226,3 +226,114 @@ async def test_account_switch_keeps_the_user_id_inside_its_path_segment(monkeypa
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "k")
     await set_account_active("../../admin/x", False)
     assert seen == ["/internal/users/..%2F..%2Fadmin%2Fx/status"]
+
+
+@pytest.mark.asyncio
+async def test_every_audit_entry_records_where_the_admin_acted_from(ctx):
+    client, factory = ctx
+    origin = {"X-Real-IP": "203.0.113.7", "User-Agent": "AdminDashboard/1.0"}
+    assert (
+        await client.post("/api/v1/admin/users/victim/ban", json={"reason": "x"}, headers=origin)
+    ).status_code == 200
+    assert (await client.post("/api/v1/admin/users/victim/unban", headers=origin)).status_code == 200
+    bulk = await client.post(
+        "/api/v1/admin/actions/bulk-update", json={"user_ids": ["u2"], "action": "ban"}, headers=origin
+    )
+    assert bulk.status_code == 200
+    role = (await client.post("/api/v1/access/roles", json={"name": "ops"}, headers=origin)).json()
+    await client.put(f"/api/v1/access/roles/{role['id']}/permissions", json={"permissions": []}, headers=origin)
+    await client.delete(f"/api/v1/access/roles/{role['id']}", headers=origin)
+    await client.put("/api/v1/system-config/maintenance", json={"value": "on"}, headers=origin)
+
+    async with factory() as db:
+        entries = (await db.execute(select(AuditLog))).scalars().all()
+    assert sorted(e.action for e in entries) == [
+        "ban_user",
+        "ban_user",
+        "create_role",
+        "delete_role",
+        "unban_user",
+        "update_role_permissions",
+        "update_system_config",
+    ]
+    assert {(e.ip_address, e.user_agent, e.service, e.admin_id) for e in entries} == {
+        ("203.0.113.7", "AdminDashboard/1.0", "admin_service", "u1")
+    }
+
+
+@pytest.mark.asyncio
+async def test_without_the_gateway_header_the_connecting_address_is_recorded(ctx):
+    client, factory = ctx
+    await client.post("/api/v1/admin/users/victim/ban", json={"reason": "x"}, headers={"User-Agent": "u" * 2000})
+    async with factory() as db:
+        entry = (await db.execute(select(AuditLog))).scalar_one()
+    assert entry.ip_address == "127.0.0.1"
+    assert entry.user_agent == "u" * 512
+
+
+@pytest.mark.asyncio
+async def test_system_config_changes_are_audited_with_the_old_value(ctx):
+    client, factory = ctx
+    await client.put("/api/v1/system-config/fee_pct", json={"value": "5", "description": "Platform fee"})
+    await client.put("/api/v1/system-config/fee_pct", json={"value": "7", "updated_by": "someone-else"})
+    async with factory() as db:
+        stmt = select(AuditLog).where(AuditLog.action == "update_system_config").order_by(AuditLog.created_at)
+        first, second = (await db.execute(stmt)).scalars().all()
+    assert (first.resource_type, first.resource_id, first.old_values) == ("system_config", "fee_pct", None)
+    assert json.loads(second.old_values) == {"value": "5", "description": "Platform fee"}
+    assert json.loads(second.new_values) == {"value": "7", "description": "Platform fee"}
+    assert second.admin_id == "u1"
+
+
+REPORT = {
+    "admin_id": "ops",
+    "action": "refund_payment",
+    "resource_type": "payment",
+    "resource_id": "pay-1",
+    "old_values": None,
+    "new_values": {"amount_cents": 500, "reason": "late"},
+    "ip_address": "198.51.100.2",
+    "user_agent": "Mozilla/5.0",
+    "service": "payment_service",
+}
+KEY = "k" * 32
+
+
+@pytest.mark.asyncio
+async def test_other_services_record_admin_actions_with_the_internal_key(ctx, monkeypatch):
+    client, factory = ctx
+    url = "/internal/audit-logs"
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
+    assert (await client.post(url, json=REPORT, headers={"X-Internal-Key": ""})).status_code == 503
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", KEY)
+    assert (await client.post(url, json=REPORT)).status_code == 401
+    assert (await client.post(url, json=REPORT, headers={"X-Internal-Key": "wrong"})).status_code == 401
+
+    key = {"X-Internal-Key": KEY}
+    created = await client.post(url, json={**REPORT, "user_agent": "a" * 900}, headers=key)
+    assert created.status_code == 201
+    assert (created.json()["service"], len(created.json()["user_agent"])) == ("payment_service", 512)
+    for bad in ({"service": "Payment Service"}, {"admin_id": ""}, {"action": None}):
+        assert (await client.post(url, json={**REPORT, **bad}, headers=key)).status_code == 422, bad
+
+    async with factory() as db:
+        entry = (await db.execute(select(AuditLog))).scalar_one()
+    assert (entry.admin_id, entry.resource_id, entry.ip_address) == ("ops", "pay-1", "198.51.100.2")
+    assert entry.old_values is None
+    assert json.loads(entry.new_values) == {"amount_cents": 500, "reason": "late"}
+
+
+@pytest.mark.asyncio
+async def test_the_viewer_shows_which_service_recorded_each_entry(ctx, monkeypatch):
+    client, _ = ctx
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", KEY)
+    await client.post("/internal/audit-logs", json=REPORT, headers={"X-Internal-Key": KEY})
+    await client.post("/api/v1/admin/users/victim/ban", json={"reason": "x"}, headers={"User-Agent": "Dash"})
+
+    every = (await client.get("/api/v1/audit-logs")).json()
+    assert {(e["service"], e["user_agent"]) for e in every} == {
+        ("payment_service", "Mozilla/5.0"),
+        ("admin_service", "Dash"),
+    }
+    only = (await client.get("/api/v1/audit-logs", params={"service": "payment_service"})).json()
+    assert [e["action"] for e in only] == ["refund_payment"]

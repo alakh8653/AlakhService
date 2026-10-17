@@ -24,8 +24,10 @@ class Settings(BaseSettings):
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
-    # Shared with notification_service and trust_risk_service; without it no notifications or risk
-    # signals are sent.
+    # Refunds are recorded in admin_service's audit log.
+    ADMIN_SERVICE_URL: str = "http://admin_service:8000"
+    # Shared with notification, trust_risk and admin services; without it no notifications, risk
+    # signals or audit reports are sent.
     INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")

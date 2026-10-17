@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core import risk
+from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
@@ -236,6 +237,8 @@ async def request_refund(
     current_user: dict = Depends(require_admin),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
+    audit: AuditReporter = Depends(get_audit_reporter),
+    origin: Origin = Depends(request_origin),
 ):
     """Refunds move money out of escrow, so they are issued by admins (e.g. resolving a dispute).
 
@@ -252,6 +255,22 @@ async def request_refund(
     await db.commit()  # visible before the customer is told
     background.add_task(
         notify_payment, notifier, "payment.refunded", {**payment_snapshot(payment), "amount_cents": refund.amount_cents}
+    )
+    background.add_task(
+        audit.record,
+        current_user["sub"],
+        "refund_payment",
+        "payment",
+        payment_id,
+        origin,
+        new_values={
+            "refund_id": refund.id,
+            "amount_cents": refund.amount_cents,
+            "currency": payment.currency,
+            "reason": refund.reason,
+            "status": refund.status,
+            "payment_status": payment.status,
+        },
     )
     return refund
 

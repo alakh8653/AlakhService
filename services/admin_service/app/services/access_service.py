@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RoleConflictError, RoleNotFoundError
+from app.core.origin import Origin
 from app.core.permissions import PERMISSIONS, PROTECTED_ROLES
 from app.models.admin import AdminUser, AuditLog, Role
 from app.schemas.access import PermissionResponse, RoleCreate, RoleResponse
@@ -44,7 +45,10 @@ def _to_response(role: Role, counts: dict) -> RoleResponse:
     )
 
 
-async def _audit(db: AsyncSession, actor: Optional[str], action: str, role: Role, old, new) -> None:
+async def _audit(
+    db: AsyncSession, actor: Optional[str], action: str, role: Role, old, new, origin: Optional[Origin]
+) -> None:
+    origin = origin or Origin()
     db.add(
         AuditLog(
             id=str(uuid.uuid4()),
@@ -54,6 +58,9 @@ async def _audit(db: AsyncSession, actor: Optional[str], action: str, role: Role
             resource_id=role.id,
             old_values=json.dumps(old) if old is not None else None,
             new_values=json.dumps(new) if new is not None else None,
+            ip_address=origin.ip_address,
+            user_agent=origin.user_agent,
+            service="admin_service",
             created_at=datetime.now(timezone.utc),
         )
     )
@@ -72,7 +79,9 @@ async def list_roles(db: AsyncSession) -> List[RoleResponse]:
     return [_to_response(r, counts) for r in roles]
 
 
-async def create_role(db: AsyncSession, data: RoleCreate, actor: Optional[str]) -> RoleResponse:
+async def create_role(
+    db: AsyncSession, data: RoleCreate, actor: Optional[str], origin: Optional[Origin] = None
+) -> RoleResponse:
     if (await db.execute(select(Role).where(Role.name == data.name))).scalar_one_or_none():
         raise RoleConflictError(f"Role '{data.name}' already exists")
     role = Role(
@@ -84,13 +93,14 @@ async def create_role(db: AsyncSession, data: RoleCreate, actor: Optional[str]) 
         created_at=datetime.now(timezone.utc),
     )
     db.add(role)
-    await _audit(db, actor, "create_role", role, None, {"name": role.name, "permissions": json.loads(role.permissions)})
+    new = {"name": role.name, "permissions": json.loads(role.permissions)}
+    await _audit(db, actor, "create_role", role, None, new, origin)
     await db.flush()
     return _to_response(role, await _user_counts(db))
 
 
 async def update_permissions(
-    db: AsyncSession, role_id: str, permissions: List[str], actor: Optional[str]
+    db: AsyncSession, role_id: str, permissions: List[str], actor: Optional[str], origin: Optional[Origin] = None
 ) -> RoleResponse:
     role = await _get(db, role_id)
     if role.name in PROTECTED_ROLES:
@@ -98,18 +108,19 @@ async def update_permissions(
     old = json.loads(role.permissions or "[]")
     new = _validate(permissions)
     role.permissions = json.dumps(new)
-    await _audit(db, actor, "update_role_permissions", role, old, new)
+    await _audit(db, actor, "update_role_permissions", role, old, new, origin)
     await db.flush()
     return _to_response(role, await _user_counts(db))
 
 
-async def delete_role(db: AsyncSession, role_id: str, actor: Optional[str]) -> None:
+async def delete_role(db: AsyncSession, role_id: str, actor: Optional[str], origin: Optional[Origin] = None) -> None:
     role = await _get(db, role_id)
     if role.is_system:
         raise RoleConflictError(f"Built-in role '{role.name}' cannot be deleted")
     in_use = (await _user_counts(db)).get(role.name, 0)
     if in_use:
         raise RoleConflictError(f"Role '{role.name}' is assigned to {in_use} admin user(s)")
-    await _audit(db, actor, "delete_role", role, {"name": role.name, "permissions": json.loads(role.permissions)}, None)
+    old = {"name": role.name, "permissions": json.loads(role.permissions)}
+    await _audit(db, actor, "delete_role", role, old, None, origin)
     await db.delete(role)
     await db.flush()

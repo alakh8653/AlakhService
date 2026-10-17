@@ -4,7 +4,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
@@ -46,7 +46,13 @@ class BookingService:
         return "BK" + uuid.uuid4().hex[:8].upper()
 
     async def create_booking(
-        self, db: AsyncSession, customer_id: str, booking_data: BookingCreate, metadata_json: Optional[str] = None
+        self,
+        db: AsyncSession,
+        customer_id: str,
+        booking_data: BookingCreate,
+        metadata_json: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        request_hash: Optional[str] = None,
     ) -> Booking:
         now = datetime.now(timezone.utc)
         booking = Booking(
@@ -64,6 +70,8 @@ class BookingService:
             notes=booking_data.notes,
             total_amount=booking_data.total_amount,
             metadata_json=metadata_json,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
             created_at=now,
             updated_at=now,
         )
@@ -84,6 +92,23 @@ class BookingService:
 
         log.info("booking_created", booking_id=booking.id, customer_id=customer_id)
         return booking
+
+    async def hold_idempotency_key(self, db: AsyncSession, customer_id: str, key: str) -> None:
+        """Makes requests with the same key wait for each other, until this transaction ends.
+
+        Without it two copies of a request could both price the booking and use up its coupon before the
+        unique constraint stops the second insert. Only PostgreSQL has the lock; the constraint holds anywhere.
+        """
+        if db.get_bind().dialect.name == "postgresql":
+            await db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"booking:{customer_id}:{key}"}
+            )
+
+    async def get_by_idempotency_key(self, db: AsyncSession, customer_id: str, key: str) -> Optional[Booking]:
+        result = await db.execute(
+            select(Booking).where(Booking.customer_id == customer_id, Booking.idempotency_key == key)
+        )
+        return result.scalar_one_or_none()
 
     async def get_booking(self, db: AsyncSession, booking_id: str, user_id: Optional[str] = None) -> Optional[Booking]:
         result = await db.execute(select(Booking).where(Booking.id == booking_id))

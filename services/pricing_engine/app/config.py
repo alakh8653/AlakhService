@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     # Shared with booking_service, which redeems quotes at checkout (/internal routes).
     INTERNAL_API_KEY: str = ""
+    # Coupons admins create are recorded in admin_service's audit log.
+    ADMIN_SERVICE_URL: str = "http://admin_service:8000"
 
     model_config = SettingsConfigDict(env_file=".env")
 

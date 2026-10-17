@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
+    # Status changes made by admins are recorded in admin_service's audit log (/internal routes).
+    ADMIN_SERVICE_URL: str = "http://admin_service:8000"
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

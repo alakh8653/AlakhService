@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
+from app.core.audit import AuditReporter, get_audit_reporter
 from app.core.notifier import get_notifier
 from app.core.razorpay import RazorpayGateway, get_razorpay
 from app.database import Base, get_db
@@ -608,3 +609,85 @@ async def test_customers_see_their_own_balance_and_history(client):
     # Someone whose money has not moved yet sees an empty account rather than an error.
     assert (await client.get("/api/v1/accounts/owner/balance", headers=auth("owner"))).json()["balance_cents"] == 0
     assert (await client.get("/api/v1/accounts/owner/transactions", headers=auth("owner"))).json()["total"] == 0
+
+
+def admin_service_api(reports: list, status: int = 201, fail: bool = False) -> httpx.MockTransport:
+    """Stands in for admin_service's POST /internal/audit-logs."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if fail:
+            raise httpx.ConnectError("admin_service is down")
+        assert request.url.path == "/internal/audit-logs"
+        reports.append((request.headers["x-internal-key"], json.loads(request.content)))
+        return httpx.Response(status)
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.asyncio
+async def test_an_admin_refund_is_reported_to_the_audit_log(client):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports)
+    )
+    pid = await paid_by_razorpay(client, "key-0030")
+    origin = {"X-Real-IP": "203.0.113.9", "User-Agent": "AdminDashboard/2.0"}
+    refund = await client.post(
+        f"/api/v1/payments/{pid}/refund",
+        json={"amount_cents": 10_000, "reason": "arrived late"},
+        headers={**auth("ops", "admin"), **origin},
+    )
+    assert refund.status_code == 200
+
+    assert reports == [
+        (
+            "audit-key",
+            {
+                "admin_id": "ops",
+                "action": "refund_payment",
+                "resource_type": "payment",
+                "resource_id": pid,
+                "old_values": None,
+                "new_values": {
+                    "refund_id": refund.json()["id"],
+                    "amount_cents": 10_000,
+                    "currency": "INR",
+                    "reason": "arrived late",
+                    "status": "PROCESSED",
+                    "payment_status": "PARTIALLY_REFUNDED",
+                },
+                "ip_address": "203.0.113.9",
+                "user_agent": "AdminDashboard/2.0",
+                "service": "payment_service",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_refused_refund_is_not_reported(client):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports)
+    )
+    pid = await paid_by_razorpay(client, "key-0031")
+    too_much = {"amount_cents": 10**9, "reason": "x"}
+    assert (
+        await client.post(f"/api/v1/payments/{pid}/refund", json=too_much, headers=auth("ops", "admin"))
+    ).status_code == 400
+    assert reports == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("broken", [{"status": 500}, {"fail": True}])
+async def test_a_failing_admin_service_never_stops_a_refund(client, broken):
+    reports: list = []
+    app.dependency_overrides[get_audit_reporter] = lambda: AuditReporter(
+        "http://admin", "audit-key", transport=admin_service_api(reports, **broken)
+    )
+    pid = await paid_by_razorpay(client, "key-0032")
+    refund = await client.post(
+        f"/api/v1/payments/{pid}/refund", json={"amount_cents": 49_900, "reason": "x"}, headers=auth("ops", "admin")
+    )
+    assert (refund.status_code, refund.json()["status"]) == (200, "PROCESSED")
+    assert (await client.get(f"/api/v1/payments/{pid}", headers=auth("ops", "admin"))).json()["status"] == "REFUNDED"

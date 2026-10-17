@@ -1,10 +1,22 @@
+import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import risk
@@ -86,10 +98,25 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+def request_hash(booking_data: BookingCreate) -> str:
+    """Identifies what was asked for, so a key reused for a different booking can be told apart from a retry."""
+    body = json.dumps(booking_data.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(body.encode()).hexdigest()[:32]
+
+
+def replay(booking, fingerprint: str, response: Response):
+    """The booking an earlier request with this key made, as long as this request asks for the same thing."""
+    if booking.request_hash != fingerprint:
+        raise HTTPException(status_code=422, detail="This Idempotency-Key was already used for a different booking")
+    response.status_code = 200
+    return booking
+
+
 @router.post("/bookings", response_model=BookingResponse, status_code=201)
 async def create_booking(
     booking_data: BookingCreate,
     background: BackgroundTasks,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
@@ -97,8 +124,19 @@ async def create_booking(
     notifier: Notifier = Depends(get_notifier),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     price_with_coupon: CouponPricer = Depends(get_coupon_pricer),
+    # Sent by the app with every try of one booking, so a double tap or a retry after a lost response
+    # gets the booking already made rather than a second one.
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
 ):
     customer_id = current_user.get("sub")
+    fingerprint = None
+    if idempotency_key:
+        fingerprint = request_hash(booking_data)
+        await booking_service.hold_idempotency_key(db, customer_id, idempotency_key)
+        earlier = await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
+        if earlier is not None:
+            # Already priced, notified and paid for with its coupon: none of that happens twice.
+            return replay(earlier, fingerprint, response)
     # Price, shop and duration come from the catalogue, never from the client.
     listing = await lookup_service(booking_data.service_id)
     if listing is None:
@@ -141,10 +179,21 @@ async def create_booking(
     if fee:
         meta["service_mode_fee"] = fee
     metadata = json.dumps(meta) if meta else None
-    booking = await booking_service.create_booking(db, customer_id, booking_data, metadata)
-    # Commit first: the background task delays the session's own commit, and the people notified
-    # (and the caller's next request) must already see the change.
-    await db.commit()
+    try:
+        booking = await booking_service.create_booking(
+            db, customer_id, booking_data, metadata, idempotency_key, fingerprint
+        )
+        # Commit first: the background task delays the session's own commit, and the people notified
+        # (and the caller's next request) must already see the change.
+        await db.commit()
+    except IntegrityError:
+        # Another request with the same key got there first (without the lock): its booking stands.
+        await db.rollback()
+        earlier = idempotency_key and await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
+        if not earlier:
+            raise
+        log.info("booking_idempotency_race_lost", booking_id=earlier.id)
+        return replay(earlier, fingerprint, response)
     background.add_task(
         notify_booking,
         notifier,

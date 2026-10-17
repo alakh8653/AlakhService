@@ -1,8 +1,9 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.exceptions import DisputeNotFoundError
 from app.core.fsm import DisputeStatus
 from app.database import get_db
@@ -78,34 +79,81 @@ async def get_dispute(
     return await _visible_dispute(db, dispute_id, caller, booking_check)
 
 
-@router.post("/disputes/{dispute_id}/review", response_model=DisputeResponse, dependencies=[Depends(require_admin)])
-async def review_dispute(dispute_id: str, db: AsyncSession = Depends(get_db)):
+async def _change_status(
+    db: AsyncSession,
+    dispute_id: str,
+    to_status: DisputeStatus,
+    resolution: Optional[str],
+    caller: Caller,
+    origin: Origin,
+    audit: AuditReporter,
+    background: BackgroundTasks,
+):
+    """Moves the dispute on as an admin and records who did it in admin_service's audit log."""
     try:
-        return await dispute_service.transition(db, dispute_id, "UNDER_REVIEW")
+        from_status = (await dispute_service.get_dispute(db, dispute_id)).status
+        if to_status == DisputeStatus.RESOLVED:
+            dispute = await dispute_service.resolve(db, dispute_id, resolution)
+        else:
+            dispute = await dispute_service.transition(db, dispute_id, to_status)
     except DisputeNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    await db.commit()  # only a change that happened is reported
+    new_values = {"status": DisputeStatus(dispute.status).value}
+    if resolution is not None:
+        new_values["resolution"] = resolution
+    background.add_task(
+        audit.record,
+        caller.user_id,
+        "resolve_dispute" if to_status == DisputeStatus.RESOLVED else "update_dispute_status",
+        "dispute",
+        dispute.id,
+        origin,
+        old_values={"status": DisputeStatus(from_status).value},
+        new_values=new_values,
+    )
+    return dispute
 
 
-@router.post("/disputes/{dispute_id}/escalate", response_model=DisputeResponse, dependencies=[Depends(require_admin)])
-async def escalate_dispute(dispute_id: str, db: AsyncSession = Depends(get_db)):
-    try:
-        return await dispute_service.transition(db, dispute_id, "ESCALATED")
-    except DisputeNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+@router.post("/disputes/{dispute_id}/review", response_model=DisputeResponse)
+async def review_dispute(
+    dispute_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+    origin: Origin = Depends(request_origin),
+    audit: AuditReporter = Depends(get_audit_reporter),
+):
+    return await _change_status(db, dispute_id, DisputeStatus.UNDER_REVIEW, None, caller, origin, audit, background)
 
 
-@router.post("/disputes/{dispute_id}/resolve", response_model=DisputeResponse, dependencies=[Depends(require_admin)])
-async def resolve_dispute(dispute_id: str, data: DisputeResolve, db: AsyncSession = Depends(get_db)):
-    try:
-        return await dispute_service.resolve(db, dispute_id, data.resolution)
-    except DisputeNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+@router.post("/disputes/{dispute_id}/escalate", response_model=DisputeResponse)
+async def escalate_dispute(
+    dispute_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+    origin: Origin = Depends(request_origin),
+    audit: AuditReporter = Depends(get_audit_reporter),
+):
+    return await _change_status(db, dispute_id, DisputeStatus.ESCALATED, None, caller, origin, audit, background)
+
+
+@router.post("/disputes/{dispute_id}/resolve", response_model=DisputeResponse)
+async def resolve_dispute(
+    dispute_id: str,
+    data: DisputeResolve,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+    origin: Origin = Depends(request_origin),
+    audit: AuditReporter = Depends(get_audit_reporter),
+):
+    return await _change_status(
+        db, dispute_id, DisputeStatus.RESOLVED, data.resolution, caller, origin, audit, background
+    )
 
 
 @router.post("/disputes/{dispute_id}/messages", response_model=DisputeMessageResponse, status_code=201)

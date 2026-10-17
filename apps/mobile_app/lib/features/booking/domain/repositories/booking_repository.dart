@@ -10,6 +10,7 @@ abstract class BookingRepository {
     String? notes,
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
+    String? idempotencyKey,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

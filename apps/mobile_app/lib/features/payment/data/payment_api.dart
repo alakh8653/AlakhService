@@ -1,10 +1,9 @@
-import 'dart:math';
-
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_errors.dart';
+import '../../../core/network/idempotency.dart' as idempotency;
 
 /// The order the server opened at the payment gateway, for the app's checkout to pay.
 class GatewayCheckout {
@@ -50,10 +49,7 @@ class PaymentApi {
   PaymentApi(this.apiClient);
 
   /// A key that makes retries of the same payment attempt safe.
-  static String newIdempotencyKey() {
-    final random = Random.secure();
-    return List.generate(24, (_) => random.nextInt(16).toRadixString(16)).join();
-  }
+  static String newIdempotencyKey() => idempotency.newIdempotencyKey(length: 24);
 
   Future<PaymentResult> payForBooking({
     required String bookingId,

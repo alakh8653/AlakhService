@@ -16,6 +16,7 @@ class CreateBookingUseCase {
       notes: params.notes,
       couponCode: params.couponCode,
       delivery: params.delivery,
+      idempotencyKey: params.idempotencyKey,
     );
   }
 }
@@ -28,6 +29,9 @@ class CreateBookingParams {
   final String? couponCode;
   final BookingDelivery delivery;
 
+  /// The same for every try of one booking, so a retry never books twice.
+  final String? idempotencyKey;
+
   const CreateBookingParams({
     required this.serviceId,
     required this.scheduledAt,
@@ -35,5 +39,6 @@ class CreateBookingParams {
     this.notes,
     this.couponCode,
     this.delivery = BookingDelivery.atShop,
+    this.idempotencyKey,
   });
 }

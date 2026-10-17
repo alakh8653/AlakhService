@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
+import '../../../../core/network/idempotency.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -55,6 +57,11 @@ class _BookingPageState extends State<BookingPage> {
   bool _checkingCoupon = false;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  // One key per booking attempt. Tapping again after an error sends the same request with the same key,
+  // so if the first try did reach the server it hands back that booking instead of making a second one;
+  // changing any detail is a new attempt with a new key.
+  String? _attemptKey;
+  List<Object?>? _attemptDetails;
 
   @override
   void initState() {
@@ -151,22 +158,30 @@ class _BookingPageState extends State<BookingPage> {
         _selectedTime!.hour,
         _selectedTime!.minute,
       );
+      // At the shop nobody comes to the customer, so no address goes with it.
+      final address = _needsAddress ? _address!.oneLine : '';
+      final notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
+      // Only a code that checked out is sent; the server applies it to the catalogue price.
+      final couponCode = (_coupon?.isValid ?? false) ? _coupon!.code : null;
+      final delivery = BookingDelivery(
+        mode: _mode,
+        addressId: _needsAddress ? _address!.id : null,
+        itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
+      );
+      final details = <Object?>[scheduledAt, address, notes, couponCode, delivery];
+      if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
+        _attemptKey = newIdempotencyKey();
+        _attemptDetails = details;
+      }
       context.read<BookingBloc>().add(
             CreateBookingRequested(
               serviceId: widget.serviceId,
               scheduledAt: scheduledAt,
-              // At the shop nobody comes to the customer, so no address goes with it.
-              address: _needsAddress ? _address!.oneLine : '',
-              notes: _notesController.text.trim().isEmpty
-                  ? null
-                  : _notesController.text.trim(),
-              // Only a code that checked out is sent; the server applies it to the catalogue price.
-              couponCode: (_coupon?.isValid ?? false) ? _coupon!.code : null,
-              delivery: BookingDelivery(
-                mode: _mode,
-                addressId: _needsAddress ? _address!.id : null,
-                itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
-              ),
+              address: address,
+              notes: notes,
+              couponCode: couponCode,
+              delivery: delivery,
+              idempotencyKey: _attemptKey,
             ),
           );
     }

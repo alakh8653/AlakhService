@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from fastapi.websockets import WebSocketDisconnect
 from httpx import ASGITransport, AsyncClient
 from jose import jwt
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
@@ -880,3 +881,68 @@ async def test_watchers_whose_connection_died_are_dropped():
     assert hub.active_connections["bk-1"] == [live]
     hub.disconnect("bk-1", live)
     assert hub.active_connections == {}
+
+
+def as_stored(body: dict) -> dict:
+    """The booking with its times as instants (SQLite returns them without a zone; PostgreSQL keeps it)."""
+
+    def instant(value: str) -> datetime:
+        at = datetime.fromisoformat(value)
+        return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+    times = ("scheduled_at", "ready_by", "created_at", "updated_at")
+    return {k: instant(v) if k in times and v else v for k, v in body.items()}
+
+
+async def bookings_with_key(key):
+    async with SESSIONS["factory"]() as db:
+        return (await db.execute(select(Booking).where(Booking.idempotency_key == key))).scalars().all()
+
+
+@pytest.mark.asyncio
+async def test_a_retried_booking_request_returns_the_booking_already_made(client):
+    body = {"service_id": "svc-a", "scheduled_at": "2030-10-12T05:00:00Z", "coupon_code": "WELCOME10"}
+    retry = {**auth("c1"), "Idempotency-Key": "attempt-1"}
+    first = await client.post("/api/v1/bookings", json=body, headers=retry)
+    assert first.status_code == 201
+    again = await client.post("/api/v1/bookings", json=body, headers=retry)
+
+    # Same booking, same body; not priced, not announced and its coupon not used up a second time.
+    assert (again.status_code, as_stored(again.json())) == (200, as_stored(first.json()))
+    assert PRICED == [("c1", 49900, "WELCOME10")]
+    assert [e for e, _, d in SENT if d["booking_id"] == first.json()["id"]] == ["booking.created"]
+    assert len(SENT) == 1
+    assert len(await bookings_with_key("attempt-1")) == 1
+
+    # Without a key every request is a new booking (here refused: the coupon is used up).
+    assert (await client.post("/api/v1/bookings", json=body, headers=auth("c1"))).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_an_idempotency_key_cannot_be_reused_for_a_different_booking(client):
+    body = {"service_id": "svc-a", "scheduled_at": "2030-10-12T05:00:00Z"}
+    key = {"Idempotency-Key": "attempt-2"}
+    first = await client.post("/api/v1/bookings", json=body, headers={**auth("c1"), **key})
+    assert first.status_code == 201
+
+    other_time = {**body, "scheduled_at": "2030-10-13T05:00:00Z"}
+    reused = await client.post("/api/v1/bookings", json=other_time, headers={**auth("c1"), **key})
+    assert reused.status_code == 422
+    assert "Idempotency-Key" in reused.json()["detail"]
+    # Keys belong to one customer: someone else's request with the same key is their own booking.
+    theirs = await client.post("/api/v1/bookings", json=body, headers={**auth("c2"), **key})
+    assert theirs.status_code == 201
+    assert theirs.json()["id"] != first.json()["id"]
+    assert {b.customer_id for b in await bookings_with_key("attempt-2")} == {"c1", "c2"}
+
+
+@pytest.mark.asyncio
+async def test_idempotency_keys_are_short_plain_tokens(client):
+    body = {"service_id": "svc-a", "scheduled_at": "2030-10-12T05:00:00Z"}
+    for bad in ("x" * 129, "has space", "semi;colon", "slash/es", ""):
+        resp = await client.post("/api/v1/bookings", json=body, headers={**auth("c1"), "Idempotency-Key": bad})
+        assert resp.status_code == 422, bad
+    ok = await client.post(
+        "/api/v1/bookings", json=body, headers={**auth("c1"), "Idempotency-Key": "A-z_9" * 25 + "abc"}
+    )
+    assert ok.status_code == 201

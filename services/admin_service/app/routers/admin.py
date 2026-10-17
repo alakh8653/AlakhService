@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.accounts import AccountSwitch, get_account_switch
+from app.core.origin import Origin, request_origin
 from app.database import get_db
 from app.dependencies import Caller, require_admin
 from app.schemas.admin import (
@@ -37,6 +38,7 @@ async def ban_user(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
+    origin: Origin = Depends(request_origin),
 ):
     """Records the ban, then deactivates the account in auth_service (no sign-in, sessions ended).
 
@@ -46,7 +48,7 @@ async def ban_user(
         raise HTTPException(status_code=400, detail="You cannot ban yourself")
     # Audit entries name the admin from the token, never one the client supplies.
     data = data.model_copy(update={"banned_by": caller.user_id})
-    result = await admin_service.ban_user(db, user_id, data)
+    result = await admin_service.ban_user(db, user_id, data, origin)
     await switch(user_id, False)
     return result
 
@@ -58,8 +60,9 @@ async def unban_user(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
+    origin: Origin = Depends(request_origin),
 ):
-    result = await admin_service.unban_user(db, user_id, caller.user_id)
+    result = await admin_service.unban_user(db, user_id, caller.user_id, origin)
     await switch(user_id, True)
     return result
 
@@ -68,11 +71,14 @@ async def unban_user(
 async def get_audit_logs(
     admin_id: Optional[str] = None,
     action: Optional[str] = None,
+    service: Optional[str] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
-    return await admin_service.get_audit_logs(db, admin_id=admin_id, action=action, skip=skip, limit=limit)
+    return await admin_service.get_audit_logs(
+        db, admin_id=admin_id, action=action, service=service, skip=skip, limit=limit
+    )
 
 
 @router.get("/system-config", response_model=List[SystemConfigResponse])
@@ -82,10 +88,14 @@ async def get_system_configs(db: AsyncSession = Depends(get_db)):
 
 @router.put("/system-config/{key}", response_model=SystemConfigResponse)
 async def update_system_config(
-    key: str, data: SystemConfigUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_admin)
+    key: str,
+    data: SystemConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_admin),
+    origin: Origin = Depends(request_origin),
 ):
     data = data.model_copy(update={"updated_by": caller.user_id})
-    return await admin_service.update_system_config(db, key, data)
+    return await admin_service.update_system_config(db, key, data, origin)
 
 
 @router.post("/admin/actions/bulk-update")
@@ -94,6 +104,7 @@ async def bulk_update(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
+    origin: Origin = Depends(request_origin),
 ):
     """Bans or unbans several accounts; only those auth_service actually switched are recorded."""
     failed = []
@@ -110,5 +121,5 @@ async def bulk_update(
                 failed.append({"status": "failed", "user_id": user_id, "detail": e.detail})
         data = data.model_copy(update={"user_ids": applied})
     data = data.model_copy(update={"admin_id": caller.user_id})
-    result = await admin_service.bulk_update(db, data)
+    result = await admin_service.bulk_update(db, data, origin)
     return {"processed": result["processed"], "results": result["results"] + failed}

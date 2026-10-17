@@ -89,6 +89,37 @@ services:
       timeout: 5s
       retries: 5
 
+  # Scheduled, verified backups of every database (scripts/backup; see docs/DISASTER_RECOVERY.md).
+  backup:
+    image: postgres:16-alpine
+    container_name: alakh_backup
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-alakh}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-alakhpassword}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_MIN_KEEP: ${BACKUP_MIN_KEEP:-3}
+      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
+    entrypoint: ["/scripts/schedule.sh"]
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    healthcheck:
+      # Healthy while the last verified backup is younger than two intervals.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /backups/.last_success 2>/dev/null || echo 0) )) -lt $$(( $${BACKUP_INTERVAL_HOURS:-24} * 7200 ))"]
+      interval: 5m
+      timeout: 10s
+      start_period: 15m
+      retries: 1
+
   # ---------------------------------------------------------------------------
   # Microservices (each listens on 8000 inside the network)
   # ---------------------------------------------------------------------------

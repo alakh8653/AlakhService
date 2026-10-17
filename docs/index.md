@@ -11,3 +11,7 @@ This site was generated to satisfy the GitHub Pages build for the repository.
 
 The project contains the application services and web/mobile apps for AlakhService.
 
+
+## Operations
+
+- [Backups and disaster recovery](DISASTER_RECOVERY.md)

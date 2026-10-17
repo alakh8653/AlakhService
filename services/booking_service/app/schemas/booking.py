@@ -1,7 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# How far in the past a new booking may start, so a client clock running slightly behind is not refused.
+SCHEDULE_CLOCK_SKEW = timedelta(minutes=5)
 
 
 class BookingCreate(BaseModel):
@@ -22,6 +25,14 @@ class BookingCreate(BaseModel):
     service_mode: Literal["AT_SHOP", "AT_HOME", "PICKUP_DROP"] = "AT_SHOP"
     # What is being collected and what is wrong with it (pickup & drop).
     item_description: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def validate_scheduled_at(cls, v: datetime) -> datetime:
+        at = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+        if at < datetime.now(timezone.utc) - SCHEDULE_CLOCK_SKEW:
+            raise ValueError("scheduled_at must not be in the past")
+        return v
 
     @field_validator("duration_minutes")
     @classmethod

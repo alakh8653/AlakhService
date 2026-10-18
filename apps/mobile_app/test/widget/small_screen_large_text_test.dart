@@ -15,6 +15,7 @@ import 'package:alakh_service/features/payment/data/payment_api.dart';
 import 'package:alakh_service/features/payment/presentation/pages/payment_page.dart';
 import 'package:alakh_service/features/profile/data/address_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
+import 'package:alakh_service/features/reviews/data/reviews_api.dart';
 import 'package:alakh_service/features/services/domain/entities/service_entity.dart';
 import 'package:alakh_service/features/services/presentation/pages/service_detail_page.dart';
 import 'package:alakh_service/shared/widgets/service_card.dart';
@@ -53,6 +54,25 @@ FakeAdapter backend() => FakeAdapter((r) {
         return (status: 200, body: [
           {'id': 'a1', 'label': 'Home', 'street': 'Flat 402, Sai Krupa Apartments, Near Shivaji Chowk', 'city': 'Pimpri-Chinchwad', 'state': 'Maharashtra', 'postal_code': '411018', 'is_default': true},
         ]);
+      }
+      if (r.path.endsWith('/reviews/summary')) {
+        return (status: 200, body: {
+          'average_rating': 4.6,
+          'review_count': 1280,
+          'distribution': [for (final s in [5, 4, 3, 2, 1]) {'stars': s, 'count': s * 100}],
+        });
+      }
+      if (r.path.endsWith('/reviews')) {
+        return (status: 200, body: {
+          'total': 1280,
+          'items': [
+            {
+              'id': 'r1', 'rating': 4, 'reviewer_name': 'Venkataraghavan S.', 'created_at': '2026-10-12T09:30:00Z',
+              'comment': 'Screen replaced within the promised two hours, and they cleaned the keyboard too.',
+              'reply': {'text': 'Thank you! Do come back for the battery check.', 'created_at': '2026-10-13T09:30:00Z', 'updated_at': '2026-10-13T09:30:00Z'},
+            },
+          ],
+        });
       }
       if (r.path.contains('/shops/')) return (status: 200, body: {'name': 'Shree Ganesh Hair & Beauty Studio', 'address': '12 MG Road', 'city': 'Pune'});
       if (r.path.endsWith('/bookings')) {
@@ -111,8 +131,10 @@ void main() {
 
   testWidgets('service details and card fit', (tester) async {
     final c = client(backend());
-    await smallPhoneLargeText(tester, ServiceDetailPage(service: longService, shopApi: ShopLocationApi(c), queueApi: QueueApi(c)));
+    await smallPhoneLargeText(tester, ServiceDetailPage(service: longService, shopApi: ShopLocationApi(c), queueApi: QueueApi(c), reviewsApi: ReviewsApi(c)));
     expect(find.text('Book Now'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('See all reviews (1280)'), 200);
+    expect(find.text('Venkataraghavan S.'), findsOneWidget);
     await smallPhoneLargeText(tester, const Scaffold(body: ServiceCard(service: longService)));
   });
 

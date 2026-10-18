@@ -16,14 +16,17 @@ import '../../../directions/data/travel_options.dart';
 import '../../../directions/presentation/how_to_get_there_sheet.dart';
 import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
+import '../../../reviews/data/reviews_api.dart';
+import '../../../reviews/presentation/reviews_widgets.dart';
 import '../../domain/entities/service_entity.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final ServiceEntity service;
   final ShopLocationApi? shopApi;
   final QueueApi? queueApi;
+  final ReviewsApi? reviewsApi;
 
-  const ServiceDetailPage({super.key, required this.service, this.shopApi, this.queueApi});
+  const ServiceDetailPage({super.key, required this.service, this.shopApi, this.queueApi, this.reviewsApi});
 
   @override
   State<ServiceDetailPage> createState() => _ServiceDetailPageState();
@@ -35,6 +38,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   bool _joining = false;
   // Who provides it: the shop's name and area, so the customer knows where they are booking.
   Destination? _shop;
+  // What customers say about the shop, for choosing it.
+  late final ReviewsApi? _reviewsApi = service.shopId == null ? null : widget.reviewsApi ?? sl<ReviewsApi>();
+  RatingSummary? _summary;
 
   ServiceEntity get service => widget.service;
 
@@ -49,6 +55,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     if (shopId != null) {
       (widget.shopApi ?? sl<ShopLocationApi>()).destination(shopId).then((shop) {
         if (mounted) setState(() => _shop = shop);
+      }).catchError((Object _) {});
+      _reviewsApi!.summary(shopId).then((summary) {
+        if (mounted) setState(() => _summary = summary);
       }).catchError((Object _) {});
     }
   }
@@ -106,6 +115,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   Widget build(BuildContext context) {
     final shop = _shop;
     final atShop = service.serviceModes.contains(ServiceMode.atShop);
+    final rating = _summary?.average ?? service.rating;
+    final reviewCount = _summary?.count ?? service.reviewCount;
     return Scaffold(
       bottomNavigationBar: Material(
         color: AppColors.surface,
@@ -184,9 +195,18 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     children: [
                       if (service.durationMinutes != null && service.durationMinutes! > 0)
                         _Fact(icon: Icons.schedule, text: 'About ${service.durationMinutes} min'),
-                      service.reviewCount > 0
-                          ? _Fact(icon: Icons.star, iconColor: AppColors.starFilled, text: '${service.rating.toStringAsFixed(1)} (${service.reviewCount} reviews)')
-                          : const _Fact(icon: Icons.star_border, text: 'New, no reviews yet'),
+                      if (reviewCount > 0)
+                        Semantics(
+                          label: 'Rated ${rating.toStringAsFixed(1)} out of 5 from ${reviewsCount(reviewCount)}',
+                          excludeSemantics: true,
+                          child: _Fact(
+                            icon: Icons.star,
+                            iconColor: AppColors.starFilled,
+                            text: '${rating.toStringAsFixed(1)} (${reviewsCount(reviewCount)})',
+                          ),
+                        )
+                      else
+                        const _Fact(icon: Icons.star_border, text: 'New, no reviews yet'),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -228,6 +248,10 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                           .map((t) => Chip(label: Text(t, style: AppTextStyles.caption), backgroundColor: AppColors.primaryLight))
                           .toList(),
                     ),
+                  ],
+                  if (_reviewsApi != null && _summary != null) ...[
+                    const SizedBox(height: 24),
+                    ReviewsSection(shopId: service.shopId!, api: _reviewsApi!, summary: _summary, shopName: shop?.name),
                   ],
                   const SizedBox(height: 24),
                   if (_openQueueId != null) ...[

@@ -3,6 +3,7 @@ import 'package:alakh_service/core/network/network_info.dart';
 import 'package:alakh_service/core/network/token_store.dart';
 import 'package:alakh_service/features/directions/data/shop_location_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
+import 'package:alakh_service/features/reviews/data/reviews_api.dart';
 import 'package:alakh_service/features/services/data/datasources/service_remote_datasource.dart';
 import 'package:alakh_service/features/services/data/repositories/service_repository_impl.dart';
 import 'package:alakh_service/features/services/domain/entities/service_entity.dart';
@@ -111,7 +112,7 @@ void main() {
       shopId: 'shop-1', serviceModes: [ServiceMode.atShop, ServiceMode.pickupDrop], pickupFee: 99,
     );
     await tester.pumpWidget(MaterialApp(
-      home: ServiceDetailPage(service: service, shopApi: ShopLocationApi(client), queueApi: QueueApi(client)),
+      home: ServiceDetailPage(service: service, shopApi: ShopLocationApi(client), queueApi: QueueApi(client), reviewsApi: ReviewsApi(client)),
     ));
     await tester.pumpAndSettle();
 

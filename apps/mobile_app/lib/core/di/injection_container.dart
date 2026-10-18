@@ -27,6 +27,7 @@ import '../../features/profile/data/address_api.dart';
 import '../../features/profile/data/profile_api.dart';
 import '../../features/directions/data/shop_location_api.dart';
 import '../../features/queue/data/queue_api.dart';
+import '../../features/reviews/data/reviews_api.dart';
 import '../../features/services/data/datasources/service_remote_datasource.dart';
 import '../../features/services/data/repositories/service_repository_impl.dart';
 import '../../features/services/domain/repositories/service_repository.dart';
@@ -84,7 +85,8 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => GetServicesUseCase(sl()));
   sl.registerLazySingleton(() => SearchServicesUseCase(sl()));
   sl.registerLazySingleton<ServiceRepository>(() => ServiceRepositoryImpl(remoteDataSource: sl(), networkInfo: sl()));
-  sl.registerLazySingleton<ServiceRemoteDataSource>(() => ServiceRemoteDataSourceImpl(apiClient: sl()));
+  sl.registerLazySingleton<ServiceRemoteDataSource>(() => ServiceRemoteDataSourceImpl(apiClient: sl(), ratings: sl()));
+  sl.registerLazySingleton(() => ReviewsApi(sl()));
 
   // Bookings
   sl.registerFactory(

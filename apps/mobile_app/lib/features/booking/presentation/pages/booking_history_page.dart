@@ -109,13 +109,22 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
   }
 
   Future<void> _rate(Booking booking) async {
-    final rating = await showDialog<double>(context: context, builder: (_) => const _RatingDialog());
-    if (rating == null || !mounted) return;
+    final result = await showDialog<(int, String?)>(context: context, builder: (_) => const _RatingDialog());
+    if (result == null || !mounted) return;
+    final (stars, comment) = result;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await (widget.ratingApi ?? sl<RatingApi>()).rate(shopId: booking.shopId!, bookingId: booking.id, rating: rating);
-      if (mounted) setState(() => _rated[booking.id] = rating.round());
-      messenger.showSnackBar(const SnackBar(content: Text('Thanks for rating!'), backgroundColor: AppColors.success));
+      await (widget.ratingApi ?? sl<RatingApi>()).rate(
+        shopId: booking.shopId!,
+        bookingId: booking.id,
+        rating: stars.toDouble(),
+        comment: comment,
+      );
+      if (mounted) setState(() => _rated[booking.id] = stars);
+      messenger.showSnackBar(SnackBar(
+        content: Text(comment == null ? 'Thanks for rating!' : 'Thanks for your review! It helps others choose.'),
+        backgroundColor: AppColors.success,
+      ));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
     }
@@ -446,38 +455,69 @@ class _RatingDialog extends StatefulWidget {
   State<_RatingDialog> createState() => _RatingDialogState();
 }
 
+/// Stars and an optional written review; pops with (stars, review or null).
 class _RatingDialogState extends State<_RatingDialog> {
   int _stars = 5;
+  final _review = TextEditingController();
 
   static const _words = ['Poor', 'Below average', 'Okay', 'Good', 'Excellent'];
+
+  @override
+  void dispose() {
+    _review.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('How was it?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FittedBox(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(
-                5,
-                (i) => IconButton(
-                  tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
-                  isSelected: i < _stars,
-                  onPressed: () => setState(() => _stars = i + 1),
-                  icon: Icon(i < _stars ? Icons.star : Icons.star_border, color: AppColors.starFilled, size: 32),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  5,
+                  (i) => IconButton(
+                    tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
+                    isSelected: i < _stars,
+                    onPressed: () => setState(() => _stars = i + 1),
+                    icon: Icon(i < _stars ? Icons.star : Icons.star_border, color: AppColors.starFilled, size: 32),
+                  ),
                 ),
               ),
             ),
-          ),
-          Text(_words[_stars - 1], style: AppTextStyles.subtitle2),
-        ],
+            Text(_words[_stars - 1], style: AppTextStyles.subtitle2),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _review,
+              maxLines: 4,
+              minLines: 2,
+              maxLength: 1000,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Write a review (optional)',
+                hintText: 'What went well, what could be better?',
+                helperText: 'Shown with your first name and last initial',
+                helperMaxLines: 2,
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Not now')),
-        TextButton(onPressed: () => Navigator.pop(context, _stars.toDouble()), child: const Text('Submit')),
+        TextButton(
+          onPressed: () {
+            final review = _review.text.trim();
+            Navigator.pop(context, (_stars, review.isEmpty ? null : review));
+          },
+          child: const Text('Submit'),
+        ),
       ],
     );
   }

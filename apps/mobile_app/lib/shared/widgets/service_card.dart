@@ -3,6 +3,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../features/services/domain/entities/service_entity.dart';
 import '../utils/format.dart';
+import 'rating_widget.dart';
 
 /// "At shop · Home visit · Pickup & drop": how a service can be had, for cards and details.
 String serviceModesLabel(List<String> modes) => [
@@ -105,16 +106,13 @@ class ServiceCard extends StatelessWidget {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            if (service.reviewCount > 0) ...[
-                              const Icon(Icons.star, size: 14, color: AppColors.starFilled),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${service.rating.toStringAsFixed(1)} (${service.reviewCount})',
-                                style: AppTextStyles.caption,
+                            Expanded(
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: RatingBadge(rating: service.rating, count: service.reviewCount),
                               ),
-                            ] else
-                              Text('New', style: AppTextStyles.caption.copyWith(color: AppColors.success)),
-                            const Spacer(),
+                            ),
+                            const SizedBox(width: 8),
                             Text(
                               rupees(service.basePrice),
                               style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary),

@@ -38,6 +38,10 @@ class ApiConstants {
   // Shops (shop_service)
   static String shop(String shopId) => '$apiVersion/shops/$shopId';
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
+  // Reviews (public): ratings for several shops at once, and one shop's summary and reviews.
+  static const String shopRatings = '$apiVersion/shops/ratings';
+  static String shopReviews(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/reviews';
+  static String reviewSummary(String shopId) => '${shopReviews(shopId)}/summary';
 
   // Profile (user_service)
   static const String profile = '$apiVersion/users/me/profile';

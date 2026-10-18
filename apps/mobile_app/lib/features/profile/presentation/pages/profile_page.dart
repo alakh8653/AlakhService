@@ -5,6 +5,8 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
+import '../../../../shared/utils/helpers.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -45,6 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Log out?'),
+        content: const Text("You'll need to sign in again to book or see your bookings."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Log out')),
@@ -79,14 +82,16 @@ class _ProfilePageState extends State<ProfilePage> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const CircleAvatar(
-              radius: 52,
+            CircleAvatar(
+              radius: 44,
               backgroundColor: AppColors.primaryLight,
-              child: Icon(Icons.person, size: 52, color: AppColors.primary),
+              child: _name.trim().isEmpty
+                  ? const Icon(Icons.person, size: 44, color: AppColors.primary)
+                  : Text(AppHelpers.initials(_name), style: AppTextStyles.heading2.copyWith(color: AppColors.primary)),
             ),
             const SizedBox(height: 12),
             Text(_name, style: AppTextStyles.heading3),
-            if (user.phone.isNotEmpty) Text(user.phone, style: AppTextStyles.body2),
+            if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2),
             if (user.email != null) Text(user.email!, style: AppTextStyles.body2),
             const SizedBox(height: 24),
             _ProfileMenuItem(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _editProfile),
@@ -103,7 +108,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
             CustomButton(
-              label: 'Logout',
+              label: 'Log out',
               variant: ButtonVariant.secondary,
               onPressed: _confirmLogout,
             ),
@@ -150,6 +155,7 @@ class _DeleteAccountDialog extends StatefulWidget {
 
 class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
   final _password = TextEditingController();
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -173,9 +179,17 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _password,
-            obscureText: true,
+            obscureText: _obscure,
+            autofillHints: const [AutofillHints.password],
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(labelText: 'Password'),
+            decoration: InputDecoration(
+              labelText: 'Enter your password to confirm',
+              suffixIcon: IconButton(
+                tooltip: _obscure ? 'Show password' : 'Hide password',
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
           ),
         ],
       ),

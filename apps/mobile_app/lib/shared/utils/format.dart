@@ -29,3 +29,9 @@ String friendlyDay(DateTime day, {DateTime? now}) {
 String friendlyDateTime(DateTime time, {DateTime? now}) => '${friendlyDay(time, now: now)}, ${clockTime(time)}';
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// "+91 98765 43210" for an Indian E.164 number; anything else as given.
+String displayPhone(String phone) {
+  final m = RegExp(r'^\+91(\d{5})(\d{5})$').firstMatch(phone.replaceAll(' ', ''));
+  return m == null ? phone : '+91 ${m[1]} ${m[2]}';
+}

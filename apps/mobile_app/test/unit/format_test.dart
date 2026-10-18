@@ -10,6 +10,12 @@ void main() {
     expect(rupees(0), '₹0');
   });
 
+  test('Indian phone numbers are grouped for reading', () {
+    expect(displayPhone('+919876543210'), '+91 98765 43210');
+    expect(displayPhone('+14155550100'), '+14155550100');
+    expect(displayPhone(''), '');
+  });
+
   test('days read as Today / Tomorrow / a short date, times on the 12-hour clock', () {
     final now = DateTime(2026, 10, 18, 14);
     expect(friendlyDateTime(DateTime(2026, 10, 18, 15, 30), now: now), 'Today, 3:30 PM');

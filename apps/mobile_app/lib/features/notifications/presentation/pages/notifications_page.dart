@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/shell_navigation.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../shared/utils/format.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -44,6 +46,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
     );
+  }
+
+  /// Booking and payment news opens My Bookings, where the customer can act on it.
+  static bool _aboutBookings(AppNotification n) {
+    final text = '${n.title} ${n.body}'.toLowerCase();
+    return text.contains('booking') || text.contains('payment') || text.contains('refund') || text.contains('provider');
+  }
+
+  Future<void> _open(AppNotification n) async {
+    await _markRead(n);
+    if (mounted && _aboutBookings(n)) ShellNavigation.show(context, ShellTab.bookings);
   }
 
   Future<void> _markRead(AppNotification n) async {
@@ -101,10 +114,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   const Icon(Icons.notifications_off_outlined, size: 64, color: AppColors.textDisabled),
                   const SizedBox(height: 16),
                   Text(
-                    _error ?? 'No notifications',
+                    _error ?? 'No notifications yet',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.subtitle1,
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _error == null
+                        ? 'Booking updates, payment receipts and queue alerts will show up here.'
+                        : 'Check your connection and try again.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.body2,
+                  ),
+                  if (_error != null)
+                    Center(child: TextButton(onPressed: _load, child: const Text('Try again'))),
                 ],
               );
             }
@@ -113,7 +136,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
                 final n = items[index];
-                return _NotificationTile(item: n, icon: _iconFor(n), onTap: () => _markRead(n));
+                return _NotificationTile(item: n, icon: _iconFor(n), onTap: () => _open(n));
               },
             );
           },
@@ -135,7 +158,8 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inMinutes < 1) return 'now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return friendlyDay(time);
   }
 
   @override
@@ -158,7 +182,7 @@ class _NotificationTile extends StatelessWidget {
           fontWeight: item.isRead ? FontWeight.normal : FontWeight.w600,
         ),
       ),
-      subtitle: Text(item.body, style: AppTextStyles.caption, maxLines: 2),
+      subtitle: Text(item.body, style: AppTextStyles.caption, maxLines: 3, overflow: TextOverflow.ellipsis),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

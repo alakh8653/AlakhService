@@ -146,13 +146,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('Already have an account?', style: AppTextStyles.body2),
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Login')),
-                  ],
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Already have an account?', style: AppTextStyles.body2),
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Login')),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -83,9 +83,16 @@ class CustomTextField extends StatelessWidget {
             errorMaxLines: 2,
             counterText: maxLength == null ? null : '',
             suffixIcon: suffix,
-            prefixIcon: prefix,
-            prefixText: prefixText,
-            prefixStyle: AppTextStyles.body1,
+            // Shown always (prefixText would only appear once the field is focused), so "+91" is
+            // visible before typing.
+            prefixIcon: prefix ??
+                (prefixText == null
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 4),
+                        child: Text(prefixText!.trim(), style: AppTextStyles.body1),
+                      )),
+            prefixIconConstraints: prefixText == null ? null : const BoxConstraints(minWidth: 0, minHeight: 0),
           ),
         ),
       ],

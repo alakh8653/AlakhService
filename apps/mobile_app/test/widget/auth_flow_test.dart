@@ -151,7 +151,7 @@ void main() {
     await tester.tap(find.text('Register'));
     await tester.pumpAndSettle();
 
-    expect(find.text('+91 '), findsOneWidget);
+    expect(find.text('+91'), findsOneWidget); // visible before the field is focused
     expect(find.text('At least 8 characters, with a capital letter and a number'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).at(1), '12345');
     await tester.ensureVisible(find.text('Create account'));

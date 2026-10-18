@@ -11,6 +11,7 @@ import '../../features/auth/domain/usecases/session_usecases.dart';
 import '../../features/auth/domain/usecases/verify_otp_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
+import '../../features/booking/data/availability_api.dart';
 import '../../features/booking/data/datasources/booking_remote_datasource.dart';
 import '../../features/booking/data/coupon_api.dart';
 import '../../features/booking/data/dispute_api.dart';
@@ -29,6 +30,7 @@ import '../../features/directions/data/shop_location_api.dart';
 import '../../features/queue/data/queue_api.dart';
 import '../../features/reviews/data/reviews_api.dart';
 import '../../features/services/data/datasources/service_remote_datasource.dart';
+import '../../features/shops/data/shop_hours_api.dart';
 import '../../features/services/data/repositories/service_repository_impl.dart';
 import '../../features/services/domain/repositories/service_repository.dart';
 import '../../features/services/domain/usecases/get_services_usecase.dart';
@@ -114,4 +116,6 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => RatingApi(sl()));
   sl.registerLazySingleton(() => DisputeApi(sl()));
   sl.registerLazySingleton(() => CouponApi(sl()));
+  sl.registerLazySingleton(() => AvailabilityApi(sl()));
+  sl.registerLazySingleton(() => ShopHoursApi(sl()));
 }

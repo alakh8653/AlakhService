@@ -33,6 +33,8 @@ class ApiConstants {
   static String bookingStatus(String id) => '$bookings/$id/status';
   static const String assignedBookings = '$bookings/assigned';
   static const String disputes = '$apiVersion/disputes';
+  /// Bookable times of a service on a day (?service_id=&date=YYYY-MM-DD); public.
+  static const String availability = '$apiVersion/availability';
   static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
@@ -42,6 +44,7 @@ class ApiConstants {
   static const String shopRatings = '$apiVersion/shops/ratings';
   static String shopReviews(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/reviews';
   static String reviewSummary(String shopId) => '${shopReviews(shopId)}/summary';
+  static String shopHours(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/hours';
 
   // Profile (user_service)
   static const String profile = '$apiVersion/users/me/profile';

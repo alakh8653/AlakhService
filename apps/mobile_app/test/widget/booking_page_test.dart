@@ -1,5 +1,6 @@
 import 'package:alakh_service/app/shell_navigation.dart';
 import 'package:alakh_service/core/network/api_client.dart';
+import 'package:alakh_service/features/booking/data/availability_api.dart';
 import 'package:alakh_service/features/booking/data/coupon_api.dart';
 import 'package:alakh_service/core/network/network_info.dart';
 import 'package:alakh_service/core/network/token_store.dart';
@@ -22,11 +23,24 @@ class Online implements NetworkInfo {
   Future<bool> get isConnected async => true;
 }
 
-/// user_service has one saved address; booking_service accepts the booking (after [failFirst] tries
-/// that fail, as when the network drops).
-FakeAdapter server({int failFirst = 0}) {
+/// A day of a shop that hasn't published opening hours.
+Map<String, Object?> noHours(String date) => {'hours_configured': false, 'status': 'NOT_CONFIGURED', 'slots': <Object>[]};
+
+/// A day of a shop with hours: its free times ("HH:MM" India time to UTC start), or why there are none.
+Map<String, Object?> withHours({String status = 'AVAILABLE', Map<String, String> slots = const {}, String? note}) => {
+      'hours_configured': true,
+      'status': status,
+      'holiday_note': note,
+      'slots': [for (final MapEntry(:key, :value) in slots.entries) {'start': value, 'time': key, 'remaining': 1}],
+    };
+
+/// user_service has one saved address; booking_service lists [availability] for each date (YYYY-MM-DD)
+/// and accepts the booking (after [failFirst] tries that fail, as when the network drops).
+FakeAdapter server({int failFirst = 0, Map<String, Object?> Function(String date) availability = noHours}) {
   var bookingTries = 0;
-  return FakeAdapter((r) => r.path.endsWith('/addresses')
+  return FakeAdapter((r) => r.path.endsWith('/availability')
+    ? (status: 200, body: availability(r.queryParameters['date'] as String))
+    : r.path.endsWith('/addresses')
     ? (status: 200, body: [
         {'id': 'addr-1', 'label': 'Home', 'street': '12 MG Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411001', 'is_default': true},
       ])
@@ -53,7 +67,12 @@ List<Object?> keysSent(FakeAdapter adapter) =>
 /// 2 PM on a Sunday: today's slots from 2:30 PM, tomorrow is Monday 19 Oct.
 DateTime now() => DateTime(2026, 10, 18, 14);
 
-Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop, ServiceMode.pickupDrop], CouponApi? coupons}) {
+Widget page(
+  FakeAdapter adapter, {
+  List<String> modes = const [ServiceMode.atShop, ServiceMode.pickupDrop],
+  CouponApi? coupons,
+  DateTime Function() clock = now,
+}) {
   final client = ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore());
   final repo = BookingRepositoryImpl(remoteDataSource: BookingRemoteDataSourceImpl(apiClient: client), networkInfo: Online());
   return MaterialApp(
@@ -68,10 +87,11 @@ Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop
         serviceName: 'Laptop screen repair',
         servicePrice: 4500,
         addressApi: AddressApi(client),
+        availabilityApi: AvailabilityApi(client),
         serviceModes: modes,
         pickupFee: 99,
         couponApi: coupons,
-        clock: now,
+        clock: clock,
       ),
     ),
   );
@@ -223,11 +243,126 @@ void main() {
     expect(find.text('8:00 PM'), findsOneWidget);
   });
 
-  test('slots: none in the past, and today drops off the list after the last slot', () {
+  test('without opening hours: no times in the past; two weeks of days from today', () {
     final late = DateTime(2026, 10, 18, 19, 45);
     expect(BookingSlots.on(late, now: late), isEmpty);
-    expect(BookingSlots.upcomingDays(now: late).first, DateTime(2026, 10, 19));
+    expect(BookingSlots.upcomingDays(now: late).first, DateTime(2026, 10, 18));
+    expect(BookingSlots.upcomingDays(now: late), hasLength(14));
     expect(BookingSlots.on(DateTime(2026, 10, 18), now: DateTime(2026, 10, 18, 14, 10)).first, DateTime(2026, 10, 18, 15));
+  });
+
+  testWidgets('a shop without hours that is past its usual last time today says to pick another day', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(page(server(), modes: const [ServiceMode.atShop], clock: () => DateTime(2026, 10, 18, 19, 45)));
+    await tester.pumpAndSettle();
+    expect(find.text('No more times today — try another day'), findsOneWidget);
+    await tester.tap(find.text('Tomorrow'));
+    await tester.pumpAndSettle();
+    expect(find.text('9:00 AM'), findsOneWidget);
+  });
+
+  testWidgets('a shop with hours offers only its free times and books exactly the time it listed', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server(
+      availability: (date) => date == '2026-10-19'
+          ? withHours(slots: {'10:00': '2026-10-19T04:30:00Z', '16:00': '2026-10-19T10:30:00Z'})
+          : withHours(status: 'NO_MORE_TODAY'),
+    );
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    expect(find.text('No more times today — try another day'), findsOneWidget);
+    expect(find.text('2:30 PM'), findsNothing); // no made-up 9-to-8 times for a shop with hours
+
+    await tester.tap(find.text('Tomorrow'));
+    await tester.pumpAndSettle();
+    expect(find.text('10:00 AM'), findsOneWidget);
+    expect(find.text('4:00 PM'), findsOneWidget);
+    expect(find.text('11:00 AM'), findsNothing);
+    expect(find.text('Afternoon'), findsOneWidget);
+    await tester.tap(find.text('4:00 PM'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tomorrow, 4:00 PM'), findsOneWidget); // in the summary, in the shop's time
+    await confirm(tester);
+
+    final asked = adapter.requests.where((r) => r.path.endsWith('/availability')).map((r) => r.queryParameters).toList();
+    expect(asked, [
+      {'service_id': 's1', 'date': '2026-10-18'},
+      {'service_id': 's1', 'date': '2026-10-19'},
+    ]);
+    final sent = adapter.requests.singleWhere((r) => r.method == 'POST').data as Map;
+    expect(sent['scheduled_at'], '2026-10-19T10:30:00.000Z');
+  });
+
+  testWidgets('closed, holiday and fully booked days say so', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server(
+      availability: (date) => switch (date) {
+        '2026-10-18' => withHours(status: 'CLOSED'),
+        '2026-10-19' => withHours(status: 'FULLY_BOOKED'),
+        _ => withHours(status: 'HOLIDAY', note: 'Diwali'),
+      },
+    );
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    expect(find.text('Closed on this day'), findsOneWidget);
+    await tester.tap(find.text('Tomorrow'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fully booked — try another day'), findsOneWidget);
+    await tester.tap(find.text('20 Oct'));
+    await tester.pumpAndSettle();
+    expect(find.text('Closed on this day (Diwali)'), findsOneWidget);
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    expect(find.text('Closed on this day'), findsOneWidget);
+    expect(adapter.requests.where((r) => r.path.endsWith('/availability')), hasLength(3)); // each day fetched once
+  });
+
+  testWidgets("times that couldn't be loaded can be retried", (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    var tries = 0;
+    final adapter = FakeAdapter((r) => r.path.endsWith('/availability') && ++tries == 1
+        ? (status: 503, body: {'detail': 'Shop service unavailable'})
+        : r.path.endsWith('/availability')
+            ? (status: 200, body: noHours(''))
+            : (status: 200, body: <Object>[]));
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't load the times for this day"), findsOneWidget);
+    expect(find.text('2:30 PM'), findsNothing);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.text("Couldn't load the times for this day"), findsNothing);
+    expect(find.text('2:30 PM'), findsOneWidget);
+  });
+
+  testWidgets('a time taken just before booking is refused, dropped and the free times shown again', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    var taken = false;
+    final adapter = FakeAdapter((r) {
+      if (r.path.endsWith('/availability')) {
+        return (status: 200, body: withHours(slots: {'10:00': '2026-10-18T04:30:00Z', if (!taken) '15:00': '2026-10-18T09:30:00Z'}));
+      }
+      if (r.method == 'POST') {
+        taken = true;
+        return (status: 409, body: {'detail': 'Sun 18 Oct, 3:00 PM is fully booked; pick another time'});
+      }
+      return (status: 200, body: <Object>[]);
+    });
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3:00 PM'));
+    await tester.pumpAndSettle();
+    await confirm(tester);
+
+    expect(find.text('Sun 18 Oct, 3:00 PM is fully booked; pick another time'), findsOneWidget);
+    expect(find.text('3:00 PM'), findsNothing);
+    expect(find.text('10:00 AM'), findsOneWidget);
+    expect(find.text('Choose a day and time below'), findsOneWidget);
   });
 
   testWidgets('booking without a time says what is missing and sends nothing', (tester) async {
@@ -251,7 +386,9 @@ void main() {
   testWidgets('with no saved address the customer can add one right here and book', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);
-    final adapter = FakeAdapter((r) => r.path.endsWith('/addresses') && r.method == 'GET'
+    final adapter = FakeAdapter((r) => r.path.endsWith('/availability')
+        ? (status: 200, body: noHours(''))
+        : r.path.endsWith('/addresses') && r.method == 'GET'
         ? (status: 200, body: <Object>[])
         : r.path.endsWith('/addresses')
             ? (status: 201, body: {'id': 'addr-9', 'label': 'Home', 'street': '4 FC Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411004', 'is_default': true})

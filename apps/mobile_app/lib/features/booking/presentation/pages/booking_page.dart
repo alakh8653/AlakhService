@@ -14,20 +14,23 @@ import '../../../profile/data/address_api.dart';
 import '../../../profile/presentation/pages/addresses_page.dart';
 import '../../../services/domain/entities/service_entity.dart';
 import '../../domain/entities/booking.dart';
+import '../../data/availability_api.dart';
 import '../../data/coupon_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
 
-/// Bookable start times: every half hour from 9 AM to 8 PM, at least [leadTime] from now, over
-/// the next [days] days. Shops don't publish opening hours yet, so these are the usual working
-/// hours; the shop confirms or declines each request.
+/// The days on offer and, for a shop that hasn't published opening hours, its start times.
+///
+/// A shop with hours gets its times from booking_service (AvailabilityApi). One without them takes any
+/// future time, so it is offered every half hour from 9 AM to 8 PM, the usual working hours, at least
+/// [leadTime] from now; the shop confirms or declines each request.
 class BookingSlots {
   static const firstHour = 9, lastHour = 20;
   static const days = 14;
   static const leadTime = Duration(minutes: 30);
 
-  /// Start times on [day] still open after [now].
+  /// Start times on [day] still open after [now], for a shop without opening hours.
   static List<DateTime> on(DateTime day, {required DateTime now}) {
     final earliest = now.add(leadTime);
     return [
@@ -36,13 +39,23 @@ class BookingSlots {
     ].where((t) => !t.isBefore(earliest)).toList();
   }
 
-  /// The days on offer, starting today (or tomorrow once today's last slot has passed).
-  static List<DateTime> upcomingDays({required DateTime now}) {
-    final today = DateTime(now.year, now.month, now.day);
-    return [
-      for (var i = 0; i <= days; i++) DateTime(today.year, today.month, today.day + i),
-    ].where((d) => on(d, now: now).isNotEmpty).take(days).toList();
-  }
+  /// Today and the [days] - 1 days after it (booking_service shows times up to two weeks ahead).
+  static List<DateTime> upcomingDays({required DateTime now}) =>
+      [for (var i = 0; i < days; i++) DateTime(now.year, now.month, now.day + i)];
+}
+
+/// A start time on offer: [shown] is the shop's wall-clock time on the chosen day, [at] the instant booked.
+class _Slot {
+  final DateTime shown;
+  final DateTime at;
+
+  const _Slot(this.shown, this.at);
+
+  @override
+  bool operator ==(Object other) => other is _Slot && other.at == at;
+
+  @override
+  int get hashCode => at.hashCode;
 }
 
 class BookingPage extends StatefulWidget {
@@ -51,6 +64,7 @@ class BookingPage extends StatefulWidget {
   final double servicePrice;
   final CouponApi? couponApi;
   final AddressApi? addressApi;
+  final AvailabilityApi? availabilityApi;
 
   /// The ways the service is offered (ServiceMode values) and their extra fees.
   final List<String> serviceModes;
@@ -67,6 +81,7 @@ class BookingPage extends StatefulWidget {
     required this.servicePrice,
     this.couponApi,
     this.addressApi,
+    this.availabilityApi,
     this.serviceModes = const [ServiceMode.atShop],
     this.homeVisitFee = 0,
     this.pickupFee = 0,
@@ -83,6 +98,7 @@ class _BookingPageState extends State<BookingPage> {
   final _couponController = TextEditingController();
   final _itemController = TextEditingController();
   late final AddressApi _addressApi = widget.addressApi ?? sl<AddressApi>();
+  late final AvailabilityApi _availabilityApi = widget.availabilityApi ?? sl<AvailabilityApi>();
   CouponCheck? _coupon;
   List<SavedAddress> _saved = const [];
   bool _addressesLoaded = false;
@@ -91,7 +107,13 @@ class _BookingPageState extends State<BookingPage> {
   bool _checkingCoupon = false;
   late final List<DateTime> _days = BookingSlots.upcomingDays(now: widget.clock());
   late DateTime _day = _days.first;
-  DateTime? _slot;
+  _Slot? _slot;
+  // Each day's times as booking_service reported them, the days being fetched, and those that failed.
+  final Map<DateTime, DayAvailability> _availability = {};
+  final Set<DateTime> _loadingDays = {};
+  final Map<DateTime, Object> _failedDays = {};
+  // The time of day picked before switching days, kept if the new day offers it too.
+  (int, int)? _wantedTime;
   // Shown under the schedule / address once the customer tries to book without them.
   bool _showMissing = false;
   final _whenKey = GlobalKey(), _addressKey = GlobalKey(), _itemKey = GlobalKey();
@@ -105,6 +127,74 @@ class _BookingPageState extends State<BookingPage> {
   void initState() {
     super.initState();
     _loadAddresses();
+    _loadTimes(_day);
+  }
+
+  Future<void> _loadTimes(DateTime day, {bool refresh = false}) async {
+    if (!refresh && (_availability.containsKey(day) || _loadingDays.contains(day))) return;
+    setState(() {
+      _loadingDays.add(day);
+      _failedDays.remove(day);
+      if (refresh) _availability.remove(day);
+    });
+    try {
+      final times = await _availabilityApi.forDay(widget.serviceId, day);
+      if (!mounted) return;
+      setState(() {
+        _availability[day] = times;
+        if (day == _day) _keepSlotIfOffered();
+      });
+    } catch (e) {
+      if (mounted) setState(() => _failedDays[day] = e);
+    } finally {
+      if (mounted) setState(() => _loadingDays.remove(day));
+    }
+  }
+
+  /// The times on offer on [day], or null until they are known.
+  List<_Slot>? _slotsOn(DateTime day) {
+    final times = _availability[day];
+    if (times == null) return null;
+    if (!times.hoursConfigured) {
+      return [for (final t in BookingSlots.on(day, now: widget.clock())) _Slot(t, t)];
+    }
+    return [for (final s in times.slots) _Slot(DateTime(day.year, day.month, day.day, s.hour, s.minute), s.at)];
+  }
+
+  /// Why [day] has no times, in the customer's words.
+  String _noTimesMessage(DateTime day) {
+    final times = _availability[day];
+    if (times == null || !times.hoursConfigured) return 'No more times today — try another day';
+    return switch (times.status) {
+      DayStatus.closed => 'Closed on this day',
+      DayStatus.holiday => times.holidayNote == null ? 'Closed on this day' : 'Closed on this day (${times.holidayNote})',
+      DayStatus.fullyBooked => 'Fully booked — try another day',
+      DayStatus.noMoreToday => 'No more times today — try another day',
+      _ => times.message ?? 'No times on this day — try another day',
+    };
+  }
+
+  /// Once the chosen day's times are known: drops a picked time that is no longer offered, and on a new
+  /// day picks the same time of day if it is there.
+  void _keepSlotIfOffered() {
+    final slots = _slotsOn(_day);
+    if (slots == null) return;
+    if (_slot != null && !slots.contains(_slot)) _slot = null;
+    final wanted = _wantedTime;
+    if (_slot == null && wanted != null) {
+      _slot = slots.where((s) => s.shown.hour == wanted.$1 && s.shown.minute == wanted.$2).firstOrNull;
+    }
+    _wantedTime = null;
+  }
+
+  void _chooseDay(DateTime day) {
+    setState(() {
+      if (_slot != null) _wantedTime = (_slot!.shown.hour, _slot!.shown.minute);
+      _slot = null;
+      _day = day;
+      _keepSlotIfOffered();
+    });
+    _loadTimes(day);
   }
 
   Future<void> _loadAddresses() async {
@@ -214,7 +304,7 @@ class _BookingPageState extends State<BookingPage> {
       addressId: _needsAddress ? _address!.id : null,
       itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
     );
-    final details = <Object?>[slot, address, notes, couponCode, delivery];
+    final details = <Object?>[slot.at, address, notes, couponCode, delivery];
     if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
       _attemptKey = newIdempotencyKey();
       _attemptDetails = details;
@@ -222,7 +312,7 @@ class _BookingPageState extends State<BookingPage> {
     context.read<BookingBloc>().add(
           CreateBookingRequested(
             serviceId: widget.serviceId,
-            scheduledAt: slot,
+            scheduledAt: slot.at,
             address: address,
             notes: notes,
             couponCode: couponCode,
@@ -263,12 +353,14 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final slots = BookingSlots.on(_day, now: widget.clock());
+    final slots = _slotsOn(_day);
     return BlocListener<BookingBloc, BookingState>(
       listener: (context, state) {
         if (state is BookingCreated) {
           _showBooked(state.booking);
         } else if (state is BookingError) {
+          // The time may just have been taken (or the shop's hours changed): show what is free now.
+          if (_availability[_day]?.hoursConfigured ?? false) _loadTimes(_day, refresh: true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
@@ -287,7 +379,7 @@ class _BookingPageState extends State<BookingPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SummaryCard(serviceName: widget.serviceName, mode: _mode, slot: _slot),
+                _SummaryCard(serviceName: widget.serviceName, mode: _mode, slot: _slot?.shown, now: widget.clock()),
                 const SizedBox(height: 24),
                 if (widget.serviceModes.length > 1) ...[
                   const _Heading('How would you like it?'),
@@ -323,24 +415,39 @@ class _BookingPageState extends State<BookingPage> {
                         day: day,
                         now: widget.clock(),
                         selected: selected,
-                        onTap: () => setState(() {
-                          _day = day;
-                          if (_slot != null && !BookingSlots.on(day, now: widget.clock()).contains(_slot)) {
-                            // Keep the same time of day if it's open on the new day.
-                            final same = DateTime(day.year, day.month, day.day, _slot!.hour, _slot!.minute);
-                            _slot = BookingSlots.on(day, now: widget.clock()).contains(same) ? same : null;
-                          }
-                        }),
+                        onTap: () => _chooseDay(day),
                       );
                     },
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (slots == null && _failedDays.containsKey(_day))
+                  _TimesProblem(
+                    text: "Couldn't load the times for this day",
+                    action: TextButton.icon(
+                      onPressed: () => _loadTimes(_day, refresh: true),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Retry'),
+                    ),
+                  )
+                else if (slots == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        SizedBox(width: 12),
+                        Flexible(child: Text('Finding free times…', style: AppTextStyles.body2)),
+                      ],
+                    ),
+                  )
+                else if (slots.isEmpty)
+                  _TimesProblem(text: _noTimesMessage(_day)),
                 // Grouped by part of the day so 20-odd times are quick to scan.
                 for (final (part, times) in [
-                  ('Morning', slots.where((t) => t.hour < 12)),
-                  ('Afternoon', slots.where((t) => t.hour >= 12 && t.hour < 17)),
-                  ('Evening', slots.where((t) => t.hour >= 17)),
+                  ('Morning', (slots ?? const <_Slot>[]).where((t) => t.shown.hour < 12)),
+                  ('Afternoon', (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 12 && t.shown.hour < 17)),
+                  ('Evening', (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 17)),
                 ])
                   if (times.isNotEmpty) ...[
                     Padding(
@@ -353,7 +460,7 @@ class _BookingPageState extends State<BookingPage> {
                       children: [
                         for (final t in times)
                           ChoiceChip(
-                            label: Text(clockTime(t)),
+                            label: Text(clockTime(t.shown)),
                             showCheckmark: false,
                             selected: _slot == t,
                             onSelected: (_) => setState(() => _slot = t),
@@ -483,6 +590,39 @@ class _BookingPageState extends State<BookingPage> {
       ),
     );
   }
+}
+
+/// Why there are no times to pick (closed, fully booked, or they could not be loaded), with what to do.
+class _TimesProblem extends StatelessWidget {
+  final String text;
+  final Widget? action;
+
+  const _TimesProblem({required this.text, this.action});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.event_busy_outlined, size: 20, color: AppColors.textSecondary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(text, style: AppTextStyles.body2)),
+              ],
+            ),
+            if (action != null) action! else const SizedBox(height: 8),
+          ],
+        ),
+      );
 }
 
 class _Heading extends StatelessWidget {
@@ -679,8 +819,9 @@ class _SummaryCard extends StatelessWidget {
   final String serviceName;
   final String mode;
   final DateTime? slot;
+  final DateTime now;
 
-  const _SummaryCard({required this.serviceName, required this.mode, required this.slot});
+  const _SummaryCard({required this.serviceName, required this.mode, required this.slot, required this.now});
 
   @override
   Widget build(BuildContext context) {
@@ -700,7 +841,7 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(serviceName, style: AppTextStyles.subtitle1),
                 Text(
-                  slot == null ? 'Choose a day and time below' : friendlyDateTime(slot!),
+                  slot == null ? 'Choose a day and time below' : friendlyDateTime(slot!, now: now),
                   style: AppTextStyles.body2.copyWith(color: AppColors.primaryDark),
                 ),
               ],

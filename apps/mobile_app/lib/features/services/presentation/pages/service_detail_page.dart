@@ -18,6 +18,7 @@ import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../../reviews/data/reviews_api.dart';
 import '../../../reviews/presentation/reviews_widgets.dart';
+import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
 
 class ServiceDetailPage extends StatefulWidget {
@@ -25,8 +26,20 @@ class ServiceDetailPage extends StatefulWidget {
   final ShopLocationApi? shopApi;
   final QueueApi? queueApi;
   final ReviewsApi? reviewsApi;
+  final ShopHoursApi? hoursApi;
 
-  const ServiceDetailPage({super.key, required this.service, this.shopApi, this.queueApi, this.reviewsApi});
+  /// The current time (replaceable in tests).
+  final DateTime Function() clock;
+
+  const ServiceDetailPage({
+    super.key,
+    required this.service,
+    this.shopApi,
+    this.queueApi,
+    this.reviewsApi,
+    this.hoursApi,
+    this.clock = DateTime.now,
+  });
 
   @override
   State<ServiceDetailPage> createState() => _ServiceDetailPageState();
@@ -41,6 +54,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   // What customers say about the shop, for choosing it.
   late final ReviewsApi? _reviewsApi = service.shopId == null ? null : widget.reviewsApi ?? sl<ReviewsApi>();
   RatingSummary? _summary;
+  // "Open now · closes 8 PM", once the shop's hours are in (none for a shop that hasn't published them).
+  ShopHours? _hours;
 
   ServiceEntity get service => widget.service;
 
@@ -58,6 +73,10 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       }).catchError((Object _) {});
       _reviewsApi!.summary(shopId).then((summary) {
         if (mounted) setState(() => _summary = summary);
+      }).catchError((Object _) {});
+      // Only a line of extra information: if it can't be had, the page goes on without it.
+      Future(() => (widget.hoursApi ?? sl<ShopHoursApi>()).forShop(shopId)).then((hours) {
+        if (mounted) setState(() => _hours = hours);
       }).catchError((Object _) {});
     }
   }
@@ -183,6 +202,25 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                           child: Text(
                             [shop.name, if (shop.address.isNotEmpty) shop.address].join(' · '),
                             style: AppTextStyles.body2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (_hours case final hours?)
+                    if (openingSummary(hours, widget.clock()) case final open?) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 16, color: open.open ? AppColors.success : AppColors.textSecondary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            open.text,
+                            style: AppTextStyles.body2.copyWith(
+                              color: open.open ? AppColors.success : AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],

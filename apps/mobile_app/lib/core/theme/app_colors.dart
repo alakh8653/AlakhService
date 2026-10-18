@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary
-  static const Color primary = Color(0xFF6C63FF);
+  // Primary. Deep enough for white text on it, and for it as text on white, to pass WCAG AA (5.4:1).
+  static const Color primary = Color(0xFF5B52F0);
   static const Color primaryDark = Color(0xFF4B44CC);
   static const Color primaryLight = Color(0xFFEEEDFF);
 
@@ -14,7 +14,7 @@ class AppColors {
   static const Color secondaryLight = Color(0xFFFFEEF2);
 
   // Accent
-  static const Color accent = Color(0xFF43B97F);
+  static const Color accent = Color(0xFF2E8A5C);
   static const Color accentDark = Color(0xFF2E8A5C);
   static const Color accentLight = Color(0xFFE8F8F0);
 
@@ -30,11 +30,12 @@ class AppColors {
   static const Color textDisabled = Color(0xFFB0B7C3);
   static const Color textLight = Color(0xFFFFFFFF);
 
-  // Status
-  static const Color success = Color(0xFF10B981);
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  // Status. These are used as text (status pills, prices, messages) and as snackbar backgrounds
+  // under white text, so each keeps at least 4.5:1 contrast against white.
+  static const Color success = Color(0xFF047857);
+  static const Color warning = Color(0xFFB45309);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF1D4ED8);
 
   // Border
   static const Color border = Color(0xFFE5E7EB);

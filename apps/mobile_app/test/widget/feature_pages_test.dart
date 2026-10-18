@@ -49,12 +49,12 @@ void main() {
 
     await tester.tap(find.text('Pay in cash'));
     await tester.pump();
-    await tester.tap(find.text('Pay ₹499.00'));
+    await tester.tap(find.text("I'll pay ₹499 in cash"));
     await tester.pumpAndSettle();
 
     expect(adapter.requests.single.data['payment_method'], 'cash');
-    expect(find.text('Payment Recorded'), findsOneWidget);
-    expect(find.textContaining('₹599.00 in cash'), findsOneWidget);
+    expect(find.text('Cash payment noted'), findsOneWidget);
+    expect(find.textContaining('₹599 in cash'), findsOneWidget);
   });
 
   testWidgets('online payment opens checkout and completes once the server verifies it', (tester) async {
@@ -69,7 +69,7 @@ void main() {
       ),
     ));
 
-    await tester.tap(find.text('Pay ₹499.00'));
+    await tester.tap(find.text('Pay ₹499'));
     await tester.pumpAndSettle();
 
     expect(checkout.opened!.orderId, 'order_1');
@@ -79,8 +79,8 @@ void main() {
       'razorpay_payment_id': 'pay_rzp',
       'razorpay_signature': 'sig',
     });
-    expect(find.text('Payment Successful'), findsOneWidget);
-    expect(find.text('₹499.00 paid.'), findsOneWidget);
+    expect(find.text('Payment successful'), findsOneWidget);
+    expect(find.text('₹499 paid.'), findsOneWidget);
   });
 
   testWidgets('cancelling checkout charges nothing and verifies nothing', (tester) async {
@@ -94,12 +94,12 @@ void main() {
       ),
     ));
 
-    await tester.tap(find.text('Pay ₹499.00'));
+    await tester.tap(find.text('Pay ₹499'));
     await tester.pumpAndSettle();
 
     expect(adapter.requests.map((r) => r.path), ['/api/v1/payments/initiate']);
     expect(find.text('Payment cancelled. You have not been charged.'), findsOneWidget);
-    expect(find.text('Payment Successful'), findsNothing);
+    expect(find.text('Payment successful'), findsNothing);
   });
 
   testWidgets('payment page shows the API error', (tester) async {
@@ -108,7 +108,7 @@ void main() {
       home: PaymentPage(amount: 499, bookingId: 'booking-123', paymentApi: PaymentApi(clientFor(adapter))),
     ));
 
-    await tester.tap(find.text('Pay ₹499.00'));
+    await tester.tap(find.text('Pay ₹499'));
     await tester.pumpAndSettle();
 
     expect(find.text('This booking cannot be paid yet'), findsOneWidget);

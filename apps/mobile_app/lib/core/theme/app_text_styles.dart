@@ -53,10 +53,11 @@ class AppTextStyles {
     fontFamily: 'Poppins',
   );
 
+  // Secondary grey, not the disabled one: captions carry dates, addresses and prices (4.8:1 on white).
   static const TextStyle caption = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.normal,
-    color: AppColors.textDisabled,
+    color: AppColors.textSecondary,
     fontFamily: 'Poppins',
   );
 

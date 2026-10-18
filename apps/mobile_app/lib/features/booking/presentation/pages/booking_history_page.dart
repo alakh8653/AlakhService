@@ -5,6 +5,8 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
+import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../directions/presentation/how_to_get_there_sheet.dart';
@@ -19,7 +21,13 @@ import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
 
 class BookingHistoryPage extends StatefulWidget {
-  const BookingHistoryPage({super.key});
+  /// Takes the customer to the catalogue (from the empty list).
+  final VoidCallback? onBrowseServices;
+  final PaymentApi? paymentApi;
+  final RatingApi? ratingApi;
+  final DisputeApi? disputeApi;
+
+  const BookingHistoryPage({super.key, this.onBrowseServices, this.paymentApi, this.ratingApi, this.disputeApi});
 
   @override
   State<BookingHistoryPage> createState() => _BookingHistoryPageState();
@@ -28,6 +36,12 @@ class BookingHistoryPage extends StatefulWidget {
 class _BookingHistoryPageState extends State<BookingHistoryPage> {
   // booking id → 'paid' or 'cash' (to pay in person), so a paid booking isn't offered for payment again.
   Map<String, String> _payments = const {};
+  // Bookings rated on this screen (a booking can be rated once), with the stars given.
+  final Map<String, int> _rated = {};
+  // The booking being cancelled, so its button can't be tapped twice.
+  String? _cancelling;
+
+  PaymentApi get _paymentApi => widget.paymentApi ?? sl<PaymentApi>();
 
   @override
   void initState() {
@@ -38,7 +52,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   Future<void> _loadPayments() async {
     try {
-      final states = await sl<PaymentApi>().paymentStateByBooking();
+      final states = await _paymentApi.paymentStateByBooking();
       if (mounted) setState(() => _payments = states);
     } catch (_) {
       // Without it the Pay button stays; the server still refuses a second payment.
@@ -64,7 +78,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
         BookingStatus.outForDelivery => 'On its way back',
         BookingStatus.completed => 'Completed',
         BookingStatus.cancelled => 'Cancelled',
-        BookingStatus.disputed => 'Disputed',
+        BookingStatus.disputed => 'Problem reported',
         BookingStatus.refunded => 'Refunded',
         _ => status,
       };
@@ -73,15 +87,23 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel booking?'),
-        content: Text('${booking.serviceName} on ${_date(booking.scheduledAt)} will be cancelled.'),
+        title: const Text('Cancel this booking?'),
+        content: Text(
+          '${booking.serviceName}, ${friendlyDateTime(booking.scheduledAt)}, will be cancelled. '
+          'This cannot be undone.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Cancel booking')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep booking')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Yes, cancel'),
+          ),
         ],
       ),
     );
     if (confirmed == true && mounted) {
+      setState(() => _cancelling = booking.id);
       context.read<BookingBloc>().add(CancelBookingRequested(booking.id));
     }
   }
@@ -91,7 +113,8 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     if (rating == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await sl<RatingApi>().rate(shopId: booking.shopId!, bookingId: booking.id, rating: rating);
+      await (widget.ratingApi ?? sl<RatingApi>()).rate(shopId: booking.shopId!, bookingId: booking.id, rating: rating);
+      if (mounted) setState(() => _rated[booking.id] = rating.round());
       messenger.showSnackBar(const SnackBar(content: Text('Thanks for rating!'), backgroundColor: AppColors.success));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
@@ -104,9 +127,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     final messenger = ScaffoldMessenger.of(context);
     final bloc = context.read<BookingBloc>();
     try {
-      await sl<DisputeApi>().report(bookingId: booking.id, type: report.$1, description: report.$2);
+      await (widget.disputeApi ?? sl<DisputeApi>()).report(bookingId: booking.id, type: report.$1, description: report.$2);
       messenger.showSnackBar(const SnackBar(content: Text('Thanks. Our support team will look into it and get back to you.')));
-      bloc.add(const LoadUserBookings());
+      bloc.add(const RefreshBookings());
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
     }
@@ -114,9 +137,40 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) {
         if (!mounted) return;
-        context.read<BookingBloc>().add(const LoadUserBookings());
+        context.read<BookingBloc>().add(const RefreshBookings());
         _loadPayments();
       });
+
+  /// Pull-to-refresh: keeps the spinner up until the list has actually reloaded.
+  Future<void> _refresh() async {
+    final bloc = context.read<BookingBloc>();
+    final done = bloc.stream.firstWhere((s) => s is BookingsLoaded || s is BookingError);
+    bloc.add(const RefreshBookings());
+    await Future.wait([done, _loadPayments()]);
+  }
+
+  Widget _card(Booking b) => _BookingCard(
+        booking: b,
+        statusColor: statusColor(b.status),
+        statusLabel: statusLabel(b.status),
+        cancelling: _cancelling == b.id,
+        onCancel: b.canCancel && _cancelling != b.id ? () => _confirmCancel(b) : null,
+        onTrack: b.canTrack ? () => _open(LiveTrackingPage(booking: b)) : null,
+        onPay: b.canPay && _payments[b.id] != 'paid'
+            ? () => _open(PaymentPage(
+                  bookingId: b.id,
+                  amount: b.totalAmount,
+                  bookingNumber: b.bookingNumber,
+                  serviceName: b.serviceName,
+                  paymentApi: widget.paymentApi,
+                ))
+            : null,
+        payment: _payments[b.id],
+        ratedStars: _rated[b.id],
+        onRate: b.canRate && !_rated.containsKey(b.id) ? () => _rate(b) : null,
+        onReport: b.canDispute ? () => _report(b) : null,
+        onDirections: b.canGetDirections ? () => showHowToGetThere(context, shopId: b.shopId!) : null,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -125,11 +179,21 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
       body: BlocConsumer<BookingBloc, BookingState>(
         listener: (context, state) {
           if (state is BookingCancelled) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking cancelled')));
+            setState(() => _cancelling = null);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Booking cancelled'), backgroundColor: AppColors.success),
+            );
+          } else if (state is BookingActionFailed) {
+            setState(() => _cancelling = null);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
+            );
           }
         },
+        // A cancel or refresh outcome is a message on top of the list, not a new screen.
+        buildWhen: (previous, current) => current is! BookingCancelled && current is! BookingActionFailed,
         builder: (context, state) {
-          if (state is BookingLoading || state is BookingInitial || state is BookingCancelled) {
+          if (state is BookingLoading || state is BookingInitial) {
             return const LoadingIndicator(message: 'Loading bookings...');
           }
           if (state is BookingError) {
@@ -140,44 +204,51 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
           }
           final bookings = state is BookingsLoaded ? state.bookings : const <Booking>[];
           if (bookings.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                padding: const EdgeInsets.all(32),
                 children: [
-                  Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textDisabled),
-                  SizedBox(height: 16),
-                  Text('No bookings yet', style: AppTextStyles.subtitle1),
-                  Text('Book a service to see it here', style: AppTextStyles.body2),
+                  const SizedBox(height: 80),
+                  const Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textDisabled),
+                  const SizedBox(height: 16),
+                  const Text('No bookings yet', style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Book a salon visit, a doctor, a repair and more. Your bookings will show up here.',
+                    style: AppTextStyles.body2,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (widget.onBrowseServices != null) ...[
+                    const SizedBox(height: 24),
+                    Center(
+                      child: CustomButton(
+                        label: 'Browse services',
+                        width: 220,
+                        leadingIcon: Icons.search,
+                        onPressed: widget.onBrowseServices,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );
           }
+          final (upcoming, past) = splitBookings(bookings);
           return RefreshIndicator(
-            onRefresh: () async {
-              context.read<BookingBloc>().add(const RefreshBookings());
-              await _loadPayments();
-            },
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: bookings.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final b = bookings[index];
-                return _BookingCard(
-                  booking: b,
-                  statusColor: statusColor(b.status),
-                  statusLabel: statusLabel(b.status),
-                  onCancel: b.canCancel ? () => _confirmCancel(b) : null,
-                  onTrack: b.canTrack ? () => _open(LiveTrackingPage(booking: b)) : null,
-                  onPay: b.canPay && _payments[b.id] != 'paid'
-                      ? () => _open(PaymentPage(bookingId: b.id, amount: b.totalAmount))
-                      : null,
-                  payment: _payments[b.id],
-                  onRate: b.canRate ? () => _rate(b) : null,
-                  onReport: b.canDispute ? () => _report(b) : null,
-                  onDirections: b.canGetDirections ? () => showHowToGetThere(context, shopId: b.shopId!) : null,
-                );
-              },
+            onRefresh: _refresh,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                if (upcoming.isNotEmpty) ...[
+                  _SectionHeader('Upcoming & active', count: upcoming.length),
+                  for (final b in upcoming) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
+                ],
+                if (past.isNotEmpty) ...[
+                  _SectionHeader('Past', count: past.length),
+                  for (final b in past) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
+                ],
+              ],
             ),
           );
         },
@@ -186,10 +257,30 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
   }
 }
 
-String _date(DateTime d) {
-  final hour = d.hour % 12 == 0 ? 12 : d.hour % 12;
-  final minute = d.minute.toString().padLeft(2, '0');
-  return '${d.day}/${d.month}/${d.year} $hour:$minute ${d.hour < 12 ? 'AM' : 'PM'}';
+/// Bookings still ahead or under way (soonest first), and finished ones (latest first).
+(List<Booking>, List<Booking>) splitBookings(List<Booking> bookings) {
+  const finished = {BookingStatus.completed, BookingStatus.cancelled, BookingStatus.refunded};
+  final upcoming = bookings.where((b) => !finished.contains(b.status)).toList()
+    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+  final past = bookings.where((b) => finished.contains(b.status)).toList()
+    ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+  return (upcoming, past);
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final int count;
+
+  const _SectionHeader(this.title, {required this.count});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+        child: Semantics(
+          header: true,
+          child: Text('$title ($count)', style: AppTextStyles.subtitle2.copyWith(color: AppColors.textPrimary)),
+        ),
+      );
 }
 
 class _BookingCard extends StatelessWidget {
@@ -203,6 +294,8 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback? onReport;
   final VoidCallback? onDirections;
   final String? payment;
+  final int? ratedStars;
+  final bool cancelling;
 
   const _BookingCard({
     required this.booking,
@@ -215,7 +308,28 @@ class _BookingCard extends StatelessWidget {
     this.onReport,
     this.onDirections,
     this.payment,
+    this.ratedStars,
+    this.cancelling = false,
   });
+
+  Widget _detail(IconData icon, String text, {Color color = AppColors.textSecondary, int maxLines = 2}) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 14, color: color)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTextStyles.caption.copyWith(color: color),
+                maxLines: maxLines,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -225,113 +339,81 @@ class _BookingCard extends StatelessWidget {
       if (onTrack != null)
         TextButton.icon(onPressed: onTrack, icon: const Icon(Icons.location_on_outlined, size: 18), label: const Text('Track')),
       if (onPay != null)
-        TextButton.icon(onPressed: onPay, icon: const Icon(Icons.payment, size: 18), label: const Text('Pay')),
+        TextButton.icon(
+          onPressed: onPay,
+          icon: const Icon(Icons.payment, size: 18),
+          label: Text(payment == 'cash' ? 'Pay online instead' : 'Pay ${rupees(booking.totalAmount)}'),
+        ),
       if (onRate != null)
         TextButton.icon(onPressed: onRate, icon: const Icon(Icons.star_outline, size: 18), label: const Text('Rate')),
       if (onReport != null)
         TextButton.icon(onPressed: onReport, icon: const Icon(Icons.report_outlined, size: 18), label: const Text('Report a problem')),
-      if (onCancel != null)
+      if (onCancel != null || cancelling)
         TextButton(
           onPressed: onCancel,
           style: TextButton.styleFrom(foregroundColor: AppColors.error),
-          child: const Text('Cancel'),
+          child: Text(cancelling ? 'Cancelling…' : 'Cancel booking'),
         ),
     ];
+    final pickup = booking.serviceMode == 'PICKUP_DROP';
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: Text(booking.serviceName, style: AppTextStyles.subtitle1)),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
+                    color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(statusLabel, style: AppTextStyles.overline.copyWith(color: statusColor)),
+                  child: Text(
+                    statusLabel,
+                    style: AppTextStyles.caption.copyWith(color: statusColor, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
-            if (booking.bookingNumber.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text('#${booking.bookingNumber}', style: AppTextStyles.caption),
-            ],
+            if (booking.bookingNumber.isNotEmpty) Text('Booking #${booking.bookingNumber}', style: AppTextStyles.caption),
+            const SizedBox(height: 4),
+            _detail(Icons.calendar_today, friendlyDateTime(booking.scheduledAt)),
+            if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null)
+              _detail(
+                pickup ? Icons.local_shipping_outlined : Icons.home_outlined,
+                [
+                  pickup ? 'Pickup & drop' : 'Home visit',
+                  if (booking.itemDescription != null) booking.itemDescription!,
+                ].join(' · '),
+              ),
+            if (booking.showsReadyBy)
+              _detail(Icons.event_available, 'Expected back by ${friendlyDateTime(booking.readyBy!)}', color: AppColors.primary),
+            if (booking.address.isNotEmpty) _detail(Icons.location_on, booking.address),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
-                const SizedBox(width: 4),
-                Text(_date(booking.scheduledAt), style: AppTextStyles.caption),
-              ],
-            ),
-            if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(booking.serviceMode == 'PICKUP_DROP' ? Icons.local_shipping_outlined : Icons.home_outlined,
-                      size: 14, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      [
-                        booking.serviceMode == 'PICKUP_DROP' ? 'Pickup & drop' : 'Home visit',
-                        if (booking.itemDescription != null) booking.itemDescription!,
-                      ].join(' · '),
-                      style: AppTextStyles.caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (booking.showsReadyBy) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.event_available, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 4),
+                Text(rupees(booking.totalAmount), style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary)),
+                if (payment != null)
                   Text(
-                    'Expected back by ${_date(booking.readyBy!)}',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.primary),
-                  ),
-                ],
-              ),
-            ],
-            if (booking.address.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 14, color: AppColors.textSecondary),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(booking.address, style: AppTextStyles.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  '₹${booking.totalAmount.toStringAsFixed(booking.totalAmount % 1 == 0 ? 0 : 2)}',
-                  style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary),
-                ),
-                if (payment != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    payment == 'paid' ? 'Paid' : 'Pay in cash',
+                    payment == 'paid' ? 'Paid' : 'Paying in cash',
                     style: AppTextStyles.caption.copyWith(color: payment == 'paid' ? AppColors.success : AppColors.warning),
                   ),
-                ],
-                const Spacer(),
+                if (ratedStars != null)
+                  Text('You rated it $ratedStars★', style: AppTextStyles.caption.copyWith(color: AppColors.success)),
               ],
             ),
-            if (actions.isNotEmpty) Wrap(alignment: WrapAlignment.end, spacing: 4, children: actions),
+            if (actions.isNotEmpty) ...[
+              const Divider(height: 16),
+              Wrap(alignment: WrapAlignment.end, spacing: 4, children: actions),
+            ],
           ],
         ),
       ),
@@ -349,20 +431,31 @@ class _RatingDialog extends StatefulWidget {
 class _RatingDialogState extends State<_RatingDialog> {
   int _stars = 5;
 
+  static const _words = ['Poor', 'Below average', 'Okay', 'Good', 'Excellent'];
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Rate this service'),
-      content: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          5,
-          (i) => IconButton(
-            tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
-            onPressed: () => setState(() => _stars = i + 1),
-            icon: Icon(i < _stars ? Icons.star : Icons.star_border, color: AppColors.starFilled),
+      title: const Text('How was it?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                5,
+                (i) => IconButton(
+                  tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
+                  isSelected: i < _stars,
+                  onPressed: () => setState(() => _stars = i + 1),
+                  icon: Icon(i < _stars ? Icons.star : Icons.star_border, color: AppColors.starFilled, size: 32),
+                ),
+              ),
+            ),
           ),
-        ),
+          Text(_words[_stars - 1], style: AppTextStyles.subtitle2),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Not now')),
@@ -371,7 +464,6 @@ class _RatingDialogState extends State<_RatingDialog> {
     );
   }
 }
-
 
 /// Asks what went wrong; pops with (type, description).
 class _ReportDialog extends StatefulWidget {
@@ -396,26 +488,34 @@ class _ReportDialogState extends State<_ReportDialog> {
     final valid = _description.text.trim().length >= 3;
     return AlertDialog(
       title: const Text('Report a problem'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _type,
-            items: [
-              for (final e in disputeTypes.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
-            ],
-            onChanged: (v) => setState(() => _type = v ?? _type),
-            decoration: const InputDecoration(labelText: 'What went wrong?'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _description,
-            maxLines: 4,
-            maxLength: 2000,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(labelText: 'Tell us what happened', alignLabelWithHint: true),
-          ),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              isExpanded: true,
+              items: [
+                for (final e in disputeTypes.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+              ],
+              onChanged: (v) => setState(() => _type = v ?? _type),
+              decoration: const InputDecoration(labelText: 'What went wrong?'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _description,
+              maxLines: 4,
+              maxLength: 2000,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Tell us what happened',
+                helperText: 'At least 3 characters',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),

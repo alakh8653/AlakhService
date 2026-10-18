@@ -37,7 +37,8 @@ void main() {
       final materialApp =
           tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(materialApp.theme, isNotNull);
-      expect(materialApp.darkTheme, isNotNull);
+      // Light only: the screens' text colours are designed for a light background.
+      expect(materialApp.themeMode, ThemeMode.light);
     });
   });
 }

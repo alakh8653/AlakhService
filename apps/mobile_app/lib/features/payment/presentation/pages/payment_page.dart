@@ -4,6 +4,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../data/payment_api.dart';
 import '../../data/razorpay_checkout.dart';
@@ -15,6 +16,10 @@ import '../../data/razorpay_checkout.dart';
 class PaymentPage extends StatefulWidget {
   final double amount;
   final String bookingId;
+
+  /// Shown so the customer knows what they are paying for.
+  final String bookingNumber;
+  final String? serviceName;
   final PaymentApi? paymentApi;
   final CheckoutLauncher? checkoutLauncher;
 
@@ -22,6 +27,8 @@ class PaymentPage extends StatefulWidget {
     super.key,
     required this.amount,
     required this.bookingId,
+    this.bookingNumber = '',
+    this.serviceName,
     this.paymentApi,
     this.checkoutLauncher,
   });
@@ -38,11 +45,14 @@ class _PaymentPageState extends State<PaymentPage> {
   String _selectedMethod = 'upi';
   bool _isProcessing = false;
 
+  /// The booking number customers see elsewhere, or a short form of the id.
+  String get _reference => widget.bookingNumber.isNotEmpty ? widget.bookingNumber : _shortId(widget.bookingId);
+
   static const List<_PaymentMethod> _methods = [
-    _PaymentMethod(id: 'upi', label: 'UPI', icon: Icons.account_balance),
-    _PaymentMethod(id: 'card', label: 'Credit/Debit Card', icon: Icons.credit_card),
-    _PaymentMethod(id: 'netbanking', label: 'Net Banking', icon: Icons.computer),
-    _PaymentMethod(id: 'cash', label: 'Pay in cash', icon: Icons.money),
+    _PaymentMethod(id: 'upi', label: 'UPI', icon: Icons.account_balance, hint: 'GPay, PhonePe, Paytm or any UPI app'),
+    _PaymentMethod(id: 'card', label: 'Credit / debit card', icon: Icons.credit_card),
+    _PaymentMethod(id: 'netbanking', label: 'Net banking', icon: Icons.computer),
+    _PaymentMethod(id: 'cash', label: 'Pay in cash', icon: Icons.money, hint: 'Hand it to your provider when the job is done'),
   ];
 
   void _showMessage(String message, {bool error = true}) {
@@ -52,6 +62,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _onPay() async {
+    if (_isProcessing) return;
     setState(() => _isProcessing = true);
     try {
       var result = await _api.payForBooking(
@@ -61,7 +72,7 @@ class _PaymentPageState extends State<PaymentPage> {
       );
       final checkout = result.checkout;
       if (checkout != null) {
-        final outcome = await _checkout.open(checkout, description: 'Booking #${_shortId(widget.bookingId)}');
+        final outcome = await _checkout.open(checkout, description: 'Booking #$_reference');
         if (!mounted) return;
         switch (outcome) {
           case CheckoutPaid():
@@ -90,7 +101,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _showResult(PaymentResult result) {
-    final amount = '₹${result.amount.toStringAsFixed(2)}';
+    final amount = rupees(result.amount);
     final completed = result.isCompleted;
     final message = completed
         ? '$amount paid.'
@@ -101,7 +112,7 @@ class _PaymentPageState extends State<PaymentPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: Text(completed ? 'Payment Successful' : 'Payment Recorded'),
+        title: Text(completed ? 'Payment successful' : _selectedMethod == 'cash' ? 'Cash payment noted' : 'Payment recorded'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -136,7 +147,7 @@ class _PaymentPageState extends State<PaymentPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _AmountSummaryCard(amount: widget.amount, bookingId: widget.bookingId),
+            _AmountSummaryCard(amount: widget.amount, reference: _reference, serviceName: widget.serviceName),
             const SizedBox(height: 24),
             const Text('Payment Method', style: AppTextStyles.subtitle1),
             const SizedBox(height: 12),
@@ -147,8 +158,12 @@ class _PaymentPageState extends State<PaymentPage> {
                 itemBuilder: (context, index) {
                   final method = _methods[index];
                   final isSelected = _selectedMethod == method.id;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedMethod = method.id),
+                  return Semantics(
+                    inMutuallyExclusiveGroup: true,
+                    selected: isSelected,
+                    child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: _isProcessing ? null : () => setState(() => _selectedMethod = method.id),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.all(16),
@@ -167,19 +182,42 @@ class _PaymentPageState extends State<PaymentPage> {
                             color: isSelected ? AppColors.primary : AppColors.textSecondary,
                           ),
                           const SizedBox(width: 12),
-                          Text(method.label, style: AppTextStyles.body1),
-                          const Spacer(),
-                          if (isSelected) const Icon(Icons.check_circle, color: AppColors.primary),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(method.label, style: AppTextStyles.body1),
+                                if (method.hint != null) Text(method.hint!, style: AppTextStyles.caption),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          ),
                         ],
                       ),
                     ),
+                  ),
                   );
                 },
               ),
             ),
             const SizedBox(height: 16),
+            if (_selectedMethod != 'cash')
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
+                    SizedBox(width: 4),
+                    Flexible(child: Text('Secured by Razorpay. We never see your card or UPI PIN.', style: AppTextStyles.caption)),
+                  ],
+                ),
+              ),
             CustomButton(
-              label: 'Pay ₹${widget.amount.toStringAsFixed(2)}',
+              label: _selectedMethod == 'cash' ? "I'll pay ${rupees(widget.amount)} in cash" : 'Pay ${rupees(widget.amount)}',
               onPressed: _isProcessing ? null : _onPay,
               isLoading: _isProcessing,
             ),
@@ -192,13 +230,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
 class _AmountSummaryCard extends StatelessWidget {
   final double amount;
-  final String bookingId;
+  final String reference;
+  final String? serviceName;
 
-  const _AmountSummaryCard({required this.amount, required this.bookingId});
+  const _AmountSummaryCard({required this.amount, required this.reference, this.serviceName});
 
   @override
   Widget build(BuildContext context) {
-    final shortId = _shortId(bookingId);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -208,21 +246,24 @@ class _AmountSummaryCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Total Amount', style: AppTextStyles.body2),
-              Text(
-                '₹${amount.toStringAsFixed(2)}',
-                style: AppTextStyles.heading2.copyWith(color: AppColors.primary),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(serviceName ?? 'Amount to pay', style: AppTextStyles.body2, maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(
+                  rupees(amount),
+                  style: AppTextStyles.heading2.copyWith(color: AppColors.primary),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Booking ID', style: AppTextStyles.caption),
-              Text('#$shortId', style: AppTextStyles.subtitle2),
+              const Text('Booking', style: AppTextStyles.caption),
+              Text('#$reference', style: AppTextStyles.subtitle2),
             ],
           ),
         ],
@@ -237,6 +278,7 @@ class _PaymentMethod {
   final String id;
   final String label;
   final IconData icon;
+  final String? hint;
 
-  const _PaymentMethod({required this.id, required this.label, required this.icon});
+  const _PaymentMethod({required this.id, required this.label, required this.icon, this.hint});
 }

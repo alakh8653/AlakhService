@@ -51,3 +51,13 @@ class BookingError extends BookingState {
   @override
   List<Object> get props => [message];
 }
+
+/// An action on a listed booking (cancel, refresh) failed; the list itself is still valid.
+class BookingActionFailed extends BookingState {
+  final String message;
+
+  const BookingActionFailed(this.message);
+
+  @override
+  List<Object> get props => [message];
+}

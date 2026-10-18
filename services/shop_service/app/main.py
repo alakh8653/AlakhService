@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.observability import install_observability
+from app.routers.hours import router as hours_router
 from app.routers.reviews import router as reviews_router
 from app.routers.shop import router as shop_router
 from app.routers.staff import router as staff_router
@@ -33,6 +34,7 @@ install_observability(app, service="shop_service")
 app.include_router(reviews_router, prefix="/api/v1", tags=["reviews"])
 app.include_router(shop_router, prefix="/api/v1", tags=["shops"])
 app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
+app.include_router(hours_router, prefix="/api/v1", tags=["opening hours"])
 
 
 @app.get("/health")

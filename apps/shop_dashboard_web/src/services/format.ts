@@ -70,6 +70,21 @@ export function toMinorUnits(major: number): number {
   return Math.round(major * 100);
 }
 
+/**
+ * A phone number as the API wants it (+919876543210), from the ways Indian numbers are typed:
+ * "98765 43210", "098765-43210", "91 9876543210". Anything else is returned trimmed, unchanged.
+ */
+export function normalizePhone(input: string): string {
+  const compact = input.trim().replace(/[\s()-]/g, '');
+  if (/^[6-9]\d{9}$/.test(compact)) return `+91${compact}`;
+  if (/^0[6-9]\d{9}$/.test(compact)) return `+91${compact.slice(1)}`;
+  if (/^91[6-9]\d{9}$/.test(compact)) return `+${compact}`;
+  return compact || input.trim();
+}
+
+/** Whether a (normalized) phone number is in international format. */
+export const isE164 = (phone: string) => /^\+[1-9]\d{7,14}$/.test(phone);
+
 export function shortId(id: string): string {
   return id.slice(0, 8).toUpperCase();
 }

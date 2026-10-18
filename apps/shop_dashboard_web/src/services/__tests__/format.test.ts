@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatElapsed, formatMoneyShort, formatWhen } from '../format';
+import { formatElapsed, formatMoneyShort, formatWhen, isE164, normalizePhone } from '../format';
 
 describe('formatWhen', () => {
   const now = new Date(2026, 9, 18, 9, 0); // Sun 18 Oct 2026, 9:00 local
@@ -22,6 +22,16 @@ describe('formatElapsed', () => {
     expect(formatElapsed(new Date(now - 4 * 60_000).toISOString(), now)).toBe('4 min');
     expect(formatElapsed(new Date(now - 130 * 60_000).toISOString(), now)).toBe('2 h 10 min');
     expect(formatElapsed(new Date(now - 1575 * 60_000).toISOString(), now)).toBe('1 day 2 h');
+  });
+});
+
+describe('normalizePhone', () => {
+  it('accepts Indian mobile numbers the way people type them', () => {
+    expect(normalizePhone('98765 43210')).toBe('+919876543210');
+    expect(normalizePhone('098765-43210')).toBe('+919876543210');
+    expect(normalizePhone('91 98765 43210')).toBe('+919876543210');
+    expect(normalizePhone('+44 20 7946 0958')).toBe('+442079460958');
+    expect(isE164(normalizePhone('12345'))).toBe(false);
   });
 });
 

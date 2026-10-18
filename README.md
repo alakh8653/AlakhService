@@ -73,6 +73,18 @@ make dev
 make test
 ```
 
+## Deploy to Production
+
+One Linux server with Docker, automatic HTTPS (Caddy), daily verified backups and optional
+monitoring. Step-by-step guide for non-experts, including the Android release:
+**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+```bash
+cp .env.production.example .env.production   # fill it in
+make prod-preflight                          # checks the file and the server
+make prod-deploy                             # build, migrate, rolling restart, smoke test
+```
+
 ## Project Structure
 
 # AlakhService — Enterprise-Grade Full-Stack Service Platform

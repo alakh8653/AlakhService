@@ -117,7 +117,9 @@ describe('shopService', () => {
 
 describe('helpers', () => {
   it('formats paise as rupees and back', () => {
-    expect(formatMoney(49900)).toBe('₹499.00');
+    expect(formatMoney(49900)).toBe('₹499');
+    expect(formatMoney(49950)).toBe('₹499.50');
+    expect(formatMoney(12000000)).toBe('₹1,20,000');
     expect(toMinorUnits(499.99)).toBe(49999);
   });
 

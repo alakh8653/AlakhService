@@ -234,6 +234,41 @@ export function toAnalytics(data: ShopBookingSummary): Analytics {
   };
 }
 
+/** The date windows the bookings list offers, in the shop's (browser's) local time. */
+export type BookingWhen = 'all' | 'today' | 'week';
+
+const WINDOW_DAYS: Record<Exclude<BookingWhen, 'all'>, number> = { today: 1, week: 7 };
+
+/** Local start (inclusive) and end (exclusive) of a window. */
+export function windowBounds(when: Exclude<BookingWhen, 'all'>, now: Date = new Date()): [Date, Date] {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + WINDOW_DAYS[when]);
+  return [start, end];
+}
+
+const utcDate = (d: Date) => d.toISOString().slice(0, 10);
+
+/**
+ * API date filters covering a local window. The API filters by UTC calendar day, so the range is
+ * the UTC days the local window touches; [inWindow] then trims to the exact local window.
+ */
+export function windowFilters(when: BookingWhen, now: Date = new Date()): Pick<BookingFilters, 'dateFrom' | 'dateTo'> {
+  if (when === 'all') return {};
+  const [start, end] = windowBounds(when, now);
+  return { dateFrom: utcDate(start), dateTo: utcDate(new Date(end.getTime() - 1)) };
+}
+
+export function inWindow(booking: Pick<Booking, 'scheduledAt'>, when: BookingWhen, now: Date = new Date()): boolean {
+  if (when === 'all') return true;
+  const [start, end] = windowBounds(when, now);
+  const at = new Date(booking.scheduledAt).getTime();
+  return at >= start.getTime() && at < end.getTime();
+}
+
+/** Earliest first: the order a shop works through its day. */
+export const byScheduledAt = (a: Pick<Booking, 'scheduledAt'>, b: Pick<Booking, 'scheduledAt'>) =>
+  new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+
 export async function getShopSummary(
   shopId: string,
   dateFrom?: string,

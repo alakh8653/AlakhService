@@ -1,63 +1,108 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { RootState } from '../state/store';
-import { getStaff } from '../services/shopService';
-import { useBookings } from '../hooks/useBookings';
-import { useShopServices } from '../hooks/useShopServices';
-import BookingCard, { type ProviderOption } from '../components/BookingCard';
+import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { BOOKING_STATUSES, getAllShopBookings } from '../services/bookingService';
+import { Download, RefreshCw } from 'lucide-react';
+import type { RootState } from '../state/store';
+import { useBookings } from '../hooks/useBookings';
+import { useBookingActions } from '../hooks/useBookingActions';
+import { useShopServices } from '../hooks/useShopServices';
+import { useStaff } from '../hooks/useStaff';
+import BookingCard, { MODE_LABELS } from '../components/BookingCard';
+import { useToast } from '../components/Toast';
+import {
+  BOOKING_STATUSES,
+  byScheduledAt,
+  getAllShopBookings,
+  inWindow,
+  windowFilters,
+  type BookingFilters,
+  type BookingWhen,
+} from '../services/bookingService';
 import { downloadCsv } from '../services/csv';
 import { humanize, shortId } from '../services/format';
-import { MODE_LABELS } from '../components/BookingCard';
-import type { BookingStatus, StaffMember } from '../types';
+import type { BookingStatus } from '../types';
+
+const WHEN_CHOICES: { value: BookingWhen; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Next 7 days' },
+  { value: 'all', label: 'All dates' },
+];
+
+/** Filter labels in the owner's words; "Pending" bookings are waiting for the shop to confirm. */
+const STATUS_FILTER_LABELS: Partial<Record<BookingStatus, string>> = {
+  PENDING: 'To confirm',
+  PROVIDER_EN_ROUTE: 'On the way',
+};
+
+const EMPTY_TEXT: Record<BookingWhen, string> = {
+  today: 'No bookings today.',
+  week: 'No bookings in the next 7 days.',
+  all: 'No bookings yet. They will appear here as soon as customers book.',
+};
+
+const parseWhen = (v: string | null): BookingWhen => (v === 'today' || v === 'week' ? v : 'all');
+const parseStatus = (v: string | null): BookingStatus | undefined =>
+  BOOKING_STATUSES.includes(v as BookingStatus) ? (v as BookingStatus) : undefined;
+
+/** API filters for a window and status; a window is fetched whole (up to 100) and sorted locally. */
+const filtersFor = (when: BookingWhen, status?: BookingStatus): BookingFilters => ({
+  ...(status ? { status } : {}),
+  ...windowFilters(when),
+  ...(when === 'all' ? {} : { perPage: 100 }),
+});
+
+function chipClass(active: boolean) {
+  return `px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border ${
+    active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+  }`;
+}
 
 export default function BookingsPage() {
-  const [activeStatus, setActiveStatus] = useState<BookingStatus | undefined>();
-  const {
-    bookings,
-    isLoading,
-    error,
-    activeFilters,
-    applyFilters,
-    goToPage,
-    page,
-    totalPages,
-    changeStatus,
-    assign,
-    cancel,
-    setReadyBy,
-    dismissError,
-  } = useBookings();
+  const [params, setParams] = useSearchParams();
+  const when = parseWhen(params.get('when'));
+  const status = parseStatus(params.get('status'));
+  const { bookings, isLoading, error, activeFilters, applyFilters, goToPage, reload, replace, page, totalPages, total } =
+    useBookings(filtersFor(when, status));
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
   const { serviceNames } = useShopServices();
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const { staff, providers, providerName } = useStaff();
+  const actions = useBookingActions(replace, providerName);
+  const toast = useToast();
 
-  useEffect(() => {
-    if (!shopId) return;
-    getStaff(shopId).then(setStaff).catch(() => setStaff([]));
-  }, [shopId]);
+  const shown = useMemo(
+    () => (when === 'all' ? bookings : bookings.filter((b) => inWindow(b, when)).sort(byScheduledAt)),
+    [bookings, when],
+  );
 
-  // Bookings go to active staff who have a provider account to run them with.
-  const providers = useMemo<ProviderOption[]>(
-    () => staff.filter((m) => m.isActive && m.userId).map((m) => ({ userId: m.userId as string, name: m.name })),
-    [staff],
+  const statusLabel = status ? (STATUS_FILTER_LABELS[status] ?? humanize(status)) : null;
+  const emptyMessage = statusLabel
+    ? `No “${statusLabel}” bookings${when === 'today' ? ' today' : when === 'week' ? ' in the next 7 days' : ''}.`
+    : EMPTY_TEXT[when];
+
+  const setFilter = useCallback(
+    (nextWhen: BookingWhen, nextStatus?: BookingStatus) => {
+      const next = new URLSearchParams();
+      if (nextWhen !== 'all') next.set('when', nextWhen);
+      if (nextStatus) next.set('status', nextStatus);
+      setParams(next, { replace: true });
+      applyFilters(filtersFor(nextWhen, nextStatus));
+    },
+    [applyFilters, setParams],
   );
 
   // Everything matching the current filter, for accounts, GST returns or a spreadsheet.
   const exportCsv = async () => {
     if (!shopId) return;
     setExporting(true);
-    setExportError(null);
     try {
-      const all = await getAllShopBookings(shopId, activeFilters);
-      const staffName = (id: string | null) =>
-        id ? (staff.find((m) => m.userId === id)?.name ?? shortId(id)) : '';
+      const all = (await getAllShopBookings(shopId, { ...activeFilters, page: undefined, perPage: undefined }))
+        .filter((b) => inWindow(b, when));
+      const staffName = (id: string | null) => (id ? (staff.find((m) => m.userId === id)?.name ?? shortId(id)) : '');
       downloadCsv(
         `bookings-${format(new Date(), 'yyyy-MM-dd')}.csv`,
-        ['Booking', 'Status', 'How', 'Service', 'Scheduled', 'Minutes', 'Customer', 'Provider', 'Item', 'Amount (INR)', 'Notes', 'Booked on'],
+        ['Booking', 'Status', 'How', 'Service', 'Scheduled', 'Minutes', 'Customer', 'Staff', 'Item', 'Amount (INR)', 'Notes', 'Booked on'],
         all.map((b) => [
           b.bookingNumber,
           humanize(b.status),
@@ -73,59 +118,138 @@ export default function BookingsPage() {
           b.createdAt ? format(new Date(b.createdAt), 'yyyy-MM-dd HH:mm') : '',
         ]),
       );
+      toast(all.length === 1 ? 'Downloaded 1 booking.' : `Downloaded ${all.length} bookings.`);
     } catch {
-      setExportError('Could not export bookings. Please try again.');
+      toast('Could not export bookings. Please try again.', 'error');
     } finally {
       setExporting(false);
     }
   };
 
-  const handleFilter = (status?: BookingStatus) => {
-    setActiveStatus(status);
-    applyFilters(status ? { status } : {});
-  };
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
-        <button
-          onClick={exportCsv}
-          disabled={exporting || !shopId}
-          className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {exporting ? 'Exporting…' : 'Export CSV'}
-        </button>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
+          {!isLoading && (
+            <p className="text-sm text-gray-500" aria-live="polite">
+              {when === 'all' ? `${total} booking${total === 1 ? '' : 's'}` : `${shown.length} booking${shown.length === 1 ? '' : 's'}`}
+              {statusLabel ? ` · ${statusLabel}` : ''}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void reload()}
+            disabled={isLoading}
+            aria-label="Refresh bookings"
+            title="Refresh"
+            className="p-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportCsv()}
+            disabled={exporting || !shopId}
+            className="flex items-center gap-1.5 text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Download size={16} aria-hidden />
+            {exporting ? 'Exporting…' : <span>Export<span className="hidden sm:inline"> CSV</span></span>}
+          </button>
+        </div>
       </div>
-      {exportError && <p className="text-red-600 text-sm">{exportError}</p>}
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={() => handleFilter(undefined)} className={`px-3 py-1 rounded-full text-sm font-medium ${!activeStatus ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>All</button>
-        {BOOKING_STATUSES.map((s) => (
-          <button key={s} onClick={() => handleFilter(s)} className={`px-3 py-1 rounded-full text-sm font-medium ${activeStatus === s ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{humanize(s)}</button>
+
+      <div role="group" aria-label="Dates" className="inline-flex rounded-xl bg-gray-100 p-1">
+        {WHEN_CHOICES.map((c) => (
+          <button
+            type="button"
+            key={c.value}
+            aria-pressed={when === c.value}
+            onClick={() => setFilter(c.value, status)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${when === c.value ? 'bg-white shadow text-indigo-700' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            {c.label}
+          </button>
         ))}
       </div>
+
+      <div role="group" aria-label="Status" className="-mx-4 px-4 md:mx-0 md:px-0 flex gap-2 overflow-x-auto md:flex-wrap pb-1">
+        <button type="button" aria-pressed={!status} onClick={() => setFilter(when, undefined)} className={chipClass(!status)}>
+          All statuses
+        </button>
+        {BOOKING_STATUSES.map((s) => (
+          <button type="button" key={s} aria-pressed={status === s} onClick={() => setFilter(when, s)} className={chipClass(status === s)}>
+            {STATUS_FILTER_LABELS[s] ?? humanize(s)}
+          </button>
+        ))}
+      </div>
+
       {error && (
-        <p className="text-red-600 bg-red-50 rounded px-3 py-2 text-sm flex justify-between">
+        <div role="alert" className="text-red-700 bg-red-50 rounded-lg px-3 py-2 text-sm flex items-center justify-between gap-2">
           {error}
-          <button onClick={dismissError} className="text-red-400 hover:text-red-600">Dismiss</button>
-        </p>
+          <button type="button" onClick={() => void reload()} className="font-medium underline">
+            Try again
+          </button>
+        </div>
       )}
-      {isLoading ? (
-        <p className="text-gray-500">Loading bookings…</p>
+
+      {isLoading && shown.length === 0 ? (
+        <div className="grid gap-4" aria-busy="true" aria-label="Loading bookings">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-white rounded-2xl shadow p-4 h-32 animate-pulse" />
+          ))}
+        </div>
       ) : (
-        <div className="grid gap-4">
-          {bookings.map((b) => (
-            <BookingCard key={b.id} booking={b} serviceName={serviceNames[b.serviceId]} providers={providers} onChangeStatus={changeStatus} onAssign={assign} onCancel={cancel} onSetReadyBy={setReadyBy} />
+        <div className={`grid gap-4 ${isLoading ? 'opacity-60' : ''}`} aria-busy={isLoading}>
+          {shown.map((b) => (
+            <BookingCard
+              key={b.id}
+              booking={b}
+              serviceName={serviceNames[b.serviceId]}
+              providers={providers}
+              onChangeStatus={actions.changeStatus}
+              onAssign={actions.assign}
+              onCancel={actions.cancel}
+              onSetReadyBy={actions.setReadyBy}
+            />
           ))}
-          {bookings.length === 0 && <p className="text-gray-400 text-center py-10">No bookings found.</p>}
+          {!error && shown.length === 0 && (
+            <div className="bg-white rounded-2xl shadow p-8 text-center space-y-3">
+              <p className="text-gray-600">{emptyMessage}</p>
+              {(when !== 'all' || status) && (
+                <button type="button" onClick={() => setFilter('all')} className="text-sm font-medium text-indigo-600 hover:underline">
+                  Show all bookings
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
+
       {totalPages > 1 && (
-        <div className="flex gap-2 justify-center pt-4">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => goToPage(p)} className={`w-8 h-8 rounded-full text-sm ${p === page ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{p}</button>
-          ))}
-        </div>
+        <nav aria-label="Pages" className="flex items-center gap-3 justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1 || isLoading}
+            className="px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= totalPages || isLoading}
+            className="px-3 py-2 rounded-lg text-sm border border-gray-300 bg-white disabled:opacity-40"
+          >
+            Next
+          </button>
+        </nav>
       )}
     </div>
   );

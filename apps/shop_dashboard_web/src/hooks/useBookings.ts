@@ -1,17 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState, AppDispatch } from '../state/store';
-import {
-  fetchBookings,
-  changeBookingStatus,
-  assignProviderThunk,
-  cancelBookingThunk,
-  setReadyByThunk,
-  setFilters,
-  clearBookingError,
-} from '../state/bookingSlice';
+import { fetchBookings, setFilters, clearBookingError, updateBookingInList } from '../state/bookingSlice';
 import type { BookingFilters } from '../services/bookingService';
-import type { BookingStatus } from '../types';
+import type { Booking } from '../types';
 
 export function useBookings(initialFilters: BookingFilters = {}) {
   const dispatch = useDispatch<AppDispatch>();
@@ -19,6 +11,7 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     useSelector((state: RootState) => state.bookings);
 
   useEffect(() => {
+    dispatch(setFilters(initialFilters));
     dispatch(fetchBookings(initialFilters));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -38,26 +31,9 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     [dispatch, activeFilters],
   );
 
-  const changeStatus = useCallback(
-    (id: string, status: BookingStatus, reason?: string) =>
-      dispatch(changeBookingStatus({ id, status, reason })),
-    [dispatch],
-  );
+  const reload = useCallback(() => dispatch(fetchBookings({ ...activeFilters, page })), [dispatch, activeFilters, page]);
 
-  const assign = useCallback(
-    (id: string, providerId: string) => dispatch(assignProviderThunk({ id, providerId })),
-    [dispatch],
-  );
-
-  const cancel = useCallback(
-    (id: string, reason: string) => dispatch(cancelBookingThunk({ id, reason })),
-    [dispatch],
-  );
-
-  const setReadyBy = useCallback(
-    (id: string, readyBy: string | null) => dispatch(setReadyByThunk({ id, readyBy })),
-    [dispatch],
-  );
+  const replace = useCallback((booking: Booking) => dispatch(updateBookingInList(booking)), [dispatch]);
 
   const dismissError = useCallback(() => dispatch(clearBookingError()), [dispatch]);
 
@@ -72,10 +48,8 @@ export function useBookings(initialFilters: BookingFilters = {}) {
     activeFilters,
     applyFilters,
     goToPage,
-    changeStatus,
-    assign,
-    cancel,
-    setReadyBy,
+    reload,
+    replace,
     dismissError,
   };
 }

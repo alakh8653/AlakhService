@@ -318,7 +318,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" # HTTP/3
+      - "443:443/udp"  # HTTP/3
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN must be set in .env.production}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in .env.production}
@@ -489,7 +489,11 @@ services:
       - |
         while true; do
           ts=$$(cat /backups/.last_success 2>/dev/null || echo 0)
-          printf '# HELP alakh_backup_last_success_timestamp_seconds Unix time of the last verified backup (0 = none yet).\n# TYPE alakh_backup_last_success_timestamp_seconds gauge\nalakh_backup_last_success_timestamp_seconds %s\n' "$$ts" > /textfile/backup.prom.tmp
+          {
+            echo '# HELP alakh_backup_last_success_timestamp_seconds Unix time of the last verified backup (0 = none).'
+            echo '# TYPE alakh_backup_last_success_timestamp_seconds gauge'
+            echo "alakh_backup_last_success_timestamp_seconds $$ts"
+          } > /textfile/backup.prom.tmp
           mv /textfile/backup.prom.tmp /textfile/backup.prom
           sleep 60
         done

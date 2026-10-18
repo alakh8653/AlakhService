@@ -1,0 +1,71 @@
+# Unit tests for alerts.yml:  promtool test rules deploy/monitoring/prometheus/alerts.test.yml
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'gateway_circuit_open{upstream="booking_service"}'
+        values: "0 1 1 1 1"
+      - series: >-
+          probe_success{job="services",service="payment_service",instance="http://payment_service:8000/ready"}
+        values: "1 0 0 0 0"
+      - series: 'gateway_http_requests_total{upstream="auth_service",method="POST",status="500"}'
+        values: "0+60x10"
+      - series: 'gateway_http_requests_total{upstream="auth_service",method="POST",status="200"}'
+        values: "0+60x10"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CircuitOpen
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              upstream: booking_service
+            exp_annotations:
+              summary: "Gateway stopped sending requests to booking_service"
+              description: >-
+                The circuit breaker opened after repeated failures; requests to it get 503 until it
+                recovers. Check: make prod-logs S=booking_service
+      - eval_time: 4m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: services
+              service: payment_service
+              instance: http://payment_service:8000/ready
+            exp_annotations:
+              summary: "payment_service is not ready"
+              description: >-
+                http://payment_service:8000/ready has failed its readiness check for 2 minutes (its
+                database or Redis may be unreachable, or it crashed). Check: make prod-logs
+                S=payment_service
+      - eval_time: 10m
+        alertname: HighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              upstream: auth_service
+            exp_annotations:
+              summary: "auth_service: 50% of requests fail with 5xx"
+              description: "More than 5% server errors for 5 minutes. Check: make prod-logs S=auth_service"
+
+  - interval: 1m
+    input_series:
+      # Last verified backup at t=0; nothing since.
+      - series: "alakh_backup_last_success_timestamp_seconds"
+        values: "0x3200"
+    alert_rule_test:
+      - eval_time: 24h
+        alertname: BackupTooOld
+        exp_alerts: []
+      - eval_time: 52h
+        alertname: BackupTooOld
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No verified database backup for 2d 4h 0m 0s"
+              description: "The backup service is failing or stopped. Check: make prod-logs S=backup, then make prod-backup"

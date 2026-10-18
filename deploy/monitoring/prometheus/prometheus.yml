@@ -1,0 +1,85 @@
+# Prometheus for AlakhService (docker-compose.prod.yml, profile "monitoring").
+# render-and-start.sh replaces __DOMAIN__ and writes the gateway's METRICS_TOKEN to
+# /tmp/metrics_token before Prometheus starts; Prometheus itself does not read env variables.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    deployment: __DOMAIN__
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Every API request passes through the gateway: traffic, errors and latency per service,
+  # open circuits and Redis errors (services/api_gateway/src/prometheus.ts).
+  - job_name: gateway
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /tmp/metrics_token
+    static_configs:
+      - targets: ["api_gateway:3000"]
+
+  # Each service's /ready (its database, and Redis where used, answer).
+  - job_name: services
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://auth_service:8000/ready
+          - http://user_service:8000/ready
+          - http://shop_service:8000/ready
+          - http://booking_service:8000/ready
+          - http://payment_service:8000/ready
+          - http://notification_service:8000/ready
+          - http://tracking_service:8000/ready
+          - http://queue_service:8000/ready
+          - http://dispatch_service:8000/ready
+          - http://analytics_service:8000/ready
+          - http://dispute_service:8000/ready
+          - http://trust_risk_service:8000/ready
+          - http://admin_service:8000/ready
+          - http://compliance_service:8000/ready
+          - http://pricing_engine:8000/ready
+          - http://service_catalog_service:8000/ready
+          - http://catalog_service:8000/ready
+          - http://api_gateway:3000/health
+    relabel_configs: &probe_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        regex: "https?://([^:/]+).*"
+        target_label: service
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # The public sites as visitors see them, through Caddy and the real certificate
+  # (also gives probe_ssl_earliest_cert_expiry for the certificate alert).
+  - job_name: public
+    metrics_path: /probe
+    scrape_interval: 60s
+    params:
+      module: [https_2xx]
+    static_configs:
+      - targets:
+          - https://api.__DOMAIN__/health
+          - https://shop.__DOMAIN__/
+    relabel_configs: *probe_relabel
+
+  # Disk, memory, CPU of the server, and the age of the last verified backup.
+  - job_name: node
+    static_configs:
+      - targets: ["node_exporter:9100"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

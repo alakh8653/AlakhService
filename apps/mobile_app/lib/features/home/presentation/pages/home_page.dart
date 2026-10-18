@@ -47,7 +47,7 @@ class _HomePageState extends State<HomePage> {
     _ServiceCategory(icon: Icons.content_cut, label: 'Haircut'),
     _ServiceCategory(icon: Icons.face_retouching_natural, label: 'Beauty Parlour', query: 'Beauty'),
     _ServiceCategory(icon: Icons.medical_services, label: 'Doctor'),
-    _ServiceCategory(icon: Icons.event_available, label: 'Appointments', query: 'Appointment'),
+    _ServiceCategory(icon: Icons.event_available, label: 'Office Visits', query: 'Appointment'),
     _ServiceCategory(icon: Icons.car_repair, label: 'Car Repair', query: 'Car'),
     _ServiceCategory(icon: Icons.two_wheeler, label: 'Bike Repair', query: 'Bike'),
     _ServiceCategory(icon: Icons.devices, label: 'Laptop & Phone', query: 'Repair'),

@@ -5,7 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
 from app.database import get_db
-from app.dependencies import BookingLookup, Caller, ensure_owner, get_booking_lookup, require_caller
+from app.dependencies import (
+    BookingLookup,
+    Caller,
+    NameLookup,
+    ensure_owner,
+    get_booking_lookup,
+    get_name_lookup,
+    require_caller,
+)
 from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
 from app.services.shop_service import shop_service
 
@@ -81,15 +89,25 @@ async def rate_shop(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_booking: BookingLookup = Depends(get_booking_lookup),
+    lookup_name: NameLookup = Depends(get_name_lookup),
 ):
-    """Customers rate a shop once per completed booking with it."""
+    """Customers rate a shop, with an optional written review, once per completed booking with it."""
     booking = await lookup_booking(data.booking_id, caller)
     if booking is None or booking.get("customer_id") != caller.user_id or booking.get("shop_id") != shop_id:
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.get("status") != "COMPLETED":
         raise HTTPException(status_code=409, detail="Only completed bookings can be rated")
     try:
-        return await shop_service.add_rating(db, shop_id, data.booking_id, caller.user_id, data.rating, data.comment)
+        return await shop_service.add_rating(
+            db,
+            shop_id,
+            data.booking_id,
+            caller.user_id,
+            data.rating,
+            data.comment,
+            service_id=booking.get("service_id"),
+            reviewer_name=await lookup_name(caller),
+        )
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except RatingExistsError as e:

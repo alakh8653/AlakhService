@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 def not_null(value):
@@ -60,6 +60,17 @@ class ShopResponse(BaseModel):
     longitude: Optional[float] = None
     created_at: datetime
 
+    # What the apps show next to a shop ("4.6 (128)"), so lists need no extra call per shop.
+    @computed_field
+    @property
+    def average_rating(self) -> float:
+        return round(self.rating_avg, 1) if self.rating_count else 0.0
+
+    @computed_field
+    @property
+    def review_count(self) -> int:
+        return self.rating_count
+
 
 class ShopDocumentCreate(BaseModel):
     shop_id: str
@@ -98,8 +109,14 @@ class RatingUpdate(BaseModel):
 
 class ShopRatingCreate(BaseModel):
     booking_id: str
-    rating: float = Field(ge=1.0, le=5.0)
-    comment: Optional[str] = Field(default=None, max_length=2000)
+    # Whole stars (4.0 is accepted as 4); the written review is optional.
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=1000)
+
+    @field_validator("comment")
+    @classmethod
+    def blank_is_none(cls, value: Optional[str]) -> Optional[str]:
+        return (value or "").strip() or None
 
 
 class StaffCreate(BaseModel):

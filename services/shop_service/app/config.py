@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
+    # Reviewers' public names (first name and last initial) come from their account.
+    AUTH_SERVICE_URL: str = "http://auth_service:8000"
 
     model_config = SettingsConfigDict(env_file=".env")
 

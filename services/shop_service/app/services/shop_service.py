@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
 from app.models.shop import Shop, ShopRating
 from app.schemas.shop import ShopCreate, ShopUpdate
+from app.services.review_service import review_service
 
 log = structlog.get_logger()
 
@@ -96,20 +98,41 @@ class ShopService:
         return shop
 
     async def add_rating(
-        self, db: AsyncSession, shop_id: str, booking_id: str, customer_id: str, rating: float, comment=None
+        self,
+        db: AsyncSession,
+        shop_id: str,
+        booking_id: str,
+        customer_id: str,
+        rating: float,
+        comment=None,
+        service_id: Optional[str] = None,
+        reviewer_name: Optional[str] = None,
     ) -> Shop:
-        """Record a booking's rating once and fold it into the shop's average."""
+        """Record a booking's rating (and optional written review) once and refresh the shop's average."""
+        await self.get_shop(db, shop_id)
         existing = await db.execute(select(ShopRating).where(ShopRating.booking_id == booking_id))
         if existing.scalar_one_or_none() is not None:
             raise RatingExistsError()
         db.add(
-            ShopRating(shop_id=shop_id, booking_id=booking_id, customer_id=customer_id, rating=rating, comment=comment)
+            ShopRating(
+                shop_id=shop_id,
+                booking_id=booking_id,
+                customer_id=customer_id,
+                service_id=service_id,
+                reviewer_name=reviewer_name,
+                rating=rating,
+                comment=comment,
+                created_at=datetime.now(timezone.utc),
+            )
         )
         try:
-            return await self.update_rating(db, shop_id, rating)
+            await db.flush()
         except IntegrityError:  # the same booking rated concurrently
             await db.rollback()
             raise RatingExistsError() from None
+        shop = await review_service.refresh_shop_rating(db, shop_id)
+        log.info("shop_rated", shop_id=shop_id, new_avg=shop.rating_avg)
+        return shop
 
 
 shop_service = ShopService()

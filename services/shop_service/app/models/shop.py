@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, false
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -71,6 +71,29 @@ class ShopRating(Base):
     shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
     booking_id = Column(String, nullable=False, unique=True)
     customer_id = Column(String, nullable=False, index=True)
+    service_id = Column(String, nullable=True, index=True)  # the booked service; unknown for older ratings
+    # Shown publicly: first name and last initial only ("Priya S."), never the full name or contacts.
+    reviewer_name = Column(String, nullable=True)
     rating = Column(Float, nullable=False)
     comment = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # The shop owner's one public reply, editable.
+    reply = Column(Text, nullable=True)
+    reply_created_at = Column(DateTime(timezone=True), nullable=True)
+    reply_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Reported reviews stay up until an admin hides them; hidden ones leave the shop's average too.
+    report_count = Column(Integer, nullable=False, default=0, server_default="0")
+    is_hidden = Column(Boolean, nullable=False, default=False, server_default=false())
+
+
+class ReviewReport(Base):
+    """A signed-in user flagging a review for moderation; one report per user per review."""
+
+    __tablename__ = "review_reports"
+    __table_args__ = (UniqueConstraint("review_id", "reporter_id", name="uq_review_reports_review_reporter"),)
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    review_id = Column(String, ForeignKey("shop_ratings.id", ondelete="CASCADE"), nullable=False, index=True)
+    reporter_id = Column(String, nullable=False)
+    reason = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 import app.models.shop  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_booking_lookup
+from app.dependencies import get_booking_lookup, get_name_lookup
 from app.main import app
 
 
@@ -24,6 +24,11 @@ def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
 
 
 BOOKINGS = {}
+
+
+async def fake_name(caller):
+    return None
+
 
 OWNER = auth("owner-1")
 OTHER = auth("owner-2")
@@ -49,6 +54,7 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_booking_lookup] = lambda: fake_booking
+    app.dependency_overrides[get_name_lookup] = lambda: fake_name
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()

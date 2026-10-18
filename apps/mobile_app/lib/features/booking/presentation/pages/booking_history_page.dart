@@ -257,6 +257,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
   }
 }
 
+/// What a booking's status means to the customer, e.g. "Awaiting confirmation".
+String bookingStatusLabel(String status) => _BookingHistoryPageState.statusLabel(status);
+
 /// Bookings still ahead or under way (soonest first), and finished ones (latest first).
 (List<Booking>, List<Booking>) splitBookings(List<Booking> bookings) {
   const finished = {BookingStatus.completed, BookingStatus.cancelled, BookingStatus.refunded};

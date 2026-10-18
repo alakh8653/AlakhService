@@ -71,8 +71,8 @@ class _HomeShellState extends State<HomeShell> {
         _visit++;
       });
 
-  void _openNotifications() =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
+  Future<void> _openNotifications() =>
+      Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
 
   Widget _tab() {
     switch (_index) {

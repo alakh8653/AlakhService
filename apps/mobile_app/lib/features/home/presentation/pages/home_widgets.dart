@@ -17,35 +17,42 @@ class ServiceCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(16),
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 28),
             ),
-            child: Icon(icon, color: AppColors.primary, size: 28),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: AppTextStyles.caption,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 6),
+            // Two lines, so "Beauty Parlour" and "Laptop & Phone" aren't cut to "Beauty Parl…".
+            Text(
+              label,
+              style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Promotional banner shown at the top of the home screen.
+/// Promotional banner shown at the top of the home screen when there is no booking coming up.
 class BannerWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
@@ -53,55 +60,130 @@ class BannerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      height: 160,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
+    return Semantics(
+      button: true,
+      label: 'Track your bookings. My bookings',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          constraints: const BoxConstraints(minHeight: 140),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryDark],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Track your\nbookings',
+                      style: AppTextStyles.heading3.copyWith(
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.textLight,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'My bookings',
+                        style: AppTextStyles.subtitle2.copyWith(color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.home_repair_service,
+                size: 80,
+                color: Colors.white24,
+              ),
+            ],
+          ),
         ),
-        borderRadius: BorderRadius.circular(20),
       ),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Track your\nbookings',
-                  style: AppTextStyles.heading3.copyWith(
-                    color: AppColors.textLight,
-                  ),
+    );
+  }
+}
+
+/// The customer's next booking, at the top of the home screen.
+class NextBookingCard extends StatelessWidget {
+  final String serviceName;
+  final String when;
+  final String status;
+  final VoidCallback onTap;
+
+  const NextBookingCard({
+    super.key,
+    required this.serviceName,
+    required this.when,
+    required this.status,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Semantics(
+        button: true,
+        label: 'Your next booking: $serviceName, $when, $status. Open my bookings',
+        excludeSemantics: true,
+        child: Material(
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: Ink(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
+            ),
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Your next booking', style: AppTextStyles.caption.copyWith(color: Colors.white)),
+                          const SizedBox(height: 4),
+                          Text(serviceName, style: AppTextStyles.heading3.copyWith(color: AppColors.textLight)),
+                          const SizedBox(height: 2),
+                          Text(when, style: AppTextStyles.body2.copyWith(color: AppColors.textLight)),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.textLight,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              status,
+                              style: AppTextStyles.caption.copyWith(color: AppColors.primaryDark, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: AppColors.textLight),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.textLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'My bookings',
-                    style: AppTextStyles.subtitle2
-                        .copyWith(color: AppColors.primary),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          const Icon(
-            Icons.home_repair_service,
-            size: 80,
-            color: Colors.white24,
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -122,32 +204,19 @@ class SearchBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Icon(Icons.search, color: AppColors.textSecondary),
-          ),
-          Expanded(
-            child: TextField(
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: hint,
-                border: InputBorder.none,
-                hintStyle: AppTextStyles.body2,
-              ),
-            ),
-          ),
-        ],
+    // A plain field in the app's input style; the theme's own border used to draw a second box
+    // inside a bordered container.
+    return TextField(
+      onChanged: onChanged,
+      onSubmitted: (q) {
+        if (q.trim().isNotEmpty) onSubmitted?.call(q.trim());
+      },
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: AppTextStyles.body2,
+        prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
     );
   }

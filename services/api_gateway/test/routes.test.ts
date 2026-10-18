@@ -18,6 +18,24 @@ describe('route table', () => {
     expect(upstreamPath(plain, '/api/v1/bookings/1')).toBe('/api/v1/bookings/1');
   });
 
+  it('opens shop reviews to read, takes an account to write and an admin to moderate', () => {
+    const reviews = findRoute('/api/v1/shops/s1/reviews')!;
+    expect(reviews.upstream).toBe('shop');
+    expect(requiredAccess(reviews, 'GET')).toBe('public');
+    expect(requiredAccess(findRoute('/api/v1/shops/ratings')!, 'GET')).toBe('public');
+    expect(requiredAccess(findRoute('/api/v1/shops/s1/reviews/r1/reply')!, 'PUT')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/shops/s1/reviews/r1/report')!, 'POST')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/shops/s1/rating')!, 'POST')).toBe('user');
+
+    const moderation = findRoute('/api/v1/reviews/reported')!;
+    expect(moderation.upstream).toBe('shop');
+    expect(requiredAccess(moderation, 'GET')).toBe('admin');
+    expect(requiredAccess(findRoute('/api/v1/reviews/r1/visibility')!, 'PUT')).toBe('admin');
+    const viaAdmin = findRoute('/api/v1/admin/reviews/r1/visibility')!;
+    expect(viaAdmin.upstream).toBe('shop');
+    expect(upstreamPath(viaAdmin, '/api/v1/admin/reviews/r1/visibility')).toBe('/api/v1/reviews/r1/visibility');
+  });
+
   it('only opens read-only methods on browse routes', () => {
     const route = findRoute('/api/v1/catalog/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');

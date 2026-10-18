@@ -127,6 +127,25 @@ describe('gateway', () => {
       expect(admin.requests.map((r) => r.url)).toEqual(['/api/v1/audit-logs?page=2']);
     });
 
+    it('keep review moderation to admins while anyone reads reviews', async () => {
+      const shop = await upstream();
+      const app = createApp(testConfig({ shop: shop.url }), quiet);
+
+      expect((await request(app).get('/api/v1/shops/s1/reviews?rating=5')).status).toBe(200);
+      expect((await request(app).post('/api/v1/shops/s1/reviews/r1/report').send({ reason: 'spam' })).status).toBe(401);
+      const asUser = await request(app).get('/api/v1/reviews/reported').set('authorization', `Bearer ${await token()}`);
+      expect(asUser.status).toBe(403);
+      const asAdmin = await request(app)
+        .put('/api/v1/admin/reviews/r1/visibility')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`)
+        .send({ hidden: true });
+      expect(asAdmin.status).toBe(200);
+      expect(shop.requests.map((r) => r.url)).toEqual([
+        '/api/v1/shops/s1/reviews?rating=5',
+        '/api/v1/reviews/r1/visibility',
+      ]);
+    });
+
     it('maps finance reports onto payment_service', async () => {
       const payment = await upstream();
       const res = await request(createApp(testConfig({ payment: payment.url }), quiet))

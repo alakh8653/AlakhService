@@ -34,7 +34,10 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/auth', upstream: 'auth' },
 
   { prefix: '/api/v1/users', upstream: 'user' },
+  // Shops and their reviews are public to read; rating, replying and reporting need an account.
   { prefix: '/api/v1/shops', upstream: 'shop', access: 'public', publicMethods: READ_ONLY },
+  // Review moderation (the reported-review queue, hiding a review).
+  { prefix: '/api/v1/reviews', upstream: 'shop', access: 'admin' },
   // Staff contact details are private to the shop owner (checked by shop_service).
   { prefix: '/api/v1/staff', upstream: 'shop' },
   { prefix: '/api/v1/bookings', upstream: 'booking' },
@@ -74,6 +77,7 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/disputes', upstream: 'dispute', rewrite: '/api/v1/disputes', access: 'admin' },
   { prefix: '/api/v1/admin/finance', upstream: 'payment', rewrite: '/api/v1/finance', access: 'admin' },
   { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
+  { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/audit-logs', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/system-config', upstream: 'admin', access: 'admin' },

@@ -10,7 +10,7 @@ class VerifyOtpUseCase {
   VerifyOtpUseCase(this.repository);
 
   Future<Either<Failure, User>> call(VerifyOtpParams params) {
-    return repository.verifyOtp(phone: params.phone, otp: params.otp);
+    return repository.verifyOtp(phone: params.phone, otp: params.otp, purpose: params.purpose);
   }
 }
 
@@ -18,8 +18,11 @@ class VerifyOtpParams extends Equatable {
   final String phone;
   final String otp;
 
-  const VerifyOtpParams({required this.phone, required this.otp});
+  /// 'registration' (confirms a new account) or 'login' (signs in without a password).
+  final String purpose;
+
+  const VerifyOtpParams({required this.phone, required this.otp, this.purpose = 'registration'});
 
   @override
-  List<Object?> get props => [phone, otp];
+  List<Object?> get props => [phone, otp, purpose];
 }

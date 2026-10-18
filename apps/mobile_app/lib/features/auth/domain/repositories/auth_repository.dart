@@ -14,11 +14,11 @@ abstract class AuthRepository {
     required String role,
   });
 
-  /// Confirms the registration code, which also signs the user in.
-  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp});
+  /// Confirms a 'registration' or 'login' code, which signs the user in.
+  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp, String purpose = 'registration'});
 
-  /// Sends a new registration code.
-  Future<Either<Failure, bool>> resendOtp(String phone);
+  /// Sends a (new) one-time code for [purpose]: 'registration', or 'login' to sign in without a password.
+  Future<Either<Failure, bool>> resendOtp(String phone, {String purpose = 'registration'});
 
   Future<Either<Failure, bool>> logout();
 

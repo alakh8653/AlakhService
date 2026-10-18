@@ -57,14 +57,15 @@ class AuthRepositoryImpl implements AuthRepository {
       });
 
   @override
-  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp}) => _online(() async {
-        final result = await remoteDataSource.verifyCode(identifier: phone, code: otp, purpose: 'registration');
+  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp, String purpose = 'registration'}) =>
+      _online(() async {
+        final result = await remoteDataSource.verifyCode(identifier: phone, code: otp, purpose: purpose);
         return _startSession(TokenPair.fromJson(result));
       });
 
   @override
-  Future<Either<Failure, bool>> resendOtp(String phone) => _online(() async {
-        await remoteDataSource.sendCode(identifier: phone, purpose: 'registration');
+  Future<Either<Failure, bool>> resendOtp(String phone, {String purpose = 'registration'}) => _online(() async {
+        await remoteDataSource.sendCode(identifier: phone, purpose: purpose);
         return true;
       });
 

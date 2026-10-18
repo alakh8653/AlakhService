@@ -11,11 +11,29 @@ class Validators {
     return null;
   }
 
+  /// A 10-digit Indian mobile number typed after a fixed "+91" (starts with 6, 7, 8 or 9).
+  static String? indianMobile(String? value) {
+    final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return 'Mobile number is required';
+    if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) return 'Enter a valid 10-digit mobile number';
+    return null;
+  }
+
   /// Sign-in accepts the account's phone number or its email.
   static String? phoneOrEmail(String? value) {
-    if (value != null && value.contains('@')) return email(value);
+    if (value == null || value.trim().isEmpty) return 'Enter your phone number or email';
+    if (value.contains('@')) return email(value);
+    if (RegExp(r'[A-Za-z]').hasMatch(value)) return 'Enter a valid phone number or email';
     return phone(value);
   }
+
+  /// Signing in only needs a password: the strength rules apply when one is chosen, and an
+  /// account made under older rules must still be able to sign in.
+  static String? loginPassword(String? value) =>
+      (value == null || value.isEmpty) ? 'Password is required' : null;
+
+  /// The rules [password] checks, to show before the customer types.
+  static const passwordRules = 'At least 8 characters, with a capital letter and a number';
 
   static String? email(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email is required';

@@ -41,7 +41,7 @@ void main() {
     await tester.pumpWidget(buildTestableWidget());
 
     expect(find.text('Welcome Back'), findsOneWidget);
-    expect(find.text('Phone Number'), findsOneWidget);
+    expect(find.text('Phone or email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
     expect(find.text('Forgot Password?'), findsOneWidget);
@@ -54,7 +54,7 @@ void main() {
     await tester.tap(find.text('Login'));
     await tester.pump();
 
-    expect(find.text('Phone number is required'), findsOneWidget);
+    expect(find.text('Enter your phone number or email'), findsOneWidget);
     expect(find.text('Password is required'), findsOneWidget);
   });
 

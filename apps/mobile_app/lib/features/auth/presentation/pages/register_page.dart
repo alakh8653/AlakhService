@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../../../shared/utils/validators.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'login_page.dart' show isTopRoute;
 import 'otp_verification_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -34,6 +36,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _onRegister() {
+    if (context.read<AuthBloc>().state is AuthLoading) return;
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
             RegisterRequested(
@@ -51,8 +54,9 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Account')),
       body: BlocListener<AuthBloc, AuthState>(
+        listenWhen: (_, __) => isTopRoute(context),
         listener: (context, state) {
-          if (state is OtpRequired) {
+          if (state is OtpRequired && state.purpose == 'registration') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
@@ -83,25 +87,38 @@ class _RegisterPageState extends State<RegisterPage> {
                 CustomTextField(
                   controller: _nameController,
                   label: 'Full Name',
-                  hint: 'John Doe',
+                  hint: 'e.g. Priya Sharma',
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.name],
                   validator: Validators.name,
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _phoneController,
-                  label: 'Phone Number',
-                  hint: '+91 9876543210',
+                  label: 'Mobile Number',
+                  hint: '98765 43210',
+                  prefixText: '+91 ',
                   keyboardType: TextInputType.phone,
-                  validator: Validators.phone,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.telephoneNumberNational],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  maxLength: 10,
+                  validator: Validators.indianMobile,
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
-                  hint: 'Min 8 characters',
+                  hint: 'Choose a password',
+                  helper: Validators.passwordRules,
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.newPassword],
                   validator: Validators.password,
+                  onSubmitted: (_) => _onRegister(),
                   suffix: IconButton(
+                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_off
@@ -122,26 +139,19 @@ class _RegisterPageState extends State<RegisterPage> {
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
                     return CustomButton(
-                      label: 'Register',
+                      label: 'Create account',
                       onPressed: state is AuthLoading ? null : _onRegister,
                       isLoading: state is AuthLoading,
                     );
                   },
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text('Already have an account? ',
-                        style: AppTextStyles.body2),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        'Login',
-                        style: AppTextStyles.subtitle2
-                            .copyWith(color: AppColors.primary),
-                      ),
-                    ),
+                    const Text('Already have an account?', style: AppTextStyles.body2),
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Login')),
                   ],
                 ),
               ],

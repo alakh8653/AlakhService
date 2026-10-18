@@ -382,3 +382,11 @@ async def test_customers_racing_for_the_last_place_get_one_booking_between_them(
     SCHEDULES["shop-1"] = {**HOURS, "capacity": 1}
     replies = await asyncio.gather(*[book(client, MON, "10:00", customer=f"racer-{i}") for i in range(8)])
     assert sorted(r.status_code for r in replies) == [201] + [409] * 7
+
+
+@pytest.mark.asyncio
+async def test_a_day_with_every_place_taken_is_fully_booked(client):
+    SCHEDULES["shop-1"] = {**HOURS, "capacity": 1}
+    await seed(("shop-1", MON, "10:00", 240, "CONFIRMED"), ("shop-1", MON, "16:00", 240, "PENDING"))
+    body = await slots(client, MON)
+    assert (body["status"], body["message"], body["slots"]) == ("FULLY_BOOKED", "Fully booked — try another day", [])

@@ -20,7 +20,8 @@ import {
   type BookingWhen,
 } from '../services/bookingService';
 import { downloadCsv } from '../services/csv';
-import { humanize, shortId } from '../services/format';
+import { shortId } from '../services/format';
+import { statusLabel as labelFor } from '../components/StatusBadge';
 import type { BookingStatus } from '../types';
 
 const WHEN_CHOICES: { value: BookingWhen; label: string }[] = [
@@ -28,12 +29,6 @@ const WHEN_CHOICES: { value: BookingWhen; label: string }[] = [
   { value: 'week', label: 'Next 7 days' },
   { value: 'all', label: 'All dates' },
 ];
-
-/** Filter labels in the owner's words; "Pending" bookings are waiting for the shop to confirm. */
-const STATUS_FILTER_LABELS: Partial<Record<BookingStatus, string>> = {
-  PENDING: 'To confirm',
-  PROVIDER_EN_ROUTE: 'On the way',
-};
 
 const EMPTY_TEXT: Record<BookingWhen, string> = {
   today: 'No bookings today.',
@@ -76,7 +71,7 @@ export default function BookingsPage() {
     [bookings, when],
   );
 
-  const statusLabel = status ? (STATUS_FILTER_LABELS[status] ?? humanize(status)) : null;
+  const statusLabel = status ? labelFor(status) : null;
   const emptyMessage = statusLabel
     ? `No “${statusLabel}” bookings${when === 'today' ? ' today' : when === 'week' ? ' in the next 7 days' : ''}.`
     : EMPTY_TEXT[when];
@@ -105,7 +100,7 @@ export default function BookingsPage() {
         ['Booking', 'Status', 'How', 'Service', 'Scheduled', 'Minutes', 'Customer', 'Staff', 'Item', 'Amount (INR)', 'Notes', 'Booked on'],
         all.map((b) => [
           b.bookingNumber,
-          humanize(b.status),
+          labelFor(b.status, b.serviceMode),
           MODE_LABELS[b.serviceMode] ?? b.serviceMode,
           serviceNames[b.serviceId] ?? shortId(b.serviceId),
           format(new Date(b.scheduledAt), 'yyyy-MM-dd HH:mm'),
@@ -181,7 +176,7 @@ export default function BookingsPage() {
         </button>
         {BOOKING_STATUSES.map((s) => (
           <button type="button" key={s} aria-pressed={status === s} onClick={() => setFilter(when, s)} className={chipClass(status === s)}>
-            {STATUS_FILTER_LABELS[s] ?? humanize(s)}
+            {labelFor(s)}
           </button>
         ))}
       </div>

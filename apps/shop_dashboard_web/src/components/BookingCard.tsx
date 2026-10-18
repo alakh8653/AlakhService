@@ -126,7 +126,7 @@ export default function BookingCard({
     >
       <div className="flex-1 min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={booking.status} />
+          <StatusBadge status={booking.status} mode={booking.serviceMode} />
           <span className="flex items-center gap-1 text-xs text-gray-700 bg-gray-100 rounded-full px-2 py-0.5">
             <ModeIcon size={12} aria-hidden /> {MODE_LABELS[booking.serviceMode] ?? booking.serviceMode}
           </span>

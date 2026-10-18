@@ -138,6 +138,20 @@ describe('BookingCard delivery modes', () => {
     expect(onChangeStatus).toHaveBeenCalledWith('b1', 'OUT_FOR_DELIVERY');
   });
 
+  it('uses at-shop words for an assigned booking instead of "provider en route"', () => {
+    const onChangeStatus = vi.fn();
+    const { unmount } = render(
+      <BookingCard booking={{ ...booking, status: 'ASSIGNED' }} onChangeStatus={onChangeStatus} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Customer arrived' }));
+    expect(onChangeStatus).toHaveBeenCalledWith('b1', 'PROVIDER_EN_ROUTE');
+    unmount();
+    render(<BookingCard booking={{ ...booking, status: 'PROVIDER_EN_ROUTE' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Customer arrived')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start service' })).toBeInTheDocument();
+    expect(screen.queryByText(/en route/i)).not.toBeInTheDocument();
+  });
+
   it('starts an at-shop booking when the customer arrives', () => {
     const onChangeStatus = vi.fn();
     render(<BookingCard booking={{ ...booking, status: 'CONFIRMED' }} onChangeStatus={onChangeStatus} onCancel={vi.fn()} />);

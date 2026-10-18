@@ -51,7 +51,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         role="status"
-        className="fixed z-50 bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:w-96 flex flex-col gap-2 pointer-events-none"
+        // Top on phones (clear of a dialog's buttons and the thumb), bottom-right on larger screens.
+        className="fixed z-[60] top-3 inset-x-3 sm:top-auto sm:bottom-4 sm:inset-x-auto sm:right-4 sm:w-96 flex flex-col gap-2 pointer-events-none"
       >
         {toasts.map((t) => (
           <div

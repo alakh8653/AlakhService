@@ -33,7 +33,7 @@ export const MODE_ACTIONS: Record<ServiceMode, Partial<Record<BookingStatus, Boo
   AT_SHOP: {
     PENDING: [{ label: 'Confirm', target: 'CONFIRMED' }, CANCEL],
     CONFIRMED: [{ label: 'Customer arrived', target: 'IN_PROGRESS' }, CANCEL],
-    ASSIGNED: [{ label: 'Provider en route', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
+    ASSIGNED: [{ label: 'Customer arrived', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
     PROVIDER_EN_ROUTE: [{ label: 'Start service', target: 'IN_PROGRESS' }],
     IN_PROGRESS: [{ label: 'Mark complete', target: 'COMPLETED' }],
   },
@@ -41,7 +41,7 @@ export const MODE_ACTIONS: Record<ServiceMode, Partial<Record<BookingStatus, Boo
   AT_HOME: {
     PENDING: [{ label: 'Confirm', target: 'CONFIRMED' }, CANCEL],
     CONFIRMED: [CANCEL],
-    ASSIGNED: [{ label: 'Provider en route', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
+    ASSIGNED: [{ label: 'Staff on the way', target: 'PROVIDER_EN_ROUTE' }, CANCEL],
     PROVIDER_EN_ROUTE: [{ label: 'Start service', target: 'IN_PROGRESS' }],
     IN_PROGRESS: [{ label: 'Mark complete', target: 'COMPLETED' }],
   },

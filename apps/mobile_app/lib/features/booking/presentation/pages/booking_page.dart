@@ -94,6 +94,7 @@ class _BookingPageState extends State<BookingPage> {
   DateTime? _slot;
   // Shown under the schedule / address once the customer tries to book without them.
   bool _showMissing = false;
+  final _whenKey = GlobalKey(), _addressKey = GlobalKey(), _itemKey = GlobalKey();
   // One key per booking attempt. Tapping again after an error sends the same request with the same key,
   // so if the first try did reach the server it hands back that booking instead of making a second one;
   // changing any detail is a new attempt with a new key.
@@ -186,6 +187,12 @@ class _BookingPageState extends State<BookingPage> {
     final addressMissing = _needsAddress && _address == null;
     if (!formOk || slot == null || addressMissing) {
       setState(() => _showMissing = true);
+      // Bring the first thing to fix into view; it may be far up or down the form.
+      final target = slot == null ? _whenKey : addressMissing ? _addressKey : _itemKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = target.currentContext;
+        if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), alignment: 0.1);
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(slot == null
@@ -302,7 +309,7 @@ class _BookingPageState extends State<BookingPage> {
                   Text(modeExplanation(_mode), style: AppTextStyles.caption),
                   const SizedBox(height: 24),
                 ],
-                const _Heading('When?'),
+                _Heading('When?', key: _whenKey),
                 SizedBox(
                   height: 64,
                   child: ListView.separated(
@@ -362,7 +369,7 @@ class _BookingPageState extends State<BookingPage> {
                   ),
                 const SizedBox(height: 24),
                 if (_needsAddress) ...[
-                  _Heading(_mode == ServiceMode.pickupDrop ? 'Collect from' : 'Where should we come?'),
+                  _Heading(_mode == ServiceMode.pickupDrop ? 'Collect from' : 'Where should we come?', key: _addressKey),
                   if (!_addressesLoaded)
                     const LinearProgressIndicator()
                   else if (_saved.isEmpty)
@@ -410,6 +417,7 @@ class _BookingPageState extends State<BookingPage> {
                 ],
                 if (_mode == ServiceMode.pickupDrop) ...[
                   CustomTextField(
+                    key: _itemKey,
                     controller: _itemController,
                     label: 'What should we collect?',
                     hint: 'e.g. Honda Activa, brakes squeaking · Dell laptop, cracked screen',
@@ -480,7 +488,7 @@ class _BookingPageState extends State<BookingPage> {
 class _Heading extends StatelessWidget {
   final String text;
 
-  const _Heading(this.text);
+  const _Heading(this.text, {super.key});
 
   @override
   Widget build(BuildContext context) => Padding(

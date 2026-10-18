@@ -237,8 +237,13 @@ void main() {
     await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -3000)); // down at the coupon
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('When?')).dy, lessThan(0));
     await confirm(tester);
     expect(find.text('Pick a time for your booking'), findsOneWidget);
+    final y = tester.getTopLeft(find.text('When?')).dy;
+    expect(y, inInclusiveRange(0, 400)); // scrolled back up to what needs fixing
     expect(find.text('Pick a time'), findsOneWidget);
     expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
   });

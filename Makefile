@@ -473,6 +473,28 @@ prod-backup: ## Back up every production database now, verify it, and copy it of
 prod-smoke: ## Test the live api./shop./admin. sites through Caddy
 	$(PROD_SCRIPT) smoke
 
+.PHONY: prod-restart
+prod-restart: ## Start/restart the deployed version without building (e.g. after a restore or a reboot)
+	$(PROD_SCRIPT) restart
+
+.PHONY: prod-verify-backup
+prod-verify-backup: ## Prove a production backup restores: make prod-verify-backup [BACKUP=backups/<timestamp>]
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/verify.sh backup $(if $(BACKUP),/backups/$(notdir $(BACKUP)))
+
+.PHONY: prod-restore
+prod-restore: ## Restore a production backup next to the live data as <db>_restored: make prod-restore BACKUP=backups/<ts> [DBS=...]
+	@test -n "$(BACKUP)" || { echo "Usage: make prod-restore BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/restore.sh backup /backups/$(notdir $(BACKUP)) $(DBS)
+
+.PHONY: prod-restore-in-place
+prod-restore-in-place: ## Replace live production databases from a backup (DESTRUCTIVE; stops the services first)
+	@test -n "$(BACKUP)" || { echo "Usage: make prod-restore-in-place BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	$(call warn,"This REPLACES live production databases with $(BACKUP). Press Ctrl-C to cancel...")
+	@sleep 10
+	$(COMPOSE_PROD) stop $$($(COMPOSE_PROD) config --services | grep -E '_service$$|^pricing_engine$$|^api_gateway$$')
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
+	$(PROD_SCRIPT) restart
+
 .PHONY: prod-make-admin
 prod-make-admin: ## Grant admin to a registered account in production: make prod-make-admin ACCOUNT=you@example.com
 	@test -n "$$ACCOUNT" || { echo "Usage: make prod-make-admin ACCOUNT=<email or phone>"; exit 1; }

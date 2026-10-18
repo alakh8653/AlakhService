@@ -8,6 +8,7 @@
 #   scripts/deploy/deploy.sh logs [service]
 #   scripts/deploy/deploy.sh backup     back up every database now (verified), then copy off-site
 #   scripts/deploy/deploy.sh smoke      test the live sites through Caddy
+#   scripts/deploy/deploy.sh restart    start/restart the deployed version (no build), e.g. after a restore
 #
 # Options (deploy):   --no-pull      deploy the code as it is checked out (no git pull)
 #                     --skip-backup  do not back up the databases before migrating
@@ -384,6 +385,18 @@ cmd_status() {
   docker system df 2> /dev/null | sed 's/^/  /' || true
 }
 
+cmd_restart() {
+  require_env_file
+  local tag
+  tag=$(read_state current_tag)
+  [ -n "$tag" ] || die "nothing has been deployed yet; run: make prod-deploy"
+  images_exist "$tag" || die "the images for $tag are missing; run: make prod-deploy"
+  export IMAGE_TAG=$tag
+  compose up -d --no-deps --wait postgres redis > /dev/null
+  roll_all
+  cmd_smoke
+}
+
 cmd_logs() {
   require_env_file
   compose logs -f --tail=200 "$@"
@@ -404,7 +417,7 @@ cmd_backup() {
 }
 
 usage() {
-  sed -n '3,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  awk 'NR > 2 && /^# ====/ { exit } NR > 2' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 command=${1:-}
@@ -416,6 +429,7 @@ case "$command" in
   logs) cmd_logs "$@" ;;
   backup) cmd_backup ;;
   smoke) cmd_smoke ;;
+  restart) cmd_restart ;;
   -h | --help | help | "") usage ;;
   *)
     usage >&2

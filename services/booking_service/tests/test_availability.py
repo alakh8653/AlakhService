@@ -198,7 +198,7 @@ async def test_today_starts_half_an_hour_from_now_and_ends_with_no_more_today(cl
 
     CLOCK["now"] = ist(MON, "19:00")
     late = await slots(client, MON)
-    assert (late["status"], late["message"]) == ("NO_MORE_TODAY", "No more times today. Try another day")
+    assert (late["status"], late["message"]) == ("NO_MORE_TODAY", "No more times today — try another day")
 
 
 @pytest.mark.asyncio

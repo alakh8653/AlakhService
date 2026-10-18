@@ -150,8 +150,8 @@ class DayAvailability:
         return {
             CLOSED: "Closed on this day",
             HOLIDAY: "Closed on this day" + (f" ({self.holiday_note})" if self.holiday_note else ""),
-            FULLY_BOOKED: "Fully booked. Try another day",
-            NO_MORE_TODAY: "No more times today. Try another day",
+            FULLY_BOOKED: "Fully booked — try another day",
+            NO_MORE_TODAY: "No more times today — try another day",
         }.get(self.status)
 
 

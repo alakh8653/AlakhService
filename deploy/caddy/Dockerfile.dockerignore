@@ -1,0 +1,10 @@
+# Build context for deploy/caddy/Dockerfile is the repository root: send only what it needs.
+*
+!apps/shop_dashboard_web/**
+!apps/admin_dashboard_web/**
+!deploy/Caddyfile
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*

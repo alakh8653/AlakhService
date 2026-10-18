@@ -369,11 +369,12 @@ class _BookingCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: Text(booking.serviceName, style: AppTextStyles.subtitle1)),
+                Expanded(child: Text(booking.serviceName, style: AppTextStyles.subtitle1)),
                 const SizedBox(width: 8),
-                // The status may wrap onto two lines, but never pushes the card wider than the screen.
-                Flexible(
-                  flex: 2,
+                // Up to about half the card: a long status (or large text) wraps instead of pushing
+                // the card wider than the screen.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.45),
                   child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(

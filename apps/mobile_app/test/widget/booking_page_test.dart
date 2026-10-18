@@ -213,9 +213,12 @@ void main() {
     expect(find.text('2:00 PM'), findsNothing);
     expect(find.text('2:30 PM'), findsOneWidget);
     expect(find.text('9:00 AM'), findsNothing);
+    expect(find.text('Morning'), findsNothing); // grouped by part of the day; this morning is over
+    expect(find.text('Afternoon'), findsOneWidget);
 
     await tester.tap(find.text('Tomorrow'));
     await tester.pumpAndSettle();
+    expect(find.text('Morning'), findsOneWidget);
     expect(find.text('9:00 AM'), findsOneWidget);
     expect(find.text('8:00 PM'), findsOneWidget);
   });

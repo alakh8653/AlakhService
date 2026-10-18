@@ -329,19 +329,32 @@ class _BookingPageState extends State<BookingPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final t in slots)
-                      ChoiceChip(
-                        label: Text(clockTime(t)),
-                        showCheckmark: false,
-                        selected: _slot == t,
-                        onSelected: (_) => setState(() => _slot = t),
-                      ),
+                // Grouped by part of the day so 20-odd times are quick to scan.
+                for (final (part, times) in [
+                  ('Morning', slots.where((t) => t.hour < 12)),
+                  ('Afternoon', slots.where((t) => t.hour >= 12 && t.hour < 17)),
+                  ('Evening', slots.where((t) => t.hour >= 17)),
+                ])
+                  if (times.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 6),
+                      child: Text(part, style: AppTextStyles.caption),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final t in times)
+                          ChoiceChip(
+                            label: Text(clockTime(t)),
+                            showCheckmark: false,
+                            selected: _slot == t,
+                            onSelected: (_) => setState(() => _slot = t),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                   ],
-                ),
                 if (_showMissing && _slot == null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import { X } from 'lucide-react';
+import { formatDateTime } from '../shared/format';
 import { getRiskHistory, type RiskLevel, type RiskProfile, type RiskSignal } from './RiskService';
 
 const LEVELS: Record<RiskLevel, { label: string; className: string }> = {
@@ -48,13 +48,13 @@ export default function RiskPanel({ name, profile, onClose }: { name: string; pr
             score {profile.score.toFixed(2)} · {profile.riskEvents} risk / {profile.safeEvents} safe events
           </p>
         </div>
-        <button type="button" aria-label="Close" onClick={onClose} className="p-1 text-gray-500 hover:text-gray-900">
+        <button type="button" aria-label="Close" onClick={onClose} className="p-1 rounded text-gray-500 hover:text-gray-900">
           <X size={18} />
         </button>
       </div>
-      {error && <p className="text-sm text-red-600">Could not load signals.</p>}
-      {!error && signals === null && <p className="text-gray-400 text-sm">Loading…</p>}
-      {signals?.length === 0 && <p className="text-gray-400 text-sm">No signals recorded.</p>}
+      {error && <p className="text-sm text-red-700">Could not load signals.</p>}
+      {!error && signals === null && <p className="text-gray-500 text-sm">Loading…</p>}
+      {signals?.length === 0 && <p className="text-gray-500 text-sm">No signals recorded.</p>}
       {signals && signals.length > 0 && (
         <ul className="divide-y divide-gray-100 text-sm">
           {signals.map((s) => (
@@ -62,7 +62,7 @@ export default function RiskPanel({ name, profile, onClose }: { name: string; pr
               <span className="capitalize">{signalName(s.type)}</span>
               <span className="text-gray-500">
                 {s.value > 0 ? `${s.value.toFixed(1)} · ` : ''}
-                {format(new Date(s.createdAt), 'MMM d, yyyy HH:mm')}
+                {formatDateTime(s.createdAt)}
               </span>
             </li>
           ))}

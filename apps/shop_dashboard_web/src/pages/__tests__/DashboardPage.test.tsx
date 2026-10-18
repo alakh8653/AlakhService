@@ -22,6 +22,7 @@ const api = vi.hoisted(() => ({
   getStaff: vi.fn(),
   getReviewSummary: vi.fn(),
   getReviews: vi.fn(),
+  getShopHours: vi.fn(),
 }));
 vi.mock('../../services/reviewService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/reviewService')>()),
@@ -37,6 +38,7 @@ vi.mock('../../services/shopService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/shopService')>()),
   getServices: api.getServices,
   getStaff: api.getStaff,
+  getShopHours: api.getShopHours,
 }));
 vi.mock('../../services/paymentService', () => ({ getBookingPayments: vi.fn().mockResolvedValue([]), confirmCashReceived: vi.fn() }));
 
@@ -67,6 +69,7 @@ beforeEach(() => {
   api.getShopSummary.mockResolvedValue(summary());
   api.getReviewSummary.mockResolvedValue({ averageRating: 0, reviewCount: 0, distribution: [] });
   api.getReviews.mockResolvedValue({ items: [], total: 0 });
+  api.getShopHours.mockResolvedValue({ configured: true });
   store.dispatch(setCredentials({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 0 }, user: { id: 'u', name: 'Asha Rao', email: null, phone: null, role: 'shop_owner' }, shop }));
 });
 
@@ -91,15 +94,18 @@ describe('DashboardPage', () => {
     // Services and staff exist; only the map pin is left to do.
     expect(await screen.findByRole('link', { name: 'Pin your shop on the map so customers find you' })).toHaveAttribute('href', '/settings');
     expect(screen.queryByRole('link', { name: /Add the services/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Set opening hours/ })).not.toBeInTheDocument(); // already published
   });
 
   it('walks a new shop through setup and says when today is empty', async () => {
     api.getShopBookings.mockResolvedValue({ data: [], total: 0, page: 1, perPage: 100, totalPages: 0 });
     api.getServices.mockResolvedValue([]);
     api.getStaff.mockResolvedValue([]);
+    api.getShopHours.mockResolvedValue({ configured: false });
     renderPage(<DashboardPage />);
     expect(await screen.findByText('No bookings today.')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Add the services you offer, with prices' })).toHaveAttribute('href', '/services');
+    expect(screen.getByRole('link', { name: "Set opening hours so customers book only when you're open" })).toHaveAttribute('href', '/hours');
     expect(screen.getByText('No reviews yet')).toBeInTheDocument();
     expect(screen.queryByText(/waiting for you to confirm/)).not.toBeInTheDocument();
   });

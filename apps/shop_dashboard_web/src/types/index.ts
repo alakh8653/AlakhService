@@ -68,6 +68,34 @@ export interface StaffMember {
   createdAt: string;
 }
 
+/** One stretch of the day the shop is open, "HH:MM" in India time ("24:00" is midnight). */
+export interface OpenInterval {
+  start: string;
+  end: string;
+}
+
+export interface ShopHoliday {
+  date: string; // YYYY-MM-DD
+  note: string | null;
+}
+
+/** Opening hours, closures and capacity (shop_service), as customers can book against them. */
+export interface ShopHours {
+  /** False until the owner saves a week; until then customers may request any time. */
+  configured: boolean;
+  timezone: string;
+  /** Seven days, Monday first; an empty day is closed. */
+  weekly: OpenInterval[][];
+  /** Today and later, soonest first. */
+  holidays: ShopHoliday[];
+  /** How many customers can be served at the same time. */
+  capacity: number;
+  /** Set by the owner; null means one per active staff member. */
+  capacityOverride: number | null;
+  activeStaff: number;
+  updatedAt: string | null;
+}
+
 export interface Shop {
   id: string;
   ownerId: string;

@@ -13,6 +13,7 @@ import BookingCard from '../components/BookingCard';
 import { byScheduledAt, getShopBookings, inWindow, windowFilters } from '../services/bookingService';
 import { apiErrorMessage, formatMoney } from '../services/format';
 import { getReviews, getReviewSummary, type RatingSummary } from '../services/reviewService';
+import { getShopHours } from '../services/shopService';
 import type { Booking } from '../types';
 
 interface StatCardProps {
@@ -108,6 +109,23 @@ function useToday(shopId: string | undefined) {
   return { today, toConfirm, error, replace };
 }
 
+/** Whether the shop has published opening hours (null while loading). */
+function useHoursPublished(shopId: string | undefined) {
+  const [published, setPublished] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!shopId) return;
+    let cancelled = false;
+    getShopHours(shopId)
+      .then((h) => !cancelled && setPublished(h.configured))
+      // Not knowing is no reason to nag.
+      .catch(() => !cancelled && setPublished(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [shopId]);
+  return published;
+}
+
 export default function DashboardPage() {
   const shop = useSelector((state: RootState) => state.auth.shop);
   const userName = useSelector((state: RootState) => state.auth.user?.name);
@@ -115,6 +133,7 @@ export default function DashboardPage() {
   const { services, serviceNames, isLoading: servicesLoading } = useShopServices();
   const { staff, providers, providerName, isLoading: staffLoading } = useStaff();
   const { today, toConfirm, error: todayError, replace } = useToday(shop?.id);
+  const hoursPublished = useHoursPublished(shop?.id);
   const actions = useBookingActions(replace, providerName);
   const rating = useRating(shop?.id);
   const ratingCount = rating?.summary.reviewCount ?? shop?.ratingCount ?? 0;
@@ -125,6 +144,7 @@ export default function DashboardPage() {
   const setupSteps = [
     { done: services.length > 0, label: 'Add the services you offer, with prices', to: '/services' },
     { done: staff.length > 0, label: 'Add your staff so you can assign bookings', to: '/staff' },
+    { done: hoursPublished !== false, label: "Set opening hours so customers book only when you're open", to: '/hours' },
     { done: shop?.latitude != null, label: 'Pin your shop on the map so customers find you', to: '/settings' },
   ];
   const setupDone = setupSteps.every((s) => s.done);
@@ -139,7 +159,7 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500">{format(now, 'EEEE, d MMMM')}</p>
       </div>
 
-      {!setupDone && !servicesLoading && !staffLoading && (
+      {!setupDone && !servicesLoading && !staffLoading && hoursPublished !== null && (
         <section aria-labelledby="setup-heading" className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 md:p-5">
           <h2 id="setup-heading" className="font-semibold text-gray-900">
             Finish setting up your shop

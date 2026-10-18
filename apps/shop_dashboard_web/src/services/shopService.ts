@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { Service, ServiceMode, Shop, StaffMember } from '../types';
+import type { OpenInterval, Service, ServiceMode, Shop, ShopHours, StaffMember } from '../types';
 
 // ── Shops (shop_service) ─────────────────────────────────────────────────────
 
@@ -91,6 +91,65 @@ export async function createShop(ownerId: string, shop: NewShop): Promise<Shop> 
 export async function updateShop(id: string, update: ShopUpdate): Promise<Shop> {
   const { data } = await apiClient.put<ShopResponse>(`/shops/${id}`, update);
   return toShop(data);
+}
+
+// ── Opening hours, holidays and capacity (shop_service) ──────────────────────
+
+interface ShopHoursResponse {
+  configured: boolean;
+  timezone: string;
+  weekly: { day: number; intervals: OpenInterval[] }[];
+  holidays: { date: string; note: string | null }[];
+  capacity: number;
+  capacity_override: number | null;
+  active_staff: number;
+  updated_at: string | null;
+}
+
+export function toShopHours(data: ShopHoursResponse): ShopHours {
+  const weekly: OpenInterval[][] = Array.from({ length: 7 }, () => []);
+  for (const d of data.weekly) weekly[d.day] = d.intervals.map(({ start, end }) => ({ start, end }));
+  return {
+    configured: data.configured,
+    timezone: data.timezone,
+    weekly,
+    holidays: data.holidays,
+    capacity: data.capacity,
+    capacityOverride: data.capacity_override,
+    activeStaff: data.active_staff,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function getShopHours(shopId: string): Promise<ShopHours> {
+  const { data } = await apiClient.get<ShopHoursResponse>(`/shops/${shopId}/hours`);
+  return toShopHours(data);
+}
+
+/** Replaces the whole week: `weekly[0]` is Monday, an empty day is closed. */
+export async function saveWeeklyHours(shopId: string, weekly: OpenInterval[][]): Promise<ShopHours> {
+  const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/hours`, {
+    weekly: weekly.map((intervals, day) => ({ day, intervals })),
+  });
+  return toShopHours(data);
+}
+
+/** null goes back to one customer per active staff member. */
+export async function saveCapacity(shopId: string, capacity: number | null): Promise<ShopHours> {
+  const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/capacity`, { capacity });
+  return toShopHours(data);
+}
+
+export async function addHoliday(shopId: string, date: string, note: string): Promise<ShopHours> {
+  const { data } = await apiClient.post<ShopHoursResponse>(`/shops/${shopId}/holidays`, {
+    date,
+    note: note.trim() || null,
+  });
+  return toShopHours(data);
+}
+
+export async function removeHoliday(shopId: string, date: string): Promise<void> {
+  await apiClient.delete(`/shops/${shopId}/holidays/${date}`);
 }
 
 // ── Services (service_catalog_service) ───────────────────────────────────────

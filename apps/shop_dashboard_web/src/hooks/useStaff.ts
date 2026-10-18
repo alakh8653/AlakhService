@@ -9,6 +9,7 @@ import type { ProviderOption } from '../components/BookingCard';
 export function useStaff() {
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!shopId) return;
@@ -19,6 +20,9 @@ export function useStaff() {
       })
       .catch(() => {
         if (!cancelled) setStaff([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -32,5 +36,5 @@ export function useStaff() {
 
   const providerName = useCallback((userId: string) => staff.find((m) => m.userId === userId)?.name, [staff]);
 
-  return { staff, providers, providerName };
+  return { staff, setStaff, providers, providerName, isLoading };
 }

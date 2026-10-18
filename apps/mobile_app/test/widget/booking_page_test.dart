@@ -1,4 +1,6 @@
+import 'package:alakh_service/app/shell_navigation.dart';
 import 'package:alakh_service/core/network/api_client.dart';
+import 'package:alakh_service/features/booking/data/coupon_api.dart';
 import 'package:alakh_service/core/network/network_info.dart';
 import 'package:alakh_service/core/network/token_store.dart';
 import 'package:alakh_service/features/booking/data/datasources/booking_remote_datasource.dart';
@@ -48,7 +50,10 @@ FakeAdapter server({int failFirst = 0}) {
 List<Object?> keysSent(FakeAdapter adapter) =>
     adapter.requests.where((r) => r.method == 'POST').map((r) => r.headers['Idempotency-Key']).toList();
 
-Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop, ServiceMode.pickupDrop]}) {
+/// 2 PM on a Sunday: today's slots from 2:30 PM, tomorrow is Monday 19 Oct.
+DateTime now() => DateTime(2026, 10, 18, 14);
+
+Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop, ServiceMode.pickupDrop], CouponApi? coupons}) {
   final client = ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore());
   final repo = BookingRepositoryImpl(remoteDataSource: BookingRemoteDataSourceImpl(apiClient: client), networkInfo: Online());
   return MaterialApp(
@@ -65,19 +70,21 @@ Widget page(FakeAdapter adapter, {List<String> modes = const [ServiceMode.atShop
         addressApi: AddressApi(client),
         serviceModes: modes,
         pickupFee: 99,
+        couponApi: coupons,
+        clock: now,
       ),
     ),
   );
 }
 
 Future<void> pickDateAndTime(WidgetTester tester) async {
-  await tester.tap(find.text('Select Date'));
+  await tester.ensureVisible(find.text('Tomorrow'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('OK'));
+  await tester.tap(find.text('Tomorrow'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Select Time'));
+  await tester.ensureVisible(find.text('11:00 AM'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('OK'));
+  await tester.tap(find.text('11:00 AM'));
   await tester.pumpAndSettle();
 }
 
@@ -100,11 +107,12 @@ void main() {
     expect(find.text('Visit the shop'), findsOneWidget);
     expect(find.text('What should we collect?'), findsNothing);
     expect(find.text('Saved address'), findsNothing);
-    expect(find.text('₹4500'), findsOneWidget);
+    expect(find.text('₹4,500'), findsNWidgets(3)); // service line, total, and the bar at the bottom
 
     await tester.tap(find.text('Pickup & drop (+₹99)'));
     await tester.pumpAndSettle();
-    expect(find.text('₹4599'), findsOneWidget); // the pickup fee is part of the price
+    expect(find.text('Pickup & drop fee'), findsOneWidget);
+    expect(find.text('₹4,599'), findsNWidgets(2)); // the pickup fee is part of the price
     expect(find.text('Collect from'), findsOneWidget);
     expect(find.textContaining('Home: 12 MG Road'), findsOneWidget); // the default address is chosen
 
@@ -120,6 +128,7 @@ void main() {
 
     final request = adapter.requests.singleWhere((r) => r.method == 'POST');
     final sent = request.data as Map;
+    expect(DateTime.parse(sent['scheduled_at'] as String).toLocal(), DateTime(2026, 10, 19, 11));
     expect(request.headers['Idempotency-Key'], matches(RegExp(r'^[0-9a-f]{32}$')));
     expect(sent['service_mode'], 'PICKUP_DROP');
     expect(sent['address_id'], 'addr-1');
@@ -192,6 +201,133 @@ void main() {
     expect(keysSent(first), hasLength(1));
     expect(keysSent(second), hasLength(1));
     expect(keysSent(second).single, isNot(keysSent(first).single));
+  });
+
+  testWidgets('only times still ahead are offered: today starts half an hour from now', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(page(server(), modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Today'), findsOneWidget); // selected first
+    expect(find.text('2:00 PM'), findsNothing);
+    expect(find.text('2:30 PM'), findsOneWidget);
+    expect(find.text('9:00 AM'), findsNothing);
+
+    await tester.tap(find.text('Tomorrow'));
+    await tester.pumpAndSettle();
+    expect(find.text('9:00 AM'), findsOneWidget);
+    expect(find.text('8:00 PM'), findsOneWidget);
+  });
+
+  test('slots: none in the past, and today drops off the list after the last slot', () {
+    final late = DateTime(2026, 10, 18, 19, 45);
+    expect(BookingSlots.on(late, now: late), isEmpty);
+    expect(BookingSlots.upcomingDays(now: late).first, DateTime(2026, 10, 19));
+    expect(BookingSlots.on(DateTime(2026, 10, 18), now: DateTime(2026, 10, 18, 14, 10)).first, DateTime(2026, 10, 18, 15));
+  });
+
+  testWidgets('booking without a time says what is missing and sends nothing', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server();
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+
+    await confirm(tester);
+    expect(find.text('Pick a time for your booking'), findsOneWidget);
+    expect(find.text('Pick a time'), findsOneWidget);
+    expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
+  });
+
+  testWidgets('with no saved address the customer can add one right here and book', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = FakeAdapter((r) => r.path.endsWith('/addresses') && r.method == 'GET'
+        ? (status: 200, body: <Object>[])
+        : r.path.endsWith('/addresses')
+            ? (status: 201, body: {'id': 'addr-9', 'label': 'Home', 'street': '4 FC Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411004', 'is_default': true})
+            : (status: 201, body: {
+                'id': 'b1', 'booking_number': 'BK1', 'customer_id': 'u1', 'service_id': 's1', 'status': 'PENDING',
+                'scheduled_at': '2026-10-19T05:30:00Z', 'total_amount': 459900, 'service_mode': 'PICKUP_DROP',
+                'created_at': '2026-10-18T00:00:00Z',
+              }));
+    await tester.pumpWidget(page(adapter));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+    await tester.ensureVisible(find.text('Pickup & drop (+₹99)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pickup & drop (+₹99)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('You have no saved address yet.'), findsOneWidget);
+    await tester.ensureVisible(find.text('Add address'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add address'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Flat / house no., street, area'), '4 FC Road');
+    await tester.enterText(find.widgetWithText(TextFormField, 'City'), 'Pune');
+    await tester.enterText(find.widgetWithText(TextFormField, 'State'), 'MH');
+    await tester.enterText(find.widgetWithText(TextFormField, 'PIN code'), '411004');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Home: 4 FC Road'), findsOneWidget);
+    await tester.enterText(
+      find.ancestor(of: find.textContaining('Honda Activa'), matching: find.byType(TextFormField)),
+      'Phone, broken charging port',
+    );
+    await confirm(tester);
+    final sent = adapter.requests.singleWhere((r) => r.method == 'POST' && r.path.endsWith('/bookings')).data as Map;
+    expect(sent['address_id'], 'addr-9');
+  });
+
+  testWidgets('a booked request says what happens next and can open My Bookings', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    ShellTab? opened;
+    void listener() => opened = ShellNavigation.instance.requested;
+    ShellNavigation.instance.addListener(listener);
+    addTearDown(() => ShellNavigation.instance.removeListener(listener));
+
+    await tester.pumpWidget(page(server(), modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+    await confirm(tester);
+
+    expect(find.text('Booking requested'), findsOneWidget);
+    expect(find.textContaining('Booking #BK1'), findsOneWidget);
+    expect(find.textContaining('pay once it'), findsOneWidget);
+    await tester.tap(find.text('View my bookings'));
+    await tester.pumpAndSettle();
+    expect(opened, ShellTab.bookings);
+  });
+
+  testWidgets('a coupon shows its saving in the price details and can be removed', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server();
+    final coupons = CouponApi(ApiClient(
+      dio: fakeDio(FakeAdapter((_) => (status: 200, body: {'is_valid': true, 'discount_pct': 0.1, 'message': 'ok'}))),
+      tokens: MemoryTokenStore(),
+    ));
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop], coupons: coupons));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.ancestor(of: find.text('e.g. WELCOME10'), matching: find.byType(TextFormField)), 'welcome10');
+    await tester.ensureVisible(find.text('Apply'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('WELCOME10 applied'), findsOneWidget);
+    expect(find.text('−₹450'), findsOneWidget);
+    expect(find.text('₹4,050'), findsNWidgets(2));
+    await tester.ensureVisible(find.text('Remove'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove'));
+    await tester.pumpAndSettle();
+    expect(find.text('₹4,500'), findsNWidgets(3));
   });
 
   test('mode labels and fees', () {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -26,6 +27,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _passwordController = TextEditingController();
   _Step _step = _Step.request;
   bool _isLoading = false;
+  bool _obscure = true;
 
   AuthRepository get _repository => widget.repository ?? sl<AuthRepository>();
 
@@ -44,12 +46,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<void> _onSubmit() async {
+    if (_isLoading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
     final result = _step == _Step.request
-        ? await _repository.forgotPassword(_phoneController.text)
+        ? await _repository.forgotPassword(_phoneController.text.trim())
         : await _repository.resetPassword(
-            phone: _phoneController.text,
+            phone: _phoneController.text.trim(),
             code: _codeController.text.trim(),
             newPassword: _passwordController.text,
           );
@@ -84,19 +87,26 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           const SizedBox(height: 8),
           Text(
             requesting
-                ? 'Enter your registered phone number and we\'ll text you a code.'
-                : 'Enter the code we sent to ${_phoneController.text} and choose a new password.',
+                ? 'Enter the phone number or email on your account and we\'ll send you a code.'
+                : 'Enter the code we sent to ${_phoneController.text.trim()} and choose a new password.',
             style: AppTextStyles.body2,
           ),
           const SizedBox(height: 32),
           CustomTextField(
             controller: _phoneController,
-            label: 'Phone Number',
-            hint: '+91 9876543210',
-            keyboardType: TextInputType.phone,
-            validator: Validators.phone,
+            label: 'Phone or email',
+            hint: '98765 43210 or you@example.com',
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.telephoneNumber, AutofillHints.email],
+            validator: Validators.phoneOrEmail,
             readOnly: !requesting,
           ),
+          if (!requesting)
+            TextButton(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: _isLoading ? null : () => setState(() => _step = _Step.request),
+              child: const Text('Use a different phone or email'),
+            ),
           if (!requesting) ...[
             const SizedBox(height: 16),
             CustomTextField(
@@ -104,15 +114,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               label: 'Code',
               hint: '6-digit code',
               keyboardType: TextInputType.number,
+              autofillHints: const [AutofillHints.oneTimeCode],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              maxLength: 6,
               validator: Validators.otp,
             ),
             const SizedBox(height: 16),
             CustomTextField(
               controller: _passwordController,
               label: 'New Password',
-              hint: 'Min 8 characters',
-              obscureText: true,
+              hint: 'Choose a new password',
+              helper: Validators.passwordRules,
+              obscureText: _obscure,
+              autofillHints: const [AutofillHints.newPassword],
               validator: Validators.password,
+              suffix: IconButton(
+                tooltip: _obscure ? 'Show password' : 'Hide password',
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textSecondary),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
             ),
           ],
           const SizedBox(height: 32),

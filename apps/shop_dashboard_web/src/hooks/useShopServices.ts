@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../state/store';
 import { getServices } from '../services/shopService';
+import { apiErrorMessage } from '../services/format';
 import type { Service } from '../types';
 
 /** The shop's catalogue (active and inactive), plus an id → name lookup. */
 export function useShopServices() {
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [services, setServices] = useState<Service[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shopId) return;
@@ -16,8 +19,14 @@ export function useShopServices() {
       .then((data) => {
         if (!cancelled) setServices(data);
       })
-      .catch(() => {
-        if (!cancelled) setServices([]);
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setServices([]);
+          setError(apiErrorMessage(err, 'Could not load your services'));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -29,5 +38,5 @@ export function useShopServices() {
     [services],
   );
 
-  return { services, setServices, serviceNames };
+  return { services, setServices, serviceNames, isLoading, error };
 }

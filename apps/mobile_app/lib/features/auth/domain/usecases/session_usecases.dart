@@ -25,5 +25,6 @@ class ResendOtpUseCase {
 
   ResendOtpUseCase(this.repository);
 
-  Future<Either<Failure, bool>> call(String phone) => repository.resendOtp(phone);
+  Future<Either<Failure, bool>> call(String phone, {String purpose = 'registration'}) =>
+      repository.resendOtp(phone, purpose: purpose);
 }

@@ -76,7 +76,8 @@ class CustomButton extends StatelessWidget {
               Icon(leadingIcon, size: 20),
               const SizedBox(width: 8),
             ],
-            Text(label, style: _labelStyle),
+            // Long labels or large system text shrink with an ellipsis instead of overflowing.
+            Flexible(child: Text(label, style: _labelStyle, maxLines: 1, overflow: TextOverflow.ellipsis)),
           ],
         );
 }

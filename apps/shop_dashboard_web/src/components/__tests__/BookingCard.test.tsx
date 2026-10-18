@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import BookingCard from '../BookingCard';
 import type { Booking } from '../../types';
 
@@ -27,18 +28,63 @@ describe('BookingCard', () => {
   it('offers confirm and cancel on a pending booking', () => {
     const onChangeStatus = vi.fn();
     const onCancel = vi.fn();
-    vi.spyOn(window, 'prompt').mockReturnValue('Closed today');
-    render(<BookingCard booking={booking} serviceName="Haircut" onChangeStatus={onChangeStatus} onCancel={onCancel} />);
+    render(<BookingCard booking={booking} serviceName="Haircut" onChangeStatus={onChangeStatus} onCancel={onCancel} />, { wrapper: MemoryRouter });
 
-    expect(screen.getByText('₹499.00')).toBeInTheDocument();
+    expect(screen.getByText('₹499')).toBeInTheDocument();
     expect(screen.getByText(/Haircut/)).toBeInTheDocument();
     expect(screen.getByText('Customer ABCDEF12')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(onChangeStatus).toHaveBeenCalledWith('b1', 'CONFIRMED');
 
+  });
+
+  it('asks for a reason in a dialog before cancelling', async () => {
+    const onCancel = vi.fn().mockResolvedValue(true);
+    render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={onCancel} />, { wrapper: MemoryRouter });
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(onCancel).toHaveBeenCalledWith('b1', 'Closed today');
+    const dialog = screen.getByRole('dialog', { name: 'Cancel booking #BK-1?' });
+    // Nothing is cancelled without a reason, and backing out keeps the booking.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel booking' }));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Choose a reason.');
+    expect(onCancel).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByLabelText('Other'));
+    fireEvent.change(within(dialog).getByLabelText('Reason for the customer'), { target: { value: 'Power cut today' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel booking' }));
+    expect(onCancel).toHaveBeenCalledWith('b1', 'Power cut today');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('keeps the dialog open when cancelling fails, and Escape closes it', async () => {
+    const onCancel = vi.fn().mockResolvedValue(false);
+    render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={onCancel} />, { wrapper: MemoryRouter });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByLabelText('Staff not available'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel booking' })).toBeEnabled());
+    expect(onCancel).toHaveBeenCalledWith('b1', 'Staff not available');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('disables the buttons while a step is saving', async () => {
+    let finish: (v: boolean) => void = () => undefined;
+    const onChangeStatus = vi.fn(() => new Promise<boolean>((r) => (finish = r)));
+    render(<BookingCard booking={booking} onChangeStatus={onChangeStatus} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(onChangeStatus).toHaveBeenCalledTimes(1);
+    finish(true);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm' })).toBeEnabled());
+  });
+
+  it('points to the staff page when nobody can take a booking', () => {
+    render(
+      <BookingCard booking={{ ...booking, status: 'CONFIRMED' }} providers={[]} onChangeStatus={vi.fn()} onCancel={vi.fn()} onAssign={vi.fn()} />,
+      { wrapper: MemoryRouter },
+    );
+    expect(screen.getByRole('link', { name: 'Link a staff app account' })).toHaveAttribute('href', '/staff');
   });
 
   it('offers no actions once a booking is completed', () => {
@@ -67,7 +113,7 @@ describe('BookingCard assignment', () => {
     render(
       <BookingCard booking={{ ...booking, status: 'ASSIGNED', providerId: 'u-ravi' }} providers={providers} onChangeStatus={vi.fn()} onCancel={vi.fn()} onAssign={vi.fn()} />,
     );
-    expect(screen.getByText('Provider: Ravi')).toBeInTheDocument();
+    expect(screen.getByText('Staff: Ravi')).toBeInTheDocument();
     expect(screen.queryByLabelText('Assign to')).not.toBeInTheDocument();
   });
 });
@@ -90,6 +136,20 @@ describe('BookingCard delivery modes', () => {
     expect(screen.queryByRole('button', { name: 'Mark complete' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Send it back' }));
     expect(onChangeStatus).toHaveBeenCalledWith('b1', 'OUT_FOR_DELIVERY');
+  });
+
+  it('uses at-shop words for an assigned booking instead of "provider en route"', () => {
+    const onChangeStatus = vi.fn();
+    const { unmount } = render(
+      <BookingCard booking={{ ...booking, status: 'ASSIGNED' }} onChangeStatus={onChangeStatus} onCancel={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Customer arrived' }));
+    expect(onChangeStatus).toHaveBeenCalledWith('b1', 'PROVIDER_EN_ROUTE');
+    unmount();
+    render(<BookingCard booking={{ ...booking, status: 'PROVIDER_EN_ROUTE' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Customer arrived')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start service' })).toBeInTheDocument();
+    expect(screen.queryByText(/en route/i)).not.toBeInTheDocument();
   });
 
   it('starts an at-shop booking when the customer arrives', () => {
@@ -121,7 +181,7 @@ describe('BookingCard return time', () => {
     const onSetReadyBy = vi.fn();
     const readyBy = new Date('2026-10-12T17:00').toISOString();
     render(<BookingCard booking={{ ...pickup, readyBy }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={onSetReadyBy} />);
-    expect(screen.getByText('Expected back by Oct 12, 5:00 PM')).toBeInTheDocument();
+    expect(screen.getByText('Expected back by 12 Oct, 5:00 PM')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(onSetReadyBy).toHaveBeenCalledWith('b1', null);
@@ -132,7 +192,7 @@ describe('BookingCard return time', () => {
     const { unmount } = render(
       <BookingCard booking={{ ...pickup, status: 'OUT_FOR_DELIVERY', readyBy }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onSetReadyBy={vi.fn()} />,
     );
-    expect(screen.getByText('Expected back by Oct 12, 5:00 PM')).toBeInTheDocument();
+    expect(screen.getByText('Expected back by 12 Oct, 5:00 PM')).toBeInTheDocument();
     expect(screen.queryByLabelText('Expected back by')).not.toBeInTheDocument();
     unmount();
 

@@ -12,3 +12,9 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* A clear keyboard focus ring on everything interactive (inputs keep their own ring). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}

@@ -55,25 +55,49 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     );
   }
 
+  /// Cancels without replacing the list with a spinner: the list stays on screen, then reloads
+  /// quietly. A refusal is reported as [BookingActionFailed] and the list comes back unchanged.
   Future<void> _onCancelBooking(
     CancelBookingRequested event,
     Emitter<BookingState> emit,
   ) async {
-    emit(const BookingLoading());
+    final shown = state;
     final result = await cancelBookingUseCase(event.bookingId);
-    result.fold(
-      (failure) => emit(BookingError(failure.message)),
-      (_) {
+    await result.fold(
+      (failure) async {
+        emit(BookingActionFailed(failure.message));
+        if (shown is BookingsLoaded) emit(shown);
+      },
+      (_) async {
         emit(BookingCancelled(event.bookingId));
-        add(const LoadUserBookings());
+        await _reloadQuietly(emit, fallback: shown);
       },
     );
   }
 
+  /// Reloads the list without showing a spinner; on failure keeps what was shown (or reports it).
+  Future<void> _reloadQuietly(Emitter<BookingState> emit, {BookingState? fallback}) async {
+    final result = await bookingRepository.getUserBookings();
+    result.fold(
+      (failure) => emit(fallback is BookingsLoaded ? fallback : BookingError(failure.message)),
+      (bookings) => emit(BookingsLoaded(bookings)),
+    );
+  }
+
+  /// Pull-to-refresh: the list stays visible while it reloads (the refresh indicator shows progress).
   Future<void> _onRefreshBookings(
     RefreshBookings event,
     Emitter<BookingState> emit,
   ) async {
-    add(const LoadUserBookings());
+    final shown = state;
+    if (shown is! BookingsLoaded) return _onLoadBookings(const LoadUserBookings(), emit);
+    final result = await bookingRepository.getUserBookings();
+    result.fold(
+      (failure) {
+        emit(BookingActionFailed(failure.message));
+        emit(shown);
+      },
+      (bookings) => emit(BookingsLoaded(bookings)),
+    );
   }
 }

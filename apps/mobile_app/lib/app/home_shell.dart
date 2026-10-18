@@ -13,6 +13,7 @@ import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/services/presentation/bloc/service_bloc.dart';
 import '../features/services/presentation/pages/service_list_page.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
+import 'shell_navigation.dart';
 
 /// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers.
 class HomeShell extends StatefulWidget {
@@ -38,6 +39,24 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     (widget.jobsApi ?? sl<JobsApi>()).hasJobs().then((has) {
       if (has && mounted) setState(() => _showJobs = true);
+    }).catchError((Object _) {});
+    ShellNavigation.instance.addListener(_onTabRequest);
+  }
+
+  @override
+  void dispose() {
+    ShellNavigation.instance.removeListener(_onTabRequest);
+    super.dispose();
+  }
+
+  void _onTabRequest() {
+    final tab = ShellNavigation.instance.requested;
+    if (tab == null || !mounted) return;
+    _select(switch (tab) {
+      ShellTab.home => _home,
+      ShellTab.services => _services,
+      ShellTab.bookings => _bookings,
+      ShellTab.profile => _profile,
     });
   }
 
@@ -52,8 +71,8 @@ class _HomeShellState extends State<HomeShell> {
         _visit++;
       });
 
-  void _openNotifications() =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
+  Future<void> _openNotifications() =>
+      Navigator.push<void>(context, MaterialPageRoute(builder: (_) => const NotificationsPage()));
 
   Widget _tab() {
     switch (_index) {
@@ -74,7 +93,7 @@ class _HomeShellState extends State<HomeShell> {
         return BlocProvider<BookingBloc>(
           key: ValueKey('bookings-$_visit'),
           create: (_) => sl<BookingBloc>(),
-          child: const BookingHistoryPage(),
+          child: BookingHistoryPage(onBrowseServices: () => _select(_services)),
         );
       case _jobs:
         return JobsPage(key: ValueKey('jobs-$_visit'), providerId: widget.user.id);
@@ -89,12 +108,19 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _tab(),
-      bottomNavigationBar: AppBottomNavBar(
-        currentIndex: _tabs.indexOf(_index),
-        onTap: (i) => _select(_tabs[i]),
-        showJobs: _showJobs,
+    // Android back on another tab goes Home first instead of closing the app.
+    return PopScope(
+      canPop: _index == _home,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _select(_home);
+      },
+      child: Scaffold(
+        body: _tab(),
+        bottomNavigationBar: AppBottomNavBar(
+          currentIndex: _tabs.indexOf(_index),
+          onTap: (i) => _select(_tabs[i]),
+          showJobs: _showJobs,
+        ),
       ),
     );
   }

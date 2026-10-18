@@ -58,8 +58,4 @@ export async function deleteRole(roleId: string): Promise<void> {
   await adminApiClient.delete(`/admin/access/roles/${roleId}`);
 }
 
-/** The API's error message for a failed request, if it sent one. */
-export function apiErrorMessage(err: unknown, fallback: string): string {
-  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
-  return typeof detail === 'string' ? detail : fallback;
-}
+export { apiErrorMessage } from '../shared/apiError';

@@ -5,11 +5,14 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../booking/presentation/bloc/booking_bloc.dart';
 import '../../../booking/presentation/pages/booking_page.dart';
+import '../../../directions/data/shop_location_api.dart';
+import '../../../directions/data/travel_options.dart';
 import '../../../directions/presentation/how_to_get_there_sheet.dart';
 import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
@@ -17,16 +20,21 @@ import '../../domain/entities/service_entity.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final ServiceEntity service;
+  final ShopLocationApi? shopApi;
+  final QueueApi? queueApi;
 
-  const ServiceDetailPage({super.key, required this.service});
+  const ServiceDetailPage({super.key, required this.service, this.shopApi, this.queueApi});
 
   @override
   State<ServiceDetailPage> createState() => _ServiceDetailPageState();
 }
 
 class _ServiceDetailPageState extends State<ServiceDetailPage> {
+  late final QueueApi _queueApi = widget.queueApi ?? sl<QueueApi>();
   String? _openQueueId;
   bool _joining = false;
+  // Who provides it: the shop's name and area, so the customer knows where they are booking.
+  Destination? _shop;
 
   ServiceEntity get service => widget.service;
 
@@ -34,9 +42,15 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   void initState() {
     super.initState();
     // Walk-in queue, if the shop runs one for this service.
-    sl<QueueApi>().openQueueFor(service.id).then((id) {
+    _queueApi.openQueueFor(service.id).then((id) {
       if (mounted) setState(() => _openQueueId = id);
     }).catchError((_) {});
+    final shopId = service.shopId;
+    if (shopId != null) {
+      (widget.shopApi ?? sl<ShopLocationApi>()).destination(shopId).then((shop) {
+        if (mounted) setState(() => _shop = shop);
+      }).catchError((Object _) {});
+    }
   }
 
   void _book() {
@@ -61,10 +75,10 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   Future<void> _joinQueue() async {
     final auth = context.read<AuthBloc>().state;
     final queueId = _openQueueId;
-    if (auth is! Authenticated || queueId == null) return;
+    if (auth is! Authenticated || queueId == null || _joining) return;
     setState(() => _joining = true);
     try {
-      final ticket = await sl<QueueApi>().join(queueId: queueId, serviceId: service.id, customerId: auth.user.id);
+      final ticket = await _queueApi.join(queueId: queueId, serviceId: service.id, customerId: auth.user.id);
       if (!mounted) return;
       Navigator.push(
         context,
@@ -83,22 +97,62 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     }
   }
 
+  Widget _placeholder() => Container(
+        color: AppColors.primaryLight,
+        child: const Icon(Icons.home_repair_service, size: 80, color: AppColors.primary),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final shop = _shop;
+    final atShop = service.serviceModes.contains(ServiceMode.atShop);
     return Scaffold(
+      bottomNavigationBar: Material(
+        color: AppColors.surface,
+        elevation: 8,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!service.isAvailable)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      "This service isn't taking bookings right now.",
+                      style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('From', style: AppTextStyles.caption),
+                        Text(rupees(service.basePrice), style: AppTextStyles.heading3.copyWith(color: AppColors.primary)),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: CustomButton(label: 'Book Now', onPressed: service.isAvailable ? _book : null)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 240,
+            expandedHeight: 200,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: Text(service.name),
               background: service.imageUrl != null
-                  ? Image.network(service.imageUrl!, fit: BoxFit.cover)
-                  : Container(
-                      color: AppColors.primaryLight,
-                      child: const Icon(Icons.home_repair_service, size: 80, color: AppColors.primary),
-                    ),
+                  ? Image.network(service.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder())
+                  : _placeholder(),
             ),
           ),
           SliverToBoxAdapter(
@@ -107,22 +161,63 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(service.name, style: AppTextStyles.heading2),
-                  if (service.durationMinutes != null) ...[
-                    const SizedBox(height: 8),
+                  Semantics(header: true, child: Text(service.name, style: AppTextStyles.heading2)),
+                  if (shop != null) ...[
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.schedule, size: 16, color: AppColors.textSecondary),
+                        const Icon(Icons.storefront_outlined, size: 16, color: AppColors.textSecondary),
                         const SizedBox(width: 4),
-                        Text('About ${service.durationMinutes} minutes', style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            [shop.name, if (shop.address.isNotEmpty) shop.address].join(' · '),
+                            style: AppTextStyles.body2,
+                          ),
+                        ),
                       ],
                     ),
                   ],
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 4,
+                    children: [
+                      if (service.durationMinutes != null && service.durationMinutes! > 0)
+                        _Fact(icon: Icons.schedule, text: 'About ${service.durationMinutes} min'),
+                      service.reviewCount > 0
+                          ? _Fact(icon: Icons.star, iconColor: AppColors.starFilled, text: '${service.rating.toStringAsFixed(1)} (${service.reviewCount} reviews)')
+                          : const _Fact(icon: Icons.star_border, text: 'New, no reviews yet'),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('How you can get it', style: AppTextStyles.subtitle1),
+                  const SizedBox(height: 8),
+                  for (final mode in service.serviceModes)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.primaryLight,
+                        child: Icon(modeIcon(mode), color: AppColors.primary, size: 20),
+                      ),
+                      title: Text(
+                        switch (mode) {
+                          ServiceMode.atHome => 'At your place',
+                          ServiceMode.pickupDrop => 'Pickup & drop',
+                          _ => 'At the shop',
+                        },
+                        style: AppTextStyles.body1,
+                      ),
+                      subtitle: Text(modeExplanation(mode), style: AppTextStyles.caption),
+                      trailing: service.feeFor(mode) > 0
+                          ? Text('+${rupees(service.feeFor(mode))}', style: AppTextStyles.subtitle2)
+                          : null,
+                    ),
                   const SizedBox(height: 16),
                   const Text('About this service', style: AppTextStyles.subtitle1),
                   const SizedBox(height: 8),
                   Text(
-                    service.description.isEmpty ? 'No description yet.' : service.description,
+                    service.description.isEmpty ? 'The shop has not added a description yet.' : service.description,
                     style: AppTextStyles.body2,
                   ),
                   if (service.tags.isNotEmpty) ...[
@@ -135,30 +230,22 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Text('Price', style: AppTextStyles.body2),
-                      const SizedBox(width: 8),
-                      Text(
-                        '₹${service.basePrice.toStringAsFixed(service.basePrice % 1 == 0 ? 0 : 2)}',
-                        style: AppTextStyles.heading3.copyWith(color: AppColors.primary),
-                      ),
-                      Text(' / ${service.priceUnit}', style: AppTextStyles.body2),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  CustomButton(label: 'Book Now', onPressed: service.isAvailable ? _book : null),
                   if (_openQueueId != null) ...[
-                    const SizedBox(height: 12),
                     CustomButton(
-                      label: 'Join the walk-in queue',
+                      label: 'Walk in now: join the queue',
                       variant: ButtonVariant.outlined,
+                      leadingIcon: Icons.people_outline,
                       isLoading: _joining,
                       onPressed: _joining ? null : _joinQueue,
                     ),
-                  ],
-                  if (service.shopId != null && service.serviceModes.contains(ServiceMode.atShop)) ...[
+                    const SizedBox(height: 4),
+                    const Text(
+                      "No appointment needed: we'll tell you your place and when it's your turn.",
+                      style: AppTextStyles.caption,
+                    ),
                     const SizedBox(height: 12),
+                  ],
+                  if (service.shopId != null && atShop)
                     Center(
                       child: TextButton.icon(
                         onPressed: () => showHowToGetThere(context, shopId: service.shopId!),
@@ -166,7 +253,6 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                         label: const Text('How to get there'),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),
@@ -175,4 +261,22 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       ),
     );
   }
+}
+
+class _Fact extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color iconColor;
+
+  const _Fact({required this.icon, required this.text, this.iconColor = AppColors.textSecondary});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 4),
+          Flexible(child: Text(text, style: AppTextStyles.caption)),
+        ],
+      );
 }

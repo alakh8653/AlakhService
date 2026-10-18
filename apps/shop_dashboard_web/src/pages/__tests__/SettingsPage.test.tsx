@@ -63,6 +63,29 @@ describe('SettingsPage map location', () => {
     expect(screen.getByLabelText('Longitude')).toHaveValue('73.856712');
   });
 
+  it('offers the category list and saves a phone typed the Indian way', async () => {
+    vi.mocked(updateShop).mockImplementation(async (_id, update) => ({ ...shop, ...update }) as Shop);
+    renderPage();
+    const category = screen.getByLabelText('Category');
+    await waitFor(() => expect(category).toHaveValue('salon'));
+    expect(screen.getByRole('option', { name: 'Car & bike repair' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Shop phone'), { target: { value: '98765 43210' } });
+    expect(await screen.findByText('Unsaved changes')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
+    await waitFor(() => expect(updateShop).toHaveBeenCalled());
+    expect(vi.mocked(updateShop).mock.calls[0][1]).toMatchObject({ phone: '+919876543210', category: 'salon' });
+    expect(await screen.findByText('Settings saved successfully.')).toBeInTheDocument();
+  });
+
+  it('links to the pin on a map once both coordinates are set', async () => {
+    renderPage();
+    expect(screen.queryByRole('link', { name: /Check this pin/ })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Latitude'), { target: { value: '18.5204' } });
+    fireEvent.change(screen.getByLabelText('Longitude'), { target: { value: '73.8567' } });
+    const link = await screen.findByRole('link', { name: /Check this pin on Google Maps/ });
+    expect(link.getAttribute('href')).toContain('query=18.5204%2C73.8567');
+  });
+
   it('refuses half a location or impossible values', async () => {
     renderPage();
     fireEvent.change(screen.getByLabelText('Latitude'), { target: { value: '18.5' } });

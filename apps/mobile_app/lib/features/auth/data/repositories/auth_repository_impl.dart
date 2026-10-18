@@ -57,14 +57,15 @@ class AuthRepositoryImpl implements AuthRepository {
       });
 
   @override
-  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp}) => _online(() async {
-        final result = await remoteDataSource.verifyCode(identifier: phone, code: otp, purpose: 'registration');
+  Future<Either<Failure, User>> verifyOtp({required String phone, required String otp, String purpose = 'registration'}) =>
+      _online(() async {
+        final result = await remoteDataSource.verifyCode(identifier: phone, code: otp, purpose: purpose);
         return _startSession(TokenPair.fromJson(result));
       });
 
   @override
-  Future<Either<Failure, bool>> resendOtp(String phone) => _online(() async {
-        await remoteDataSource.sendCode(identifier: phone, purpose: 'registration');
+  Future<Either<Failure, bool>> resendOtp(String phone, {String purpose = 'registration'}) => _online(() async {
+        await remoteDataSource.sendCode(identifier: phone, purpose: purpose);
         return true;
       });
 
@@ -121,6 +122,14 @@ class AuthRepositoryImpl implements AuthRepository {
         await tokens.clear();
         await localDataSource.clearCache();
         return const Right(null);
+      }
+      // The session is still valid; the server just couldn't answer (a deploy, a timeout). Carry
+      // on as the last known user rather than showing the sign-in screen as if signed out.
+      try {
+        final cached = await localDataSource.getCachedUser();
+        if (cached != null) return Right(cached);
+      } on CacheException {
+        // Fall through to the server's error.
       }
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     }

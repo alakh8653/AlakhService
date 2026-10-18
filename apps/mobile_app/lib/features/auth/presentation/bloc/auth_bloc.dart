@@ -26,6 +26,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginRequested>(_onLoginRequested);
     on<RegisterRequested>(_onRegisterRequested);
     on<OtpVerificationRequested>(_onOtpVerificationRequested);
+    on<OtpLoginRequested>(_onOtpLoginRequested);
     on<ResendOtpRequested>(_onResendOtpRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<SessionExpired>((event, emit) => emit(const Unauthenticated()));
@@ -81,7 +82,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(const AuthLoading());
     final result = await verifyOtpUseCase(
-      VerifyOtpParams(phone: event.phone, otp: event.otp),
+      VerifyOtpParams(phone: event.phone, otp: event.otp, purpose: event.purpose),
     );
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
@@ -89,10 +90,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
+  /// Sends a sign-in code; the login screen then asks for it.
+  Future<void> _onOtpLoginRequested(OtpLoginRequested event, Emitter<AuthState> emit) async {
+    final send = resendOtpUseCase;
+    if (send == null) return emit(const AuthError(message: 'Signing in with a code is not available right now.'));
+    emit(const AuthLoading());
+    final result = await send(event.identifier, purpose: 'login');
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (_) => emit(OtpRequired(phone: event.identifier, purpose: 'login')),
+    );
+  }
+
   Future<void> _onResendOtpRequested(ResendOtpRequested event, Emitter<AuthState> emit) async {
     final resend = resendOtpUseCase;
     if (resend == null) return;
-    final result = await resend(event.phone);
+    final result = await resend(event.phone, purpose: event.purpose);
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (_) => emit(OtpResent(phone: event.phone)),

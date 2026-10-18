@@ -72,6 +72,27 @@ void main() {
     expect(find.textContaining("You're no longer in this queue"), findsOneWidget);
   });
 
+  testWidgets('leaving asks first, so a mis-tap does not lose the place', (tester) async {
+    final adapter = FakeAdapter((r) => r.method == 'DELETE'
+        ? (status: 204, body: null)
+        : (status: 200, body: {'queue_id': 'q1', 'entry_id': 'e1', 'status': 'WAITING', 'position': 2, 'people_ahead': 1, 'estimated_wait_minutes': 10}));
+    await tester.pumpWidget(page(const QueueTicket(queueId: 'q1', entryId: 'e1', position: 2), adapter));
+    await settle(tester);
+
+    await tester.tap(find.text('Leave Queue'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave the queue?'), findsOneWidget);
+    await tester.tap(find.text('Stay in queue'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(adapter.requests.where((r) => r.method == 'DELETE'), isEmpty);
+
+    await tester.tap(find.text('Leave Queue'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Leave'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(adapter.requests.where((r) => r.method == 'DELETE'), hasLength(1));
+  });
+
   test('labels', () {
     expect(aheadLabel(0), 'Nobody is ahead of you');
     expect(aheadLabel(1), '1 person ahead of you');

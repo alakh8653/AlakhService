@@ -4,31 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { apiErrorMessage } from '../services/format';
-
-/** Kinds of place customers book with: salons and parlours, clinics, repair shops, home services, offices. */
-export const SHOP_CATEGORIES: { value: string; label: string }[] = [
-  { value: 'salon', label: 'Salon' },
-  { value: 'beauty', label: 'Beauty parlour' },
-  { value: 'spa', label: 'Spa' },
-  { value: 'clinic', label: 'Doctor / clinic' },
-  { value: 'vehicle_repair', label: 'Car & bike repair' },
-  { value: 'electronics_repair', label: 'Laptop & phone repair' },
-  { value: 'appliance_repair', label: 'AC & appliance repair' },
-  { value: 'cleaning', label: 'Cleaning' },
-  { value: 'plumbing', label: 'Plumbing' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'repair', label: 'Other repairs' },
-  { value: 'office', label: 'Office / appointments' },
-  { value: 'other', label: 'Other' },
-];
+import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
+import { SHOP_CATEGORIES } from '../services/categories';
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter your shop name'),
   category: z.string().min(1, 'Choose a category'),
   city: z.string().trim().min(2, 'Enter your city'),
   address: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
+  phone: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || isE164(normalizePhone(v)), 'Enter a 10-digit mobile number, e.g. 98765 43210')
+    .optional(),
   description: z.string().trim().max(500).optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -50,7 +38,7 @@ export default function ShopSetupPage() {
   const onSubmit = async (values: FormData) => {
     try {
       setServerError(null);
-      await createShop(values);
+      await createShop({ ...values, phone: values.phone ? normalizePhone(values.phone) : undefined });
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setServerError(apiErrorMessage(err, 'Could not create your shop'));
@@ -58,22 +46,22 @@ export default function ShopSetupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 py-8">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-lg">
+    <div className="min-h-dvh flex items-center justify-center bg-gray-100 px-4 py-8">
+      <main className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 w-full max-w-lg">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Set up your shop</h1>
         <p className="text-gray-500 mb-6">
           Welcome{user ? `, ${user.name}` : ''}. Tell customers about your shop; you can add services and staff next.
         </p>
-        {serverError && <p className="mb-4 text-sm text-red-600 bg-red-50 rounded px-3 py-2">{serverError}</p>}
+        {serverError && <p role="alert" className="mb-4 text-sm text-red-700 bg-red-50 rounded px-3 py-2">{serverError}</p>}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Shop name</label>
-            <input id="name" {...register('name')} className={inputClass} placeholder="Asha Salon" />
-            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
+            <input id="name" aria-invalid={!!errors.name} {...register('name')} className={inputClass} placeholder="Asha Salon" />
+            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
           </div>
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select id="category" {...register('category')} className={inputClass}>
+            <select id="category" aria-invalid={!!errors.category} {...register('category')} className={inputClass}>
               <option value="">Choose…</option>
               {SHOP_CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -81,25 +69,26 @@ export default function ShopSetupPage() {
                 </option>
               ))}
             </select>
-            {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category.message}</p>}
+            {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City</label>
-              <input id="city" {...register('city')} className={inputClass} placeholder="Pune" />
-              {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city.message}</p>}
+              <input id="city" aria-invalid={!!errors.city} autoComplete="address-level2" {...register('city')} className={inputClass} placeholder="Pune" />
+              {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city.message}</p>}
             </div>
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Shop phone</label>
-              <input id="phone" type="tel" {...register('phone')} className={inputClass} placeholder="+919876543210" />
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Shop phone <span className="font-normal text-gray-500">(optional)</span></label>
+              <input id="phone" type="tel" autoComplete="tel" aria-invalid={!!errors.phone} {...register('phone')} className={inputClass} placeholder="98765 43210" />
+              {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
             </div>
           </div>
           <div>
-            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-            <input id="address" {...register('address')} className={inputClass} placeholder="12 MG Road" />
+            <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Address <span className="font-normal text-gray-500">(optional)</span></label>
+            <input id="address" autoComplete="street-address" {...register('address')} className={inputClass} placeholder="12 MG Road" />
           </div>
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">About</label>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">About your shop <span className="font-normal text-gray-500">(optional)</span></label>
             <textarea id="description" rows={3} {...register('description')} className={inputClass} />
           </div>
           <button
@@ -113,7 +102,7 @@ export default function ShopSetupPage() {
         <button type="button" onClick={() => void logout()} className="mt-4 text-sm text-gray-500 hover:underline">
           Sign out
         </button>
-      </div>
+      </main>
     </div>
   );
 }

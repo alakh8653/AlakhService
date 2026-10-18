@@ -1,5 +1,5 @@
 import adminApiClient from '../../apiClient';
-import { createCoupon, getCoupons } from '../CouponService';
+import { couponState, createCoupon, getCoupons, type Coupon } from '../CouponService';
 
 vi.mock('../../apiClient', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 const get = vi.mocked(adminApiClient.get);
@@ -21,7 +21,16 @@ describe('CouponService', () => {
     post.mockResolvedValue({ data: record });
     await createCoupon({ code: ' diwali25 ', discountPct: 25, maxUses: 100, validTo: '2026-11-15' });
     expect(post).toHaveBeenCalledWith('/coupons', {
-      code: 'DIWALI25', discount_pct: 0.25, max_uses: 100, valid_to: new Date('2026-11-15').toISOString(),
+      code: 'DIWALI25', discount_pct: 0.25, max_uses: 100, valid_to: '2026-11-15T18:29:59.999Z', // end of 15 Nov in IST
     });
+  });
+
+  it('tells apart active, expired, used-up and switched-off coupons', () => {
+    const c: Coupon = { id: 'c', code: 'X', discountPct: 10, maxUses: 2, usesCount: 0, validFrom: null, validTo: '2026-11-15T18:29:59Z', isActive: true };
+    const now = new Date('2026-11-01T00:00:00Z');
+    expect(couponState(c, now)).toBe('active');
+    expect(couponState(c, new Date('2026-11-16T00:00:00Z'))).toBe('expired');
+    expect(couponState({ ...c, usesCount: 2 }, now)).toBe('used_up');
+    expect(couponState({ ...c, isActive: false }, now)).toBe('inactive');
   });
 });

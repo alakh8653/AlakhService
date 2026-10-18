@@ -6,6 +6,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../data/queue_api.dart';
 
@@ -70,11 +71,29 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
 
   Future<void> _leave() async {
     final entryId = widget.ticket.entryId;
-    if (entryId == null) return;
+    if (entryId == null || _leaving) return;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Leave the queue?'),
+        content: const Text("You'll lose your place. If you join again you go to the back of the queue."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Stay in queue')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
     setState(() => _leaving = true);
     try {
       await _api.leave(queueId: widget.ticket.queueId, entryId: entryId);
-      if (mounted) Navigator.pop(context);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You have left the queue')));
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _leaving = false);
@@ -103,13 +122,18 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                 textAlign: TextAlign.center,
                 style: AppTextStyles.subtitle1,
               ),
+              const SizedBox(height: 24),
+              CustomButton(label: 'Done', onPressed: () => Navigator.pop(context)),
             ] else if (ticket.isCalled) ...[
               const Icon(Icons.campaign, color: AppColors.success, size: 96),
               const SizedBox(height: 16),
-              Text(
+              Semantics(
+                liveRegion: true,
+                child: Text(
                 "It's your turn!",
                 textAlign: TextAlign.center,
                 style: AppTextStyles.heading2.copyWith(color: AppColors.success),
+              ),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -132,6 +156,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                     children: [
                       Text(
                         '#${ticket.position}',
+                        semanticsLabel: 'Your position: ${ticket.position}',
                         style: AppTextStyles.heading1.copyWith(color: AppColors.primary),
                       ),
                       const Text('Your Position', style: AppTextStyles.caption),
@@ -154,7 +179,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
               if (ticket.estimatedCallAt != null && (ticket.estimatedWaitMinutes ?? 0) > 0) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Expected around ${TimeOfDay.fromDateTime(ticket.estimatedCallAt!).format(context)}',
+                  'Expected around ${clockTime(ticket.estimatedCallAt!)}',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.body2,
                 ),

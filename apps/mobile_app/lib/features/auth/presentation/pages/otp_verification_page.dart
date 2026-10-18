@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,63 +11,83 @@ import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 
+/// Asks for the one-time code sent to [phone] (a phone number or email), to confirm a new
+/// account ('registration') or to sign in without a password ('login').
+///
+/// One field rather than a box per digit, so the code can be pasted or filled in from the SMS by
+/// the keyboard; it submits itself once all digits are in.
 class OtpVerificationPage extends StatefulWidget {
   final String phone;
+  final String purpose;
 
-  const OtpVerificationPage({super.key, required this.phone});
+  /// How long before "Resend" is offered again.
+  final Duration resendAfter;
+
+  const OtpVerificationPage({
+    super.key,
+    required this.phone,
+    this.purpose = 'registration',
+    this.resendAfter = const Duration(seconds: 30),
+  });
 
   @override
   State<OtpVerificationPage> createState() => _OtpVerificationPageState();
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  final List<TextEditingController> _controllers = List.generate(
-    AppConstants.otpLength,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(
-    AppConstants.otpLength,
-    (_) => FocusNode(),
-  );
+  final _controller = TextEditingController();
+  Timer? _ticker;
+  late int _secondsLeft;
+
+  bool get _complete => _controller.text.length == AppConstants.otpLength;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _ticker?.cancel();
+    setState(() => _secondsLeft = widget.resendAfter.inSeconds);
+    _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return t.cancel();
+      setState(() => _secondsLeft--);
+      if (_secondsLeft <= 0) t.cancel();
+    });
+  }
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    _ticker?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
-  String get _otp => _controllers.map((c) => c.text).join();
-
   void _onVerify() {
-    if (_otp.length == AppConstants.otpLength) {
-      context.read<AuthBloc>().add(
-            OtpVerificationRequested(phone: widget.phone, otp: _otp),
-          );
-    }
+    if (!_complete || context.read<AuthBloc>().state is AuthLoading) return;
+    context.read<AuthBloc>().add(
+          OtpVerificationRequested(phone: widget.phone, otp: _controller.text, purpose: widget.purpose),
+        );
   }
 
-  void _onChanged(String value, int index) {
-    if (value.isNotEmpty && index < AppConstants.otpLength - 1) {
-      _focusNodes[index + 1].requestFocus();
-    }
-    if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-    setState(() {});
+  void _resend() {
+    _controller.clear();
+    context.read<AuthBloc>().add(ResendOtpRequested(widget.phone, purpose: widget.purpose));
+    _startCountdown();
   }
 
   @override
   Widget build(BuildContext context) {
+    final where = widget.phone.contains('@') ? 'email' : 'phone';
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify OTP')),
+      appBar: AppBar(title: Text(widget.purpose == 'login' ? 'Login with OTP' : 'Verify your $where')),
       body: BlocListener<AuthBloc, AuthState>(
+        listenWhen: (_, __) => ModalRoute.of(context)?.isCurrent ?? true,
         listener: (context, state) {
           if (state is AuthError) {
+            _controller.clear();
+            setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -78,96 +100,70 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
             );
           }
         },
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              const Text('Enter OTP', style: AppTextStyles.heading2),
+              Semantics(header: true, child: const Text('Enter the code', style: AppTextStyles.heading2)),
               const SizedBox(height: 8),
               Text(
-                'A ${AppConstants.otpLength}-digit code was sent to ${widget.phone}',
+                'We sent a ${AppConstants.otpLength}-digit code to ${widget.phone}.',
                 style: AppTextStyles.body2,
               ),
-              const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(
-                  AppConstants.otpLength,
-                  (i) => _OtpBox(
-                    controller: _controllers[i],
-                    focusNode: _focusNodes[i],
-                    onChanged: (v) => _onChanged(v, i),
-                  ),
-                ),
+              TextButton(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                onPressed: () => Navigator.pop(context),
+                child: Text('Wrong $where? Change it'),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                maxLength: AppConstants.otpLength,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: AppTextStyles.heading2.copyWith(letterSpacing: 12),
+                decoration: const InputDecoration(
+                  counterText: '',
+                  hintText: '••••••',
+                  labelText: 'One-time code',
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                ),
+                onChanged: (_) {
+                  setState(() {});
+                  if (_complete) _onVerify();
+                },
+                onSubmitted: (_) => _onVerify(),
+              ),
+              const SizedBox(height: 32),
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (context, state) {
                   return CustomButton(
-                    label: 'Verify',
-                    onPressed: (_otp.length == AppConstants.otpLength &&
-                            state is! AuthLoading)
-                        ? _onVerify
-                        : null,
+                    label: widget.purpose == 'login' ? 'Verify and login' : 'Verify',
+                    onPressed: (_complete && state is! AuthLoading) ? _onVerify : null,
                     isLoading: state is AuthLoading,
                   );
                 },
               ),
               const SizedBox(height: 16),
               Center(
-                child: TextButton(
-                  onPressed: () => context
-                      .read<AuthBloc>()
-                      .add(ResendOtpRequested(widget.phone)),
-                  child: const Text("Didn't receive? Resend OTP"),
-                ),
+                child: _secondsLeft > 0
+                    ? Text(
+                        "Didn't get it? You can resend in ${_secondsLeft}s",
+                        style: AppTextStyles.body2,
+                      )
+                    : TextButton(
+                        onPressed: _resend,
+                        child: const Text("Didn't get it? Resend code"),
+                      ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _OtpBox extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-
-  const _OtpBox({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 48,
-      height: 56,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        maxLength: 1,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: InputDecoration(
-          counterText: '',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-          ),
-        ),
-        style: AppTextStyles.heading3,
-        onChanged: onChanged,
       ),
     );
   }

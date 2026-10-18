@@ -38,10 +38,23 @@ class OtpVerificationRequested extends AuthEvent {
   final String phone;
   final String otp;
 
-  const OtpVerificationRequested({required this.phone, required this.otp});
+  /// 'registration' or 'login'.
+  final String purpose;
+
+  const OtpVerificationRequested({required this.phone, required this.otp, this.purpose = 'registration'});
 
   @override
-  List<Object> get props => [phone, otp];
+  List<Object> get props => [phone, otp, purpose];
+}
+
+/// Sign in with a one-time code sent to [identifier] (a phone number or email) instead of a password.
+class OtpLoginRequested extends AuthEvent {
+  final String identifier;
+
+  const OtpLoginRequested(this.identifier);
+
+  @override
+  List<Object> get props => [identifier];
 }
 
 class LogoutRequested extends AuthEvent {
@@ -59,9 +72,10 @@ class SessionExpired extends AuthEvent {
 
 class ResendOtpRequested extends AuthEvent {
   final String phone;
+  final String purpose;
 
-  const ResendOtpRequested(this.phone);
+  const ResendOtpRequested(this.phone, {this.purpose = 'registration'});
 
   @override
-  List<Object> get props => [phone];
+  List<Object> get props => [phone, purpose];
 }

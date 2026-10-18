@@ -25,8 +25,9 @@ class AlakhServiceApp extends StatelessWidget {
         title: 'AlakhService',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        // The screens are designed in light colours only (text styles carry dark text), so a phone in
+        // dark mode would get dark text on a dark background. Stay light until a dark design exists.
+        themeMode: ThemeMode.light,
         home: const AuthGate(),
       ),
     );

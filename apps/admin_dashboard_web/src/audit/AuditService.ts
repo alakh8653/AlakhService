@@ -94,6 +94,34 @@ export function serviceLabel(service: string): string {
   return AUDIT_SERVICES[service] ?? service;
 }
 
+/** Actions services record, with readable names; the API's filter matches the exact action. */
+export const AUDIT_ACTIONS: Record<string, string> = {
+  ban_user: 'Ban account',
+  unban_user: 'Unban account',
+  refund_payment: 'Refund payment',
+  update_dispute_status: 'Change dispute status',
+  resolve_dispute: 'Resolve dispute',
+  create_coupon: 'Create coupon',
+  create_role: 'Create role',
+  update_role_permissions: 'Change role permissions',
+  delete_role: 'Delete role',
+  update_system_config: 'Change system setting',
+};
+
+export function actionLabel(action: string): string {
+  return AUDIT_ACTIONS[action] ?? action.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** Old/new values are stored as JSON text; pretty-print them when they parse. */
+export function prettyValues(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 // Checked in order: Edge and Opera also say "Chrome", and Chrome also says "Safari".
 const BROWSERS: [RegExp, string][] = [
   [/Edg\//, 'Edge'],

@@ -45,10 +45,13 @@ class RegistrationSuccess extends AuthState {
 class OtpRequired extends AuthState {
   final String phone;
 
-  const OtpRequired({required this.phone});
+  /// 'registration' (new account) or 'login' (signing in with a code).
+  final String purpose;
+
+  const OtpRequired({required this.phone, this.purpose = 'registration'});
 
   @override
-  List<Object> get props => [phone];
+  List<Object> get props => [phone, purpose];
 }
 
 /// A new verification code was sent.

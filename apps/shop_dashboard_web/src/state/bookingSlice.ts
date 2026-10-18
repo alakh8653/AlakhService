@@ -1,14 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import {
-  getShopBookings,
-  updateBookingStatus,
-  assignProvider,
-  cancelBooking,
-  setReadyBy,
-  type BookingFilters,
-} from '../services/bookingService';
+import { getShopBookings, type BookingFilters } from '../services/bookingService';
 import { apiErrorMessage } from '../services/format';
-import type { Booking, BookingStatus } from '../types';
+import type { Booking } from '../types';
 
 interface BookingState {
   bookings: Booking[];
@@ -19,6 +12,8 @@ interface BookingState {
   isLoading: boolean;
   error: string | null;
   activeFilters: BookingFilters;
+  /** The latest list request; answers to older ones (a filter tapped since) are dropped. */
+  requestId: string | null;
 }
 
 const initialState: BookingState = {
@@ -30,6 +25,7 @@ const initialState: BookingState = {
   isLoading: false,
   error: null,
   activeFilters: {},
+  requestId: null,
 };
 
 interface ShopState {
@@ -49,53 +45,6 @@ export const fetchBookings = createAsyncThunk(
       return await getShopBookings(currentShopId(getState), filters);
     } catch (err) {
       return rejectWithValue(apiErrorMessage(err, 'Could not load bookings'));
-    }
-  },
-);
-
-export const changeBookingStatus = createAsyncThunk(
-  'bookings/changeStatus',
-  async (
-    { id, status, reason }: { id: string; status: BookingStatus; reason?: string },
-    { rejectWithValue },
-  ) => {
-    try {
-      return await updateBookingStatus(id, status, reason);
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, 'Could not update the booking'));
-    }
-  },
-);
-
-export const assignProviderThunk = createAsyncThunk(
-  'bookings/assign',
-  async ({ id, providerId }: { id: string; providerId: string }, { rejectWithValue }) => {
-    try {
-      return await assignProvider(id, providerId);
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, 'Could not assign the booking'));
-    }
-  },
-);
-
-export const cancelBookingThunk = createAsyncThunk(
-  'bookings/cancel',
-  async ({ id, reason }: { id: string; reason: string }, { rejectWithValue }) => {
-    try {
-      return await cancelBooking(id, reason);
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, 'Could not cancel the booking'));
-    }
-  },
-);
-
-export const setReadyByThunk = createAsyncThunk(
-  'bookings/readyBy',
-  async ({ id, readyBy }: { id: string; readyBy: string | null }, { rejectWithValue }) => {
-    try {
-      return await setReadyBy(id, readyBy);
-    } catch (err) {
-      return rejectWithValue(apiErrorMessage(err, 'Could not save the return time'));
     }
   },
 );
@@ -123,11 +72,13 @@ const bookingSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchBookings.pending, (state) => {
+      .addCase(fetchBookings.pending, (state, action) => {
+        state.requestId = action.meta.requestId;
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchBookings.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.requestId) return;
         state.isLoading = false;
         state.bookings = action.payload.data;
         state.total = action.payload.total;
@@ -136,31 +87,8 @@ const bookingSlice = createSlice({
         state.totalPages = action.payload.totalPages;
       })
       .addCase(fetchBookings.rejected, (state, action) => {
+        if (action.meta.requestId !== state.requestId) return;
         state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(changeBookingStatus.fulfilled, (state, action) => {
-        replaceBooking(state, action.payload);
-      })
-      .addCase(changeBookingStatus.rejected, (state, action) => {
-        state.error = action.payload as string;
-      })
-      .addCase(assignProviderThunk.fulfilled, (state, action) => {
-        replaceBooking(state, action.payload);
-      })
-      .addCase(assignProviderThunk.rejected, (state, action) => {
-        state.error = action.payload as string;
-      })
-      .addCase(cancelBookingThunk.fulfilled, (state, action) => {
-        replaceBooking(state, action.payload);
-      })
-      .addCase(cancelBookingThunk.rejected, (state, action) => {
-        state.error = action.payload as string;
-      })
-      .addCase(setReadyByThunk.fulfilled, (state, action) => {
-        replaceBooking(state, action.payload);
-      })
-      .addCase(setReadyByThunk.rejected, (state, action) => {
         state.error = action.payload as string;
       });
   },

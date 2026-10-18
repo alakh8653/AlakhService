@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Copy, FileText } from 'lucide-react';
 import { currentAdminId } from '../apiClient';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
+import { apiErrorMessage } from '../shared/apiError';
 import { formatDateTime } from '../shared/format';
 import { useAccounts } from '../users/accountNames';
 import BookingPayments from './BookingPayments';
@@ -21,7 +22,8 @@ import {
   type DisputeStatus,
 } from './DisputeService';
 
-type Pending = 'review' | 'escalate' | 'resolve' | null;
+// Starting a review is a routine forward step, so it needs no confirmation; escalating and resolving do.
+type Pending = 'escalate' | 'resolve' | null;
 
 /** What the case needs next, in the words staff use. */
 const NEXT_STEP: Record<DisputeStatus, string> = {
@@ -86,6 +88,8 @@ export default function DisputeDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
+  const [starting, setStarting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const me = currentAdminId();
   const people = useAccounts([dispute?.raisedBy, ...messages.map((m) => m.authorId)]);
@@ -118,6 +122,20 @@ export default function DisputeDetailPage() {
     setDispute(updated);
     setPending(null);
     notify(done);
+  };
+
+  const beginReview = async () => {
+    if (!dispute) return;
+    setStarting(true);
+    setActionError(null);
+    try {
+      setDispute(await startReview(dispute.id));
+      notify(`Case #${dispute.caseNumber} is under review.`);
+    } catch (e) {
+      setActionError(apiErrorMessage(e, 'Could not start the review. Please try again.'));
+    } finally {
+      setStarting(false);
+    }
   };
 
   const sendReply = async (event: FormEvent) => {
@@ -186,11 +204,21 @@ export default function DisputeDetailPage() {
           <p className="text-sm text-gray-700">{NEXT_STEP[dispute.status]}</p>
           {dispute.resolution && <p className="text-sm text-gray-900 whitespace-pre-line">{dispute.resolution}</p>}
           {dispute.resolvedAt && <p className="text-xs text-gray-600">Resolved {formatDateTime(dispute.resolvedAt)}</p>}
+          {actionError && (
+            <p role="alert" className="text-sm text-red-700">
+              {actionError}
+            </p>
+          )}
           {isOpen && (
             <div className="flex flex-wrap gap-2">
               {dispute.status === 'OPEN' && (
-                <button type="button" onClick={() => setPending('review')} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-                  Start review
+                <button
+                  type="button"
+                  onClick={() => void beginReview()}
+                  disabled={starting}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {starting ? 'Starting…' : 'Start review'}
                 </button>
               )}
               {dispute.status !== 'OPEN' && (
@@ -312,16 +340,6 @@ export default function DisputeDetailPage() {
         )}
       </section>
 
-      {pending === 'review' && (
-        <ConfirmDialog
-          title="Start review?"
-          confirmLabel="Start review"
-          onConfirm={() => run(() => startReview(dispute.id), `Case #${dispute.caseNumber} is under review.`)}
-          onCancel={() => setPending(null)}
-        >
-          <p>The case moves to “under review” so the parties can see it is being handled.</p>
-        </ConfirmDialog>
-      )}
       {pending === 'escalate' && (
         <ConfirmDialog
           title="Escalate this case?"

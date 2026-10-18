@@ -96,8 +96,8 @@ export function serviceLabel(service: string): string {
 
 /** Actions services record, with readable names; the API's filter matches the exact action. */
 export const AUDIT_ACTIONS: Record<string, string> = {
-  ban: 'Ban account',
-  unban: 'Unban account',
+  ban_user: 'Ban account',
+  unban_user: 'Unban account',
   refund_payment: 'Refund payment',
   update_dispute_status: 'Change dispute status',
   resolve_dispute: 'Resolve dispute',

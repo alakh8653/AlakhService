@@ -58,8 +58,8 @@ describe('AuditLogPage', () => {
   it('filters by action from a list of known actions', async () => {
     render(<AuditLogPage />);
     await screen.findByText('Refund payment');
-    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'ban' } });
-    await waitFor(() => expect(fetchLogs).toHaveBeenLastCalledWith({ action: 'ban', page: 1, perPage: 25 }));
+    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'ban_user' } });
+    await waitFor(() => expect(fetchLogs).toHaveBeenLastCalledWith({ action: 'ban_user', page: 1, perPage: 25 }));
   });
 
   it('waits for the admin id to be typed before searching, and can clear all filters', async () => {

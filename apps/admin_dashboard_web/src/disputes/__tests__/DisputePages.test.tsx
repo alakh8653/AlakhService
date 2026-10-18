@@ -108,18 +108,14 @@ describe('DisputeDetailPage', () => {
       </MemoryRouter>,
     );
 
-  it('puts the next step at the top and confirms before starting a review', async () => {
+  it('puts the next step at the top; starting a review is one click and offers the next actions', async () => {
     vi.mocked(startReview).mockResolvedValue(dispute({ status: 'UNDER_REVIEW' }));
     renderDetail();
     expect(await screen.findByText(/Start a review to show the parties/)).toBeInTheDocument();
     expect(screen.getByText(/Priya Sharma/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start review' }));
-    const dialog = screen.getByRole('dialog', { name: 'Start review?' });
-    expect(startReview).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Start review' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('button', { name: 'Resolve…' })).toBeInTheDocument();
     expect(startReview).toHaveBeenCalledWith(dispute().id);
-    expect(screen.getByRole('button', { name: 'Resolve…' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Escalate…' })).toBeInTheDocument();
   });
 

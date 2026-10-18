@@ -18,6 +18,7 @@ const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const ServicesPage = lazy(() => import('./pages/ServicesPage'));
 const QueuesPage = lazy(() => import('./pages/QueuesPage'));
 const StaffPage = lazy(() => import('./pages/StaffPage'));
+const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
@@ -72,6 +73,7 @@ function ProtectedLayout() {
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/queues" element={<QueuesPage />} />
               <Route path="/staff" element={<StaffPage />} />
+              <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />

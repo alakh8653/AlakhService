@@ -12,6 +12,7 @@ import RevenueChart from '../components/RevenueChart';
 import BookingCard from '../components/BookingCard';
 import { byScheduledAt, getShopBookings, inWindow, windowFilters } from '../services/bookingService';
 import { apiErrorMessage, formatMoney } from '../services/format';
+import { getReviews, getReviewSummary, type RatingSummary } from '../services/reviewService';
 import type { Booking } from '../types';
 
 interface StatCardProps {
@@ -22,9 +23,9 @@ interface StatCardProps {
   color: string;
 }
 
-function StatCard({ title, value, hint, icon, color }: StatCardProps) {
-  return (
-    <div className={`bg-white rounded-2xl shadow p-4 md:p-5 flex items-center gap-3 md:gap-4 border-l-4 ${color}`}>
+function StatCard({ title, value, hint, icon, color, to }: StatCardProps & { to?: string }) {
+  const body = (
+    <>
       <div className="text-gray-700" aria-hidden>
         {icon}
       </div>
@@ -33,8 +34,40 @@ function StatCard({ title, value, hint, icon, color }: StatCardProps) {
         <p className="text-xl md:text-2xl font-bold text-gray-900 truncate">{value}</p>
         {hint && <p className="text-xs text-gray-500">{hint}</p>}
       </div>
-    </div>
+    </>
   );
+  const className = `bg-white rounded-2xl shadow p-4 md:p-5 flex items-center gap-3 md:gap-4 border-l-4 ${color}`;
+  return to ? (
+    <Link to={to} className={`${className} hover:bg-gray-50`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
+/** The shop's current rating and how many reviews still have no reply. */
+function useRating(shopId: string | undefined) {
+  const [rating, setRating] = useState<{ summary: RatingSummary; unanswered: number } | null>(null);
+  useEffect(() => {
+    if (!shopId) return;
+    let cancelled = false;
+    Promise.all([getReviewSummary(shopId), getReviews(shopId, { needsReply: true, limit: 1 })])
+      .then(([summary, unanswered]) => {
+        if (!cancelled) setRating({ summary, unanswered: unanswered.total });
+      })
+      // The card then falls back to the rating stored with the shop.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [shopId]);
+  return rating;
+}
+
+function ratingHint(count: number, unanswered: number | undefined) {
+  const reviews = `${count} review${count === 1 ? '' : 's'}`;
+  return unanswered ? `${reviews} · ${unanswered} to reply to` : reviews;
 }
 
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
@@ -83,6 +116,9 @@ export default function DashboardPage() {
   const { staff, providers, providerName, isLoading: staffLoading } = useStaff();
   const { today, toConfirm, error: todayError, replace } = useToday(shop?.id);
   const actions = useBookingActions(replace, providerName);
+  const rating = useRating(shop?.id);
+  const ratingCount = rating?.summary.reviewCount ?? shop?.ratingCount ?? 0;
+  const ratingAvg = rating?.summary.averageRating ?? shop?.ratingAvg ?? 0;
   const now = new Date();
 
   const remaining = today?.filter((b) => !OPEN_STATUSES.has(b.status)) ?? [];
@@ -193,10 +229,11 @@ export default function DashboardPage() {
           <StatCard title="Customers" value={analytics?.uniqueCustomers ?? '–'} icon={<Users size={24} />} color="border-blue-500" />
           <StatCard
             title="Rating"
-            value={shop?.ratingCount ? `${shop.ratingAvg.toFixed(1)} ★` : 'No ratings'}
-            hint={shop?.ratingCount ? `${shop.ratingCount} rating${shop.ratingCount === 1 ? '' : 's'}` : undefined}
+            value={ratingCount ? `${ratingAvg.toFixed(1)} ★` : 'No reviews yet'}
+            hint={ratingCount ? ratingHint(ratingCount, rating?.unanswered) : undefined}
             icon={<Star size={24} />}
             color="border-yellow-500"
+            to="/reviews"
           />
         </div>
         <div className="bg-white rounded-2xl shadow p-4 md:p-6">

@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Scissors, Users, BarChart2, Settings, ListOrdered, X } from 'lucide-react';
+import { LayoutDashboard, Calendar, Scissors, Users, BarChart2, Settings, ListOrdered, Star, X } from 'lucide-react';
 
 interface NavItem {
   to: string;
@@ -14,6 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/queues', label: 'Queues', icon: <ListOrdered size={18} aria-hidden /> },
   { to: '/services', label: 'Services', icon: <Scissors size={18} aria-hidden /> },
   { to: '/staff', label: 'Staff', icon: <Users size={18} aria-hidden /> },
+  { to: '/reviews', label: 'Reviews', icon: <Star size={18} aria-hidden /> },
   { to: '/analytics', label: 'Analytics', icon: <BarChart2 size={18} aria-hidden /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} aria-hidden /> },
 ];

@@ -63,7 +63,7 @@ export default function DataTable<T extends { id: string }>({
           <thead className="bg-gray-50">
             <tr>
               {columns.map((col) => (
-                <th key={col.key} scope="col" className={`px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap ${col.className ?? ''}`}>
+                <th key={col.key} scope="col" className={`px-4 py-3 font-semibold text-gray-600 whitespace-nowrap ${col.className?.includes('text-right') ? '' : 'text-left'} ${col.className ?? ''}`}>
                   {col.header}
                 </th>
               ))}

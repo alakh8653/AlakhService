@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
 import DataTable, { type Column } from '../components/DataTable';
+import FilterChips from '../components/FilterChips';
+import { formatDate, shortId } from '../shared/format';
+import { useAccounts } from '../users/accountNames';
 import { formatMoney, getSettlements, SETTLEMENT_STATUSES, type Settlement, type SettlementStatus } from './FinanceService';
+
+const PER_PAGE = 20;
 
 const STATUS_COLORS: Record<SettlementStatus, string> = {
   CREATED: 'bg-gray-100 text-gray-700',
@@ -11,26 +15,19 @@ const STATUS_COLORS: Record<SettlementStatus, string> = {
 };
 
 const STATUS_LABELS: Record<SettlementStatus, string> = {
-  CREATED: 'awaiting payment',
-  HELD: 'held in escrow',
-  RELEASED: 'paid out',
-  REFUNDED: 'refunded',
+  CREATED: 'Awaiting payment',
+  HELD: 'Held in escrow',
+  RELEASED: 'Paid out',
+  REFUNDED: 'Refunded',
 };
 
-const columns: Column<Settlement>[] = [
-  { key: 'payeeId', header: 'Provider', render: (r) => <span className="font-mono text-xs">{r.payeeId}</span> },
-  { key: 'bookingId', header: 'Booking', render: (r) => <span className="font-mono text-xs">{r.bookingId}</span> },
-  { key: 'amount', header: 'Amount', render: (r) => formatMoney(r.amount, r.currency) },
-  {
-    key: 'status',
-    header: 'Status',
-    render: (r) => (
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{STATUS_LABELS[r.status]}</span>
-    ),
-  },
-  { key: 'heldAt', header: 'Held', render: (r) => format(new Date(r.heldAt), 'MMM d, yyyy') },
-  { key: 'releasedAt', header: 'Paid out', render: (r) => (r.releasedAt ? format(new Date(r.releasedAt), 'MMM d, yyyy') : '—') },
-];
+const EMPTY: Record<SettlementStatus | 'ALL', string> = {
+  ALL: 'No settlements yet. They appear here once customers pay for bookings.',
+  CREATED: 'No settlements are awaiting payment.',
+  HELD: 'Nothing is held in escrow right now.',
+  RELEASED: 'Nothing has been paid out yet.',
+  REFUNDED: 'No settlements have been refunded.',
+};
 
 export default function SettlementsPage() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -39,49 +36,99 @@ export default function SettlementsPage() {
   const [statusFilter, setStatusFilter] = useState<SettlementStatus | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const payees = useAccounts(settlements.map((s) => s.payeeId));
 
   useEffect(() => {
+    let current = true;
     setIsLoading(true);
     setError(null);
-    getSettlements({ status: statusFilter, page, perPage: 20 })
+    getSettlements({ status: statusFilter, page, perPage: PER_PAGE })
       .then((res) => {
+        if (!current) return;
         setSettlements(res.data);
         setTotal(res.total);
       })
-      .catch(() => setError('Failed to load settlements.'))
-      .finally(() => setIsLoading(false));
-  }, [statusFilter, page]);
+      .catch(() => {
+        if (!current) return;
+        setSettlements([]);
+        setTotal(0);
+        setError('Could not load settlements.');
+      })
+      .finally(() => {
+        if (current) setIsLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [statusFilter, page, reloadKey]);
+
+  const columns: Column<Settlement>[] = [
+    {
+      key: 'payeeId',
+      header: 'Provider',
+      render: (r) =>
+        payees[r.payeeId] ? (
+          <span title={r.payeeId}>{payees[r.payeeId].name}</span>
+        ) : (
+          <span className="font-mono text-xs" title={r.payeeId}>
+            {shortId(r.payeeId)}
+          </span>
+        ),
+    },
+    {
+      key: 'bookingId',
+      header: 'Booking',
+      render: (r) => (
+        <span className="font-mono text-xs" title={r.bookingId}>
+          {shortId(r.bookingId)}
+        </span>
+      ),
+      className: 'hidden md:table-cell',
+    },
+    { key: 'amount', header: 'Amount', render: (r) => <span className="tabular-nums">{formatMoney(r.amount, r.currency)}</span> },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r) => <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{STATUS_LABELS[r.status]}</span>,
+    },
+    { key: 'heldAt', header: 'Held since', render: (r) => formatDate(r.heldAt), className: 'hidden sm:table-cell' },
+    { key: 'releasedAt', header: 'Paid out', render: (r) => (r.releasedAt ? formatDate(r.releasedAt) : '—'), className: 'hidden lg:table-cell' },
+  ];
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settlements</h1>
-        <p className="text-sm text-gray-500">Customer payments held in escrow until released to the provider.</p>
+        <p className="text-sm text-gray-600">Customer payments held in escrow until the job is done and they are paid out to the provider.</p>
       </div>
-      <div className="flex gap-2 flex-wrap">
-        {SETTLEMENT_STATUSES.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => {
-              setPage(1);
-              setStatusFilter(s === statusFilter ? undefined : s);
-            }}
-            className={`px-3 py-1 rounded-full text-sm font-medium ${statusFilter === s ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-          >
-            {STATUS_LABELS[s]}
+      <FilterChips
+        label="Filter by status"
+        options={SETTLEMENT_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+        value={statusFilter}
+        onChange={(s) => {
+          setPage(1);
+          setStatusFilter(s);
+        }}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-red-700">
+          {error}{' '}
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="font-medium underline">
+            Try again
           </button>
-        ))}
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+        </p>
+      )}
       <DataTable
+        label="Settlements"
         columns={columns}
         rows={settlements}
         isLoading={isLoading}
         total={total}
         page={page}
-        perPage={20}
+        perPage={PER_PAGE}
         onPageChange={setPage}
+        emptyMessage={EMPTY[statusFilter ?? 'ALL']}
       />
     </div>
   );

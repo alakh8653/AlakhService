@@ -108,6 +108,4 @@ export async function getRevenueReport(params: { dateFrom?: string; dateTo?: str
   };
 }
 
-export function formatMoney(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);
-}
+export { formatMoney } from '../shared/format';

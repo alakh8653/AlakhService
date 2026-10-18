@@ -369,9 +369,12 @@ class _BookingCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: Text(booking.serviceName, style: AppTextStyles.subtitle1)),
+                Expanded(flex: 3, child: Text(booking.serviceName, style: AppTextStyles.subtitle1)),
                 const SizedBox(width: 8),
-                Container(
+                // The status may wrap onto two lines, but never pushes the card wider than the screen.
+                Flexible(
+                  flex: 2,
+                  child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
@@ -379,8 +382,10 @@ class _BookingCard extends StatelessWidget {
                   ),
                   child: Text(
                     statusLabel,
+                    textAlign: TextAlign.center,
                     style: AppTextStyles.caption.copyWith(color: statusColor, fontWeight: FontWeight.w600),
                   ),
+                ),
                 ),
               ],
             ),

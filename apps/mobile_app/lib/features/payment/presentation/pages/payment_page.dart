@@ -52,7 +52,8 @@ class _PaymentPageState extends State<PaymentPage> {
     _PaymentMethod(id: 'upi', label: 'UPI', icon: Icons.account_balance, hint: 'GPay, PhonePe, Paytm or any UPI app'),
     _PaymentMethod(id: 'card', label: 'Credit / debit card', icon: Icons.credit_card),
     _PaymentMethod(id: 'netbanking', label: 'Net banking', icon: Icons.computer),
-    _PaymentMethod(id: 'cash', label: 'Pay in cash', icon: Icons.money, hint: 'Hand it to your provider when the job is done'),
+    _PaymentMethod(
+        id: 'cash', label: 'Pay in cash', icon: Icons.money, hint: 'Hand it to your provider when the job is done'),
   ];
 
   void _showMessage(String message, {bool error = true}) {
@@ -112,7 +113,11 @@ class _PaymentPageState extends State<PaymentPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: Text(completed ? 'Payment successful' : _selectedMethod == 'cash' ? 'Cash payment noted' : 'Payment recorded'),
+        title: Text(completed
+            ? 'Payment successful'
+            : _selectedMethod == 'cash'
+                ? 'Cash payment noted'
+                : 'Payment recorded'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -142,26 +147,57 @@ class _PaymentPageState extends State<PaymentPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Payment')),
-      body: Padding(
+      // Everything scrolls, and the Pay button stays at the bottom: on a small phone with large
+      // text the methods no longer squeeze the button off screen.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_selectedMethod != 'cash')
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
+                      SizedBox(width: 4),
+                      Flexible(
+                          child: Text('Secured by Razorpay. We never see your card or UPI PIN.',
+                              style: AppTextStyles.caption)),
+                    ],
+                  ),
+                ),
+              CustomButton(
+                label: _selectedMethod == 'cash'
+                    ? "I'll pay ${rupees(widget.amount)} in cash"
+                    : 'Pay ${rupees(widget.amount)}',
+                onPressed: _isProcessing ? null : _onPay,
+                isLoading: _isProcessing,
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: ListView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _AmountSummaryCard(amount: widget.amount, reference: _reference, serviceName: widget.serviceName),
-            const SizedBox(height: 24),
-            const Text('Payment Method', style: AppTextStyles.subtitle1),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _methods.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final method = _methods[index];
-                  final isSelected = _selectedMethod == method.id;
-                  return Semantics(
-                    inMutuallyExclusiveGroup: true,
-                    selected: isSelected,
-                    child: InkWell(
+        children: [
+          _AmountSummaryCard(amount: widget.amount, reference: _reference, serviceName: widget.serviceName),
+          const SizedBox(height: 24),
+          Semantics(header: true, child: const Text('Payment Method', style: AppTextStyles.subtitle1)),
+          const SizedBox(height: 12),
+          for (var index = 0; index < _methods.length; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Builder(builder: (context) {
+                final method = _methods[index];
+                final isSelected = _selectedMethod == method.id;
+                return Semantics(
+                  inMutuallyExclusiveGroup: true,
+                  selected: isSelected,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: _isProcessing ? null : () => setState(() => _selectedMethod = method.id),
                     child: AnimatedContainer(
@@ -199,30 +235,10 @@ class _PaymentPageState extends State<PaymentPage> {
                       ),
                     ),
                   ),
-                  );
-                },
-              ),
+                );
+              }),
             ),
-            const SizedBox(height: 16),
-            if (_selectedMethod != 'cash')
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
-                    SizedBox(width: 4),
-                    Flexible(child: Text('Secured by Razorpay. We never see your card or UPI PIN.', style: AppTextStyles.caption)),
-                  ],
-                ),
-              ),
-            CustomButton(
-              label: _selectedMethod == 'cash' ? "I'll pay ${rupees(widget.amount)} in cash" : 'Pay ${rupees(widget.amount)}',
-              onPressed: _isProcessing ? null : _onPay,
-              isLoading: _isProcessing,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -250,7 +266,8 @@ class _AmountSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(serviceName ?? 'Amount to pay', style: AppTextStyles.body2, maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(serviceName ?? 'Amount to pay',
+                    style: AppTextStyles.body2, maxLines: 2, overflow: TextOverflow.ellipsis),
                 Text(
                   rupees(amount),
                   style: AppTextStyles.heading2.copyWith(color: AppColors.primary),

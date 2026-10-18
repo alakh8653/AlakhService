@@ -276,7 +276,7 @@ class _Fact extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: iconColor),
           const SizedBox(width: 4),
-          Text(text, style: AppTextStyles.caption),
+          Flexible(child: Text(text, style: AppTextStyles.caption)),
         ],
       );
 }

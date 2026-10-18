@@ -128,6 +128,14 @@ void main() {
     expect(find.text('Cancel booking'), findsOneWidget); // can try again
   });
 
+  testWidgets('an unconfirmed booking whose time has passed says so', (tester) async {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1)).toUtc().toIso8601String();
+    await tester.pumpWidget(page(server([booking('old', 'PENDING', yesterday), booking('new', 'PENDING', future)])));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining("This time has passed and the shop hasn't confirmed"), findsOneWidget);
+  });
+
   testWidgets('empty list explains and offers to browse services', (tester) async {
     var browsed = false;
     await tester.pumpWidget(page(server([]), onBrowse: () => browsed = true));

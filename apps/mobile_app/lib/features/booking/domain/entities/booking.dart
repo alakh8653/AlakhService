@@ -108,6 +108,10 @@ class Booking extends Equatable {
       readyBy != null &&
       serviceMode == 'PICKUP_DROP' &&
       !const {BookingStatus.completed, BookingStatus.cancelled, BookingStatus.refunded}.contains(status);
+  /// Its time has gone by while it still waits on the shop (unconfirmed, or confirmed but not started).
+  bool isOverdue(DateTime now) =>
+      const {BookingStatus.pending, BookingStatus.confirmed}.contains(status) &&
+      scheduledAt.isBefore(now.subtract(const Duration(minutes: 30)));
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override

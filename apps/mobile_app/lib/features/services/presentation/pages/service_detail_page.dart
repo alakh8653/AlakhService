@@ -186,7 +186,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                         _Fact(icon: Icons.schedule, text: 'About ${service.durationMinutes} min'),
                       service.reviewCount > 0
                           ? _Fact(icon: Icons.star, iconColor: AppColors.starFilled, text: '${service.rating.toStringAsFixed(1)} (${service.reviewCount} reviews)')
-                          : const _Fact(icon: Icons.fiber_new_outlined, text: 'New on AlakhService'),
+                          : const _Fact(icon: Icons.star_border, text: 'New, no reviews yet'),
                     ],
                   ),
                   const SizedBox(height: 24),

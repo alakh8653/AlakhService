@@ -387,6 +387,15 @@ class _BookingCard extends StatelessWidget {
             if (booking.bookingNumber.isNotEmpty) Text('Booking #${booking.bookingNumber}', style: AppTextStyles.caption),
             const SizedBox(height: 4),
             _detail(Icons.calendar_today, friendlyDateTime(booking.scheduledAt)),
+            if (booking.isOverdue(DateTime.now()))
+              _detail(
+                Icons.info_outline,
+                booking.status == BookingStatus.pending
+                    ? "This time has passed and the shop hasn't confirmed. You can cancel and book another time."
+                    : 'This time has passed. If you missed it, contact the shop or cancel.',
+                color: AppColors.warning,
+                maxLines: 3,
+              ),
             if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null)
               _detail(
                 pickup ? Icons.local_shipping_outlined : Icons.home_outlined,

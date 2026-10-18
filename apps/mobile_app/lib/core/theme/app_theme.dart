@@ -88,6 +88,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+        dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
         dialogTheme: const DialogThemeData(backgroundColor: AppColors.surface),
       );
 

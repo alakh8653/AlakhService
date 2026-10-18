@@ -86,7 +86,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadNext() async {
     final result = await (widget.bookingRepository ?? sl<BookingRepository>()).getUserBookings();
-    final upcoming = result.fold((_) => const <Booking>[], (bookings) => splitBookings(bookings).$1);
+    final now = DateTime.now();
+    // Skip ones whose time went by unconfirmed: "Your next booking: Yesterday" would mislead.
+    final upcoming = result
+        .fold((_) => const <Booking>[], (bookings) => splitBookings(bookings).$1)
+        .where((b) => !b.isOverdue(now))
+        .toList();
     if (mounted) setState(() => _next = upcoming.isEmpty ? null : upcoming.first);
   }
 

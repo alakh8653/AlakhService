@@ -123,6 +123,14 @@ class AuthRepositoryImpl implements AuthRepository {
         await localDataSource.clearCache();
         return const Right(null);
       }
+      // The session is still valid; the server just couldn't answer (a deploy, a timeout). Carry
+      // on as the last known user rather than showing the sign-in screen as if signed out.
+      try {
+        final cached = await localDataSource.getCachedUser();
+        if (cached != null) return Right(cached);
+      } on CacheException {
+        // Fall through to the server's error.
+      }
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     }
   }

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.observability import install_observability
+from app.routers.availability import router as availability_router
 from app.routers.bookings import router as bookings_router
 
 logger = structlog.get_logger()
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(bookings_router, prefix="/api/v1", tags=["bookings"])
+app.include_router(availability_router, prefix="/api/v1", tags=["availability"])
 
 
 @app.get("/health")

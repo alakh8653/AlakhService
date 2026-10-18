@@ -110,6 +110,14 @@ describe('gateway', () => {
       expect((await request(app).post('/api/v1/catalog/services/search').send({ query: 'cut' })).status).toBe(200);
       expect((await request(app).put('/api/v1/catalog/services/search').send({})).status).toBe(401);
     });
+
+    it('shows bookable times without an account', async () => {
+      const booking = await upstream();
+      const app = createApp(testConfig({ booking: booking.url }), quiet);
+      expect((await request(app).get('/api/v1/availability?service_id=s1&date=2030-11-04')).status).toBe(200);
+      expect(booking.requests[0].url).toBe('/api/v1/availability?service_id=s1&date=2030-11-04');
+      expect((await request(app).post('/api/v1/availability').send({})).status).toBe(401);
+    });
   });
 
   describe('admin routes', () => {

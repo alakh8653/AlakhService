@@ -19,7 +19,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import risk
+from app.core import availability, risk
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
@@ -27,8 +27,11 @@ from app.database import get_db
 from app.dependencies import (
     CouponPricer,
     CouponRejected,
+    ScheduleLookup,
+    get_clock,
     get_coupon_pricer,
     get_current_user,
+    get_schedule_lookup,
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
@@ -124,6 +127,8 @@ async def create_booking(
     notifier: Notifier = Depends(get_notifier),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     price_with_coupon: CouponPricer = Depends(get_coupon_pricer),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
     # Sent by the app with every try of one booking, so a double tap or a retry after a lost response
     # gets the booking already made rather than a second one.
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
@@ -155,6 +160,8 @@ async def create_booking(
     fee = {AT_HOME: listing.get("home_visit_fee_cents") or 0, PICKUP_DROP: listing.get("pickup_fee_cents") or 0}.get(
         mode, 0
     )
+    # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
+    await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
     if code:
@@ -204,6 +211,25 @@ async def create_booking(
         roles=("shop",),
     )
     return booking
+
+
+async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime) -> None:
+    """409 unless the shop is open for the whole booking, it is far enough ahead, and a place is free.
+
+    A shop that has not published opening hours takes any future time, as before hours existed.
+    """
+    schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
+    if not schedule.configured:
+        return
+    await booking_service.hold_shop_capacity(db, shop_id)
+    start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+    end = start + timedelta(minutes=duration)
+    booked = await booking_service.shop_spans(db, shop_id, start, end)
+    # The customer picked the time a little while ago; a slot that has just slipped inside the lead time
+    # is still taken.
+    problem = availability.booking_problem(schedule, start, duration, now, booked, grace=timedelta(minutes=5))
+    if problem:
+        raise HTTPException(status_code=409, detail=problem)
 
 
 @router.get("/bookings", response_model=BookingListResponse)

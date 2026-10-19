@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/utils/date_utils.dart';
 import '../../../shared/widgets/rating_widget.dart';
@@ -27,7 +28,7 @@ class RatingSummaryView extends StatelessWidget {
             Text(summary.average.toStringAsFixed(1), style: AppTextStyles.heading1),
             RatingWidget(rating: summary.average, size: 14),
             const SizedBox(height: 2),
-            Text(reviewsCount(summary.count), style: AppTextStyles.caption),
+            Text(reviewsCount(summary.count), style: AppTextStyles.caption.themed(context)),
           ],
         ),
         const SizedBox(width: 20),
@@ -42,7 +43,7 @@ class RatingSummaryView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        SizedBox(width: 14, child: Text('$stars', style: AppTextStyles.caption)),
+                        SizedBox(width: 14, child: Text('$stars', style: AppTextStyles.caption.themed(context))),
                         const Icon(Icons.star, size: 12, color: AppColors.starFilled),
                         const SizedBox(width: 6),
                         Expanded(
@@ -51,7 +52,7 @@ class RatingSummaryView extends StatelessWidget {
                             child: LinearProgressIndicator(
                               value: summary.countFor(stars) / most,
                               minHeight: 6,
-                              backgroundColor: AppColors.border,
+                              backgroundColor: context.colors.outlineVariant,
                               valueColor: const AlwaysStoppedAnimation(AppColors.starFilled),
                             ),
                           ),
@@ -84,8 +85,8 @@ class ReviewTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(review.reviewerName, style: AppTextStyles.subtitle2)),
-              Text(AppDateUtils.formatDate(review.createdAt), style: AppTextStyles.caption),
+              Expanded(child: Text(review.reviewerName, style: AppTextStyles.subtitle2.themed(context))),
+              Text(AppDateUtils.formatDate(review.createdAt), style: AppTextStyles.caption.themed(context)),
             ],
           ),
           const SizedBox(height: 2),
@@ -96,14 +97,14 @@ class ReviewTile extends StatelessWidget {
               Flexible(
                 child: Text(
                   'Verified booking',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.success),
+                  style: AppTextStyles.caption.copyWith(color: context.palette.success),
                 ),
               ),
             ],
           ),
           if (review.comment != null && review.comment!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(review.comment!, style: AppTextStyles.body2),
+            Text(review.comment!, style: AppTextStyles.body2.themed(context)),
           ],
           if (reply != null)
             Container(
@@ -111,7 +112,7 @@ class ReviewTile extends StatelessWidget {
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: context.colors.primaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -119,10 +120,10 @@ class ReviewTile extends StatelessWidget {
                 children: [
                   Text(
                     'Reply from the shop · ${AppDateUtils.formatDate(reply.updatedAt)}',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600, color: AppColors.primaryDark),
+                    style: AppTextStyles.caption.themed(context).copyWith(fontWeight: FontWeight.w600, color: context.colors.onPrimaryContainer),
                   ),
                   const SizedBox(height: 4),
-                  Text(reply.text, style: AppTextStyles.body2),
+                  Text(reply.text, style: AppTextStyles.body2.themed(context)),
                 ],
               ),
             ),
@@ -171,9 +172,9 @@ class _ReviewsSectionState extends State<ReviewsSection> {
         Semantics(header: true, child: const Text('Ratings & reviews', style: AppTextStyles.subtitle1)),
         const SizedBox(height: 8),
         if (summary.count == 0)
-          const Text(
+          Text(
             'No reviews yet. Customers can review the shop after a completed booking.',
-            style: AppTextStyles.body2,
+            style: AppTextStyles.body2.themed(context),
           )
         else ...[
           RatingSummaryView(summary: summary),

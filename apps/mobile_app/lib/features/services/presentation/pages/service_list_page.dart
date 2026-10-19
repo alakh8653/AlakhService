@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../../shared/widgets/service_card.dart';
 import '../../../../shared/widgets/error_widget.dart';
@@ -127,7 +128,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         const SizedBox(height: 4),
                         Text(
                           _query.isEmpty ? 'Pull down to check again.' : 'Try a shorter or different word.',
-                          style: AppTextStyles.body2,
+                          style: AppTextStyles.body2.themed(context),
                           textAlign: TextAlign.center,
                         ),
                         if (_query.isNotEmpty) ...[

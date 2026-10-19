@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../features/services/domain/entities/service_entity.dart';
 import '../utils/format.dart';
@@ -21,10 +22,10 @@ class ServiceCard extends StatelessWidget {
 
   const ServiceCard({super.key, required this.service, this.onTap});
 
-  Widget _placeholder() => Container(
+  Widget _placeholder(BuildContext context) => Container(
         width: 96,
-        color: AppColors.primaryLight,
-        child: const Icon(Icons.home_repair_service, color: AppColors.primary, size: 36),
+        color: context.colors.primaryContainer,
+        child: Icon(Icons.home_repair_service, color: context.colors.primary, size: 36),
       );
 
   @override
@@ -37,7 +38,7 @@ class ServiceCard extends StatelessWidget {
     return Semantics(
       button: true,
       child: Material(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(16),
         elevation: 1,
         shadowColor: AppColors.shadow,
@@ -55,9 +56,9 @@ class ServiceCard extends StatelessWidget {
                           service.imageUrl!,
                           width: 96,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholder(),
+                          errorBuilder: (_, __, ___) => _placeholder(context),
                         )
-                      : _placeholder(),
+                      : _placeholder(context),
                 ),
                 Expanded(
                   child: Padding(
@@ -82,24 +83,24 @@ class ServiceCard extends StatelessWidget {
                                 margin: const EdgeInsets.only(left: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.error.withValues(alpha: 0.1),
+                                  color: context.colors.error.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   'Unavailable',
-                                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                                  style: AppTextStyles.caption.copyWith(color: context.colors.error),
                                 ),
                               ),
                           ],
                         ),
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 2),
-                          Text(subtitle, style: AppTextStyles.caption),
+                          Text(subtitle, style: AppTextStyles.caption.themed(context)),
                         ],
                         const SizedBox(height: 4),
                         Text(
                           serviceModesLabel(service.serviceModes),
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primaryDark),
+                          style: AppTextStyles.caption.copyWith(color: context.colors.onPrimaryContainer),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -115,7 +116,7 @@ class ServiceCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               rupees(service.basePrice),
-                              style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary),
+                              style: AppTextStyles.subtitle1.copyWith(color: context.colors.primary),
                             ),
                           ],
                         ),

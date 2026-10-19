@@ -5,6 +5,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../data/notifications_api.dart';
 
@@ -124,7 +125,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ? 'Booking updates, payment receipts and queue alerts will show up here.'
                         : 'Check your connection and try again.',
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.body2,
+                    style: AppTextStyles.body2.themed(context),
                   ),
                   if (_error != null)
                     Center(child: TextButton(onPressed: _load, child: const Text('Try again'))),
@@ -166,33 +167,33 @@ class _NotificationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      tileColor: item.isRead ? null : AppColors.primaryLight.withValues(alpha: 0.3),
+      tileColor: item.isRead ? null : context.colors.primaryContainer.withValues(alpha: 0.3),
       leading: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.15),
+          color: context.colors.primary.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: AppColors.primary, size: 22),
+        child: Icon(icon, color: context.colors.primary, size: 22),
       ),
       title: Text(
         item.title,
-        style: AppTextStyles.subtitle2.copyWith(
+        style: AppTextStyles.subtitle2.themed(context).copyWith(
           fontWeight: item.isRead ? FontWeight.normal : FontWeight.w600,
         ),
       ),
-      subtitle: Text(item.body, style: AppTextStyles.caption, maxLines: 3, overflow: TextOverflow.ellipsis),
+      subtitle: Text(item.body, style: AppTextStyles.caption.themed(context), maxLines: 3, overflow: TextOverflow.ellipsis),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_formatTime(item.createdAt), style: AppTextStyles.caption),
+          Text(_formatTime(item.createdAt), style: AppTextStyles.caption.themed(context)),
           if (!item.isRead) ...[
             const SizedBox(height: 4),
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: context.colors.primary),
             ),
           ],
         ],

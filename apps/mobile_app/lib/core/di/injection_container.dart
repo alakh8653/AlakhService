@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/data/datasources/auth_local_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
@@ -42,6 +43,7 @@ import '../../features/tracking/data/tracking_destination.dart';
 import '../network/api_client.dart';
 import '../network/network_info.dart';
 import '../network/token_store.dart';
+import '../settings/app_settings.dart';
 
 final sl = GetIt.instance;
 
@@ -56,6 +58,8 @@ Future<void> init({TokenStore? tokens}) async {
       onSessionExpired: () => sl<AuthBloc>().add(const SessionExpired()),
     ),
   );
+  // Theme and language, read before the first frame so the app starts in the chosen ones.
+  sl.registerSingleton(SettingsCubit(await SharedPreferences.getInstance()));
   sl.registerLazySingleton(() => Connectivity());
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
 

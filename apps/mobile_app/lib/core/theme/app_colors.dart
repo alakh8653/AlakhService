@@ -24,6 +24,19 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1E1E2E);
   static const Color backgroundDark = Color(0xFF121212);
 
+  // Dark theme. The brand primary is too deep to read as text on a dark surface (3:1), so the dark
+  // scheme uses a lighter tint of it, with dark text on it; light text and greys keep 4.5:1 or more.
+  static const Color primaryOnDark = Color(0xFF9D97FF);
+  static const Color primaryContainerDark = Color(0xFF2E2A6B);
+  static const Color onPrimaryContainerDark = Color(0xFFDCDAFF);
+  static const Color textPrimaryDark = Color(0xFFECECF4);
+  static const Color textSecondaryDark = Color(0xFFA1A7B3);
+  static const Color surfaceContainerDark = Color(0xFF272738);
+  static const Color successOnDark = Color(0xFF34D399);
+  static const Color warningOnDark = Color(0xFFFBBF24);
+  static const Color errorOnDark = Color(0xFFF87171);
+  static const Color infoOnDark = Color(0xFF93C5FD);
+
   // Text
   static const Color textPrimary = Color(0xFF1A1A2E);
   static const Color textSecondary = Color(0xFF6B7280);

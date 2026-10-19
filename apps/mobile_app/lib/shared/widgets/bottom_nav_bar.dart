@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 
 class AppBottomNavBar extends StatelessWidget {
@@ -43,13 +43,13 @@ class AppBottomNavBar extends StatelessWidget {
       currentIndex: currentIndex,
       onTap: onTap,
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primary,
-      unselectedItemColor: AppColors.textSecondary,
-      selectedLabelStyle: AppTextStyles.caption.copyWith(
-        color: AppColors.primary,
+      selectedItemColor: context.colors.primary,
+      unselectedItemColor: context.palette.muted,
+      selectedLabelStyle: AppTextStyles.caption.themed(context).copyWith(
+        color: context.colors.primary,
         fontWeight: FontWeight.w600,
       ),
-      unselectedLabelStyle: AppTextStyles.caption,
+      unselectedLabelStyle: AppTextStyles.caption.themed(context),
       items: [..._items.take(3), if (showJobs) _jobs, _items.last]
           .map(
             (item) => BottomNavigationBarItem(

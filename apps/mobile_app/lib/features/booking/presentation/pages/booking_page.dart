@@ -6,6 +6,7 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/network/idempotency.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -328,7 +329,7 @@ class _BookingPageState extends State<BookingPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.check_circle, color: AppColors.success, size: 56),
+        icon: Icon(Icons.check_circle, color: context.palette.success, size: 56),
         title: const Text('Booking requested'),
         content: Text(
           '${widget.serviceName}\n${friendlyDateTime(booking.scheduledAt)}'
@@ -398,7 +399,7 @@ class _BookingPageState extends State<BookingPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(modeExplanation(_mode), style: AppTextStyles.caption),
+                  Text(modeExplanation(_mode), style: AppTextStyles.caption.themed(context)),
                   const SizedBox(height: 24),
                 ],
                 _Heading('When?', key: _whenKey),
@@ -431,13 +432,13 @@ class _BookingPageState extends State<BookingPage> {
                     ),
                   )
                 else if (slots == null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
-                        SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                        SizedBox(width: 12),
-                        Flexible(child: Text('Finding free times…', style: AppTextStyles.body2)),
+                        const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 12),
+                        Flexible(child: Text('Finding free times…', style: AppTextStyles.body2.themed(context))),
                       ],
                     ),
                   )
@@ -452,7 +453,7 @@ class _BookingPageState extends State<BookingPage> {
                   if (times.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 6),
-                      child: Text(part, style: AppTextStyles.caption),
+                      child: Text(part, style: AppTextStyles.caption.themed(context)),
                     ),
                     Wrap(
                       spacing: 8,
@@ -472,7 +473,7 @@ class _BookingPageState extends State<BookingPage> {
                 if (_showMissing && _slot == null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text('Pick a time', style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                    child: Text('Pick a time', style: AppTextStyles.caption.copyWith(color: context.colors.error)),
                   ),
                 const SizedBox(height: 24),
                 if (_needsAddress) ...[
@@ -484,13 +485,13 @@ class _BookingPageState extends State<BookingPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: _showMissing ? AppColors.error : AppColors.border),
+                        border: Border.all(color: _showMissing ? context.colors.error : context.colors.outlineVariant),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('You have no saved address yet.', style: AppTextStyles.body2),
+                          Text('You have no saved address yet.', style: AppTextStyles.body2.themed(context)),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: _addAddress,
@@ -571,7 +572,7 @@ class _BookingPageState extends State<BookingPage> {
                   if (_coupon != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(_coupon!.message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                      child: Text(_coupon!.message, style: AppTextStyles.caption.copyWith(color: context.colors.error)),
                     ),
                 ],
                 const SizedBox(height: 24),
@@ -605,8 +606,8 @@ class _TimesProblem extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.border),
+          color: context.colors.surface,
+          border: Border.all(color: context.colors.outlineVariant),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -614,9 +615,9 @@ class _TimesProblem extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.event_busy_outlined, size: 20, color: AppColors.textSecondary),
+                Icon(Icons.event_busy_outlined, size: 20, color: context.palette.muted),
                 const SizedBox(width: 8),
-                Expanded(child: Text(text, style: AppTextStyles.body2)),
+                Expanded(child: Text(text, style: AppTextStyles.body2.themed(context))),
               ],
             ),
             if (action != null) action! else const SizedBox(height: 8),
@@ -664,8 +665,8 @@ class _DayChip extends StatelessWidget {
           width: 72,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? AppColors.primaryLight : AppColors.surface,
-            border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
+            color: selected ? context.colors.primaryContainer : context.colors.surface,
+            border: Border.all(color: selected ? context.colors.primary : context.colors.outlineVariant, width: selected ? 2 : 1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: FittedBox(
@@ -673,10 +674,10 @@ class _DayChip extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(top, style: AppTextStyles.caption.copyWith(color: selected ? AppColors.primaryDark : AppColors.textSecondary)),
+                Text(top, style: AppTextStyles.caption.copyWith(color: selected ? context.colors.onPrimaryContainer : context.palette.muted)),
                 Text(
                   '${day.day} ${_months[day.month - 1]}',
-                  style: AppTextStyles.subtitle2.copyWith(color: selected ? AppColors.primaryDark : AppColors.textPrimary),
+                  style: AppTextStyles.subtitle2.copyWith(color: selected ? context.colors.onPrimaryContainer : context.colors.onSurface),
                 ),
               ],
             ),
@@ -698,19 +699,19 @@ class _AppliedCoupon extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
         decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.08),
-          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+          color: context.palette.success.withValues(alpha: 0.08),
+          border: Border.all(color: context.palette.success.withValues(alpha: 0.4)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            const Icon(Icons.local_offer_outlined, color: AppColors.success, size: 20),
+            Icon(Icons.local_offer_outlined, color: context.palette.success, size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 '${coupon.code} applied: ${coupon.discountPct.toStringAsFixed(coupon.discountPct % 1 == 0 ? 0 : 1)}% off, '
                 'you save ${rupees(saving)}',
-                style: AppTextStyles.body2.copyWith(color: AppColors.success),
+                style: AppTextStyles.body2.copyWith(color: context.palette.success),
               ),
             ),
             TextButton(onPressed: onRemove, child: const Text('Remove')),
@@ -736,12 +737,12 @@ class _PriceBreakdown extends StatelessWidget {
     required this.total,
   });
 
-  Widget _row(String label, String amount, {TextStyle style = AppTextStyles.body2}) => Padding(
+  Widget _row(BuildContext context, String label, String amount, {TextStyle? style}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: style)),
-            Text(amount, style: style),
+            Expanded(child: Text(label, style: style ?? AppTextStyles.body2.themed(context))),
+            Text(amount, style: style ?? AppTextStyles.body2.themed(context)),
           ],
         ),
       );
@@ -750,23 +751,23 @@ class _PriceBreakdown extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.border),
+          color: context.colors.surface,
+          border: Border.all(color: context.colors.outlineVariant),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _Heading('Price details'),
-            _row('Service', rupees(service)),
-            if (fee > 0) _row(feeLabel, rupees(fee)),
-            if (discount > 0) _row('Coupon $couponCode', '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: AppColors.success)),
+            _row(context, 'Service', rupees(service)),
+            if (fee > 0) _row(context, feeLabel, rupees(fee)),
+            if (discount > 0) _row(context, 'Coupon $couponCode', '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
             const Divider(height: 16),
-            _row('Total', rupees(total), style: AppTextStyles.subtitle1),
+            _row(context, 'Total', rupees(total), style: AppTextStyles.subtitle1),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Nothing to pay now. Pay online or in cash once the shop confirms.',
-              style: AppTextStyles.caption,
+              style: AppTextStyles.caption.themed(context),
             ),
           ],
         ),
@@ -782,7 +783,7 @@ class _BookBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: AppColors.surface,
+        color: context.colors.surface,
         elevation: 8,
         child: SafeArea(
           top: false,
@@ -794,8 +795,8 @@ class _BookBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total', style: AppTextStyles.caption),
-                    Text(rupees(total), style: AppTextStyles.heading3.copyWith(color: AppColors.primary)),
+                    Text('Total', style: AppTextStyles.caption.themed(context)),
+                    Text(rupees(total), style: AppTextStyles.heading3.copyWith(color: context.colors.primary)),
                   ],
                 ),
                 const SizedBox(width: 16),
@@ -828,12 +829,12 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
+        color: context.colors.primaryContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Icon(modeIcon(mode), color: AppColors.primary),
+          Icon(modeIcon(mode), color: context.colors.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -842,7 +843,7 @@ class _SummaryCard extends StatelessWidget {
                 Text(serviceName, style: AppTextStyles.subtitle1),
                 Text(
                   slot == null ? 'Choose a day and time below' : friendlyDateTime(slot!, now: now),
-                  style: AppTextStyles.body2.copyWith(color: AppColors.primaryDark),
+                  style: AppTextStyles.body2.copyWith(color: context.colors.onPrimaryContainer),
                 ),
               ],
             ),

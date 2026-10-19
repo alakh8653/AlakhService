@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 import '../data/reviews_api.dart';
@@ -125,7 +126,7 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
         padding: const EdgeInsets.all(32),
         child: Text(
           _stars == null ? 'No reviews yet.' : 'No $_stars-star reviews yet.',
-          style: AppTextStyles.body2,
+          style: AppTextStyles.body2.themed(context),
           textAlign: TextAlign.center,
         ),
       );

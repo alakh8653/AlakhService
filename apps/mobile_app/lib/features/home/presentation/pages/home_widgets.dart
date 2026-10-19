@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 
 /// Category tile shown in the home services grid.
@@ -31,16 +32,16 @@ class ServiceCategoryCard extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: context.colors.primaryContainer,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: AppColors.primary, size: 28),
+              child: Icon(icon, color: context.colors.primary, size: 28),
             ),
             const SizedBox(height: 6),
             // Two lines, so "Beauty Parlour" and "Laptop & Phone" aren't cut to "Beauty Parl…".
             Text(
               label,
-              style: AppTextStyles.caption.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.caption.copyWith(color: context.colors.onSurface),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -157,7 +158,7 @@ class NextBookingCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Your next booking', style: AppTextStyles.caption.copyWith(color: Colors.white)),
+                          Text('Your next booking', style: AppTextStyles.caption.copyWith(color: AppColors.textLight)),
                           const SizedBox(height: 4),
                           Text(serviceName, style: AppTextStyles.heading3.copyWith(color: AppColors.textLight)),
                           const SizedBox(height: 2),
@@ -214,8 +215,8 @@ class SearchBarWidget extends StatelessWidget {
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: AppTextStyles.body2,
-        prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+        hintStyle: AppTextStyles.body2.themed(context),
+        prefixIcon: Icon(Icons.search, color: context.palette.muted),
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
     );

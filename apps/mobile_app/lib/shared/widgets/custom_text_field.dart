@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -57,7 +58,7 @@ class CustomTextField extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (label != null) ...[
-          Text(label!, style: AppTextStyles.subtitle2),
+          Text(label!, style: AppTextStyles.subtitle2.themed(context)),
           const SizedBox(height: 6),
         ],
         TextFormField(
@@ -77,7 +78,7 @@ class CustomTextField extends StatelessWidget {
           style: AppTextStyles.body1,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: AppTextStyles.body2,
+            hintStyle: AppTextStyles.body2.themed(context),
             helperText: helper,
             helperMaxLines: 2,
             errorMaxLines: 2,

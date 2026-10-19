@@ -7,6 +7,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../booking/domain/entities/booking.dart';
 import '../../data/tracking_api.dart';
@@ -204,7 +205,7 @@ class TrackingStatusCard extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(color: AppColors.shadow, blurRadius: 12, offset: Offset(0, -4)),
@@ -212,9 +213,9 @@ class TrackingStatusCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            backgroundColor: AppColors.primaryLight,
-            child: Icon(Icons.person, color: AppColors.primary),
+          CircleAvatar(
+            backgroundColor: context.colors.primaryContainer,
+            child: Icon(Icons.person, color: context.colors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -223,8 +224,8 @@ class TrackingStatusCard extends StatelessWidget {
               children: [
                 Text(booking.serviceName, style: AppTextStyles.subtitle1),
                 if (estimateText != null)
-                  Text(estimateText!, style: AppTextStyles.subtitle2.copyWith(color: AppColors.primary)),
-                Text(_statusText, style: AppTextStyles.caption),
+                  Text(estimateText!, style: AppTextStyles.subtitle2.copyWith(color: context.colors.primary)),
+                Text(_statusText, style: AppTextStyles.caption.themed(context)),
               ],
             ),
           ),

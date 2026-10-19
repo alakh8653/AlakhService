@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection_container.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/service_card.dart';
@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$_greeting${firstName.isEmpty ? '' : ', $firstName'} 👋', style: AppTextStyles.body2),
+                Text('$_greeting${firstName.isEmpty ? '' : ', $firstName'} 👋', style: AppTextStyles.body2.themed(context)),
                 const Text('Find a Service', style: AppTextStyles.heading2),
               ],
             ),
@@ -187,7 +187,7 @@ class _HomePageState extends State<HomePage> {
             icon: Badge(
               isLabelVisible: _unread > 0,
               label: Text(_unread > 99 ? '99+' : '$_unread'),
-              child: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+              child: Icon(Icons.notifications_outlined, color: context.colors.onSurface),
             ),
           ),
         ],
@@ -240,7 +240,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: Text(
                     snapshot.hasError ? 'Could not load services.' : 'No services listed yet.',
-                    style: AppTextStyles.body2,
+                    style: AppTextStyles.body2.themed(context),
                   ),
                 ),
                 if (snapshot.hasError) TextButton(onPressed: _refresh, child: const Text('Try again')),

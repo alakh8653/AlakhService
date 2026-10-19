@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -110,7 +111,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               const SizedBox(height: 8),
               Text(
                 'We sent a ${AppConstants.otpLength}-digit code to ${widget.phone}.',
-                style: AppTextStyles.body2,
+                style: AppTextStyles.body2.themed(context),
               ),
               TextButton(
                 style: TextButton.styleFrom(padding: EdgeInsets.zero),
@@ -154,7 +155,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 child: _secondsLeft > 0
                     ? Text(
                         "Didn't get it? You can resend in ${_secondsLeft}s",
-                        style: AppTextStyles.body2,
+                        style: AppTextStyles.body2.themed(context),
                       )
                     : TextButton(
                         onPressed: _resend,

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -126,8 +127,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   }
 
   Widget _placeholder() => Container(
-        color: AppColors.primaryLight,
-        child: const Icon(Icons.home_repair_service, size: 80, color: AppColors.primary),
+        color: context.colors.primaryContainer,
+        child: Icon(Icons.home_repair_service, size: 80, color: context.colors.primary),
       );
 
   @override
@@ -138,7 +139,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     final reviewCount = _summary?.count ?? service.reviewCount;
     return Scaffold(
       bottomNavigationBar: Material(
-        color: AppColors.surface,
+        color: context.colors.surface,
         elevation: 8,
         child: SafeArea(
           top: false,
@@ -152,7 +153,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
                       "This service isn't taking bookings right now.",
-                      style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                      style: AppTextStyles.caption.copyWith(color: context.colors.error),
                     ),
                   ),
                 Row(
@@ -161,8 +162,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('From', style: AppTextStyles.caption),
-                        Text(rupees(service.basePrice), style: AppTextStyles.heading3.copyWith(color: AppColors.primary)),
+                        Text('From', style: AppTextStyles.caption.themed(context)),
+                        Text(rupees(service.basePrice), style: AppTextStyles.heading3.copyWith(color: context.colors.primary)),
                       ],
                     ),
                     const SizedBox(width: 16),
@@ -196,12 +197,12 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.storefront_outlined, size: 16, color: AppColors.textSecondary),
+                        Icon(Icons.storefront_outlined, size: 16, color: context.palette.muted),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             [shop.name, if (shop.address.isNotEmpty) shop.address].join(' · '),
-                            style: AppTextStyles.body2,
+                            style: AppTextStyles.body2.themed(context),
                           ),
                         ),
                       ],
@@ -212,13 +213,13 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.schedule, size: 16, color: open.open ? AppColors.success : AppColors.textSecondary),
+                        Icon(Icons.schedule, size: 16, color: open.open ? context.palette.success : context.palette.muted),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             open.text,
-                            style: AppTextStyles.body2.copyWith(
-                              color: open.open ? AppColors.success : AppColors.textSecondary,
+                            style: AppTextStyles.body2.themed(context).copyWith(
+                              color: open.open ? context.palette.success : context.palette.muted,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -255,8 +256,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                       leading: CircleAvatar(
-                        backgroundColor: AppColors.primaryLight,
-                        child: Icon(modeIcon(mode), color: AppColors.primary, size: 20),
+                        backgroundColor: context.colors.primaryContainer,
+                        child: Icon(modeIcon(mode), color: context.colors.primary, size: 20),
                       ),
                       title: Text(
                         switch (mode) {
@@ -266,9 +267,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                         },
                         style: AppTextStyles.body1,
                       ),
-                      subtitle: Text(modeExplanation(mode), style: AppTextStyles.caption),
+                      subtitle: Text(modeExplanation(mode), style: AppTextStyles.caption.themed(context)),
                       trailing: service.feeFor(mode) > 0
-                          ? Text('+${rupees(service.feeFor(mode))}', style: AppTextStyles.subtitle2)
+                          ? Text('+${rupees(service.feeFor(mode))}', style: AppTextStyles.subtitle2.themed(context))
                           : null,
                     ),
                   const SizedBox(height: 16),
@@ -276,14 +277,14 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                   const SizedBox(height: 8),
                   Text(
                     service.description.isEmpty ? 'The shop has not added a description yet.' : service.description,
-                    style: AppTextStyles.body2,
+                    style: AppTextStyles.body2.themed(context),
                   ),
                   if (service.tags.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
                       children: service.tags
-                          .map((t) => Chip(label: Text(t, style: AppTextStyles.caption), backgroundColor: AppColors.primaryLight))
+                          .map((t) => Chip(label: Text(t, style: AppTextStyles.caption.themed(context)), backgroundColor: context.colors.primaryContainer))
                           .toList(),
                     ),
                   ],
@@ -301,9 +302,9 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       onPressed: _joining ? null : _joinQueue,
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       "No appointment needed: we'll tell you your place and when it's your turn.",
-                      style: AppTextStyles.caption,
+                      style: AppTextStyles.caption.themed(context),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -328,17 +329,17 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 class _Fact extends StatelessWidget {
   final IconData icon;
   final String text;
-  final Color iconColor;
+  final Color? iconColor;
 
-  const _Fact({required this.icon, required this.text, this.iconColor = AppColors.textSecondary});
+  const _Fact({required this.icon, required this.text, this.iconColor});
 
   @override
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: iconColor),
+          Icon(icon, size: 16, color: iconColor ?? context.palette.muted),
           const SizedBox(width: 4),
-          Flexible(child: Text(text, style: AppTextStyles.caption)),
+          Flexible(child: Text(text, style: AppTextStyles.caption.themed(context))),
         ],
       );
 }

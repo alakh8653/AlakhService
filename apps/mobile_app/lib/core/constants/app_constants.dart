@@ -12,6 +12,7 @@ class AppConstants {
   static const String keyIsLoggedIn = 'is_logged_in';
   static const String keyOnboardingDone = 'onboarding_done';
   static const String keyThemeMode = 'theme_mode';
+  static const String keyLanguage = 'language';
 
   // User roles
   static const String roleUser = 'user';

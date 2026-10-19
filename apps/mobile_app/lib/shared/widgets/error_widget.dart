@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 import 'custom_button.dart';
 
@@ -28,13 +28,13 @@ class AppErrorWidget extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
+                color: context.colors.error.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline,
                 size: 40,
-                color: AppColors.error,
+                color: context.colors.error,
               ),
             ),
             const SizedBox(height: 20),
@@ -46,7 +46,7 @@ class AppErrorWidget extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               message,
-              style: AppTextStyles.body2,
+              style: AppTextStyles.body2.themed(context),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[

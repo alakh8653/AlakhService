@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/theme/app_colors.dart';
+
 /// General-purpose helper utilities.
 class AppHelpers {
   AppHelpers._();
@@ -60,7 +62,7 @@ class AppHelpers {
       SnackBar(
         content: Text(message),
         backgroundColor:
-            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            isError ? AppColors.error : AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -70,11 +72,11 @@ class AppHelpers {
   /// Returns the colour that corresponds to a booking status string.
   static Color statusColor(String status) {
     return switch (status.toLowerCase()) {
-      'confirmed' => const Color(0xFF10B981),
-      'pending' => const Color(0xFFF59E0B),
-      'cancelled' => const Color(0xFFEF4444),
-      'completed' => const Color(0xFF3B82F6),
-      _ => const Color(0xFF6B7280),
+      'confirmed' => AppColors.success,
+      'pending' => AppColors.warning,
+      'cancelled' => AppColors.error,
+      'completed' => AppColors.info,
+      _ => AppColors.textSecondary,
     };
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
@@ -89,7 +90,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             requesting
                 ? 'Enter the phone number or email on your account and we\'ll send you a code.'
                 : 'Enter the code we sent to ${_phoneController.text.trim()} and choose a new password.',
-            style: AppTextStyles.body2,
+            style: AppTextStyles.body2.themed(context),
           ),
           const SizedBox(height: 32),
           CustomTextField(
@@ -130,7 +131,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               validator: Validators.password,
               suffix: IconButton(
                 tooltip: _obscure ? 'Show password' : 'Hide password',
-                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: AppColors.textSecondary),
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, color: context.palette.muted),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
@@ -150,13 +151,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     return Column(
       children: [
         const SizedBox(height: 48),
-        const Icon(Icons.check_circle_outline, size: 80, color: AppColors.success),
+        Icon(Icons.check_circle_outline, size: 80, color: context.palette.success),
         const SizedBox(height: 24),
         const Text('Password Changed', style: AppTextStyles.heading2),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Sign in with your new password. Other devices have been signed out.',
-          style: AppTextStyles.body2,
+          style: AppTextStyles.body2.themed(context),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),

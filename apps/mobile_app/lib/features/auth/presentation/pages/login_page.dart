@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
@@ -97,9 +98,9 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 48),
                     Semantics(header: true, child: const Text('Welcome Back', style: AppTextStyles.heading1)),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sign in to book, track and pay for your services',
-                      style: AppTextStyles.body2,
+                      style: AppTextStyles.body2.themed(context),
                     ),
                     const SizedBox(height: 40),
                     CustomTextField(
@@ -126,7 +127,7 @@ class _LoginPageState extends State<LoginPage> {
                         tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: AppColors.textSecondary,
+                          color: context.palette.muted,
                         ),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
@@ -173,9 +174,9 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text(
+                        Text(
                           "Don't have an account?",
-                          style: AppTextStyles.body2,
+                          style: AppTextStyles.body2.themed(context),
                         ),
                         TextButton(
                           onPressed: () => Navigator.push(

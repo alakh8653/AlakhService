@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../data/shop_location_api.dart';
 import '../data/travel_options.dart';
@@ -74,7 +75,7 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
             if (snapshot.hasError) {
               return Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(apiErrorMessage(snapshot.error!), textAlign: TextAlign.center, style: AppTextStyles.body2),
+                child: Text(apiErrorMessage(snapshot.error!), textAlign: TextAlign.center, style: AppTextStyles.body2.themed(context)),
               );
             }
             final d = snapshot.data;
@@ -92,14 +93,14 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
                 const Text('How to get there', style: AppTextStyles.heading3),
                 const SizedBox(height: 4),
                 Text(d.name, style: AppTextStyles.subtitle1),
-                if (d.address.isNotEmpty) Text(d.address, style: AppTextStyles.body2),
+                if (d.address.isNotEmpty) Text(d.address, style: AppTextStyles.body2.themed(context)),
                 const SizedBox(height: 8),
                 for (final option in travelOptions(d))
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.primaryLight,
-                      child: Icon(_icons[option.mode], color: AppColors.primary),
+                      backgroundColor: context.colors.primaryContainer,
+                      child: Icon(_icons[option.mode], color: context.colors.primary),
                     ),
                     title: Text(option.title),
                     subtitle: Text(option.subtitle),
@@ -108,9 +109,9 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
                   ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    backgroundColor: AppColors.primaryLight,
-                    child: Icon(Icons.content_copy, color: AppColors.primary),
+                  leading: CircleAvatar(
+                    backgroundColor: context.colors.primaryContainer,
+                    child: Icon(Icons.content_copy, color: context.colors.primary),
                   ),
                   title: const Text('Ola, Rapido or another ride app'),
                   subtitle: const Text('Copy the address to paste as your drop-off'),

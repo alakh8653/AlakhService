@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/error_widget.dart';
@@ -91,7 +92,7 @@ class _AddressesPageState extends State<AddressesPage> {
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            style: TextButton.styleFrom(foregroundColor: context.colors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -120,9 +121,9 @@ class _AddressesPageState extends State<AddressesPage> {
           const SizedBox(height: 16),
           const Text('No saved addresses yet', style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Add your home or work address for home visits and pickups.',
-            style: AppTextStyles.body2,
+            style: AppTextStyles.body2.themed(context),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -135,7 +136,7 @@ class _AddressesPageState extends State<AddressesPage> {
         children: [
           for (final a in addresses)
             ListTile(
-              leading: Icon(a.isDefault ? Icons.home : Icons.place_outlined, color: AppColors.primary),
+              leading: Icon(a.isDefault ? Icons.home : Icons.place_outlined, color: context.colors.primary),
               title: Text(a.isDefault ? '${a.label} (default)' : a.label),
               subtitle: Text(a.oneLine),
               trailing: PopupMenuButton<String>(

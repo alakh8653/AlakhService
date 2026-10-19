@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -123,7 +124,7 @@ class _PaymentPageState extends State<PaymentPage> {
           children: [
             Icon(
               completed ? Icons.check_circle : Icons.hourglass_top,
-              color: completed ? AppColors.success : AppColors.primary,
+              color: completed ? context.palette.success : context.colors.primary,
               size: 64,
             ),
             const SizedBox(height: 12),
@@ -157,16 +158,16 @@ class _PaymentPageState extends State<PaymentPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_selectedMethod != 'cash')
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
-                      SizedBox(width: 4),
+                      Icon(Icons.lock_outline, size: 14, color: context.palette.muted),
+                      const SizedBox(width: 4),
                       Flexible(
                           child: Text('Secured by Razorpay. We never see your card or UPI PIN.',
-                              style: AppTextStyles.caption)),
+                              style: AppTextStyles.caption.themed(context))),
                     ],
                   ),
                 ),
@@ -204,10 +205,10 @@ class _PaymentPageState extends State<PaymentPage> {
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryLight : AppColors.surface,
+                        color: isSelected ? context.colors.primaryContainer : context.colors.surface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isSelected ? AppColors.primary : AppColors.border,
+                          color: isSelected ? context.colors.primary : context.colors.outlineVariant,
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -215,7 +216,7 @@ class _PaymentPageState extends State<PaymentPage> {
                         children: [
                           Icon(
                             method.icon,
-                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                            color: isSelected ? context.colors.primary : context.palette.muted,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -223,13 +224,13 @@ class _PaymentPageState extends State<PaymentPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(method.label, style: AppTextStyles.body1),
-                                if (method.hint != null) Text(method.hint!, style: AppTextStyles.caption),
+                                if (method.hint != null) Text(method.hint!, style: AppTextStyles.caption.themed(context)),
                               ],
                             ),
                           ),
                           Icon(
                             isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                            color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                            color: isSelected ? context.colors.primary : context.palette.muted,
                           ),
                         ],
                       ),
@@ -256,7 +257,7 @@ class _AmountSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
+        color: context.colors.primaryContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -267,10 +268,10 @@ class _AmountSummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(serviceName ?? 'Amount to pay',
-                    style: AppTextStyles.body2, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    style: AppTextStyles.body2.themed(context), maxLines: 2, overflow: TextOverflow.ellipsis),
                 Text(
                   rupees(amount),
-                  style: AppTextStyles.heading2.copyWith(color: AppColors.primary),
+                  style: AppTextStyles.heading2.copyWith(color: context.colors.primary),
                 ),
               ],
             ),
@@ -279,8 +280,8 @@ class _AmountSummaryCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('Booking', style: AppTextStyles.caption),
-              Text('#$reference', style: AppTextStyles.subtitle2),
+              Text('Booking', style: AppTextStyles.caption.themed(context)),
+              Text('#$reference', style: AppTextStyles.subtitle2.themed(context)),
             ],
           ),
         ],

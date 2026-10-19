@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
@@ -81,8 +82,8 @@ class _RegisterPageState extends State<RegisterPage> {
               children: [
                 const Text('Join AlakhService', style: AppTextStyles.heading2),
                 const SizedBox(height: 8),
-                const Text('Create your account to get started',
-                    style: AppTextStyles.body2),
+                Text('Create your account to get started',
+                    style: AppTextStyles.body2.themed(context)),
                 const SizedBox(height: 32),
                 CustomTextField(
                   controller: _nameController,
@@ -123,7 +124,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       _obscurePassword
                           ? Icons.visibility_off
                           : Icons.visibility,
-                      color: AppColors.textSecondary,
+                      color: context.palette.muted,
                     ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
@@ -131,9 +132,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 12),
                 // Provider accounts are set up by a shop or an admin, so sign-up is for customers.
-                const Text(
+                Text(
                   'We will text a verification code to this number.',
-                  style: AppTextStyles.caption,
+                  style: AppTextStyles.caption.themed(context),
                 ),
                 const SizedBox(height: 32),
                 BlocBuilder<AuthBloc, AuthState>(
@@ -152,7 +153,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     alignment: WrapAlignment.center,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text('Already have an account?', style: AppTextStyles.body2),
+                      Text('Already have an account?', style: AppTextStyles.body2.themed(context)),
                       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Login')),
                     ],
                   ),

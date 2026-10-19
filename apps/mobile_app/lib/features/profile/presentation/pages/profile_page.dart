@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/utils/helpers.dart';
@@ -13,6 +14,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
+import 'display_settings.dart';
 import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -84,15 +86,15 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             CircleAvatar(
               radius: 44,
-              backgroundColor: AppColors.primaryLight,
+              backgroundColor: context.colors.primaryContainer,
               child: _name.trim().isEmpty
-                  ? const Icon(Icons.person, size: 44, color: AppColors.primary)
-                  : Text(AppHelpers.initials(_name), style: AppTextStyles.heading2.copyWith(color: AppColors.primary)),
+                  ? Icon(Icons.person, size: 44, color: context.colors.primary)
+                  : Text(AppHelpers.initials(_name), style: AppTextStyles.heading2.copyWith(color: context.colors.primary)),
             ),
             const SizedBox(height: 12),
             Text(_name, style: AppTextStyles.heading3),
-            if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2),
-            if (user.email != null) Text(user.email!, style: AppTextStyles.body2),
+            if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2.themed(context)),
+            if (user.email != null) Text(user.email!, style: AppTextStyles.body2.themed(context)),
             const SizedBox(height: 24),
             _ProfileMenuItem(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _editProfile),
             _ProfileMenuItem(icon: Icons.history, label: 'My Bookings', onTap: widget.onOpenBookings),
@@ -106,6 +108,7 @@ class _ProfilePageState extends State<ProfilePage> {
               label: 'Notifications',
               onTap: widget.onOpenNotifications,
             ),
+            const DisplaySettings(),
             const SizedBox(height: 16),
             CustomButton(
               label: 'Log out',
@@ -115,7 +118,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: _deleteAccount,
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              style: TextButton.styleFrom(foregroundColor: context.colors.error),
               child: const Text('Delete my account'),
             ),
           ],
@@ -135,9 +138,9 @@ class _ProfileMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.textSecondary),
+      leading: Icon(icon, color: context.palette.muted),
       title: Text(label, style: AppTextStyles.body1),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+      trailing: Icon(Icons.chevron_right, color: context.palette.muted),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
     );
@@ -171,10 +174,10 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your profile, saved addresses and sign-in are removed and cannot be recovered. '
             'Past bookings and payments are kept without your name for the shops\' records.',
-            style: AppTextStyles.body2,
+            style: AppTextStyles.body2.themed(context),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -197,7 +200,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         TextButton(
           onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
-          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          style: TextButton.styleFrom(foregroundColor: context.colors.error),
           child: const Text('Delete account'),
         ),
       ],

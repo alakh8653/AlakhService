@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -59,13 +60,13 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     }
   }
 
-  static Color statusColor(String status) => switch (status) {
-        BookingStatus.confirmed || BookingStatus.assigned => AppColors.info,
-        BookingStatus.enRoute || BookingStatus.pickedUp || BookingStatus.inProgress || BookingStatus.outForDelivery => AppColors.primary,
-        BookingStatus.completed => AppColors.success,
-        BookingStatus.pending => AppColors.warning,
-        BookingStatus.cancelled || BookingStatus.disputed => AppColors.error,
-        _ => AppColors.textSecondary,
+  static Color statusColor(BuildContext context, String status) => switch (status) {
+        BookingStatus.confirmed || BookingStatus.assigned => context.palette.info,
+        BookingStatus.enRoute || BookingStatus.pickedUp || BookingStatus.inProgress || BookingStatus.outForDelivery => context.colors.primary,
+        BookingStatus.completed => context.palette.success,
+        BookingStatus.pending => context.palette.warning,
+        BookingStatus.cancelled || BookingStatus.disputed => context.colors.error,
+        _ => context.palette.muted,
       };
 
   static String statusLabel(String status) => switch (status) {
@@ -96,7 +97,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep booking')),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            style: TextButton.styleFrom(foregroundColor: context.colors.error),
             child: const Text('Yes, cancel'),
           ),
         ],
@@ -160,7 +161,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   Widget _card(Booking b) => _BookingCard(
         booking: b,
-        statusColor: statusColor(b.status),
+        statusColor: statusColor(context, b.status),
         statusLabel: statusLabel(b.status),
         cancelling: _cancelling == b.id,
         onCancel: b.canCancel && _cancelling != b.id ? () => _confirmCancel(b) : null,
@@ -223,9 +224,9 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   const SizedBox(height: 16),
                   const Text('No bookings yet', style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Book a salon visit, a doctor, a repair and more. Your bookings will show up here.',
-                    style: AppTextStyles.body2,
+                    style: AppTextStyles.body2.themed(context),
                     textAlign: TextAlign.center,
                   ),
                   if (widget.onBrowseServices != null) ...[
@@ -290,7 +291,7 @@ class _SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
         child: Semantics(
           header: true,
-          child: Text('$title ($count)', style: AppTextStyles.subtitle2.copyWith(color: AppColors.textPrimary)),
+          child: Text('$title ($count)', style: AppTextStyles.subtitle2.copyWith(color: context.colors.onSurface)),
         ),
       );
 }
@@ -324,17 +325,17 @@ class _BookingCard extends StatelessWidget {
     this.cancelling = false,
   });
 
-  Widget _detail(IconData icon, String text, {Color color = AppColors.textSecondary, int maxLines = 2}) => Padding(
+  Widget _detail(BuildContext context, IconData icon, String text, {Color? color, int maxLines = 2}) => Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 14, color: color)),
+            Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 14, color: color ?? context.palette.muted)),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 text,
-                style: AppTextStyles.caption.copyWith(color: color),
+                style: AppTextStyles.caption.copyWith(color: color ?? context.palette.muted),
                 maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -363,7 +364,7 @@ class _BookingCard extends StatelessWidget {
       if (onCancel != null || cancelling)
         TextButton(
           onPressed: onCancel,
-          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          style: TextButton.styleFrom(foregroundColor: context.colors.error),
           child: Text(cancelling ? 'Cancelling…' : 'Cancel booking'),
         ),
     ];
@@ -399,20 +400,22 @@ class _BookingCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (booking.bookingNumber.isNotEmpty) Text('Booking #${booking.bookingNumber}', style: AppTextStyles.caption),
+            if (booking.bookingNumber.isNotEmpty) Text('Booking #${booking.bookingNumber}', style: AppTextStyles.caption.themed(context)),
             const SizedBox(height: 4),
-            _detail(Icons.calendar_today, friendlyDateTime(booking.scheduledAt)),
+            _detail(context, Icons.calendar_today, friendlyDateTime(booking.scheduledAt)),
             if (booking.isOverdue(DateTime.now()))
               _detail(
+                context,
                 Icons.info_outline,
                 booking.status == BookingStatus.pending
                     ? "This time has passed and the shop hasn't confirmed. You can cancel and book another time."
                     : 'This time has passed. If you missed it, contact the shop or cancel.',
-                color: AppColors.warning,
+                color: context.palette.warning,
                 maxLines: 3,
               ),
             if (booking.serviceMode != 'AT_SHOP' || booking.itemDescription != null)
               _detail(
+                context,
                 pickup ? Icons.local_shipping_outlined : Icons.home_outlined,
                 [
                   pickup ? 'Pickup & drop' : 'Home visit',
@@ -420,21 +423,21 @@ class _BookingCard extends StatelessWidget {
                 ].join(' · '),
               ),
             if (booking.showsReadyBy)
-              _detail(Icons.event_available, 'Expected back by ${friendlyDateTime(booking.readyBy!)}', color: AppColors.primary),
-            if (booking.address.isNotEmpty) _detail(Icons.location_on, booking.address),
+              _detail(context, Icons.event_available, 'Expected back by ${friendlyDateTime(booking.readyBy!)}', color: context.colors.primary),
+            if (booking.address.isNotEmpty) _detail(context, Icons.location_on, booking.address),
             const SizedBox(height: 8),
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 8,
               children: [
-                Text(rupees(booking.totalAmount), style: AppTextStyles.subtitle1.copyWith(color: AppColors.primary)),
+                Text(rupees(booking.totalAmount), style: AppTextStyles.subtitle1.copyWith(color: context.colors.primary)),
                 if (payment != null)
                   Text(
                     payment == 'paid' ? 'Paid' : 'Paying in cash',
-                    style: AppTextStyles.caption.copyWith(color: payment == 'paid' ? AppColors.success : AppColors.warning),
+                    style: AppTextStyles.caption.copyWith(color: payment == 'paid' ? context.palette.success : context.palette.warning),
                   ),
                 if (ratedStars != null)
-                  Text('You rated it $ratedStars★', style: AppTextStyles.caption.copyWith(color: AppColors.success)),
+                  Text('You rated it $ratedStars★', style: AppTextStyles.caption.copyWith(color: context.palette.success)),
               ],
             ),
             if (actions.isNotEmpty) ...[
@@ -490,7 +493,7 @@ class _RatingDialogState extends State<_RatingDialog> {
                 ),
               ),
             ),
-            Text(_words[_stars - 1], style: AppTextStyles.subtitle2),
+            Text(_words[_stars - 1], style: AppTextStyles.subtitle2.themed(context)),
             const SizedBox(height: 12),
             TextField(
               controller: _review,

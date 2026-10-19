@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
@@ -81,7 +82,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Stay in queue')),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            style: TextButton.styleFrom(foregroundColor: context.colors.error),
             child: const Text('Leave'),
           ),
         ],
@@ -115,7 +116,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
           children: [
             const SizedBox(height: 24),
             if (ticket == null) ...[
-              const Icon(Icons.check_circle, color: AppColors.success, size: 96),
+              Icon(Icons.check_circle, color: context.palette.success, size: 96),
               const SizedBox(height: 16),
               const Text(
                 "You're no longer in this queue. Thanks for visiting!",
@@ -125,14 +126,14 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
               const SizedBox(height: 24),
               CustomButton(label: 'Done', onPressed: () => Navigator.pop(context)),
             ] else if (ticket.isCalled) ...[
-              const Icon(Icons.campaign, color: AppColors.success, size: 96),
+              Icon(Icons.campaign, color: context.palette.success, size: 96),
               const SizedBox(height: 16),
               Semantics(
                 liveRegion: true,
                 child: Text(
                 "It's your turn!",
                 textAlign: TextAlign.center,
-                style: AppTextStyles.heading2.copyWith(color: AppColors.success),
+                style: AppTextStyles.heading2.copyWith(color: context.palette.success),
               ),
               ),
               const SizedBox(height: 8),
@@ -148,8 +149,8 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                   height: 160,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.primaryLight,
-                    border: Border.all(color: AppColors.primary, width: 3),
+                    color: context.colors.primaryContainer,
+                    border: Border.all(color: context.colors.primary, width: 3),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -157,9 +158,9 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                       Text(
                         '#${ticket.position}',
                         semanticsLabel: 'Your position: ${ticket.position}',
-                        style: AppTextStyles.heading1.copyWith(color: AppColors.primary),
+                        style: AppTextStyles.heading1.copyWith(color: context.colors.primary),
                       ),
-                      const Text('Your Position', style: AppTextStyles.caption),
+                      Text('Your Position', style: AppTextStyles.caption.themed(context)),
                     ],
                   ),
                 ),
@@ -181,7 +182,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                 Text(
                   'Expected around ${clockTime(ticket.estimatedCallAt!)}',
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.body2,
+                  style: AppTextStyles.body2.themed(context),
                 ),
               ],
               if (ticket.peopleAhead != null) ...[
@@ -189,14 +190,14 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
                 Text(
                   aheadLabel(ticket.peopleAhead!),
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.body2,
+                  style: AppTextStyles.body2.themed(context),
                 ),
               ],
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "We'll notify you when you're almost up, so you don't need to wait here.",
                 textAlign: TextAlign.center,
-                style: AppTextStyles.caption,
+                style: AppTextStyles.caption.themed(context),
               ),
             ],
             if (_error != null) ...[
@@ -204,7 +205,7 @@ class _QueueStatusPageState extends State<QueueStatusPage> {
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                style: AppTextStyles.caption.copyWith(color: context.colors.error),
               ),
             ],
             const SizedBox(height: 32),

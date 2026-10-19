@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 
 /// "4.6 out of 5 stars": what a screen reader says for a row of stars.
@@ -16,12 +17,12 @@ class RatingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = style ?? AppTextStyles.caption;
+    final textStyle = style ?? AppTextStyles.caption.themed(context);
     if (count == 0) {
       return Semantics(
         label: 'New, no reviews yet',
         excludeSemantics: true,
-        child: Text('New', style: textStyle.copyWith(color: AppColors.success)),
+        child: Text('New', style: textStyle.copyWith(color: context.palette.success)),
       );
     }
     return Semantics(
@@ -74,8 +75,8 @@ class RatingWidget extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               rating.toStringAsFixed(1),
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
+              style: AppTextStyles.caption.themed(context).copyWith(
+                color: context.palette.muted,
                 fontWeight: FontWeight.w600,
               ),
             ),

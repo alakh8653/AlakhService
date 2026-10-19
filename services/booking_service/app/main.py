@@ -8,6 +8,7 @@ from app.config import settings
 from app.core.observability import install_observability
 from app.routers.availability import router as availability_router
 from app.routers.bookings import router as bookings_router
+from app.routers.chat import router as chat_router
 
 logger = structlog.get_logger()
 
@@ -36,6 +37,7 @@ app.add_middleware(
 
 app.include_router(bookings_router, prefix="/api/v1", tags=["bookings"])
 app.include_router(availability_router, prefix="/api/v1", tags=["availability"])
+app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 
 
 @app.get("/health")

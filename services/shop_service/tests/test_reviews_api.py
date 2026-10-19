@@ -303,3 +303,19 @@ async def test_the_display_name_comes_from_the_callers_own_account(monkeypatch):
 
     monkeypatch.setattr(dependencies.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(down), **kw))
     assert await dependencies.fetch_display_name(caller) is None
+
+
+@pytest.mark.asyncio
+async def test_contact_details_in_reviews_and_replies_are_hidden(client):
+    shop = await make_shop(client)
+    await review(client, shop, "cust-1", 4, "Good, but call me on 98765 43210 next time")
+    [item] = (await reviews(client, shop))["items"]
+    assert item["comment"] == "Good, but call me on [hidden for your safety] next time"
+    url = f"/api/v1/shops/{shop}/reviews/{item['id']}/reply"
+    replied = await client.put(url, json={"text": "Thanks! WhatsApp us at shop@gmail.com"}, headers=OWNER)
+    assert replied.json()["reply"]["text"] == "Thanks! [hidden for your safety] us at [hidden for your safety]"
+    page = await client.get(f"/api/v1/shops/{shop}/reviews")
+    assert "98765" not in page.text and "gmail" not in page.text
+    # Reviewers are shown by display name only, with nothing that identifies or contacts them.
+    assert page.json()["items"][0]["reviewer_name"] == "Priya S."
+    assert not {"customer_id", "booking_id", "email", "phone", "full_name"} & set(page.json()["items"][0])

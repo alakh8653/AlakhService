@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.contact_filter import mask_contact
 from app.models.shop import ReviewReport, Shop, ShopRating
 from app.schemas.review import (
     ModerationReview,
@@ -41,11 +42,17 @@ def _utc(value: Optional[datetime]) -> Optional[datetime]:
     return value.replace(tzinfo=timezone.utc) if value is not None and value.tzinfo is None else value
 
 
+def _public(text: Optional[str]) -> Optional[str]:
+    """Reviews and replies are public: a phone number, email or UPI handle in one is hidden, so customers
+    and shops reach each other through the platform only."""
+    return mask_contact(text).text if text else text
+
+
 def to_response(review: ShopRating) -> ReviewResponse:
     reply = None
     if review.reply:
         reply = OwnerReply(
-            text=review.reply,
+            text=_public(review.reply),
             created_at=_utc(review.reply_created_at),
             updated_at=_utc(review.reply_updated_at or review.reply_created_at),
         )
@@ -54,7 +61,7 @@ def to_response(review: ShopRating) -> ReviewResponse:
         shop_id=review.shop_id,
         service_id=review.service_id,
         rating=_stars(review.rating),
-        comment=review.comment,
+        comment=_public(review.comment),
         reviewer_name=review.reviewer_name or ANONYMOUS_REVIEWER,
         created_at=_utc(review.created_at),
         reply=reply,

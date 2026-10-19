@@ -51,6 +51,9 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ("booking.cancelled", None): ("Booking cancelled", "Booking {booking_number} for {scheduled_at} was cancelled."),
     ("booking.disputed", None): ("Booking disputed", "Booking {booking_number} is under dispute."),
     ("booking.refunded", None): ("Booking refunded", "Booking {booking_number} has been refunded."),
+    # In-app chat: only that there is a message, never what it says.
+    ("booking.message", "customer"): ("New message", "The shop sent you a message about booking {booking_number}."),
+    ("booking.message", None): ("New message", "The customer sent a message about booking {booking_number}."),
     ("queue.called", None): ("It's your turn", "Please come to the counter now."),
     ("queue.almost_turn", None): (
         "Almost your turn",

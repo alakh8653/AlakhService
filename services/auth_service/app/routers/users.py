@@ -2,13 +2,14 @@
 
 import hmac
 import secrets
-from typing import List, Optional
+import unicodedata
+from typing import Dict, List, Optional
 
 import httpx
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -125,3 +126,68 @@ async def set_account_status(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+# What the other party is shown instead of someone's name when there is nothing usable to show.
+DISPLAY_NAME_FALLBACK = "Customer"
+
+
+def _is_name_part(word: str) -> bool:
+    """Letters in any script (with their vowel signs), and the odd hyphen, apostrophe or dot ("D'Souza", "K.")."""
+    return word[0].isalpha() and all(c.isalpha() or unicodedata.category(c)[0] == "M" or c in "'.-" for c in word)
+
+
+def display_name(full_name: Optional[str], is_active: bool = True) -> str:
+    """First name and the last name's initial ("Ravi S."), as ride apps show a rider to a driver.
+
+    A name with digits or an "@" in it (someone typing their number or email as their name) is not
+    shown at all: the point is that the other party never learns how to reach the person directly.
+    """
+    parts = (full_name or "").split()
+    if not is_active or not parts or not all(_is_name_part(p) for p in parts):
+        return DISPLAY_NAME_FALLBACK
+    first = parts[0].rstrip(".")[:20]
+    first = first[:1].upper() + first[1:]
+    if len(parts) == 1:
+        return first
+    return f"{first} {parts[-1][0].upper()}."
+
+
+class DisplayNamesRequest(BaseModel):
+    user_ids: List[str] = Field(..., max_length=200)
+
+
+class DisplayNamesResponse(BaseModel):
+    # Only the display name: never the email, phone or full name.
+    names: Dict[str, str]
+
+
+@internal_router.post(
+    "/internal/users/display-names", response_model=DisplayNamesResponse, dependencies=[Depends(require_internal)]
+)
+async def display_names(body: DisplayNamesRequest, db: AsyncSession = Depends(get_db)):
+    """Names other services may show to the other party of a booking (e.g. a shop seeing its customers).
+
+    Every id asked for gets an answer; one that matches no account reads "Customer".
+    """
+    ids = list(dict.fromkeys(i for i in body.user_ids if i))
+    found = {}
+    if ids:
+        rows = await db.execute(select(User.id, User.full_name, User.is_active).where(User.id.in_(ids)))
+        found = {uid: display_name(name, active) for uid, name, active in rows.all()}
+    return {"names": {uid: found.get(uid, DISPLAY_NAME_FALLBACK) for uid in ids}}
+
+
+class CallContact(BaseModel):
+    phone: Optional[str] = None
+
+
+@internal_router.get(
+    "/internal/users/{user_id}/call-contact", response_model=CallContact, dependencies=[Depends(require_internal)]
+)
+async def call_contact(user_id: str, db: AsyncSession = Depends(get_db)):
+    """The number a masked call rings (booking_service's call bridge). Never passed on to the other party."""
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"phone": user.phone}

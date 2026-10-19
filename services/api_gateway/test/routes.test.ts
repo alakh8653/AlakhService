@@ -36,6 +36,21 @@ describe('route table', () => {
     expect(upstreamPath(viaAdmin, '/api/v1/admin/reviews/r1/visibility')).toBe('/api/v1/reviews/r1/visibility');
   });
 
+  it('sends booking chat to booking_service for signed-in users and its moderation to admins only', () => {
+    const chat = findRoute('/api/v1/bookings/b1/messages')!;
+    expect(chat.upstream).toBe('booking');
+    expect(requiredAccess(chat, 'POST')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/bookings/b1/call')!, 'POST')).toBe('user');
+
+    const moderation = findRoute('/api/v1/chat-moderation/flagged')!;
+    expect(moderation.upstream).toBe('booking');
+    expect(requiredAccess(moderation, 'GET')).toBe('admin');
+    const viaAdmin = findRoute('/api/v1/admin/chat/repeat-offenders')!;
+    expect(requiredAccess(viaAdmin, 'GET')).toBe('admin');
+    expect(viaAdmin.upstream).toBe('booking');
+    expect(upstreamPath(viaAdmin, '/api/v1/admin/chat/repeat-offenders')).toBe('/api/v1/chat-moderation/repeat-offenders');
+  });
+
   it('only opens read-only methods on browse routes', () => {
     const route = findRoute('/api/v1/catalog/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');

@@ -154,6 +154,29 @@ describe('gateway', () => {
       ]);
     });
 
+    it('keep chat moderation to admins and map it onto booking_service', async () => {
+      const booking = await upstream();
+      const app = createApp(testConfig({ booking: booking.url }), quiet);
+
+      const asUser = await request(app).get('/api/v1/admin/chat/flagged').set('authorization', `Bearer ${await token()}`);
+      expect(asUser.status).toBe(403);
+      const direct = await request(app).get('/api/v1/chat-moderation/flagged').set('authorization', `Bearer ${await token()}`);
+      expect(direct.status).toBe(403);
+      const asAdmin = await request(app)
+        .get('/api/v1/admin/chat/flagged?limit=20')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
+      expect(asAdmin.status).toBe(200);
+      const chat = await request(app)
+        .post('/api/v1/bookings/b1/messages')
+        .set('authorization', `Bearer ${await token()}`)
+        .send({ body: 'hi' });
+      expect(chat.status).toBe(200);
+      expect(booking.requests.map((r) => r.url)).toEqual([
+        '/api/v1/chat-moderation/flagged?limit=20',
+        '/api/v1/bookings/b1/messages',
+      ]);
+    });
+
     it('maps finance reports onto payment_service', async () => {
       const payment = await upstream();
       const res = await request(createApp(testConfig({ payment: payment.url }), quiet))

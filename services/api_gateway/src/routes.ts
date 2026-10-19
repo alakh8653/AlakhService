@@ -40,7 +40,11 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/reviews', upstream: 'shop', access: 'admin' },
   // Staff contact details are private to the shop owner (checked by shop_service).
   { prefix: '/api/v1/staff', upstream: 'shop' },
+  // Includes each booking's chat (/bookings/{id}/messages) and masked call (/bookings/{id}/call); who may
+  // take part is checked by booking_service.
   { prefix: '/api/v1/bookings', upstream: 'booking' },
+  // Chat moderation: messages with contact details hidden, and who keeps trying.
+  { prefix: '/api/v1/chat-moderation', upstream: 'booking', access: 'admin' },
   // Bookable times of a service: browsing, like the catalogue.
   { prefix: '/api/v1/availability', upstream: 'booking', access: 'public', publicMethods: READ_ONLY },
 
@@ -80,6 +84,7 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/finance', upstream: 'payment', rewrite: '/api/v1/finance', access: 'admin' },
   { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
+  { prefix: '/api/v1/admin/chat', upstream: 'booking', rewrite: '/api/v1/chat-moderation', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/audit-logs', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/system-config', upstream: 'admin', access: 'admin' },

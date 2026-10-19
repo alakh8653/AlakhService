@@ -22,6 +22,8 @@ export interface Booking {
   id: string;
   bookingNumber: string;
   customerId: string;
+  /** First name and last initial ("Ravi S."), or "Customer": shops never get a customer's phone or email. */
+  customerDisplayName: string;
   providerId: string | null;
   serviceId: string;
   shopId: string | null;

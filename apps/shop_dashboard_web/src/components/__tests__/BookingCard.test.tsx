@@ -8,6 +8,7 @@ const booking: Booking = {
   id: 'b1',
   bookingNumber: 'BK-1',
   customerId: 'abcdef123456',
+  customerDisplayName: 'Ravi S.',
   providerId: null,
   serviceId: 'svc1',
   shopId: 's1',
@@ -32,7 +33,7 @@ describe('BookingCard', () => {
 
     expect(screen.getByText('₹499')).toBeInTheDocument();
     expect(screen.getByText(/Haircut/)).toBeInTheDocument();
-    expect(screen.getByText('Customer ABCDEF12')).toBeInTheDocument();
+    expect(screen.getByText('Ravi S.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
     expect(onChangeStatus).toHaveBeenCalledWith('b1', 'CONFIRMED');
@@ -89,8 +90,19 @@ describe('BookingCard', () => {
 
   it('offers no actions once a booking is completed', () => {
     render(<BookingCard booking={{ ...booking, status: 'COMPLETED' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    // Only the chat stays: it can still be read (and written for a day).
+    expect(screen.getAllByRole('button').map((b) => b.textContent?.trim())).toEqual(['Messages']);
     expect(screen.getByText('Completed')).toBeInTheDocument();
+  });
+
+  it('shows the customer by display name only and opens the chat with them', async () => {
+    render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    expect(screen.getByText('Ravi S.')).toBeInTheDocument();
+    expect(screen.queryByText(/ABCDEF12/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Chat with Ravi S.' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Messages' }));
+    expect(screen.getByRole('region', { name: 'Chat with Ravi S.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide messages' })).toHaveAttribute('aria-expanded', 'true');
   });
 });
 

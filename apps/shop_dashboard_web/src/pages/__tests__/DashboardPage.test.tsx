@@ -46,7 +46,7 @@ const shop = { id: 's1', name: 'Asha Salon', isVerified: true, latitude: null, r
 const now = new Date();
 const at = (hours: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours).toISOString();
 const booking = (id: string, scheduledAt: string): Booking => ({
-  id, bookingNumber: `BK-${id}`, customerId: 'cust0001', providerId: null, serviceId: 'svc', shopId: 's1', status: 'CONFIRMED',
+  id, bookingNumber: `BK-${id}`, customerId: 'cust0001', customerDisplayName: 'Ravi S.', providerId: null, serviceId: 'svc', shopId: 's1', status: 'CONFIRMED',
   scheduledAt, durationMinutes: 30, serviceMode: 'AT_SHOP', itemDescription: null, readyBy: null, addressId: null,
   notes: null, totalAmount: 30000, createdAt: '', updatedAt: '',
 });

@@ -69,7 +69,7 @@ api.{$DOMAIN} {
 		path /api/v1/admin /api/v1/admin/* /api/v1/finance /api/v1/finance/* /api/v1/metrics /api/v1/metrics/*
 		path /api/v1/funnels /api/v1/funnels/* /api/v1/cohorts /api/v1/cohorts/* /api/v1/risk /api/v1/risk/*
 		path /api/v1/audit-logs /api/v1/audit-logs/* /api/v1/system-config /api/v1/system-config/*
-		path /api/v1/access /api/v1/access/*
+		path /api/v1/access /api/v1/access/* /api/v1/reviews /api/v1/reviews/*
 		not remote_ip {$ADMIN_ALLOWED_IPS:0.0.0.0/0 ::/0}
 	}
 

@@ -79,7 +79,8 @@ services:
     restart: unless-stopped
     networks:
       - alakhservice_network
-    command: redis-server --appendonly yes
+    # 17 services each get their own database (0-16); the default of 16 would leave catalog_service without one.
+    command: redis-server --appendonly yes --databases 32
     ports:
       - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:

@@ -22,7 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import availability, risk
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
+from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.privacy import present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
     CouponPricer,
@@ -132,6 +134,7 @@ async def create_booking(
     # Sent by the app with every try of one booking, so a double tap or a retry after a lost response
     # gets the booking already made rather than a second one.
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -141,7 +144,7 @@ async def create_booking(
         earlier = await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
         if earlier is not None:
             # Already priced, notified and paid for with its coupon: none of that happens twice.
-            return replay(earlier, fingerprint, response)
+            return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
     # Price, shop and duration come from the catalogue, never from the client.
     listing = await lookup_service(booking_data.service_id)
     if listing is None:
@@ -200,7 +203,7 @@ async def create_booking(
         if not earlier:
             raise
         log.info("booking_idempotency_race_lost", booking_id=earlier.id)
-        return replay(earlier, fingerprint, response)
+        return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
     background.add_task(
         notify_booking,
         notifier,
@@ -210,7 +213,7 @@ async def create_booking(
         lookup_owner,
         roles=("shop",),
     )
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime) -> None:
@@ -239,10 +242,11 @@ async def list_bookings(
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     user_id = current_user.get("sub")
     result = await booking_service.list_bookings(db, user_id, page, per_page, status)
-    return result
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/assigned", response_model=BookingListResponse)
@@ -252,9 +256,11 @@ async def list_assigned_bookings(
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
-    """Jobs assigned to the caller as a provider, newest first."""
-    return await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
+    """Jobs assigned to the caller as a provider, newest first (customers by display name only)."""
+    result = await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/shop/{shop_id}", response_model=BookingListResponse)
@@ -267,10 +273,14 @@ async def list_shop_bookings(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
-    return await booking_service.list_shop_bookings(
+    """The shop's bookings; customers appear by display name only."""
+    result = await booking_service.list_shop_bookings(
         db, shop_id, page, per_page, status, provider_id=provider_id, date_from=date_from, date_to=date_to
     )
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/shop/{shop_id}/summary", response_model=ShopBookingSummary)
@@ -317,9 +327,10 @@ async def get_booking(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
@@ -354,6 +365,7 @@ async def update_status(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
@@ -373,7 +385,7 @@ async def update_status(
         notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
     )
     _report_risk_after(background, booking, previous_status, user_id)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.post("/bookings/{booking_id}/assign", response_model=BookingResponse)
@@ -387,6 +399,7 @@ async def assign_provider(
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_staff: Callable[[str, str], Awaitable[set]] = Depends(get_staff_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """Give a confirmed booking to a provider. Admins (including dispatch) or the booking's shop."""
     booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
@@ -415,7 +428,7 @@ async def assign_provider(
         lookup_owner,
         roles=("customer", "provider"),
     )
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.put("/bookings/{booking_id}/ready-by", response_model=BookingResponse)
@@ -427,6 +440,7 @@ async def set_ready_by(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """When a pickup & drop item should be back with the customer. The shop, its provider or an admin."""
     booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
@@ -447,7 +461,7 @@ async def set_ready_by(
             lookup_owner,
             roles=("customer",),
         )
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.post("/bookings/{booking_id}/cancel", response_model=BookingResponse)
@@ -459,6 +473,7 @@ async def cancel_booking(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     user_id = current_user.get("sub")
     previous_status = await _authorize_transition(
@@ -474,7 +489,7 @@ async def cancel_booking(
     await db.commit()
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.get("/bookings/{booking_id}/history", response_model=list[BookingStatusHistoryResponse])
@@ -484,9 +499,9 @@ async def get_history(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
-    await _visible_booking(db, booking_id, current_user, lookup_owner)
+    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     history = await booking_service.get_booking_history(db, booking_id)
-    return history
+    return present_history(history, booking, current_user)
 
 
 @router.websocket("/ws/bookings/{booking_id}")

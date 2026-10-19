@@ -73,6 +73,9 @@ class BookingResponse(BaseModel):
     id: str
     booking_number: str
     customer_id: str
+    # What the shop calls the customer: first name and last initial ("Ravi S."), or "Customer". The
+    # customer's phone, email and full name are never part of a booking (see app/core/privacy.py).
+    customer_display_name: str = "Customer"
     provider_id: Optional[str] = None
     service_id: str
     shop_id: Optional[str] = None

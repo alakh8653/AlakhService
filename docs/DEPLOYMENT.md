@@ -556,6 +556,7 @@ info handled by Razorpay), and a privacy-policy URL. Promote to production when 
 | No OTP SMS | Twilio not set, or DLT template/sender not approved; `make prod-logs S=auth_service` |
 | Admin dashboard says "not allowed from this network" | your IP is not in `ADMIN_ALLOWED_IPS`; update it and `make prod-deploy` |
 | Disk full | `docker image prune -a`, `docker builder prune`, check `backups/`, grow the disk |
+| `PublicSiteDown` alert, but the sites work in your browser | the server cannot reach its own public IP (some providers block this "hairpin" traffic); rely on an external uptime check and ignore or delete that alert |
 
 ## Known limits of this setup
 

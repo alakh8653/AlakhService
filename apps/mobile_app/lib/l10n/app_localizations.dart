@@ -2737,6 +2737,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Request sent. We\'ll prepare your data.'**
   String get dataExportRequested;
+
+  /// No description provided for @view.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get view;
 }
 
 class _AppLocalizationsDelegate

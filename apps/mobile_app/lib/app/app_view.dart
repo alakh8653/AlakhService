@@ -14,13 +14,19 @@ class AppView extends StatelessWidget {
   /// screen. Left out in tests that don't need it.
   final Stream<bool>? online;
 
-  const AppView({super.key, required this.home, this.online});
+  /// For opening screens and showing messages from outside the widget tree (links, pushes).
+  final GlobalKey<NavigatorState>? navigatorKey;
+  final GlobalKey<ScaffoldMessengerState>? messengerKey;
+
+  const AppView({super.key, required this.home, this.online, this.navigatorKey, this.messengerKey});
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsCubit, AppSettings>(
       builder: (context, settings) => MaterialApp(
         title: 'AlakhService',
+        navigatorKey: navigatorKey,
+        scaffoldMessengerKey: messengerKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

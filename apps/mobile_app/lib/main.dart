@@ -1,26 +1,55 @@
+import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'app/app_view.dart';
 import 'app/auth_gate.dart';
+import 'app/link_handler.dart';
 import 'app/offline_banner.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/settings/app_settings.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/push/push_service.dart';
+
+/// The app's navigator and snackbar host, for links and notifications that arrive from outside a screen.
+final appNavigatorKey = GlobalKey<NavigatorState>();
+final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await di.init();
-  runApp(AlakhServiceApp(online: onlineStatus(di.sl<Connectivity>())));
+  // Null without Firebase config (google-services.json / GoogleService-Info.plist): no push then.
+  final push = await initFirebasePush();
+  await di.init(push: push);
+  runApp(AlakhServiceApp(
+    online: onlineStatus(di.sl<Connectivity>()),
+    links: await appLinkStream(),
+    push: di.sl<PushService>(),
+  ));
+}
+
+/// App links as they arrive, the one that launched the app included; null where the platform has no
+/// app-links plugin (desktop test runs).
+Future<Stream<Uri>?> appLinkStream() async {
+  final links = AppLinks();
+  try {
+    await links.getLatestLink();
+  } catch (_) {
+    return null;
+  }
+  return links.uriLinkStream;
 }
 
 class AlakhServiceApp extends StatelessWidget {
   /// Whether the device is online, for the offline strip.
   final Stream<bool>? online;
 
-  const AlakhServiceApp({super.key, this.online});
+  /// App links (https://{domain}/b/{id}, /reset-password?token=) and push notifications.
+  final Stream<Uri>? links;
+  final PushService? push;
+
+  const AlakhServiceApp({super.key, this.online, this.links, this.push});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +59,18 @@ class AlakhServiceApp extends StatelessWidget {
         BlocProvider<AuthBloc>.value(value: di.sl<AuthBloc>()..add(const CheckAuthStatus())),
         BlocProvider<SettingsCubit>.value(value: di.sl<SettingsCubit>()),
       ],
-      child: AppView(home: const AuthGate(), online: online),
+      child: LinkHandler(
+        navigatorKey: appNavigatorKey,
+        messengerKey: appMessengerKey,
+        links: links,
+        push: push,
+        child: AppView(
+          home: const AuthGate(),
+          online: online,
+          navigatorKey: appNavigatorKey,
+          messengerKey: appMessengerKey,
+        ),
+      ),
     );
   }
 }

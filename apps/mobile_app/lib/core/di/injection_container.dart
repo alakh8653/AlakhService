@@ -28,6 +28,7 @@ import '../../features/notifications/data/notifications_api.dart';
 import '../../features/payment/data/payment_api.dart';
 import '../../features/jobs/data/location_reporter.dart';
 import '../../features/profile/data/address_api.dart';
+import '../../features/push/push_service.dart';
 import '../../features/profile/data/data_export_api.dart';
 import '../../features/profile/data/profile_api.dart';
 import '../../features/directions/data/shop_location_api.dart';
@@ -50,8 +51,9 @@ import '../settings/app_settings.dart';
 
 final sl = GetIt.instance;
 
-/// Registers the app's dependencies. [tokens] can be swapped for a [MemoryTokenStore] in tests.
-Future<void> init({TokenStore? tokens}) async {
+/// Registers the app's dependencies. [tokens] can be swapped for a [MemoryTokenStore] in tests;
+/// [push] is the device's push channel, null when Firebase is not configured.
+Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   // Core
   sl.registerLazySingleton<TokenStore>(() => tokens ?? SecureTokenStore());
   sl.registerLazySingleton(
@@ -128,4 +130,6 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => ChatApi(sl()));
   sl.registerLazySingleton(() => LegalApi(sl()));
   sl.registerLazySingleton(() => DataExportApi(sl()));
+  sl.registerLazySingleton(() => DeviceTokenApi(sl()));
+  sl.registerLazySingleton(() => PushService(messaging: push, api: sl()));
 }

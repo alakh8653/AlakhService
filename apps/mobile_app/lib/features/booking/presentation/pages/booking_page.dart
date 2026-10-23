@@ -13,6 +13,7 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../profile/data/address_api.dart';
 import '../../../profile/presentation/pages/addresses_page.dart';
+import '../../../push/push_service.dart';
 import '../../../services/domain/entities/service_entity.dart';
 import '../../domain/entities/booking.dart';
 import '../../data/availability_api.dart';
@@ -348,6 +349,8 @@ class _BookingPageState extends State<BookingPage> {
         ],
       ),
     );
+    // Now updates from the shop matter: ask to show notifications (Android 13+, iOS), once.
+    if (sl.isRegistered<PushService>()) sl<PushService>().askPermission();
     if (!mounted) return;
     if (viewBookings == true) {
       ShellNavigation.show(context, ShellTab.bookings);

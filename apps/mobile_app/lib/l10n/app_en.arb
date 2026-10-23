@@ -856,5 +856,6 @@
   "dataExportQuestion": "Request a copy of your data?",
   "dataExportBody": "We'll prepare a file with your account, bookings and payments. You'll see here when it's ready to download.",
   "dataExportRequest": "Request",
-  "dataExportRequested": "Request sent. We'll prepare your data."
+  "dataExportRequested": "Request sent. We'll prepare your data.",
+  "view": "View"
 }

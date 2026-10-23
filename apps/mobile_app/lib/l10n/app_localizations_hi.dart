@@ -1501,4 +1501,7 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get dataExportRequested =>
       'अनुरोध भेज दिया। हम आपका डेटा तैयार करेंगे।';
+
+  @override
+  String get view => 'देखें';
 }

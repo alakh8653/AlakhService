@@ -1518,4 +1518,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dataExportRequested => 'Request sent. We\'ll prepare your data.';
+
+  @override
+  String get view => 'View';
 }

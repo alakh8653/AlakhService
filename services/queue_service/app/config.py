@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
+    # The display names ("Ravi S.") a shop sees for the people in its queue (needs INTERNAL_API_KEY).
+    AUTH_SERVICE_URL: str = "http://auth_service:8000"
     # Shared with notification_service and trust_risk_service; without it customers are not told when
     # they are called and no-shows are not reported.
     INTERNAL_API_KEY: str = ""

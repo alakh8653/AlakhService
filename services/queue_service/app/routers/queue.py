@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import risk
 from app.core.exceptions import EntryNotFoundError, QueueFullError, QueueNotFoundError
+from app.core.names import FALLBACK, NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier
 from app.database import get_db
 from app.dependencies import (
@@ -27,6 +28,20 @@ from app.schemas.queue import (
 from app.services.queue_service import queue_service
 
 router = APIRouter()
+
+
+async def _named(entries: List[QueueEntry], lookup_names: NameLookup) -> List[QueueEntryResponse]:
+    """Entries as the shop sees them: each customer by display name, in one lookup."""
+    try:
+        names = await lookup_names({e.customer_id for e in entries})
+    except Exception:  # never refuse the waiting list for want of a name
+        names = {}
+    return [
+        QueueEntryResponse.model_validate(e).model_copy(
+            update={"customer_display_name": names.get(e.customer_id, FALLBACK)}
+        )
+        for e in entries
+    ]
 
 
 @router.post("/queues", response_model=QueueResponse, status_code=201)
@@ -151,10 +166,11 @@ async def waiting_list(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """Who is being served (CALLED, position 0) and who is waiting, in serving order (the shop only)."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
-    return await queue_service.waiting_list(db, queue_id)
+    return await _named(await queue_service.waiting_list(db, queue_id), lookup_names)
 
 
 @router.post("/queues/{queue_id}/next", response_model=Optional[QueueEntryResponse])
@@ -165,6 +181,7 @@ async def call_next(
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """Calls the next customer (the shop only); they are told it is their turn. Null when nobody is waiting."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
@@ -172,7 +189,7 @@ async def call_next(
     await _tell_who_is_next(db, queue_id, background, notifier, called=entry)
     for skipped in no_shows:
         background.add_task(risk.report_risk, skipped.customer_id, *risk.NO_SHOW)
-    return entry
+    return (await _named([entry], lookup_names))[0] if entry else None
 
 
 @router.post("/queues/{queue_id}/entries/{entry_id}/complete", response_model=QueueEntryResponse)
@@ -182,13 +199,15 @@ async def complete_entry(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """The shop finished serving a called customer; the time taken refines the queue's wait estimates."""
     await _owned_queue(db, queue_id, caller, lookup_owner)
     try:
-        return await queue_service.complete(db, queue_id, entry_id)
+        entry = await queue_service.complete(db, queue_id, entry_id)
     except EntryNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    return (await _named([entry], lookup_names))[0]
 
 
 @router.post("/queues/{queue_id}/entries/{entry_id}/no-show", response_model=QueueEntryResponse)
@@ -199,6 +218,7 @@ async def no_show_entry(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """A called customer did not turn up (the shop only). Called customers are also skipped
     automatically after the queue's grace period, the next time the shop calls someone."""
@@ -209,7 +229,7 @@ async def no_show_entry(
         raise HTTPException(status_code=404, detail=str(e)) from e
     await db.commit()
     background.add_task(risk.report_risk, entry.customer_id, *risk.NO_SHOW)
-    return entry
+    return (await _named([entry], lookup_names))[0]
 
 
 @router.patch("/queues/{queue_id}", response_model=QueueResponse)

@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
 
 import '../errors/exceptions.dart';
+import '../../l10n/l10n.dart';
 
-/// A message fit to show a user, from an API error (FastAPI `detail`) or a transport failure.
+/// A message fit to show a user, from an API error (FastAPI `detail`, shown as the server sent it) or a
+/// transport failure (in the language on screen).
 String apiErrorMessage(Object error) {
   if (error is DioException) {
     final data = error.response?.data;
@@ -18,17 +20,17 @@ String apiErrorMessage(Object error) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
-        return 'The server took too long to respond. Please try again.';
+        return currentL10n.errorTimeout;
       case DioExceptionType.connectionError:
-        return 'Cannot reach AlakhService. Check your connection.';
+        return currentL10n.errorCannotReach;
       default:
         break;
     }
     final status = error.response?.statusCode;
-    if (status != null) return 'Request failed ($status)';
+    if (status != null) return currentL10n.errorRequestFailed(status);
   }
   if (error is ServerException) return error.message;
-  return 'Something went wrong. Please try again.';
+  return currentL10n.errorGeneric;
 }
 
 /// Wraps any failure from a request as a [ServerException] carrying a readable message.

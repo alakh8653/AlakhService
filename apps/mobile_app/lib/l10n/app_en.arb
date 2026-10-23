@@ -1,0 +1,765 @@
+{
+  "@@locale": "en",
+  "appTitle": "AlakhService",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "done": "Done",
+  "retry": "Retry",
+  "tryAgain": "Try again",
+  "tryAgainButton": "Try Again",
+  "send": "Send",
+  "submit": "Submit",
+  "notNow": "Not now",
+  "remove": "Remove",
+  "apply": "Apply",
+  "loadingMore": "Loading…",
+  "somethingWentWrong": "Something went wrong",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "requiredField": "Required",
+  "today": "Today",
+  "tomorrow": "Tomorrow",
+  "yesterday": "Yesterday",
+  "midnight": "midnight",
+  "navHome": "Home",
+  "navServices": "Services",
+  "navBookings": "Bookings",
+  "navJobs": "Jobs",
+  "navProfile": "Profile",
+  "errorTimeout": "The server took too long to respond. Please try again.",
+  "errorCannotReach": "Cannot reach AlakhService. Check your connection.",
+  "errorRequestFailed": "Request failed ({status})",
+  "@errorRequestFailed": {
+    "placeholders": {
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "errorGeneric": "Something went wrong. Please try again.",
+  "errorNoInternet": "No internet connection",
+  "vPhoneRequired": "Phone number is required",
+  "vPhoneInvalid": "Enter a valid phone number",
+  "vMobileRequired": "Mobile number is required",
+  "vMobileInvalid": "Enter a valid 10-digit mobile number",
+  "vPhoneOrEmailRequired": "Enter your phone number or email",
+  "vPhoneOrEmailInvalid": "Enter a valid phone number or email",
+  "vPasswordRequired": "Password is required",
+  "vPasswordRules": "At least 8 characters, with a capital letter and a number",
+  "vEmailRequired": "Email is required",
+  "vEmailInvalid": "Enter a valid email address",
+  "vPasswordShort": "Password must be at least 8 characters",
+  "vPasswordUpper": "Include at least one uppercase letter",
+  "vPasswordNumber": "Include at least one number",
+  "vOtpRequired": "OTP is required",
+  "vOtpInvalid": "Enter a valid 6-digit OTP",
+  "vNameRequired": "Name is required",
+  "vNameShort": "Name must be at least 2 characters",
+  "vFieldRequired": "This field is required",
+  "vFieldRequiredNamed": "{field} is required",
+  "@vFieldRequiredNamed": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "vFieldMinLength": "{field} must be at least {min} characters",
+  "@vFieldMinLength": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      }
+    }
+  },
+  "vConfirmPassword": "Please confirm your password",
+  "vPasswordsDontMatch": "Passwords do not match",
+  "loginWelcome": "Welcome Back",
+  "loginSubtitle": "Sign in to book, track and pay for your services",
+  "loginPhoneOrEmail": "Phone or email",
+  "loginPhoneOrEmailHint": "98765 43210 or you@example.com",
+  "password": "Password",
+  "loginPasswordHint": "Enter your password",
+  "loginForgot": "Forgot Password?",
+  "loginButton": "Login",
+  "loginWithOtp": "Login with OTP instead",
+  "loginNoAccount": "Don't have an account?",
+  "loginRegister": "Register",
+  "registerTitle": "Create Account",
+  "registerHeading": "Join AlakhService",
+  "registerSubtitle": "Create your account to get started",
+  "fullName": "Full Name",
+  "registerNameHint": "e.g. Priya Sharma",
+  "mobileNumber": "Mobile Number",
+  "registerPasswordHint": "Choose a password",
+  "registerCodeNote": "We will text a verification code to this number.",
+  "registerButton": "Create account",
+  "registerHaveAccount": "Already have an account?",
+  "otpTitleLogin": "Login with OTP",
+  "otpTitleVerifyPhone": "Verify your phone",
+  "otpTitleVerifyEmail": "Verify your email",
+  "otpResent": "A new code is on its way",
+  "otpEnterCode": "Enter the code",
+  "otpSentTo": "We sent a {length}-digit code to {destination}.",
+  "@otpSentTo": {
+    "placeholders": {
+      "length": {
+        "type": "int"
+      },
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "otpWrongPhone": "Wrong phone? Change it",
+  "otpWrongEmail": "Wrong email? Change it",
+  "otpFieldLabel": "One-time code",
+  "otpVerifyLogin": "Verify and login",
+  "otpVerify": "Verify",
+  "otpResendIn": "Didn't get it? You can resend in {seconds}s",
+  "@otpResendIn": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "otpResend": "Didn't get it? Resend code",
+  "greetingMorning": "Good morning",
+  "greetingAfternoon": "Good afternoon",
+  "greetingEvening": "Good evening",
+  "homeFindService": "Find a Service",
+  "searchHint": "Search haircut, AC repair, doctor…",
+  "searchServicesHint": "Search services...",
+  "homeOurServices": "Our Services",
+  "homePopular": "Popular Services",
+  "homeLoadFailed": "Could not load services.",
+  "homeNoServices": "No services listed yet.",
+  "notifications": "Notifications",
+  "notificationsUnread": "Notifications, {count} unread",
+  "@notificationsUnread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "catHaircut": "Haircut",
+  "catBeauty": "Beauty Parlour",
+  "catDoctor": "Doctor",
+  "catOffice": "Office Visits",
+  "catCar": "Car Repair",
+  "catBike": "Bike Repair",
+  "catDevices": "Laptop & Phone",
+  "catAc": "AC Repair",
+  "catCleaning": "Cleaning",
+  "catPlumbing": "Plumbing",
+  "catElectrical": "Electrical",
+  "catCarpentry": "Carpentry",
+  "catPest": "Pest Control",
+  "catHandyman": "Handyman",
+  "bannerTrack": "Track your\nbookings",
+  "bannerMyBookings": "My bookings",
+  "bannerSemantics": "Track your bookings. My bookings",
+  "nextBooking": "Your next booking",
+  "nextBookingSemantics": "Your next booking: {service}, {when}, {status}. Open my bookings",
+  "@nextBookingSemantics": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      },
+      "when": {
+        "type": "String"
+      },
+      "status": {
+        "type": "int"
+      }
+    }
+  },
+  "servicesTitle": "Services",
+  "clearSearch": "Clear search",
+  "loadingServices": "Loading services...",
+  "noServicesListed": "No services listed yet",
+  "nothingFound": "Nothing found for \"{query}\"",
+  "@nothingFound": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "pullToCheck": "Pull down to check again.",
+  "tryDifferentWord": "Try a shorter or different word.",
+  "showAllServices": "Show all services",
+  "modeHomeVisit": "Home visit",
+  "modePickupDrop": "Pickup & drop",
+  "modeAtShop": "At shop",
+  "unavailable": "Unavailable",
+  "minutesShort": "{minutes} min",
+  "@minutesShort": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingNew": "New",
+  "ratingNewSemantics": "New, no reviews yet",
+  "ratedSemantics": "Rated {rating} out of 5 from {count, plural, =1{1 review} other{{count} reviews}}",
+  "@ratedSemantics": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "starsLabel": "{rating} out of 5 stars",
+  "@starsLabel": {
+    "placeholders": {
+      "rating": {
+        "type": "String"
+      }
+    }
+  },
+  "reviewsCount": "{count, plural, =1{1 review} other{{count} reviews}}",
+  "@reviewsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "serviceNotTaking": "This service isn't taking bookings right now.",
+  "priceFrom": "From",
+  "bookNow": "Book Now",
+  "aboutMinutes": "About {minutes} min",
+  "@aboutMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "howYouCanGetIt": "How you can get it",
+  "modeAtYourPlace": "At your place",
+  "modeAtTheShop": "At the shop",
+  "aboutService": "About this service",
+  "noDescription": "The shop has not added a description yet.",
+  "joinQueue": "Walk in now: join the queue",
+  "joinQueueNote": "No appointment needed: we'll tell you your place and when it's your turn.",
+  "howToGetThere": "How to get there",
+  "hoursOpenCloses": "Open now · closes {time}",
+  "@hoursOpenCloses": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "hoursClosedOpens": "Closed · opens {time}",
+  "@hoursClosedOpens": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "hoursClosedOpensTomorrow": "Closed · opens tomorrow {time}",
+  "@hoursClosedOpensTomorrow": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "hoursClosedOpensDay": "Closed · opens {day} {time}",
+  "@hoursClosedOpensDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "hoursClosed": "Closed",
+  "bookServiceTitle": "Book Service",
+  "howWouldYouLikeIt": "How would you like it?",
+  "whenQuestion": "When?",
+  "timesLoadFailed": "Couldn't load the times for this day",
+  "findingTimes": "Finding free times…",
+  "partMorning": "Morning",
+  "partAfternoon": "Afternoon",
+  "partEvening": "Evening",
+  "pickATime": "Pick a time",
+  "noMoreTimesToday": "No more times today — try another day",
+  "closedOnDay": "Closed on this day",
+  "closedOnDayNote": "Closed on this day ({note})",
+  "@closedOnDayNote": {
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "fullyBooked": "Fully booked — try another day",
+  "noTimesOnDay": "No times on this day — try another day",
+  "collectFrom": "Collect from",
+  "whereShouldWeCome": "Where should we come?",
+  "noSavedAddress": "You have no saved address yet.",
+  "addAddress": "Add address",
+  "savedAddress": "Saved address",
+  "addAnotherAddress": "Add another address",
+  "whatToCollect": "What should we collect?",
+  "whatToCollectHint": "e.g. Honda Activa, brakes squeaking · Dell laptop, cracked screen",
+  "whatToCollectError": "Tell us what to collect and what is wrong",
+  "notesOptional": "Notes (optional)",
+  "notesHint": "Any special instructions...",
+  "couponOptional": "Coupon code (optional)",
+  "couponHint": "e.g. WELCOME10",
+  "checking": "Checking…",
+  "homeVisitFee": "Home visit fee",
+  "pickupDropFee": "Pickup & drop fee",
+  "snackPickTime": "Pick a time for your booking",
+  "snackAddAddress": "Add the address we should come to",
+  "snackFillDetails": "Please fill in the highlighted details",
+  "bookingRequested": "Booking requested",
+  "bookingNumber": "Booking #{number}",
+  "@bookingNumber": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingRequestedBody": "The shop will confirm it shortly. We'll notify you, and you can pay once it's confirmed.",
+  "viewMyBookings": "View my bookings",
+  "couponApplied": "{code} applied: {percent}% off, you save {saving}",
+  "@couponApplied": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      },
+      "saving": {
+        "type": "String"
+      }
+    }
+  },
+  "priceDetails": "Price details",
+  "priceService": "Service",
+  "priceCoupon": "Coupon {code}",
+  "@priceCoupon": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "total": "Total",
+  "payLaterNote": "Nothing to pay now. Pay online or in cash once the shop confirms.",
+  "confirmBooking": "Confirm Booking",
+  "chooseDayTime": "Choose a day and time below",
+  "modeChoiceAtHome": "At my place",
+  "modeChoiceAtShop": "Visit the shop",
+  "explainAtHome": "A professional comes to your address at the time you choose.",
+  "explainPickup": "We collect your item from your address, service it and bring it back. You'll be told at each step.",
+  "explainAtShop": "You go to the shop at the time you choose. See \"How to get there\" on your booking.",
+  "myBookings": "My Bookings",
+  "statusPending": "Awaiting confirmation",
+  "statusConfirmed": "Confirmed",
+  "statusAssigned": "Provider assigned",
+  "statusEnRoute": "Provider on the way",
+  "statusPickedUp": "Item picked up",
+  "statusInProgress": "In progress",
+  "statusOutForDelivery": "On its way back",
+  "statusCompleted": "Completed",
+  "statusCancelled": "Cancelled",
+  "statusDisputed": "Problem reported",
+  "statusRefunded": "Refunded",
+  "cancelBookingQuestion": "Cancel this booking?",
+  "cancelBookingBody": "{service}, {when}, will be cancelled. This cannot be undone.",
+  "@cancelBookingBody": {
+    "placeholders": {
+      "service": {
+        "type": "String"
+      },
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "keepBooking": "Keep booking",
+  "yesCancel": "Yes, cancel",
+  "thanksRating": "Thanks for rating!",
+  "thanksReview": "Thanks for your review! It helps others choose.",
+  "reportThanks": "Thanks. Our support team will look into it and get back to you.",
+  "bookingCancelled": "Booking cancelled",
+  "loadingBookings": "Loading bookings...",
+  "noBookings": "No bookings yet",
+  "noBookingsBody": "Book a salon visit, a doctor, a repair and more. Your bookings will show up here.",
+  "browseServices": "Browse services",
+  "upcomingActive": "Upcoming & active",
+  "pastBookings": "Past",
+  "track": "Track",
+  "payOnlineInstead": "Pay online instead",
+  "payAmount": "Pay {amount}",
+  "@payAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "rate": "Rate",
+  "reportProblem": "Report a problem",
+  "cancelling": "Cancelling…",
+  "cancelBooking": "Cancel booking",
+  "overduePending": "This time has passed and the shop hasn't confirmed. You can cancel and book another time.",
+  "overdueConfirmed": "This time has passed. If you missed it, contact Alakh support or cancel.",
+  "expectedBackBy": "Expected back by {when}",
+  "@expectedBackBy": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "paid": "Paid",
+  "payingCash": "Paying in cash",
+  "youRated": "You rated it {stars}★",
+  "@youRated": {
+    "placeholders": {
+      "stars": {
+        "type": "int"
+      }
+    }
+  },
+  "howWasIt": "How was it?",
+  "starsCount": "{count, plural, =1{1 star} other{{count} stars}}",
+  "@starsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ratingPoor": "Poor",
+  "ratingBelowAverage": "Below average",
+  "ratingOkay": "Okay",
+  "ratingGood": "Good",
+  "ratingExcellent": "Excellent",
+  "writeReview": "Write a review (optional)",
+  "reviewHint": "What went well, what could be better?",
+  "reviewHelper": "Shown with your first name and last initial",
+  "whatWentWrong": "What went wrong?",
+  "tellWhatHappened": "Tell us what happened",
+  "atLeast3": "At least 3 characters",
+  "disputeServiceQuality": "Poor service",
+  "disputeNoShow": "Provider didn't show up",
+  "disputeDamage": "Something was damaged",
+  "disputeBilling": "Charged incorrectly",
+  "disputeOther": "Something else",
+  "liveTracking": "Live Tracking",
+  "yourProvider": "Your provider",
+  "arrivingNow": "Arriving now",
+  "awayEstimate": "About {minutes} min away · {distance}",
+  "@awayEstimate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "distance": {
+        "type": "String"
+      }
+    }
+  },
+  "estimateFrom": "{estimate} from {place}",
+  "@estimateFrom": {
+    "placeholders": {
+      "estimate": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "findingProvider": "Finding your provider…",
+  "waitingLocation": "Waiting for your provider to share their location",
+  "justNow": "just now",
+  "minutesAgo": "{minutes} min ago",
+  "@minutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "trackComingToCollect": "Coming to collect your item · updated {ago}",
+  "@trackComingToCollect": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackOnTheWay": "On the way · updated {ago}",
+  "@trackOnTheWay": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackTakingToShop": "Taking your item to the shop · updated {ago}",
+  "@trackTakingToShop": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackItemWorkedOn": "Your item is being worked on · updated {ago}",
+  "@trackItemWorkedOn": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackWorking": "Working on your booking · updated {ago}",
+  "@trackWorking": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackBringingBack": "Bringing your item back · updated {ago}",
+  "@trackBringingBack": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "trackAssigned": "Provider assigned · updated {ago}",
+  "@trackAssigned": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "starsReviewsSemantics": "{stars, plural, =1{1 star} other{{stars} stars}}: {count, plural, =1{1 review} other{{count} reviews}}",
+  "@starsReviewsSemantics": {
+    "placeholders": {
+      "stars": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "verifiedBooking": "Verified booking",
+  "shopReply": "Reply from the shop · {date}",
+  "@shopReply": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "ratingsReviews": "Ratings & reviews",
+  "noReviewsYetLong": "No reviews yet. Customers can review the shop after a completed booking.",
+  "seeAllReviews": "See all reviews ({count})",
+  "@seeAllReviews": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "allRatings": "All ratings",
+  "starsOnly": "{stars, plural, =1{1 star only} other{{stars} stars only}}",
+  "@starsOnly": {
+    "placeholders": {
+      "stars": {
+        "type": "int"
+      }
+    }
+  },
+  "allFilter": "All",
+  "loadingReviews": "Loading reviews...",
+  "noReviewsYet": "No reviews yet.",
+  "noStarReviews": "No {stars}-star reviews yet.",
+  "@noStarReviews": {
+    "placeholders": {
+      "stars": {
+        "type": "int"
+      }
+    }
+  },
+  "showMoreReviews": "Show more reviews",
+  "reviewsTitle": "Reviews",
+  "reviewsOf": "Reviews of {shop}",
+  "@reviewsOf": {
+    "placeholders": {
+      "shop": {
+        "type": "String"
+      }
+    }
+  },
+  "profileTitle": "Profile",
+  "editProfile": "Edit Profile",
+  "savedAddresses": "Saved addresses",
+  "logout": "Log out",
+  "logoutQuestion": "Log out?",
+  "logoutBody": "You'll need to sign in again to book or see your bookings.",
+  "accountDeleted": "Your account has been deleted.",
+  "deleteMyAccount": "Delete my account",
+  "deleteAccountQuestion": "Delete your account?",
+  "deleteAccountBody": "Your profile, saved addresses and sign-in are removed and cannot be recovered. Past bookings and payments are kept without your name for the shops' records.",
+  "enterPasswordConfirm": "Enter your password to confirm",
+  "deleteAccount": "Delete account",
+  "settingTheme": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "settingLanguage": "Language",
+  "languageSystem": "System",
+  "profileUpdated": "Profile updated successfully",
+  "personalInfo": "Personal Information",
+  "aboutYou": "About you",
+  "optional": "Optional",
+  "phoneNumber": "Phone Number",
+  "phoneCantChange": "Your sign-in number can't be changed here.",
+  "saveChanges": "Save Changes",
+  "addressSaved": "Address saved",
+  "deleteAddressQuestion": "Delete \"{label}\"?",
+  "@deleteAddressQuestion": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "keepIt": "Keep it",
+  "addressDeleted": "Address deleted",
+  "defaultAddressSet": "Default address updated",
+  "noAddresses": "No saved addresses yet",
+  "noAddressesBody": "Add your home or work address for home visits and pickups.",
+  "addressOptions": "Options for {label}",
+  "@addressOptions": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "makeDefault": "Make default",
+  "newAddress": "New address",
+  "addressDefaultLabel": "Home",
+  "addressLabel": "Label (Home, Work…)",
+  "addressStreet": "Flat / house no., street, area",
+  "city": "City",
+  "state": "State",
+  "pinCode": "PIN code",
+  "pinInvalid": "Enter a 6-digit PIN code",
+  "offlineBanner": "You're offline. Showing saved info; bookings will need a connection.",
+  "backOnline": "Back online",
+  "helpTitle": "Help & Support",
+  "helpSearchHint": "Search help",
+  "helpFaqHeading": "Common questions",
+  "helpNoMatch": "No answers match \"{query}\". Contact us below.",
+  "@helpNoMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "helpContactHeading": "Contact the Alakh support team",
+  "helpContactNote": "Write to us or call. If it is about a booking, keep the booking number handy.",
+  "helpEmail": "Email support",
+  "helpCall": "Call support",
+  "helpReport": "Report a problem with a booking",
+  "helpReportSubtitle": "Pick the booking and tell us what went wrong",
+  "helpPickBooking": "Which booking?",
+  "helpPickBookingNote": "Bookings under way or finished are reported in the app; for others we open an email to support.",
+  "helpEmailInstead": "Not listed? Email support",
+  "helpBookingsFailed": "Couldn't load your bookings.",
+  "helpCouldNotOpen": "Couldn't open that. Write to {email} or call {phone}.",
+  "@helpCouldNotOpen": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      },
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "helpEmailSubject": "AlakhService support",
+  "helpEmailBookingSubject": "Problem with booking #{number}",
+  "@helpEmailBookingSubject": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "helpEmailBookingBody": "Booking number: {number}\n\nWhat happened:\n",
+  "@helpEmailBookingBody": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "faqTopicBooking": "Booking",
+  "faqTopicCancel": "Cancelling & rescheduling",
+  "faqTopicPayments": "Payments & refunds",
+  "faqTopicPickup": "Pickup & drop",
+  "faqTopicHome": "Home visits",
+  "faqTopicReviews": "Reviews",
+  "faqTopicAccount": "Account & privacy",
+  "faqBookQ": "How do I book a service?",
+  "faqBookA": "Find the service on Home or Services and tap Book Now. Choose how you want it (at the shop, at your place or pickup & drop), pick a day and a free time, and confirm. The shop then confirms your request and we let you know.",
+  "faqNoTimesQ": "Why can't I see any times on a day?",
+  "faqNoTimesA": "The shop may be closed that day or fully booked, or today's times may have passed. The message under the dates says which; try another day.",
+  "faqCancelQ": "How do I cancel a booking?",
+  "faqCancelA": "Open Bookings and tap Cancel booking on it. You can cancel until the provider is on the way.",
+  "faqRescheduleQ": "Can I change the time of a booking?",
+  "faqRescheduleA": "Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.",
+  "faqPayQ": "When and how do I pay?",
+  "faqPayA": "Nothing is paid when you book. Once the shop confirms, tap Pay on the booking to pay online by UPI, card or net banking (through Razorpay), or choose to pay in cash when the job is done.",
+  "faqRefundQ": "How do refunds work?",
+  "faqRefundA": "When an online payment is refunded, the money goes back the way you paid; your bank may take a few working days to show it. The booking then shows Refunded. For a problem with a paid booking, report it and Alakh support will look into it.",
+  "faqPickupQ": "How does pickup & drop work?",
+  "faqPickupA": "Choose Pickup & drop when booking, pick the address and tell us what to collect. The item is collected, serviced at the shop and brought back. Bookings shows each step and when it is expected back.",
+  "faqHomeQ": "How do home visits work?",
+  "faqHomeA": "Choose At my place when booking and pick a saved address. A professional comes at the time you chose, and once they are on the way you can follow them live from Bookings. Any home visit fee is shown before you confirm.",
+  "faqReviewQ": "How do I rate or review a shop?",
+  "faqReviewA": "After a booking is completed, tap Rate on it in Bookings. Reviews show your first name and last initial and are marked Verified booking.",
+  "faqProblemQ": "Something went wrong with my booking. What do I do?",
+  "faqProblemA": "Tap Report a problem on the booking, or use \"Report a problem with a booking\" below. Alakh support looks into every report and gets back to you.",
+  "faqProfileQ": "How do I change my name or addresses?",
+  "faqProfileA": "In Profile, use Edit Profile for your name and Saved addresses for the places we come to. Your sign-in number can't be changed in the app; contact Alakh support for that.",
+  "faqSessionsQ": "How do I sign out, or sign out of other devices?",
+  "faqSessionsA": "Tap Log out in Profile to sign out on this phone. If you are signed in on a phone you no longer have, contact Alakh support and we will sign you out of your other devices.",
+  "faqDeleteQ": "How do I delete my account?",
+  "faqDeleteA": "In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops' records."
+}

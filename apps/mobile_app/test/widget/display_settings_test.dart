@@ -48,7 +48,7 @@ void main() {
 
     await tester.tap(find.text('Theme'));
     await tester.pumpAndSettle();
-    expect(find.text('System'), findsOneWidget);
+    expect(find.text('System'), findsNWidgets(2)); // the sheet's option and the Language tile's value
     await tester.tap(find.text('Dark'));
     await tester.pumpAndSettle();
 

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../l10n/l10n.dart';
 
 abstract class Failure extends Equatable {
   final String message;
@@ -17,7 +18,15 @@ class ServerFailure extends Failure {
 }
 
 class NetworkFailure extends Failure {
-  const NetworkFailure({super.message = 'No internet connection'});
+  final String? _message;
+
+  /// Without a [message], "No internet connection" in the language on screen.
+  const NetworkFailure({String? message})
+      : _message = message,
+        super(message: '');
+
+  @override
+  String get message => _message ?? currentL10n.errorNoInternet;
 }
 
 class CacheFailure extends Failure {

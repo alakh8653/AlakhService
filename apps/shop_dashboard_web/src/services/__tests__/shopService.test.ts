@@ -150,11 +150,12 @@ describe('helpers', () => {
     api.post.mockResolvedValueOnce({
       data: { id: 'u9', email: 'asha@example.com', phone: null, full_name: 'Asha', is_active: true, is_verified: false, role: 'user' },
     });
-    const user = await register({ name: ' Asha ', email: 'Asha@Example.com', phone: '', password: 'Passw0rd!' });
+    const user = await register({ name: ' Asha ', email: 'Asha@Example.com', phone: '', password: 'Passw0rd!', acceptedTermsVersion: '2026-10' });
     expect(api.post).toHaveBeenLastCalledWith('/auth/register', {
       full_name: 'Asha',
       email: 'asha@example.com',
       password: 'Passw0rd!',
+      accepted_terms_version: '2026-10',
     });
     expect(user.id).toBe('u9');
   });

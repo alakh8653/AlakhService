@@ -1463,4 +1463,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get cancelPolicyLate =>
       'Your booking is less than 2 hours away, so a cancellation fee may apply.';
+
+  @override
+  String get termsRequired => 'Please accept the Terms and Privacy Policy';
+
+  @override
+  String get termsAgree => 'I agree to the';
+
+  @override
+  String get termsOfService => 'Terms of Service';
+
+  @override
+  String get termsAnd => 'and';
+
+  @override
+  String get privacyPolicy => 'Privacy Policy';
 }

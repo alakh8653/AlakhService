@@ -1,4 +1,6 @@
 import 'package:dartz/dartz.dart';
+
+import '../../../legal/data/legal_api.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
@@ -49,9 +51,15 @@ class AuthRepositoryImpl implements AuthRepository {
     required String phone,
     required String password,
     required String role,
+    String acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
   }) =>
       _online(() async {
-        await remoteDataSource.register(name: name, phone: phone, password: password);
+        await remoteDataSource.register(
+          name: name,
+          phone: phone,
+          password: password,
+          acceptedTermsVersion: acceptedTermsVersion,
+        );
         await remoteDataSource.sendCode(identifier: phone, purpose: 'registration');
         return true;
       });

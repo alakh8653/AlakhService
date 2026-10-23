@@ -832,5 +832,10 @@
   "invoiceLoading": "Loading invoice…",
   "paymentPartlyRefunded": "Partly refunded",
   "cancelPolicy": "Free cancellation until 2 hours before your booking. After that, a cancellation fee may apply.",
-  "cancelPolicyLate": "Your booking is less than 2 hours away, so a cancellation fee may apply."
+  "cancelPolicyLate": "Your booking is less than 2 hours away, so a cancellation fee may apply.",
+  "termsRequired": "Please accept the Terms and Privacy Policy",
+  "termsAgree": "I agree to the",
+  "termsOfService": "Terms of Service",
+  "termsAnd": "and",
+  "privacyPolicy": "Privacy Policy"
 }

@@ -1446,4 +1446,19 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get cancelPolicyLate =>
       'आपकी बुकिंग में 2 घंटे से कम समय बचा है, इसलिए रद्द करने का शुल्क लग सकता है।';
+
+  @override
+  String get termsRequired => 'कृपया शर्तें और गोपनीयता नीति स्वीकार करें';
+
+  @override
+  String get termsAgree => 'मैं सहमत हूँ:';
+
+  @override
+  String get termsOfService => 'सेवा की शर्तें';
+
+  @override
+  String get termsAnd => 'और';
+
+  @override
+  String get privacyPolicy => 'गोपनीयता नीति';
 }

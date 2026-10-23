@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../../shared/utils/validators.dart';
+import '../../../directions/presentation/how_to_get_there_sheet.dart' show LinkOpener, openExternally;
+import '../../../legal/data/legal_api.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -16,7 +19,11 @@ import 'otp_verification_page.dart';
 import '../../../../l10n/l10n.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  /// Where the current Terms version and links come from; the build's own when left out.
+  final LegalApi? legalApi;
+  final LinkOpener? open;
+
+  const RegisterPage({super.key, this.legalApi, this.open});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -28,6 +35,19 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _acceptedTerms = false;
+  LegalInfo _legal = LegalInfo.fallback;
+
+  @override
+  void initState() {
+    super.initState();
+    final api = widget.legalApi ?? (sl.isRegistered<LegalApi>() ? sl<LegalApi>() : null);
+    api?.current().then((info) {
+      if (mounted) setState(() => _legal = info);
+    });
+  }
+
+  void _openLink(String url) => (widget.open ?? openExternally)(Uri.parse(url)).catchError((Object _) => false);
 
   @override
   void dispose() {
@@ -46,6 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
               phone: _phoneController.text.trim(),
               password: _passwordController.text,
               role: AppConstants.roleUser,
+              acceptedTermsVersion: _legal.termsVersion,
             ),
           );
     }
@@ -138,7 +159,51 @@ class _RegisterPageState extends State<RegisterPage> {
                   l10n.registerCodeNote,
                   style: AppTextStyles.caption.themed(context),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                FormField<bool>(
+                  initialValue: _acceptedTerms,
+                  validator: (_) => _acceptedTerms ? null : l10n.termsRequired,
+                  builder: (field) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: _acceptedTerms,
+                            onChanged: (value) {
+                              setState(() => _acceptedTerms = value ?? false);
+                              field.didChange(value);
+                            },
+                          ),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(l10n.termsAgree, style: AppTextStyles.body2.themed(context)),
+                                  _LinkButton(label: l10n.termsOfService, onTap: () => _openLink(_legal.termsUrl)),
+                                  Text(l10n.termsAnd, style: AppTextStyles.body2.themed(context)),
+                                  _LinkButton(label: l10n.privacyPolicy, onTap: () => _openLink(_legal.privacyUrl)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (field.hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            field.errorText!,
+                            style: AppTextStyles.caption.copyWith(color: context.colors.error),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
                     return CustomButton(
@@ -167,4 +232,23 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
   }
+}
+
+/// A compact text link inside a sentence.
+class _LinkButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _LinkButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          minimumSize: const Size(0, 36),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(label),
+      );
 }

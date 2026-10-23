@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../legal/data/legal_api.dart';
+
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
 
@@ -23,15 +25,19 @@ class RegisterRequested extends AuthEvent {
   final String password;
   final String role;
 
+  /// The Terms version the user ticked to accept.
+  final String acceptedTermsVersion;
+
   const RegisterRequested({
     required this.name,
     required this.phone,
     required this.password,
     required this.role,
+    this.acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
   });
 
   @override
-  List<Object> get props => [name, phone, password, role];
+  List<Object> get props => [name, phone, password, role, acceptedTermsVersion];
 }
 
 class OtpVerificationRequested extends AuthEvent {

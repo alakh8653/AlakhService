@@ -23,6 +23,7 @@ import '../../features/booking/domain/usecases/cancel_booking_usecase.dart';
 import '../../features/booking/domain/usecases/create_booking_usecase.dart';
 import '../../features/booking/presentation/bloc/booking_bloc.dart';
 import '../../features/chat/data/chat_api.dart';
+import '../../features/legal/data/legal_api.dart';
 import '../../features/notifications/data/notifications_api.dart';
 import '../../features/payment/data/payment_api.dart';
 import '../../features/jobs/data/location_reporter.dart';
@@ -124,4 +125,5 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => AvailabilityApi(sl()));
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
   sl.registerLazySingleton(() => ChatApi(sl()));
+  sl.registerLazySingleton(() => LegalApi(sl()));
 }

@@ -2635,6 +2635,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your booking is less than 2 hours away, so a cancellation fee may apply.'**
   String get cancelPolicyLate;
+
+  /// No description provided for @termsRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please accept the Terms and Privacy Policy'**
+  String get termsRequired;
+
+  /// No description provided for @termsAgree.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree to the'**
+  String get termsAgree;
+
+  /// No description provided for @termsOfService.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Service'**
+  String get termsOfService;
+
+  /// No description provided for @termsAnd.
+  ///
+  /// In en, this message translates to:
+  /// **'and'**
+  String get termsAnd;
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get privacyPolicy;
 }
 
 class _AppLocalizationsDelegate

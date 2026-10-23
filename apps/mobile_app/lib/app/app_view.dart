@@ -4,12 +4,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/l10n.dart';
+import 'offline_banner.dart';
 
 /// The MaterialApp, set up from the customer's display settings (a [SettingsCubit] above it).
 class AppView extends StatelessWidget {
   final Widget home;
 
-  const AppView({super.key, required this.home});
+  /// Whether the device is online (see [onlineStatus]); with it, an offline strip shows over every
+  /// screen. Left out in tests that don't need it.
+  final Stream<bool>? online;
+
+  const AppView({super.key, required this.home, this.online});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,9 @@ class AppView extends StatelessWidget {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         builder: (context, child) {
           updateCurrentL10n(context.l10n);
-          return child ?? const SizedBox.shrink();
+          final screens = child ?? const SizedBox.shrink();
+          final online = this.online;
+          return online == null ? screens : OfflineBanner(online: online, child: screens);
         },
         home: home,
       ),

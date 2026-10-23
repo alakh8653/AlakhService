@@ -5,7 +5,7 @@ import { currentAdminId } from '../apiClient';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { apiErrorMessage } from '../shared/apiError';
-import { formatDateTime } from '../shared/format';
+import { formatDateTime, formatMoney } from '../shared/format';
 import { useAccounts } from '../users/accountNames';
 import BookingPayments from './BookingPayments';
 import {
@@ -13,14 +13,32 @@ import {
   escalateDispute,
   formatStatus,
   getDisputeById,
+  OUTCOME_LABELS,
   getDisputeMessages,
   resolveDispute,
   startReview,
   STATUS_COLORS,
   type Dispute,
   type DisputeMessage,
+  type DisputeOutcome,
   type DisputeStatus,
 } from './DisputeService';
+
+const OUTCOMES: DisputeOutcome[] = ['REFUND_FULL', 'REFUND_PARTIAL', 'RELEASE_TO_SHOP', 'NO_ACTION'];
+
+const OUTCOME_HELP: Record<DisputeOutcome, string> = {
+  REFUND_FULL: 'Everything still paid is refunded through Razorpay; the booking becomes refunded.',
+  REFUND_PARTIAL: 'Refunds the amount below; the shop keeps the rest, less commission.',
+  RELEASE_TO_SHOP: 'The shop is paid as for any completed booking.',
+  NO_ACTION: 'Only closes the case (e.g. a complaint that is not about money).',
+};
+
+/** Rupees typed by the admin as paise, or null when it is not a positive amount. */
+export function paiseFrom(rupees: string): number | null {
+  const value = Number(rupees.trim());
+  if (!rupees.trim() || !Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value * 100);
+}
 
 // Starting a review is a routine forward step, so it needs no confirmation; escalating and resolving do.
 type Pending = 'escalate' | 'resolve' | null;
@@ -91,6 +109,8 @@ export default function DisputeDetailPage() {
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [outcome, setOutcome] = useState<DisputeOutcome>('REFUND_FULL');
+  const [partialRupees, setPartialRupees] = useState('');
   const me = currentAdminId();
   const people = useAccounts([dispute?.raisedBy, ...messages.map((m) => m.authorId)]);
 
@@ -202,6 +222,12 @@ export default function DisputeDetailPage() {
         <div className={`rounded-xl p-4 space-y-3 ${isOpen ? 'bg-indigo-50' : 'bg-green-50'}`}>
           <h2 className="text-sm font-semibold text-gray-900">{isOpen ? 'Next step' : 'Resolved'}</h2>
           <p className="text-sm text-gray-700">{NEXT_STEP[dispute.status]}</p>
+          {dispute.outcome && dispute.outcome !== 'NO_ACTION' && (
+            <p className="text-sm font-medium text-gray-900">
+              {OUTCOME_LABELS[dispute.outcome]}
+              {dispute.refundAmountCents != null && ` (${formatMoney(dispute.refundAmountCents / 100)})`}
+            </p>
+          )}
           {dispute.resolution && <p className="text-sm text-gray-900 whitespace-pre-line">{dispute.resolution}</p>}
           {dispute.resolvedAt && <p className="text-xs text-gray-600">Resolved {formatDateTime(dispute.resolvedAt)}</p>}
           {actionError && (
@@ -360,10 +386,52 @@ export default function DisputeDetailPage() {
             required: true,
             placeholder: 'What was decided, e.g. "Full refund issued - provider did not attend."',
           }}
-          onConfirm={(resolution) => run(() => resolveDispute(dispute.id, resolution), `Case #${dispute.caseNumber} resolved.`)}
+          onConfirm={(resolution) => {
+            const paise = outcome === 'REFUND_PARTIAL' ? paiseFrom(partialRupees) : undefined;
+            if (paise === null) {
+              throw Object.assign(new Error('amount'), { response: { data: { detail: 'Enter the amount to refund, in rupees.' } } });
+            }
+            return run(() => resolveDispute(dispute.id, resolution, outcome, paise), `Case #${dispute.caseNumber} resolved.`);
+          }}
           onCancel={() => setPending(null)}
         >
-          <p>This closes the case for good - it cannot be reopened. Issue any refund first. The resolution is kept on the case record.</p>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold text-gray-900 mb-1">What happens to the money</legend>
+            {OUTCOMES.map((o) => (
+              <label key={o} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="dispute-outcome"
+                  value={o}
+                  checked={outcome === o}
+                  onChange={() => setOutcome(o)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium text-gray-900">{OUTCOME_LABELS[o]}</span>
+                  <span className="block text-xs text-gray-600">{OUTCOME_HELP[o]}</span>
+                </span>
+              </label>
+            ))}
+            {outcome === 'REFUND_PARTIAL' && (
+              <label className="block text-sm">
+                <span className="text-gray-700">Amount to refund (₹)</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
+                  value={partialRupees}
+                  onChange={(e) => setPartialRupees(e.target.value)}
+                  className="mt-1 w-40 border border-gray-300 rounded-lg px-3 py-1.5"
+                />
+              </label>
+            )}
+          </fieldset>
+          <p className="mt-3">
+            This closes the case for good - it cannot be reopened. The refund or release is made first; if it fails, the case stays
+            open. The resolution is kept on the case record.
+          </p>
         </ConfirmDialog>
       )}
     </div>

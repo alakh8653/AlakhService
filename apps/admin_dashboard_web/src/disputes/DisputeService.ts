@@ -12,6 +12,16 @@ export const STATUS_COLORS: Record<DisputeStatus, string> = {
   RESOLVED: 'bg-green-100 text-green-800',
 };
 
+/** What happens to the booking's money when a dispute is resolved (carried out by the backend). */
+export type DisputeOutcome = 'REFUND_FULL' | 'REFUND_PARTIAL' | 'RELEASE_TO_SHOP' | 'NO_ACTION';
+
+export const OUTCOME_LABELS: Record<DisputeOutcome, string> = {
+  REFUND_FULL: 'Full refund to the customer',
+  REFUND_PARTIAL: 'Partial refund to the customer',
+  RELEASE_TO_SHOP: 'Release the money to the shop',
+  NO_ACTION: 'No money changes hands',
+};
+
 export interface Dispute {
   id: string;
   /** Short, human-friendly reference derived from the id. */
@@ -22,6 +32,9 @@ export interface Dispute {
   description: string;
   status: DisputeStatus;
   resolution: string | null;
+  outcome: DisputeOutcome | null;
+  /** Paise refunded by a partial refund. */
+  refundAmountCents: number | null;
   evidenceUrls: string[];
   createdAt: string;
   resolvedAt: string | null;
@@ -49,6 +62,8 @@ interface DisputeRecord {
   description: string;
   status: DisputeStatus;
   resolution: string | null;
+  outcome?: DisputeOutcome | null;
+  refund_amount_cents?: number | null;
   evidence_urls: string | null;
   created_at: string;
   resolved_at: string | null;
@@ -81,6 +96,8 @@ export function toDispute(r: DisputeRecord): Dispute {
     description: r.description,
     status: r.status,
     resolution: r.resolution,
+    outcome: r.outcome ?? null,
+    refundAmountCents: r.refund_amount_cents ?? null,
     evidenceUrls: parseEvidence(r.evidence_urls),
     createdAt: r.created_at,
     resolvedAt: r.resolved_at,
@@ -120,8 +137,21 @@ export async function escalateDispute(id: string): Promise<Dispute> {
   return toDispute(data);
 }
 
-export async function resolveDispute(id: string, resolution: string): Promise<Dispute> {
-  const { data } = await adminApiClient.post<DisputeRecord>(`/admin/disputes/${id}/resolve`, { resolution });
+/**
+ * Resolves the case and carries out [outcome]: the refund (all, or [amountCents] for a partial one) or the
+ * release to the shop happens first, and the case stays open if it fails.
+ */
+export async function resolveDispute(
+  id: string,
+  resolution: string,
+  outcome: DisputeOutcome = 'NO_ACTION',
+  amountCents?: number,
+): Promise<Dispute> {
+  const { data } = await adminApiClient.post<DisputeRecord>(`/admin/disputes/${id}/resolve`, {
+    resolution,
+    outcome,
+    ...(outcome === 'REFUND_PARTIAL' ? { amount_cents: amountCents } : {}),
+  });
   return toDispute(data);
 }
 

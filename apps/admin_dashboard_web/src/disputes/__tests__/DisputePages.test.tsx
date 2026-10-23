@@ -40,6 +40,8 @@ const dispute = (over: Partial<Dispute> = {}): Dispute => ({
   evidenceUrls: [],
   createdAt: '2026-10-16T06:30:00Z',
   resolvedAt: null,
+  outcome: null,
+  refundAmountCents: null,
   ...over,
 });
 
@@ -131,8 +133,40 @@ describe('DisputeDetailPage', () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(resolveDispute).toHaveBeenCalled());
     expect(await screen.findByText('Refunded in full')).toBeInTheDocument();
-    expect(resolveDispute).toHaveBeenCalledWith(dispute().id, 'Refunded in full');
+    expect(resolveDispute).toHaveBeenCalledWith(dispute().id, 'Refunded in full', 'REFUND_FULL', undefined);
     expect(screen.getByText('This case is closed.')).toBeInTheDocument();
+  });
+
+  it('chooses what happens to the money; a partial refund needs an amount', async () => {
+    vi.mocked(getDisputeById).mockResolvedValue(dispute({ status: 'UNDER_REVIEW' }));
+    vi.mocked(resolveDispute).mockResolvedValue(
+      dispute({ status: 'RESOLVED', resolution: 'Half done', outcome: 'REFUND_PARTIAL', refundAmountCents: 25000 }),
+    );
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Resolve…' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('radio', { name: /Full refund to the customer/ })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Partial refund/ }));
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Resolution/ }), { target: { value: 'Half done' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Resolve case' }));
+    expect(await within(dialog).findByText('Enter the amount to refund, in rupees.')).toBeInTheDocument();
+    expect(resolveDispute).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByLabelText('Amount to refund (₹)'), { target: { value: '250' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Resolve case' }));
+    await waitFor(() => expect(resolveDispute).toHaveBeenCalledWith(dispute().id, 'Half done', 'REFUND_PARTIAL', 25000));
+    expect(await screen.findByText(/Partial refund to the customer \(₹250.00\)/)).toBeInTheDocument();
+  });
+
+  it('releases the money to the shop', async () => {
+    vi.mocked(getDisputeById).mockResolvedValue(dispute({ status: 'ESCALATED' }));
+    vi.mocked(resolveDispute).mockResolvedValue(dispute({ status: 'RESOLVED', resolution: 'Shop did the work', outcome: 'RELEASE_TO_SHOP' }));
+    renderDetail();
+    fireEvent.click(await screen.findByRole('button', { name: 'Resolve…' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Release the money to the shop/ }));
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Resolution/ }), { target: { value: 'Shop did the work' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Resolve case' }));
+    await waitFor(() => expect(resolveDispute).toHaveBeenCalledWith(dispute().id, 'Shop did the work', 'RELEASE_TO_SHOP', undefined));
   });
 
   it('offers a retry and a way back when the case cannot be loaded', async () => {

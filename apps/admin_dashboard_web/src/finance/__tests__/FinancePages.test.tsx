@@ -9,6 +9,9 @@ vi.mock('../FinanceService', async (importOriginal) => ({
   getRevenueReport: vi.fn(),
   getSettlements: vi.fn(),
 }));
+// Covered in PayoutsPanels.test.tsx.
+vi.mock('../PayoutsPanel', () => ({ default: () => null }));
+vi.mock('../CommissionPanel', () => ({ default: () => null }));
 vi.mock('../../users/accountNames', () => ({
   useAccounts: () => ({ 'prov-1': { id: 'prov-1', name: 'Ravi Technician', email: 'tech@example.com', phone: null } }),
 }));
@@ -96,7 +99,7 @@ describe('SettlementsPage', () => {
     expect(await screen.findByText('Ravi Technician')).toBeInTheDocument();
     expect(screen.getByText('₹2,500.00')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getByRole('button', { name: 'Paid out' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Released to shop' }));
     await waitFor(() => expect(getSettlements).toHaveBeenLastCalledWith({ status: 'RELEASED', page: 1, perPage: 20 }));
   });
 });

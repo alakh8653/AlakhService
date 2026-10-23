@@ -3,7 +3,9 @@ import DataTable, { type Column } from '../components/DataTable';
 import FilterChips from '../components/FilterChips';
 import { formatDate, shortId } from '../shared/format';
 import { useAccounts } from '../users/accountNames';
+import CommissionPanel from './CommissionPanel';
 import { formatMoney, getSettlements, SETTLEMENT_STATUSES, type Settlement, type SettlementStatus } from './FinanceService';
+import PayoutsPanel from './PayoutsPanel';
 
 const PER_PAGE = 20;
 
@@ -17,7 +19,7 @@ const STATUS_COLORS: Record<SettlementStatus, string> = {
 const STATUS_LABELS: Record<SettlementStatus, string> = {
   CREATED: 'Awaiting payment',
   HELD: 'Held in escrow',
-  RELEASED: 'Paid out',
+  RELEASED: 'Released to shop',
   REFUNDED: 'Refunded',
 };
 
@@ -25,7 +27,7 @@ const EMPTY: Record<SettlementStatus | 'ALL', string> = {
   ALL: 'No settlements yet. They appear here once customers pay for bookings.',
   CREATED: 'No settlements are awaiting payment.',
   HELD: 'Nothing is held in escrow right now.',
-  RELEASED: 'Nothing has been paid out yet.',
+  RELEASED: 'Nothing has been released to shops yet.',
   REFUNDED: 'No settlements have been refunded.',
 };
 
@@ -93,14 +95,14 @@ export default function SettlementsPage() {
       render: (r) => <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{STATUS_LABELS[r.status]}</span>,
     },
     { key: 'heldAt', header: 'Held since', render: (r) => formatDate(r.heldAt), className: 'hidden sm:table-cell' },
-    { key: 'releasedAt', header: 'Paid out', render: (r) => (r.releasedAt ? formatDate(r.releasedAt) : '—'), className: 'hidden lg:table-cell' },
+    { key: 'releasedAt', header: 'Released', render: (r) => (r.releasedAt ? formatDate(r.releasedAt) : '—'), className: 'hidden lg:table-cell' },
   ];
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settlements</h1>
-        <p className="text-sm text-gray-600">Customer payments held in escrow until the job is done and they are paid out to the provider.</p>
+        <p className="text-sm text-gray-600">Customer payments held in escrow until the job is done, then released to the shop less commission and paid out in payout batches.</p>
       </div>
       <FilterChips
         label="Filter by status"
@@ -130,6 +132,8 @@ export default function SettlementsPage() {
         onPageChange={setPage}
         emptyMessage={EMPTY[statusFilter ?? 'ALL']}
       />
+      <PayoutsPanel />
+      <CommissionPanel />
     </div>
   );
 }

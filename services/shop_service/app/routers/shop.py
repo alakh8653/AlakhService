@@ -12,12 +12,25 @@ from app.dependencies import (
     ensure_owner,
     get_booking_lookup,
     get_name_lookup,
+    optional_caller,
     require_caller,
 )
 from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
 from app.services.shop_service import shop_service
 
 router = APIRouter()
+
+
+def for_caller(shop, caller: Optional[Caller]) -> ShopResponse:
+    """A shop as this caller may see it: its phone and email only for its owner and admins.
+
+    Customers reach a shop through the platform (booking chat, masked calls), so bookings and the
+    commission on them stay on the platform.
+    """
+    view = ShopResponse.model_validate(shop)
+    if caller is not None and (caller.is_admin or caller.user_id == view.owner_id):
+        return view
+    return view.model_copy(update={"phone": None, "email": None})
 
 
 @router.post("/shops", response_model=ShopResponse, status_code=201)
@@ -36,8 +49,10 @@ async def list_shops(
     limit: int = Query(20, ge=1, le=100),
     owner_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    caller: Optional[Caller] = Depends(optional_caller),
 ):
-    return await shop_service.list_shops(db, skip=skip, limit=limit, owner_id=owner_id)
+    shops = await shop_service.list_shops(db, skip=skip, limit=limit, owner_id=owner_id)
+    return [for_caller(s, caller) for s in shops]
 
 
 @router.get("/shops/search", response_model=List[ShopResponse])
@@ -47,14 +62,18 @@ async def search_shops(
     category: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    caller: Optional[Caller] = Depends(optional_caller),
 ):
-    return await shop_service.search_shops(db, q=q, city=city, category=category, limit=limit)
+    shops = await shop_service.search_shops(db, q=q, city=city, category=category, limit=limit)
+    return [for_caller(s, caller) for s in shops]
 
 
 @router.get("/shops/{shop_id}", response_model=ShopResponse)
-async def get_shop(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def get_shop(
+    shop_id: str, db: AsyncSession = Depends(get_db), caller: Optional[Caller] = Depends(optional_caller)
+):
     try:
-        return await shop_service.get_shop(db, shop_id)
+        return for_caller(await shop_service.get_shop(db, shop_id), caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
@@ -98,7 +117,7 @@ async def rate_shop(
     if booking.get("status") != "COMPLETED":
         raise HTTPException(status_code=409, detail="Only completed bookings can be rated")
     try:
-        return await shop_service.add_rating(
+        rated = await shop_service.add_rating(
             db,
             shop_id,
             data.booking_id,
@@ -108,6 +127,7 @@ async def rate_shop(
             service_id=booking.get("service_id"),
             reviewer_name=await lookup_name(caller),
         )
+        return for_caller(rated, caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except RatingExistsError as e:

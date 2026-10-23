@@ -58,7 +58,7 @@ async def test_create_shop(db_session, service):
 
 @pytest.mark.anyio
 async def test_create_shop_keeps_its_contact_details_and_location(db_session, service):
-    # Customers get directions to the address/position and call the phone; none may be dropped.
+    # Customers get directions to the address/position; the owner keeps the phone and email. None may be dropped.
     data = ShopCreate(
         owner_id="owner-1",
         name="Asha Salon",

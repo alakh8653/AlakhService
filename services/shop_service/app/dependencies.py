@@ -54,6 +54,16 @@ def require_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends
     return _caller_from_token(credentials.credentials)
 
 
+def optional_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)) -> Optional[Caller]:
+    """The signed-in caller on a public endpoint, or None (also for a bad token: the page stays public)."""
+    if credentials is None:
+        return None
+    try:
+        return _caller_from_token(credentials.credentials)
+    except HTTPException:
+        return None
+
+
 def ensure_owner(owner_id: str, caller: Caller) -> None:
     if not caller.is_admin and caller.user_id != owner_id:
         raise HTTPException(status_code=403, detail="Not your shop")

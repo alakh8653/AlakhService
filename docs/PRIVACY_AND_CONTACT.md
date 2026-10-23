@@ -24,8 +24,10 @@ The server enforces the rule, not just the apps: the fields are never in the res
 
 Admins see everything, including the original text of masked chat messages.
 
-The shop's own public listing (name, address, map pin, business phone) is unchanged. It is the
-shop's business contact, which the shop chose to publish.
+A shop's public listing shows its name, address and map pin, but not its phone or email. shop_service
+returns those only to the shop's owner and to admins (`GET /shops`, `/shops/search` and
+`/shops/{id}`); everyone else, signed in or not, gets them as null. Customers reach a shop through the
+booking chat, or a masked call once calling is enabled.
 
 ### Display names
 

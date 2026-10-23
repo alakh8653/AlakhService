@@ -17,6 +17,7 @@ import '../../data/profile_api.dart';
 import 'addresses_page.dart';
 import 'display_settings.dart';
 import 'edit_profile_page.dart';
+import 'legal_section.dart';
 import '../../../../l10n/l10n.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -118,6 +119,7 @@ class _ProfilePageState extends State<ProfilePage> {
               label: l10n.helpTitle,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage())),
             ),
+            LegalSection(userId: user.id),
             const SizedBox(height: 16),
             CustomButton(
               label: l10n.logout,

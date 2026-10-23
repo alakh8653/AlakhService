@@ -427,5 +427,17 @@
   "termsAgree": "मैं सहमत हूँ:",
   "termsOfService": "सेवा की शर्तें",
   "termsAnd": "और",
-  "privacyPolicy": "गोपनीयता नीति"
+  "privacyPolicy": "गोपनीयता नीति",
+  "legalSection": "कानूनी जानकारी",
+  "refundPolicy": "रिफ़ंड नीति",
+  "grievanceOfficer": "शिकायत निवारण",
+  "downloadMyData": "मेरा डेटा डाउनलोड करें",
+  "dataExportNone": "अपने खाते, बुकिंग और भुगतान की कॉपी पाएँ",
+  "dataExportPending": "अनुरोध: {day}। हम इसे तैयार कर रहे हैं।",
+  "dataExportReady": "तैयार है। डाउनलोड करने के लिए दबाएँ।",
+  "dataExportDeclined": "आपका पिछला अनुरोध अस्वीकार हुआ।",
+  "dataExportQuestion": "अपने डेटा की कॉपी चाहिए?",
+  "dataExportBody": "हम आपके खाते, बुकिंग और भुगतान की एक फ़ाइल तैयार करेंगे। डाउनलोड के लिए तैयार होने पर यहाँ दिखेगा।",
+  "dataExportRequest": "अनुरोध करें",
+  "dataExportRequested": "अनुरोध भेज दिया। हम आपका डेटा तैयार करेंगे।"
 }

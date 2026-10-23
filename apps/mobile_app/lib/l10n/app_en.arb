@@ -837,5 +837,24 @@
   "termsAgree": "I agree to the",
   "termsOfService": "Terms of Service",
   "termsAnd": "and",
-  "privacyPolicy": "Privacy Policy"
+  "privacyPolicy": "Privacy Policy",
+  "legalSection": "Legal",
+  "refundPolicy": "Refund policy",
+  "grievanceOfficer": "Grievance redressal",
+  "downloadMyData": "Download my data",
+  "dataExportNone": "Get a copy of your account, bookings and payments",
+  "dataExportPending": "Requested: {day}. We're preparing it.",
+  "@dataExportPending": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "dataExportReady": "Ready. Tap to download.",
+  "dataExportDeclined": "Your last request was declined.",
+  "dataExportQuestion": "Request a copy of your data?",
+  "dataExportBody": "We'll prepare a file with your account, bookings and payments. You'll see here when it's ready to download.",
+  "dataExportRequest": "Request",
+  "dataExportRequested": "Request sent. We'll prepare your data."
 }

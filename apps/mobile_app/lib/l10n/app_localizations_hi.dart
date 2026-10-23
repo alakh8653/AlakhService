@@ -1461,4 +1461,44 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get privacyPolicy => 'गोपनीयता नीति';
+
+  @override
+  String get legalSection => 'कानूनी जानकारी';
+
+  @override
+  String get refundPolicy => 'रिफ़ंड नीति';
+
+  @override
+  String get grievanceOfficer => 'शिकायत निवारण';
+
+  @override
+  String get downloadMyData => 'मेरा डेटा डाउनलोड करें';
+
+  @override
+  String get dataExportNone => 'अपने खाते, बुकिंग और भुगतान की कॉपी पाएँ';
+
+  @override
+  String dataExportPending(String day) {
+    return 'अनुरोध: $day। हम इसे तैयार कर रहे हैं।';
+  }
+
+  @override
+  String get dataExportReady => 'तैयार है। डाउनलोड करने के लिए दबाएँ।';
+
+  @override
+  String get dataExportDeclined => 'आपका पिछला अनुरोध अस्वीकार हुआ।';
+
+  @override
+  String get dataExportQuestion => 'अपने डेटा की कॉपी चाहिए?';
+
+  @override
+  String get dataExportBody =>
+      'हम आपके खाते, बुकिंग और भुगतान की एक फ़ाइल तैयार करेंगे। डाउनलोड के लिए तैयार होने पर यहाँ दिखेगा।';
+
+  @override
+  String get dataExportRequest => 'अनुरोध करें';
+
+  @override
+  String get dataExportRequested =>
+      'अनुरोध भेज दिया। हम आपका डेटा तैयार करेंगे।';
 }

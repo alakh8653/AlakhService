@@ -2665,6 +2665,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Privacy Policy'**
   String get privacyPolicy;
+
+  /// No description provided for @legalSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get legalSection;
+
+  /// No description provided for @refundPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Refund policy'**
+  String get refundPolicy;
+
+  /// No description provided for @grievanceOfficer.
+  ///
+  /// In en, this message translates to:
+  /// **'Grievance redressal'**
+  String get grievanceOfficer;
+
+  /// No description provided for @downloadMyData.
+  ///
+  /// In en, this message translates to:
+  /// **'Download my data'**
+  String get downloadMyData;
+
+  /// No description provided for @dataExportNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a copy of your account, bookings and payments'**
+  String get dataExportNone;
+
+  /// No description provided for @dataExportPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested: {day}. We\'re preparing it.'**
+  String dataExportPending(String day);
+
+  /// No description provided for @dataExportReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready. Tap to download.'**
+  String get dataExportReady;
+
+  /// No description provided for @dataExportDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Your last request was declined.'**
+  String get dataExportDeclined;
+
+  /// No description provided for @dataExportQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Request a copy of your data?'**
+  String get dataExportQuestion;
+
+  /// No description provided for @dataExportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll prepare a file with your account, bookings and payments. You\'ll see here when it\'s ready to download.'**
+  String get dataExportBody;
+
+  /// No description provided for @dataExportRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request'**
+  String get dataExportRequest;
+
+  /// No description provided for @dataExportRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Request sent. We\'ll prepare your data.'**
+  String get dataExportRequested;
 }
 
 class _AppLocalizationsDelegate

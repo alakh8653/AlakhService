@@ -1478,4 +1478,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyPolicy => 'Privacy Policy';
+
+  @override
+  String get legalSection => 'Legal';
+
+  @override
+  String get refundPolicy => 'Refund policy';
+
+  @override
+  String get grievanceOfficer => 'Grievance redressal';
+
+  @override
+  String get downloadMyData => 'Download my data';
+
+  @override
+  String get dataExportNone =>
+      'Get a copy of your account, bookings and payments';
+
+  @override
+  String dataExportPending(String day) {
+    return 'Requested: $day. We\'re preparing it.';
+  }
+
+  @override
+  String get dataExportReady => 'Ready. Tap to download.';
+
+  @override
+  String get dataExportDeclined => 'Your last request was declined.';
+
+  @override
+  String get dataExportQuestion => 'Request a copy of your data?';
+
+  @override
+  String get dataExportBody =>
+      'We\'ll prepare a file with your account, bookings and payments. You\'ll see here when it\'s ready to download.';
+
+  @override
+  String get dataExportRequest => 'Request';
+
+  @override
+  String get dataExportRequested => 'Request sent. We\'ll prepare your data.';
 }

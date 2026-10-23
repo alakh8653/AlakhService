@@ -28,6 +28,7 @@ import '../../features/notifications/data/notifications_api.dart';
 import '../../features/payment/data/payment_api.dart';
 import '../../features/jobs/data/location_reporter.dart';
 import '../../features/profile/data/address_api.dart';
+import '../../features/profile/data/data_export_api.dart';
 import '../../features/profile/data/profile_api.dart';
 import '../../features/directions/data/shop_location_api.dart';
 import '../../features/queue/data/queue_api.dart';
@@ -126,4 +127,5 @@ Future<void> init({TokenStore? tokens}) async {
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
   sl.registerLazySingleton(() => ChatApi(sl()));
   sl.registerLazySingleton(() => LegalApi(sl()));
+  sl.registerLazySingleton(() => DataExportApi(sl()));
 }

@@ -72,6 +72,14 @@
 	<string>AlakhService uses your location to show nearby services and, when you are working on a job, to show your customer where you are.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>AlakhService uses your location to track your service provider.</string>
+	<!-- Links are handled by the app_links plugin, not Flutter's own deep linking. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
+	<!-- Lets Firebase Cloud Messaging deliver data messages in the background. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID for quick and secure login.</string>
 </dict>

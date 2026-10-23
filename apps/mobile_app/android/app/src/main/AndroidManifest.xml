@@ -31,6 +31,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Links are handled by the app_links plugin, not Flutter's own deep linking. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+            <!-- App Links: https://{domain}/b/{booking_id} and /reset-password?token=... The domain
+                 comes from APP_LINK_DOMAIN in apps/mobile_app/app_links.xcconfig; the site must serve
+                 /.well-known/assetlinks.json with this app's signing certificate fingerprint. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="${appLinkDomain}" />
+                <data android:pathPrefix="/b/" />
+                <data android:path="/reset-password" />
+            </intent-filter>
         </activity>
         <!-- Google Maps key: set GOOGLE_MAPS_API_KEY in android/local.properties or the environment. -->
         <meta-data

@@ -1,4 +1,6 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+// APP_LINK_DOMAIN, for the associated domains in Runner.entitlements.
+#include "../../app_links.xcconfig"
 // Local secrets (e.g. GOOGLE_MAPS_API_KEY); copy Secrets.xcconfig.example. Not committed.
 #include? "Secrets.xcconfig"

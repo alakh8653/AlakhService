@@ -1,0 +1,6 @@
+// THE ONE PLACE for the app-link domain (PLACEHOLDER: replace with the real site before release).
+// Read by android/app/build.gradle.kts (App Links intent filter) and ios/Flutter/*.xcconfig
+// (associated domains in ios/Runner/Runner.entitlements). The site must serve
+// /.well-known/assetlinks.json and /.well-known/apple-app-site-association for it.
+// If you change it, also build with --dart-define=APP_LINK_DOMAIN=<the same domain>.
+APP_LINK_DOMAIN = alakhservice.in

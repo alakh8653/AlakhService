@@ -92,6 +92,8 @@ class BookingResponse(BaseModel):
     # Home visit or pickup fee included in total_amount.
     service_mode_fee: int = 0
     coupon_code: Optional[str] = None
+    # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
+    payment_status: str = "UNPAID"
     created_at: datetime
     updated_at: datetime
 
@@ -137,3 +139,11 @@ class ShopBookingSummary(BaseModel):
     by_status: Dict[str, int]
     by_day: List[DailyBookingRevenue]
     top_services: List[ServiceBookingStats]
+
+
+class PaymentStatusUpdate(BaseModel):
+    payment_status: Literal["UNPAID", "PAID", "REFUNDED", "PARTIALLY_REFUNDED"]
+
+
+class DisputeResolution(BaseModel):
+    outcome: Literal["COMPLETED", "REFUNDED"]

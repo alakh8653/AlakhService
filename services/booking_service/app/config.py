@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     EXOTEL_ACCOUNT_SID: str = ""
     EXOTEL_CALLER_ID: str = ""
     EXOTEL_SUBDOMAIN: str = "api.exotel.com"
+    # Told when a booking is completed, cancelled or disputed (commission, refunds), over /internal.
+    PAYMENT_SERVICE_URL: str = "http://payment_service:8000"
+    # The background worker: booking reminders (24h and 1h before), expiring bookings the shop never
+    # confirmed, and retrying what payment_service has not accepted yet. Off in tests (conftest.py).
+    REMINDERS_ENABLED: bool = True
+    WORKER_INTERVAL_SECONDS: float = 60
+    # A PENDING booking the shop has not confirmed this long after it was made (or by its start time)
+    # is cancelled and refunded.
+    EXPIRE_PENDING_AFTER_HOURS: float = 12
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"
     # Browsers talk to the gateway, never to a service directly, so no cross-origin access by default.

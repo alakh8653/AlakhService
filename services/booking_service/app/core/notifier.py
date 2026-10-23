@@ -70,6 +70,7 @@ async def notify_booking(
     actor_id: Optional[str],
     lookup_owner: OwnerLookup,
     roles: tuple[str, ...] = ("customer", "provider", "shop"),
+    extra: Optional[dict] = None,
 ) -> None:
     """Sends [event] to the booking's customer, provider and shop owner (as [roles] allows), except the actor."""
     people = {"customer": booking["customer_id"], "provider": booking["provider_id"]}
@@ -87,4 +88,6 @@ async def notify_booking(
     data = {k: booking[k] for k in ("booking_id", "booking_number", "scheduled_at", "service_name")}
     if booking.get("ready_by"):
         data["ready_by"] = booking["ready_by"]
+    if extra:
+        data.update(extra)
     await notifier.send(event, recipients, data)

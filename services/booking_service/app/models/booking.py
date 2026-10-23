@@ -35,6 +35,11 @@ class Booking(Base):
     idempotency_key = Column(String(128), nullable=True)
     # Short hash of the request that made the booking: the same key with a different request is refused.
     request_hash = Column(String(32), nullable=True)
+    # How its payment stands, as payment_service reports it: UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
+    payment_status = Column(String(20), default="UNPAID", server_default="UNPAID", nullable=False)
+    # Set when the reminder worker has sent each reminder, so each goes out once across replicas.
+    reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
+    reminder_1h_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -82,3 +87,26 @@ class BookingAssignment(Base):
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     rejected_at = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
+
+
+class PaymentOutbox(Base):
+    """Something payment_service must hear about a booking (completed, cancelled, disputed).
+
+    Written in the same transaction as the booking change, so it is never lost; delivered right after
+    the change and retried by the background worker until payment_service accepts it. payment_service
+    handles each of these idempotently, so delivering one twice is harmless.
+    """
+
+    __tablename__ = "payment_outbox"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    booking_id = Column(String, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(20), nullable=False)
+    payload = Column(Text, nullable=False)
+    attempts = Column(Integer, default=0, server_default="0", nullable=False)
+    next_attempt_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("booking_id", "kind", name="uq_payment_outbox_booking_kind"),)

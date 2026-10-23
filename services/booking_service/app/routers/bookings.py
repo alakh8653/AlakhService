@@ -19,11 +19,12 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, risk
+from app.core import availability, payments, risk
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.core.privacy import present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
@@ -344,10 +345,26 @@ async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
 
 async def _authorize_transition(db, booking_id: str, target: str, user: dict, lookup_owner) -> str:
     """Refuses a change the caller may not make; returns the booking's status before it."""
+    return (await _authorize_with_parties(db, booking_id, target, user, lookup_owner))[0]
+
+
+async def _authorize_with_parties(db, booking_id: str, target: str, user: dict, lookup_owner):
     booking, parties = await _visible_booking(db, booking_id, user, lookup_owner)
     if not may_transition(parties, target):
         raise HTTPException(status_code=403, detail=f"Not allowed to set this booking to {target}")
-    return booking.status
+    return booking.status, parties
+
+
+def cancelled_by(parties) -> str:
+    """Who cancelled, for the refund policy: an admin or the shop refund in full; a customer by the clock."""
+    if ADMIN in parties:
+        return "admin"
+    if SHOP_OWNER in parties:
+        return "shop"
+    return "customer"
+
+
+PAYMENT_EVENTS = {BookingStatus.COMPLETED.value: payments.COMPLETED, BookingStatus.DISPUTED.value: payments.DISPUTED}
 
 
 def _report_risk_after(background: BackgroundTasks, booking, previous_status: str, actor_id: Optional[str]) -> None:
@@ -366,6 +383,8 @@ async def update_status(
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
     lookup_names: NameLookup = Depends(get_name_lookup),
+    payment_client: PaymentClient = Depends(get_payment_client),
+    session_factory=Depends(get_session_factory),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
@@ -377,10 +396,15 @@ async def update_status(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    queued = None
+    if booking.status in PAYMENT_EVENTS:
+        queued = await payments.enqueue(db, booking, PAYMENT_EVENTS[booking.status])
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    if queued is not None:
+        background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(
         notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
     )
@@ -474,19 +498,25 @@ async def cancel_booking(
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
     lookup_names: NameLookup = Depends(get_name_lookup),
+    payment_client: PaymentClient = Depends(get_payment_client),
+    session_factory=Depends(get_session_factory),
 ):
+    """Cancels the booking; payment_service refunds its payment as the cancellation policy says
+    (in full when the shop or an admin cancels, or when the customer cancels in time)."""
     user_id = current_user.get("sub")
-    previous_status = await _authorize_transition(
+    previous_status, parties = await _authorize_with_parties(
         db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner
     )
     try:
         booking = await booking_service.cancel_booking(db, booking_id, user_id, body.reason)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    queued = await payments.enqueue(db, booking, payments.CANCELLED, cancelled_by(parties))
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)

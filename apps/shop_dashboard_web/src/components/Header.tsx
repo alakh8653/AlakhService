@@ -1,5 +1,6 @@
 import { LogOut, Menu, Store } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { verificationOf } from '../services/shopService';
 
 export default function Header({ onOpenMenu, menuOpen = false }: { onOpenMenu?: () => void; menuOpen?: boolean }) {
   const { user, shop, logout } = useAuth();
@@ -22,14 +23,17 @@ export default function Header({ onOpenMenu, menuOpen = false }: { onOpenMenu?: 
         <p className="text-sm text-gray-500 flex items-center gap-2 min-w-0">
           <Store size={16} className="text-gray-400 flex-shrink-0 hidden sm:block" aria-hidden />
           <span className="font-semibold text-gray-900 truncate">{shop?.name ?? '…'}</span>
-          {shop && !shop.isVerified && (
+          {shop && verificationOf(shop) === 'PENDING_REVIEW' && (
             <span
               className="text-xs bg-yellow-100 text-yellow-800 rounded-full px-2 py-0.5 whitespace-nowrap"
-              title="Customers can book you now; our team will verify your shop soon."
+              title="Customers cannot see your shop until our team has verified it."
             >
               <span className="sm:hidden">Unverified</span>
               <span className="hidden sm:inline">Pending verification</span>
             </span>
+          )}
+          {shop && verificationOf(shop) === 'REJECTED' && (
+            <span className="text-xs bg-red-100 text-red-800 rounded-full px-2 py-0.5 whitespace-nowrap">Not approved</span>
           )}
         </p>
       </div>

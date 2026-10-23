@@ -53,7 +53,9 @@ async def register(
         raise HTTPException(status_code=422, detail=TERMS_REQUIRED)
     user_create.accepted_terms_version = version
     user = await auth_service.register(db, user_create)
-    # After the response, once the account is committed.
+    # Commit first: background tasks run before the session's own commit, and the app signs in
+    # straight after registering.
+    await db.commit()
     background.add_task(
         record_terms_consent, str(user.id), version, client_ip(request), request.headers.get("user-agent")
     )
@@ -75,7 +77,7 @@ async def accept_terms(
         raise HTTPException(status_code=404, detail="User not found")
     user.accepted_terms_version = body.accepted_terms_version.strip()
     user.accepted_terms_at = datetime.now(timezone.utc)
-    await db.flush()
+    await db.commit()  # before the background task (see register)
     await db.refresh(user)
     background.add_task(
         record_terms_consent,

@@ -18,7 +18,7 @@ dependencies:
   shared_preferences: ^2.2.1
   flutter_secure_storage: ^11.2.0
   local_auth: ^3.0.2
-  google_maps_flutter: ^2.5.0
+  google_maps_flutter: ^2.19.0
   web_socket_channel: ^3.0.3
   cached_network_image: ^4.0.4
   intl: ^0.20.3

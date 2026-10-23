@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +25,20 @@ class Settings(BaseSettings):
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
     # Refunds are recorded in admin_service's audit log.
     ADMIN_SERVICE_URL: str = "http://admin_service:8000"
+    # Commission the platform keeps from each completed booking, and GST charged on that commission
+    # (percent). Admins can set a different rate per shop.
+    PLATFORM_COMMISSION_PERCENT: Decimal = Decimal("10")
+    GST_ON_COMMISSION_PERCENT: Decimal = Decimal("18")
+    # Cancelling: a customer who cancels at least CANCEL_FREE_HOURS before the booking gets everything
+    # back; later, CANCEL_FEE_PERCENT is kept (for the shop, less commission). Shops and admins
+    # cancelling always refund in full.
+    CANCEL_FREE_HOURS: float = 2
+    CANCEL_FEE_PERCENT: Decimal = Decimal("0")
+    # The platform's details on GST invoices.
+    PLATFORM_LEGAL_NAME: str = "AlakhService (legal name not set)"
+    PLATFORM_GSTIN: str = "GSTIN-NOT-SET"
+    PLATFORM_ADDRESS: str = "Registered address not set"
+    INVOICE_PREFIX: str = "ALK"
     # Shared with notification, trust_risk and admin services; without it no notifications, risk
     # signals or audit reports are sent.
     INTERNAL_API_KEY: str = ""

@@ -17,6 +17,7 @@ class PaymentInitiate(BaseModel):
     booking_id: str
     payer_id: str
     payee_id: str
+    shop_id: Optional[str] = None
     amount_cents: int
     currency: str = "INR"
     payment_method: str
@@ -42,6 +43,8 @@ class PaymentResponse(BaseModel):
     status: str
     payment_method: str
     gateway: Optional[str] = None
+    shop_id: Optional[str] = None
+    invoice_number: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

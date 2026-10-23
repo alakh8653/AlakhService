@@ -353,5 +353,6 @@ async def test_cash_payments_are_refunded_manually(db_session, payment_svc, mock
         db_session, payment.id, RefundRequest(amount_cents=5000, reason="no-show")
     )
     assert (refund.status, payment.status) == ("MANUAL", "REFUNDED")
+    # Cash went from the customer to the shop and comes back the same way: it never enters the platform's books.
     payer = await payment_svc.get_or_create_account(db_session, "payer-cash-1")
-    assert await ledger_svc.get_balance(db_session, payer.id) == 5000
+    assert await ledger_svc.get_balance(db_session, payer.id) == 0

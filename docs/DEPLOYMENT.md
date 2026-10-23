@@ -649,6 +649,8 @@ Be aware of what a single server does and does not give you:
   `/ready` checks cover the databases and Redis.
 - **Verified here vs. on a server.** The repository's CI (`deploy-check.yml`) validates the
   compose files, Caddyfile, preflight, shell scripts, Prometheus/Alertmanager configs and alert
-  rules, and builds the Caddy + dashboards image. The full stack starting on a real VM, Let's
+  rules, and builds the Caddy + dashboards image; `e2e.yml` starts every service and the gateway
+  against PostgreSQL and Redis and drives a booking through the gateway (`scripts/e2e/`, also runnable
+  on a laptop or against a running compose stack: `python3 scripts/e2e/flow.py`). The full stack starting on a real VM, Let's
   Encrypt issuance, Razorpay webhooks, SMS and email can only be confirmed on your server: that is
   what step 10 is for.

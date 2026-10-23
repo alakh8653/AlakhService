@@ -390,3 +390,16 @@ async def test_a_day_with_every_place_taken_is_fully_booked(client):
     await seed(("shop-1", MON, "10:00", 240, "CONFIRMED"), ("shop-1", MON, "16:00", 240, "PENDING"))
     body = await slots(client, MON)
     assert (body["status"], body["message"], body["slots"]) == ("FULLY_BOOKED", "Fully booked — try another day", [])
+
+
+@pytest.mark.asyncio
+async def test_a_shop_awaiting_approval_offers_no_times_and_takes_no_bookings(client):
+    SCHEDULES["shop-1"] = {**HOURS, "accepting_bookings": False}
+    body = await slots(client, MON)
+    assert (body["status"], body["slots"], body["message"]) == ("CLOSED", [], "This shop is not taking bookings yet")
+    refused = await book(client, MON, "10:00")
+    assert refused.status_code == 409
+    assert refused.json()["detail"] == "This shop is not taking bookings yet"
+    # Without hours too: a pending shop is not "any time".
+    SCHEDULES["shop-1"] = {"configured": False, "accepting_bookings": False}
+    assert (await book(client, MON, "10:00")).status_code == 409

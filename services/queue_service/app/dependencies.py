@@ -59,9 +59,11 @@ def ensure_self_or_admin(user_id: Optional[str], caller: Caller) -> None:
 
 
 async def _get_json(base_url: str, path: str) -> Optional[dict]:
+    # Platform services also see shops that are not public yet (awaiting approval).
+    headers = {"X-Internal-Key": settings.INTERNAL_API_KEY} if settings.INTERNAL_API_KEY else {}
     async with httpx.AsyncClient(base_url=base_url, timeout=5.0) as client:
         try:
-            resp = await client.get(path)
+            resp = await client.get(path, headers=headers)
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Upstream service unavailable") from exc
     if resp.status_code == 404:

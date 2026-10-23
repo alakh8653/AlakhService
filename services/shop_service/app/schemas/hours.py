@@ -108,3 +108,5 @@ class ShopSchedule(BaseModel):
     capacity_override: Optional[int] = None
     active_staff: int
     updated_at: Optional[datetime] = None
+    # False while the shop awaits approval or is switched off: booking_service turns bookings away.
+    accepting_bookings: bool = True

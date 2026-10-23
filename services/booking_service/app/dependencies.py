@@ -39,11 +39,16 @@ def verify_access_token(token: str) -> dict:
     return payload
 
 
+def internal_headers() -> dict:
+    """Lets shop_service answer for a shop that is not public yet (awaiting approval)."""
+    return {"X-Internal-Key": settings.INTERNAL_API_KEY} if settings.INTERNAL_API_KEY else {}
+
+
 async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     """Owner user id of a shop according to shop_service, or None if the shop does not exist."""
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
-            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}")
+            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}", headers=internal_headers())
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code == 404:
@@ -124,7 +129,7 @@ async def fetch_shop_schedule(shop_id: str) -> Optional[dict]:
     # Short timeouts: this sits in front of every booking.
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
         try:
-            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/hours")
+            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/hours", headers=internal_headers())
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code not in (200, 404):

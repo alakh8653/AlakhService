@@ -36,6 +36,7 @@ CLOSED = "CLOSED"
 HOLIDAY = "HOLIDAY"
 FULLY_BOOKED = "FULLY_BOOKED"
 NO_MORE_TODAY = "NO_MORE_TODAY"
+NOT_ACCEPTING_MESSAGE = "This shop is not taking bookings yet"
 
 Span = Tuple[datetime, datetime]
 
@@ -69,6 +70,8 @@ class Schedule:
     weekly: Dict[int, List[Tuple[int, int]]] = field(default_factory=dict)
     holidays: Dict[date, Optional[str]] = field(default_factory=dict)
     timezone: str = DEFAULT_TIMEZONE
+    # False while the shop awaits approval or is switched off: no times, and bookings are refused.
+    accepting_bookings: bool = True
 
     @classmethod
     def from_shop_service(cls, data: Optional[dict]) -> "Schedule":
@@ -80,6 +83,7 @@ class Schedule:
         }
         holidays = {date.fromisoformat(h["date"]): h.get("note") for h in data.get("holidays") or []}
         return cls(
+            accepting_bookings=data.get("accepting_bookings") is not False,
             configured=bool(data.get("configured")),
             capacity=max(1, int(data.get("capacity") or 1)),
             weekly=weekly,
@@ -144,9 +148,13 @@ class DayAvailability:
     slots: List[Slot]
     intervals: List[Tuple[int, int]]
     holiday_note: Optional[str] = None
+    # Replaces the usual wording, e.g. for a shop that is not taking bookings at all.
+    reason: Optional[str] = None
 
     @property
     def message(self) -> Optional[str]:
+        if self.reason:
+            return self.reason
         return {
             CLOSED: "Closed on this day",
             HOLIDAY: "Closed on this day" + (f" ({self.holiday_note})" if self.holiday_note else ""),
@@ -159,6 +167,8 @@ def day_availability(
     schedule: Schedule, day: date, duration: int, now: datetime, booked: Iterable[Span]
 ) -> DayAvailability:
     """The start times on [day] at which a [duration]-minute booking can be made, with why there are none."""
+    if not schedule.accepting_bookings:
+        return DayAvailability(CLOSED, [], [], reason=NOT_ACCEPTING_MESSAGE)
     if not schedule.configured:
         return DayAvailability(NOT_CONFIGURED, [], [])
     if day in schedule.holidays:

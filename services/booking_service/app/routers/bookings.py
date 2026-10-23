@@ -223,6 +223,8 @@ async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_s
     A shop that has not published opening hours takes any future time, as before hours existed.
     """
     schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
+    if not schedule.accepting_bookings:
+        raise HTTPException(status_code=409, detail=availability.NOT_ACCEPTING_MESSAGE)
     if not schedule.configured:
         return
     await booking_service.hold_shop_capacity(db, shop_id)

@@ -50,7 +50,9 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     """Owner user id of a shop according to shop_service, or None if the shop does not exist."""
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
-            resp = await client.get(f"/api/v1/shops/{shop_id}")
+            # The internal key lets the owner of a shop awaiting approval set up its services.
+            key = settings.INTERNAL_API_KEY
+            resp = await client.get(f"/api/v1/shops/{shop_id}", headers={"X-Internal-Key": key} if key else {})
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code == 404:

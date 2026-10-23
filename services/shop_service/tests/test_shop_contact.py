@@ -37,3 +37,20 @@ async def test_customers_never_get_a_shops_phone_or_email(client):  # noqa: F811
     for headers in (OWNER, ADMIN):
         one = (await client.get(f"/api/v1/shops/{shop_id}", headers=headers)).json()
         assert (one["phone"], one["email"]) == ("+919876543210", "asha@example.com")
+
+
+@pytest.mark.asyncio
+async def test_hours_say_whether_the_shop_takes_bookings(client):  # noqa: F811
+    from app.services.shop_service import APPROVED  # noqa: PLC0415
+
+    shop = (
+        await client.post(
+            "/api/v1/shops", json={"owner_id": "owner-1", "name": "New Salon", "category": "salon"}, headers=OWNER
+        )
+    ).json()
+    hours = f"/api/v1/shops/{shop['id']}/hours"
+    assert (await client.get(hours)).json()["accepting_bookings"] is False
+    approved = await client.post(f"/api/v1/admin/shops/{shop['id']}/approve", headers=ADMIN)
+    assert approved.status_code == 200, approved.text
+    assert APPROVED == "APPROVED"
+    assert (await client.get(hours)).json()["accepting_bookings"] is True

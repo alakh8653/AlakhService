@@ -17,11 +17,16 @@ class AuthRepositoryImpl implements AuthRepository {
   final NetworkInfo networkInfo;
   final TokenStore tokens;
 
+  /// Runs at the start of [logout], while the session still works (e.g. to turn off this device's
+  /// push token). Failures are ignored: signing out must always succeed.
+  final Future<void> Function()? beforeSignOut;
+
   AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
     required this.tokens,
+    this.beforeSignOut,
   });
 
   Future<Either<Failure, T>> _online<T>(Future<T> Function() action) async {
@@ -79,6 +84,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, bool>> logout() async {
+    try {
+      await beforeSignOut?.call();
+    } catch (_) {}
     final refresh = await tokens.refreshToken();
     if (refresh != null) {
       try {

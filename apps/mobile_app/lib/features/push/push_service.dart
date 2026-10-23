@@ -99,7 +99,8 @@ class FirebasePushMessaging implements PushMessaging {
 }
 
 /// notification_service's device tokens: POST /api/v1/notifications/device-tokens
-/// {user_id, token, platform}. Re-registering a token moves it to the user now signed in.
+/// {user_id, token, platform}, and .../unregister {token} on sign-out. Re-registering a token
+/// moves it to the user now signed in.
 class DeviceTokenApi {
   final ApiClient apiClient;
 
@@ -111,6 +112,14 @@ class DeviceTokenApi {
         ApiConstants.deviceTokens,
         data: {'user_id': userId, 'token': token, 'platform': platform},
       );
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
+  Future<void> unregister(String token) async {
+    try {
+      await apiClient.post<dynamic>('${ApiConstants.deviceTokens}/unregister', data: {'token': token});
     } on DioException catch (e) {
       throw toServerException(e);
     }
@@ -186,9 +195,19 @@ class PushService {
     }
   }
 
-  /// Stops pushes to this device for the user who signed out. notification_service has no
-  /// unregister endpoint, so the token itself is deleted: FCM then rejects it, and the next sign-in
-  /// registers a new one.
+  /// Called while signing out, before the session ends: notification_service turns this device's
+  /// token off. Best effort; [onSignedOut] deletes the token itself anyway.
+  Future<void> releaseDevice() async {
+    final m = messaging;
+    if (m == null) return;
+    try {
+      final token = await m.getToken();
+      if (token != null) await api.unregister(token);
+    } catch (_) {}
+  }
+
+  /// Stops pushes to this device for the user who signed out: the token is deleted, so FCM rejects
+  /// it even if [releaseDevice] could not reach the server. The next sign-in registers a new one.
   Future<void> onSignedOut() async {
     _userId = null;
     _refresh?.cancel();

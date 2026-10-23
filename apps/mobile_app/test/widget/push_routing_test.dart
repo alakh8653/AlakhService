@@ -125,6 +125,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(registrations().last['token'], 'fcm-token-2');
 
+    // Signing out first turns the token off on the server, while the session still works.
+    unawaited(push.releaseDevice());
+    await tester.pumpAndSettle();
+    expect(
+      server.requests.where((r) => r.path == '/api/v1/notifications/device-tokens/unregister').single.data,
+      {'token': messaging.token},
+    );
     auth.add(const LogoutRequested());
     await tester.pumpAndSettle();
     expect(messaging.deletes, 1);
@@ -195,6 +202,7 @@ void main() {
     await none.start();
     await none.onSignedIn('u1');
     await none.askPermission();
+    await none.releaseDevice();
     await none.onSignedOut();
     expect(server.requests, isEmpty);
   });

@@ -10,6 +10,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from jose import jwt
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from starlette.testclient import TestClient
@@ -20,7 +21,7 @@ import app.routers.notifications as notifications_router
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models.notification import Notification
+from app.models.notification import DeviceToken, Notification
 
 
 def token(sub: str, role: str = "user", token_type: str = "access") -> str:
@@ -55,6 +56,7 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        ac.factory = factory
         yield ac
     app.dependency_overrides.clear()
     await engine.dispose()
@@ -112,6 +114,16 @@ async def test_device_tokens_follow_the_signed_in_user(client):
         "/api/v1/notifications/device-tokens", json={**body, "user_id": "alice"}, headers=auth("alice")
     )
     assert moved.json()["user_id"] == "alice"
+
+    # Signing out turns the device off; nobody else can turn it off.
+    unregister = "/api/v1/notifications/device-tokens/unregister"
+    assert (await client.post(unregister, json={"token": "device-1"}, headers=auth("bob"))).status_code == 204
+    async with client.factory() as db:
+        assert (await db.execute(select(DeviceToken))).scalar_one().is_active is True
+    assert (await client.post(unregister, json={"token": "device-1"}, headers=auth("alice"))).status_code == 204
+    async with client.factory() as db:
+        assert (await db.execute(select(DeviceToken))).scalar_one().is_active is False
+    assert (await client.post(unregister, json={"token": "unknown"}, headers=auth("alice"))).status_code == 204
 
 
 def test_websocket_requires_the_users_own_token():

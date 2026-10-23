@@ -69,9 +69,27 @@ lib/
   (on the way → started → completed). While a job is under way the app shares the provider's location
   with that customer (foreground only, every 15 s); it stops when the job is done
 - 📊 Joining a walk-in queue and watching your position
-- 🔔 In-app notifications
+- 🔔 In-app notifications, and push notifications through Firebase Cloud Messaging (see below)
+- 💬 A chat with the shop on each booking (contact details are hidden; masked calls when enabled)
+- 🔗 App links: `https://{domain}/b/{booking_id}` opens the booking, `/reset-password?token=...` the reset screen
 - 👤 Profile editing
 - 🌙 Dark / Light theme support
+
+## Release configuration (fill in before publishing)
+
+| What | Where | Without it |
+|---|---|---|
+| Firebase (push) | `android/app/google-services.json` and `ios/Runner/GoogleService-Info.plist` (add the plist to the Runner target in Xcode), both from the Firebase console for `com.alakhservice.alakh_service`. iOS also needs an APNs key uploaded to Firebase and the Push Notifications capability. | The app runs normally without push; Gradle applies the google-services plugin only when the JSON exists. |
+| App-link domain | `APP_LINK_DOMAIN` in `app_links.xcconfig` (the one place for Android and iOS), plus `--dart-define=APP_LINK_DOMAIN=...` if it is not the placeholder `alakhservice.in`. The site must serve `/.well-known/assetlinks.json` with the release key's SHA-256 fingerprint and `/.well-known/apple-app-site-association` with the Team ID. | Links open in the browser instead of the app. |
+| Legal pages | `--dart-define=LEGAL_BASE_URL=https://...` (placeholder `https://alakhservice.in`); the server's `GET /api/v1/legal/current` links win when it answers. | The placeholder links. |
+| Support contact | `--dart-define=SUPPORT_EMAIL=... --dart-define=SUPPORT_PHONE=...` | Placeholders. |
+| Release signing | `android/key.properties` or `ANDROID_KEYSTORE_*` (see `android/README.md`); iOS team and profiles in Xcode. | Debug-signed, not uploadable. |
+
+The Android `applicationId` `com.alakhservice.alakh_service` (and the iOS bundle id) is **permanent once the
+first build is uploaded to Google Play**: it cannot be changed afterwards without publishing a new app.
+
+The app icon and splash come from `tool/make_brand_assets.py` (`assets/branding/`); regenerate the platform
+files with `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`.
 
 ## Running Tests
 

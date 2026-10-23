@@ -7,6 +7,7 @@ import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../l10n/l10n.dart';
 import '../data/shop_location_api.dart';
 import '../data/travel_options.dart';
 
@@ -46,11 +47,19 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
     TravelMode.uber: Icons.local_taxi,
   };
 
+  /// The option's title and line in the language on screen.
+  static (String, String) _texts(TravelMode mode, AppLocalizations l10n) => switch (mode) {
+        TravelMode.drive => (l10n.travelDrive, l10n.travelDriveHint),
+        TravelMode.transit => (l10n.travelTransit, l10n.travelTransitHint),
+        TravelMode.walk => (l10n.travelWalk, l10n.travelWalkHint),
+        TravelMode.uber => (l10n.travelUber, l10n.travelUberHint),
+      };
+
   Future<void> _go(TravelOption option) async {
     final opened = await (widget.open ?? openExternally)(option.uri);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open ${option.title.toLowerCase()}'), backgroundColor: AppColors.error),
+        SnackBar(content: Text(context.l10n.travelCouldNotOpen(_texts(option.mode, context.l10n).$1)), backgroundColor: AppColors.error),
       );
     }
   }
@@ -59,13 +68,14 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
     await Clipboard.setData(ClipboardData(text: d.copyText));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Address copied. Paste it as the drop-off in Ola, Rapido or any ride app.')),
+        SnackBar(content: Text(context.l10n.travelAddressCopied)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -81,16 +91,16 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
             final d = snapshot.data;
             if (d == null) return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()));
             if (!d.hasCoordinates && d.address.trim().isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text("This shop hasn't added its address yet. Contact them for directions.", textAlign: TextAlign.center),
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(l10n.travelNoAddress, textAlign: TextAlign.center),
               );
             }
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('How to get there', style: AppTextStyles.heading3),
+                Text(l10n.howToGetThere, style: AppTextStyles.heading3),
                 const SizedBox(height: 4),
                 Text(d.name, style: AppTextStyles.subtitle1),
                 if (d.address.isNotEmpty) Text(d.address, style: AppTextStyles.body2.themed(context)),
@@ -102,8 +112,8 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
                       backgroundColor: context.colors.primaryContainer,
                       child: Icon(_icons[option.mode], color: context.colors.primary),
                     ),
-                    title: Text(option.title),
-                    subtitle: Text(option.subtitle),
+                    title: Text(_texts(option.mode, l10n).$1),
+                    subtitle: Text(_texts(option.mode, l10n).$2),
                     trailing: const Icon(Icons.open_in_new, size: 18),
                     onTap: () => _go(option),
                   ),
@@ -113,8 +123,8 @@ class _HowToGetThereSheetState extends State<HowToGetThereSheet> {
                     backgroundColor: context.colors.primaryContainer,
                     child: Icon(Icons.content_copy, color: context.colors.primary),
                   ),
-                  title: const Text('Ola, Rapido or another ride app'),
-                  subtitle: const Text('Copy the address to paste as your drop-off'),
+                  title: Text(l10n.travelRideApp),
+                  subtitle: Text(l10n.travelRideAppHint),
                   onTap: () => _copy(d),
                 ),
               ],

@@ -861,5 +861,139 @@
   "locationWhyTitle": "Use your location?",
   "locationWhyEta": "To show how far your provider is and when they'll reach you, AlakhService needs your location while the app is open. It isn't shared with the shop.",
   "locationWhySharing": "While a job is under way, your location is shared with that job's customer so they can see you arrive. Sharing stops when the job ends.",
-  "continueLabel": "Continue"
+  "continueLabel": "Continue",
+  "markAllRead": "Mark all read",
+  "noNotifications": "No notifications yet",
+  "noNotificationsBody": "Booking updates, payment receipts and queue alerts will show up here.",
+  "checkConnection": "Check your connection and try again.",
+  "timeNow": "now",
+  "hoursAgo": "{count}h ago",
+  "@hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "daysAgo": "{count}d ago",
+  "@daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "paymentTitle": "Payment",
+  "paymentMethod": "Payment Method",
+  "payMethodUpi": "UPI",
+  "payMethodUpiHint": "GPay, PhonePe, Paytm or any UPI app",
+  "payMethodCard": "Credit / debit card",
+  "payMethodNetbanking": "Net banking",
+  "payMethodCash": "Pay in cash",
+  "payMethodCashHint": "Hand it to your provider when the job is done",
+  "paymentCancelled": "Payment cancelled. You have not been charged.",
+  "paymentPaidAmount": "{amount} paid.",
+  "@paymentPaidAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentCashBody": "Pay {amount} in cash to your provider when the job is done.",
+  "@paymentCashBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentConfirmingBody": "Payment of {amount} is being confirmed. It will show as paid shortly.",
+  "@paymentConfirmingBody": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "paymentSuccessful": "Payment successful",
+  "paymentCashNoted": "Cash payment noted",
+  "paymentRecorded": "Payment recorded",
+  "paymentSecured": "Secured by Razorpay. We never see your card or UPI PIN.",
+  "payInCashButton": "I'll pay {amount} in cash",
+  "@payInCashButton": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "amountToPay": "Amount to pay",
+  "bookingLabel": "Booking",
+  "queueLeaveQuestion": "Leave the queue?",
+  "queueLeaveBody": "You'll lose your place. If you join again you go to the back of the queue.",
+  "queueStay": "Stay in queue",
+  "queueLeave": "Leave",
+  "queueLeft": "You have left the queue",
+  "queueNoLonger": "You're no longer in this queue. Thanks for visiting!",
+  "queueYourTurn": "It's your turn!",
+  "queueGoToCounter": "Please go to the counter now.",
+  "queuePositionSemantics": "Your position: {position}",
+  "@queuePositionSemantics": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "queueYourPosition": "Your Position",
+  "queueEstimatedWait": "Estimated Wait Time",
+  "queueExpectedAround": "Expected around {time}",
+  "@queueExpectedAround": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "queueWeWillNotify": "We'll notify you when you're almost up, so you don't need to wait here.",
+  "queueLeaveButton": "Leave Queue",
+  "queueWaitUnknown": "Not available yet",
+  "queueYoureNext": "You're next",
+  "queueWaitMinutes": "{minutes} min",
+  "@queueWaitMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "queueAhead": "{count, plural, =0{Nobody is ahead of you} =1{1 person ahead of you} other{{count} people ahead of you}}",
+  "@queueAhead": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "travelDrive": "Drive there",
+  "travelDriveHint": "Your car or bike: turn-by-turn directions",
+  "travelTransit": "Public transport",
+  "travelTransitHint": "Bus, metro and train routes and timings",
+  "travelWalk": "Walk",
+  "travelWalkHint": "Walking directions",
+  "travelUber": "Book an Uber",
+  "travelUberHint": "Opens Uber with the shop as your drop-off",
+  "travelRideApp": "Ola, Rapido or another ride app",
+  "travelRideAppHint": "Copy the address to paste as your drop-off",
+  "travelAddressCopied": "Address copied. Paste it as the drop-off in Ola, Rapido or any ride app.",
+  "travelCouldNotOpen": "Could not open {option}",
+  "@travelCouldNotOpen": {
+    "placeholders": {
+      "option": {
+        "type": "String"
+      }
+    }
+  },
+  "travelNoAddress": "This shop hasn't added its address yet. Contact them for directions."
 }

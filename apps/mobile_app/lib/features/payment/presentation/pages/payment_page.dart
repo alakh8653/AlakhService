@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/payment_api.dart';
 import '../../data/razorpay_checkout.dart';
 
@@ -49,13 +50,12 @@ class _PaymentPageState extends State<PaymentPage> {
   /// The booking number customers see elsewhere, or a short form of the id.
   String get _reference => widget.bookingNumber.isNotEmpty ? widget.bookingNumber : _shortId(widget.bookingId);
 
-  static const List<_PaymentMethod> _methods = [
-    _PaymentMethod(id: 'upi', label: 'UPI', icon: Icons.account_balance, hint: 'GPay, PhonePe, Paytm or any UPI app'),
-    _PaymentMethod(id: 'card', label: 'Credit / debit card', icon: Icons.credit_card),
-    _PaymentMethod(id: 'netbanking', label: 'Net banking', icon: Icons.computer),
-    _PaymentMethod(
-        id: 'cash', label: 'Pay in cash', icon: Icons.money, hint: 'Hand it to your provider when the job is done'),
-  ];
+  static List<_PaymentMethod> _methodsIn(AppLocalizations l10n) => [
+        _PaymentMethod(id: 'upi', label: l10n.payMethodUpi, icon: Icons.account_balance, hint: l10n.payMethodUpiHint),
+        _PaymentMethod(id: 'card', label: l10n.payMethodCard, icon: Icons.credit_card),
+        _PaymentMethod(id: 'netbanking', label: l10n.payMethodNetbanking, icon: Icons.computer),
+        _PaymentMethod(id: 'cash', label: l10n.payMethodCash, icon: Icons.money, hint: l10n.payMethodCashHint),
+      ];
 
   void _showMessage(String message, {bool error = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -86,7 +86,7 @@ class _PaymentPageState extends State<PaymentPage> {
             );
           case CheckoutCancelled():
             setState(() => _isProcessing = false);
-            return _showMessage('Payment cancelled. You have not been charged.', error: false);
+            return _showMessage(context.l10n.paymentCancelled, error: false);
           case CheckoutFailed(:final message):
             setState(() => _isProcessing = false);
             return _showMessage(message);
@@ -103,22 +103,23 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _showResult(PaymentResult result) {
+    final l10n = context.l10n;
     final amount = rupees(result.amount);
     final completed = result.isCompleted;
     final message = completed
-        ? '$amount paid.'
+        ? l10n.paymentPaidAmount(amount)
         : _selectedMethod == 'cash'
-            ? 'Pay $amount in cash to your provider when the job is done.'
-            : 'Payment of $amount is being confirmed. It will show as paid shortly.';
+            ? l10n.paymentCashBody(amount)
+            : l10n.paymentConfirmingBody(amount);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: Text(completed
-            ? 'Payment successful'
+            ? l10n.paymentSuccessful
             : _selectedMethod == 'cash'
-                ? 'Cash payment noted'
-                : 'Payment recorded'),
+                ? l10n.paymentCashNoted
+                : l10n.paymentRecorded),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -137,7 +138,7 @@ class _PaymentPageState extends State<PaymentPage> {
               Navigator.pop(dialogContext);
               Navigator.pop(context, true);
             },
-            child: const Text('Done'),
+            child: Text(l10n.done),
           ),
         ],
       ),
@@ -146,8 +147,10 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final methods = _methodsIn(l10n);
     return Scaffold(
-      appBar: AppBar(title: const Text('Payment')),
+      appBar: AppBar(title: Text(l10n.paymentTitle)),
       // Everything scrolls, and the Pay button stays at the bottom: on a small phone with large
       // text the methods no longer squeeze the button off screen.
       bottomNavigationBar: SafeArea(
@@ -166,15 +169,15 @@ class _PaymentPageState extends State<PaymentPage> {
                       Icon(Icons.lock_outline, size: 14, color: context.palette.muted),
                       const SizedBox(width: 4),
                       Flexible(
-                          child: Text('Secured by Razorpay. We never see your card or UPI PIN.',
+                          child: Text(l10n.paymentSecured,
                               style: AppTextStyles.caption.themed(context))),
                     ],
                   ),
                 ),
               CustomButton(
                 label: _selectedMethod == 'cash'
-                    ? "I'll pay ${rupees(widget.amount)} in cash"
-                    : 'Pay ${rupees(widget.amount)}',
+                    ? l10n.payInCashButton(rupees(widget.amount))
+                    : l10n.payAmount(rupees(widget.amount)),
                 onPressed: _isProcessing ? null : _onPay,
                 isLoading: _isProcessing,
               ),
@@ -187,13 +190,13 @@ class _PaymentPageState extends State<PaymentPage> {
         children: [
           _AmountSummaryCard(amount: widget.amount, reference: _reference, serviceName: widget.serviceName),
           const SizedBox(height: 24),
-          Semantics(header: true, child: const Text('Payment Method', style: AppTextStyles.subtitle1)),
+          Semantics(header: true, child: Text(l10n.paymentMethod, style: AppTextStyles.subtitle1)),
           const SizedBox(height: 12),
-          for (var index = 0; index < _methods.length; index++)
+          for (var index = 0; index < methods.length; index++)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Builder(builder: (context) {
-                final method = _methods[index];
+                final method = methods[index];
                 final isSelected = _selectedMethod == method.id;
                 return Semantics(
                   inMutuallyExclusiveGroup: true,
@@ -267,7 +270,7 @@ class _AmountSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(serviceName ?? 'Amount to pay',
+                Text(serviceName ?? context.l10n.amountToPay,
                     style: AppTextStyles.body2.themed(context), maxLines: 2, overflow: TextOverflow.ellipsis),
                 Text(
                   rupees(amount),
@@ -280,7 +283,7 @@ class _AmountSummaryCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('Booking', style: AppTextStyles.caption.themed(context)),
+              Text(context.l10n.bookingLabel, style: AppTextStyles.caption.themed(context)),
               Text('#$reference', style: AppTextStyles.subtitle2.themed(context)),
             ],
           ),

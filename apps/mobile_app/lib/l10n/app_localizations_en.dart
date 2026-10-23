@@ -1535,4 +1535,213 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueLabel => 'Continue';
+
+  @override
+  String get markAllRead => 'Mark all read';
+
+  @override
+  String get noNotifications => 'No notifications yet';
+
+  @override
+  String get noNotificationsBody =>
+      'Booking updates, payment receipts and queue alerts will show up here.';
+
+  @override
+  String get checkConnection => 'Check your connection and try again.';
+
+  @override
+  String get timeNow => 'now';
+
+  @override
+  String hoursAgo(int count) {
+    return '${count}h ago';
+  }
+
+  @override
+  String daysAgo(int count) {
+    return '${count}d ago';
+  }
+
+  @override
+  String get paymentTitle => 'Payment';
+
+  @override
+  String get paymentMethod => 'Payment Method';
+
+  @override
+  String get payMethodUpi => 'UPI';
+
+  @override
+  String get payMethodUpiHint => 'GPay, PhonePe, Paytm or any UPI app';
+
+  @override
+  String get payMethodCard => 'Credit / debit card';
+
+  @override
+  String get payMethodNetbanking => 'Net banking';
+
+  @override
+  String get payMethodCash => 'Pay in cash';
+
+  @override
+  String get payMethodCashHint =>
+      'Hand it to your provider when the job is done';
+
+  @override
+  String get paymentCancelled =>
+      'Payment cancelled. You have not been charged.';
+
+  @override
+  String paymentPaidAmount(String amount) {
+    return '$amount paid.';
+  }
+
+  @override
+  String paymentCashBody(String amount) {
+    return 'Pay $amount in cash to your provider when the job is done.';
+  }
+
+  @override
+  String paymentConfirmingBody(String amount) {
+    return 'Payment of $amount is being confirmed. It will show as paid shortly.';
+  }
+
+  @override
+  String get paymentSuccessful => 'Payment successful';
+
+  @override
+  String get paymentCashNoted => 'Cash payment noted';
+
+  @override
+  String get paymentRecorded => 'Payment recorded';
+
+  @override
+  String get paymentSecured =>
+      'Secured by Razorpay. We never see your card or UPI PIN.';
+
+  @override
+  String payInCashButton(String amount) {
+    return 'I\'ll pay $amount in cash';
+  }
+
+  @override
+  String get amountToPay => 'Amount to pay';
+
+  @override
+  String get bookingLabel => 'Booking';
+
+  @override
+  String get queueLeaveQuestion => 'Leave the queue?';
+
+  @override
+  String get queueLeaveBody =>
+      'You\'ll lose your place. If you join again you go to the back of the queue.';
+
+  @override
+  String get queueStay => 'Stay in queue';
+
+  @override
+  String get queueLeave => 'Leave';
+
+  @override
+  String get queueLeft => 'You have left the queue';
+
+  @override
+  String get queueNoLonger =>
+      'You\'re no longer in this queue. Thanks for visiting!';
+
+  @override
+  String get queueYourTurn => 'It\'s your turn!';
+
+  @override
+  String get queueGoToCounter => 'Please go to the counter now.';
+
+  @override
+  String queuePositionSemantics(int position) {
+    return 'Your position: $position';
+  }
+
+  @override
+  String get queueYourPosition => 'Your Position';
+
+  @override
+  String get queueEstimatedWait => 'Estimated Wait Time';
+
+  @override
+  String queueExpectedAround(String time) {
+    return 'Expected around $time';
+  }
+
+  @override
+  String get queueWeWillNotify =>
+      'We\'ll notify you when you\'re almost up, so you don\'t need to wait here.';
+
+  @override
+  String get queueLeaveButton => 'Leave Queue';
+
+  @override
+  String get queueWaitUnknown => 'Not available yet';
+
+  @override
+  String get queueYoureNext => 'You\'re next';
+
+  @override
+  String queueWaitMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String queueAhead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people ahead of you',
+      one: '1 person ahead of you',
+      zero: 'Nobody is ahead of you',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get travelDrive => 'Drive there';
+
+  @override
+  String get travelDriveHint => 'Your car or bike: turn-by-turn directions';
+
+  @override
+  String get travelTransit => 'Public transport';
+
+  @override
+  String get travelTransitHint => 'Bus, metro and train routes and timings';
+
+  @override
+  String get travelWalk => 'Walk';
+
+  @override
+  String get travelWalkHint => 'Walking directions';
+
+  @override
+  String get travelUber => 'Book an Uber';
+
+  @override
+  String get travelUberHint => 'Opens Uber with the shop as your drop-off';
+
+  @override
+  String get travelRideApp => 'Ola, Rapido or another ride app';
+
+  @override
+  String get travelRideAppHint => 'Copy the address to paste as your drop-off';
+
+  @override
+  String get travelAddressCopied =>
+      'Address copied. Paste it as the drop-off in Ola, Rapido or any ride app.';
+
+  @override
+  String travelCouldNotOpen(String option) {
+    return 'Could not open $option';
+  }
+
+  @override
+  String get travelNoAddress =>
+      'This shop hasn\'t added its address yet. Contact them for directions.';
 }

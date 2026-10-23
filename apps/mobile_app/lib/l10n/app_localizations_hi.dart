@@ -1518,4 +1518,212 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get continueLabel => 'आगे बढ़ें';
+
+  @override
+  String get markAllRead => 'सभी पढ़े हुए करें';
+
+  @override
+  String get noNotifications => 'अभी कोई सूचना नहीं';
+
+  @override
+  String get noNotificationsBody =>
+      'बुकिंग अपडेट, भुगतान की रसीदें और कतार की सूचनाएँ यहाँ दिखेंगी।';
+
+  @override
+  String get checkConnection =>
+      'अपना इंटरनेट कनेक्शन जाँचें और फिर कोशिश करें।';
+
+  @override
+  String get timeNow => 'अभी';
+
+  @override
+  String hoursAgo(int count) {
+    return '$count घंटे पहले';
+  }
+
+  @override
+  String daysAgo(int count) {
+    return '$count दिन पहले';
+  }
+
+  @override
+  String get paymentTitle => 'भुगतान';
+
+  @override
+  String get paymentMethod => 'भुगतान का तरीका';
+
+  @override
+  String get payMethodUpi => 'UPI';
+
+  @override
+  String get payMethodUpiHint => 'GPay, PhonePe, Paytm या कोई भी UPI ऐप';
+
+  @override
+  String get payMethodCard => 'क्रेडिट / डेबिट कार्ड';
+
+  @override
+  String get payMethodNetbanking => 'नेट बैंकिंग';
+
+  @override
+  String get payMethodCash => 'नकद भुगतान करें';
+
+  @override
+  String get payMethodCashHint => 'काम पूरा होने पर अपने प्रोवाइडर को दें';
+
+  @override
+  String get paymentCancelled =>
+      'भुगतान रद्द हुआ। आपसे कोई पैसा नहीं लिया गया।';
+
+  @override
+  String paymentPaidAmount(String amount) {
+    return '$amount का भुगतान हो गया।';
+  }
+
+  @override
+  String paymentCashBody(String amount) {
+    return 'काम पूरा होने पर अपने प्रोवाइडर को $amount नकद दें।';
+  }
+
+  @override
+  String paymentConfirmingBody(String amount) {
+    return '$amount के भुगतान की पुष्टि हो रही है। जल्द ही यह भुगतान हो गया दिखेगा।';
+  }
+
+  @override
+  String get paymentSuccessful => 'भुगतान सफल';
+
+  @override
+  String get paymentCashNoted => 'नकद भुगतान दर्ज हुआ';
+
+  @override
+  String get paymentRecorded => 'भुगतान दर्ज हुआ';
+
+  @override
+  String get paymentSecured =>
+      'Razorpay द्वारा सुरक्षित। हम आपका कार्ड या UPI PIN कभी नहीं देखते।';
+
+  @override
+  String payInCashButton(String amount) {
+    return 'मैं $amount नकद दूँगा/दूँगी';
+  }
+
+  @override
+  String get amountToPay => 'देय राशि';
+
+  @override
+  String get bookingLabel => 'बुकिंग';
+
+  @override
+  String get queueLeaveQuestion => 'कतार छोड़ें?';
+
+  @override
+  String get queueLeaveBody =>
+      'आपकी जगह चली जाएगी। फिर से जुड़ने पर आप कतार में सबसे पीछे होंगे।';
+
+  @override
+  String get queueStay => 'कतार में रहें';
+
+  @override
+  String get queueLeave => 'छोड़ें';
+
+  @override
+  String get queueLeft => 'आपने कतार छोड़ दी';
+
+  @override
+  String get queueNoLonger => 'अब आप इस कतार में नहीं हैं। आने के लिए धन्यवाद!';
+
+  @override
+  String get queueYourTurn => 'आपकी बारी है!';
+
+  @override
+  String get queueGoToCounter => 'कृपया अभी काउंटर पर जाएँ।';
+
+  @override
+  String queuePositionSemantics(int position) {
+    return 'आपका नंबर: $position';
+  }
+
+  @override
+  String get queueYourPosition => 'आपका नंबर';
+
+  @override
+  String get queueEstimatedWait => 'अनुमानित इंतज़ार';
+
+  @override
+  String queueExpectedAround(String time) {
+    return 'लगभग $time पर';
+  }
+
+  @override
+  String get queueWeWillNotify =>
+      'आपकी बारी आने से पहले हम आपको सूचना देंगे, इसलिए यहाँ इंतज़ार करने की ज़रूरत नहीं।';
+
+  @override
+  String get queueLeaveButton => 'कतार छोड़ें';
+
+  @override
+  String get queueWaitUnknown => 'अभी उपलब्ध नहीं';
+
+  @override
+  String get queueYoureNext => 'अगली बारी आपकी';
+
+  @override
+  String queueWaitMinutes(int minutes) {
+    return '$minutes मिनट';
+  }
+
+  @override
+  String queueAhead(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'आपसे आगे $count लोग',
+      one: 'आपसे आगे 1 व्यक्ति',
+      zero: 'आपसे आगे कोई नहीं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get travelDrive => 'गाड़ी से जाएँ';
+
+  @override
+  String get travelDriveHint => 'अपनी कार या बाइक: रास्ते की पूरी जानकारी';
+
+  @override
+  String get travelTransit => 'सार्वजनिक परिवहन';
+
+  @override
+  String get travelTransitHint => 'बस, मेट्रो और ट्रेन के रूट और समय';
+
+  @override
+  String get travelWalk => 'पैदल';
+
+  @override
+  String get travelWalkHint => 'पैदल रास्ता';
+
+  @override
+  String get travelUber => 'Uber बुक करें';
+
+  @override
+  String get travelUberHint => 'दुकान को ड्रॉप-ऑफ़ बनाकर Uber खोलता है';
+
+  @override
+  String get travelRideApp => 'Ola, Rapido या कोई और राइड ऐप';
+
+  @override
+  String get travelRideAppHint => 'ड्रॉप-ऑफ़ के लिए पता कॉपी करें';
+
+  @override
+  String get travelAddressCopied =>
+      'पता कॉपी हो गया। इसे Ola, Rapido या किसी भी राइड ऐप में ड्रॉप-ऑफ़ के रूप में पेस्ट करें।';
+
+  @override
+  String travelCouldNotOpen(String option) {
+    return '$option नहीं खुल सका';
+  }
+
+  @override
+  String get travelNoAddress =>
+      'इस दुकान ने अभी अपना पता नहीं जोड़ा है। रास्ते के लिए उनसे संपर्क करें।';
 }

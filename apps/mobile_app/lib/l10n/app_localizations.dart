@@ -2767,6 +2767,348 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue'**
   String get continueLabel;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get markAllRead;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get noNotifications;
+
+  /// No description provided for @noNotificationsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking updates, payment receipts and queue alerts will show up here.'**
+  String get noNotificationsBody;
+
+  /// No description provided for @checkConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get checkConnection;
+
+  /// No description provided for @timeNow.
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get timeNow;
+
+  /// No description provided for @hoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}h ago'**
+  String hoursAgo(int count);
+
+  /// No description provided for @daysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}d ago'**
+  String daysAgo(int count);
+
+  /// No description provided for @paymentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get paymentTitle;
+
+  /// No description provided for @paymentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Method'**
+  String get paymentMethod;
+
+  /// No description provided for @payMethodUpi.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI'**
+  String get payMethodUpi;
+
+  /// No description provided for @payMethodUpiHint.
+  ///
+  /// In en, this message translates to:
+  /// **'GPay, PhonePe, Paytm or any UPI app'**
+  String get payMethodUpiHint;
+
+  /// No description provided for @payMethodCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit / debit card'**
+  String get payMethodCard;
+
+  /// No description provided for @payMethodNetbanking.
+  ///
+  /// In en, this message translates to:
+  /// **'Net banking'**
+  String get payMethodNetbanking;
+
+  /// No description provided for @payMethodCash.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay in cash'**
+  String get payMethodCash;
+
+  /// No description provided for @payMethodCashHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hand it to your provider when the job is done'**
+  String get payMethodCashHint;
+
+  /// No description provided for @paymentCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment cancelled. You have not been charged.'**
+  String get paymentCancelled;
+
+  /// No description provided for @paymentPaidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} paid.'**
+  String paymentPaidAmount(String amount);
+
+  /// No description provided for @paymentCashBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay {amount} in cash to your provider when the job is done.'**
+  String paymentCashBody(String amount);
+
+  /// No description provided for @paymentConfirmingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment of {amount} is being confirmed. It will show as paid shortly.'**
+  String paymentConfirmingBody(String amount);
+
+  /// No description provided for @paymentSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment successful'**
+  String get paymentSuccessful;
+
+  /// No description provided for @paymentCashNoted.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash payment noted'**
+  String get paymentCashNoted;
+
+  /// No description provided for @paymentRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment recorded'**
+  String get paymentRecorded;
+
+  /// No description provided for @paymentSecured.
+  ///
+  /// In en, this message translates to:
+  /// **'Secured by Razorpay. We never see your card or UPI PIN.'**
+  String get paymentSecured;
+
+  /// No description provided for @payInCashButton.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll pay {amount} in cash'**
+  String payInCashButton(String amount);
+
+  /// No description provided for @amountToPay.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount to pay'**
+  String get amountToPay;
+
+  /// No description provided for @bookingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking'**
+  String get bookingLabel;
+
+  /// No description provided for @queueLeaveQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave the queue?'**
+  String get queueLeaveQuestion;
+
+  /// No description provided for @queueLeaveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll lose your place. If you join again you go to the back of the queue.'**
+  String get queueLeaveBody;
+
+  /// No description provided for @queueStay.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay in queue'**
+  String get queueStay;
+
+  /// No description provided for @queueLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get queueLeave;
+
+  /// No description provided for @queueLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'You have left the queue'**
+  String get queueLeft;
+
+  /// No description provided for @queueNoLonger.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re no longer in this queue. Thanks for visiting!'**
+  String get queueNoLonger;
+
+  /// No description provided for @queueYourTurn.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s your turn!'**
+  String get queueYourTurn;
+
+  /// No description provided for @queueGoToCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'Please go to the counter now.'**
+  String get queueGoToCounter;
+
+  /// No description provided for @queuePositionSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Your position: {position}'**
+  String queuePositionSemantics(int position);
+
+  /// No description provided for @queueYourPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Position'**
+  String get queueYourPosition;
+
+  /// No description provided for @queueEstimatedWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated Wait Time'**
+  String get queueEstimatedWait;
+
+  /// No description provided for @queueExpectedAround.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected around {time}'**
+  String queueExpectedAround(String time);
+
+  /// No description provided for @queueWeWillNotify.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll notify you when you\'re almost up, so you don\'t need to wait here.'**
+  String get queueWeWillNotify;
+
+  /// No description provided for @queueLeaveButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Queue'**
+  String get queueLeaveButton;
+
+  /// No description provided for @queueWaitUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available yet'**
+  String get queueWaitUnknown;
+
+  /// No description provided for @queueYoureNext.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re next'**
+  String get queueYoureNext;
+
+  /// No description provided for @queueWaitMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String queueWaitMinutes(int minutes);
+
+  /// No description provided for @queueAhead.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Nobody is ahead of you} =1{1 person ahead of you} other{{count} people ahead of you}}'**
+  String queueAhead(int count);
+
+  /// No description provided for @travelDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Drive there'**
+  String get travelDrive;
+
+  /// No description provided for @travelDriveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your car or bike: turn-by-turn directions'**
+  String get travelDriveHint;
+
+  /// No description provided for @travelTransit.
+  ///
+  /// In en, this message translates to:
+  /// **'Public transport'**
+  String get travelTransit;
+
+  /// No description provided for @travelTransitHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Bus, metro and train routes and timings'**
+  String get travelTransitHint;
+
+  /// No description provided for @travelWalk.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk'**
+  String get travelWalk;
+
+  /// No description provided for @travelWalkHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Walking directions'**
+  String get travelWalkHint;
+
+  /// No description provided for @travelUber.
+  ///
+  /// In en, this message translates to:
+  /// **'Book an Uber'**
+  String get travelUber;
+
+  /// No description provided for @travelUberHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens Uber with the shop as your drop-off'**
+  String get travelUberHint;
+
+  /// No description provided for @travelRideApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Ola, Rapido or another ride app'**
+  String get travelRideApp;
+
+  /// No description provided for @travelRideAppHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the address to paste as your drop-off'**
+  String get travelRideAppHint;
+
+  /// No description provided for @travelAddressCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Address copied. Paste it as the drop-off in Ola, Rapido or any ride app.'**
+  String get travelAddressCopied;
+
+  /// No description provided for @travelCouldNotOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open {option}'**
+  String travelCouldNotOpen(String option);
+
+  /// No description provided for @travelNoAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'This shop hasn\'t added its address yet. Contact them for directions.'**
+  String get travelNoAddress;
 }
 
 class _AppLocalizationsDelegate

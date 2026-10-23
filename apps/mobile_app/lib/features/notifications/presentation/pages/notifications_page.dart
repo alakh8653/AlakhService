@@ -7,6 +7,7 @@ import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../l10n/l10n.dart';
 import '../../data/notifications_api.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -93,12 +94,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) {
     final items = _items;
     final hasUnread = items?.any((n) => !n.isRead) ?? false;
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(l10n.notifications),
         actions: [
           if (hasUnread)
-            TextButton(onPressed: _markAllRead, child: const Text('Mark all read')),
+            TextButton(onPressed: _markAllRead, child: Text(l10n.markAllRead)),
         ],
       ),
       body: RefreshIndicator(
@@ -115,20 +117,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   const Icon(Icons.notifications_off_outlined, size: 64, color: AppColors.textDisabled),
                   const SizedBox(height: 16),
                   Text(
-                    _error ?? 'No notifications yet',
+                    _error ?? l10n.noNotifications,
                     textAlign: TextAlign.center,
                     style: AppTextStyles.subtitle1,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _error == null
-                        ? 'Booking updates, payment receipts and queue alerts will show up here.'
-                        : 'Check your connection and try again.',
+                        ? l10n.noNotificationsBody
+                        : l10n.checkConnection,
                     textAlign: TextAlign.center,
                     style: AppTextStyles.body2.themed(context),
                   ),
                   if (_error != null)
-                    Center(child: TextButton(onPressed: _load, child: const Text('Try again'))),
+                    Center(child: TextButton(onPressed: _load, child: Text(l10n.tryAgain))),
                 ],
               );
             }
@@ -154,13 +156,13 @@ class _NotificationTile extends StatelessWidget {
 
   const _NotificationTile({required this.item, required this.icon, required this.onTap});
 
-  String _formatTime(DateTime time) {
+  static String _formatTime(DateTime time, AppLocalizations l10n) {
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return friendlyDay(time);
+    if (diff.inMinutes < 1) return l10n.timeNow;
+    if (diff.inMinutes < 60) return l10n.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l10n.hoursAgo(diff.inHours);
+    if (diff.inDays < 7) return l10n.daysAgo(diff.inDays);
+    return friendlyDay(time, l10n: l10n);
   }
 
   @override
@@ -187,7 +189,7 @@ class _NotificationTile extends StatelessWidget {
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_formatTime(item.createdAt), style: AppTextStyles.caption.themed(context)),
+          Text(_formatTime(item.createdAt, context.l10n), style: AppTextStyles.caption.themed(context)),
           if (!item.isRead) ...[
             const SizedBox(height: 4),
             Container(

@@ -321,12 +321,6 @@ async def test_razorpay_webhooks_must_be_signed_with_the_webhook_secret(client):
     assert (await client.post(hook, content=event(49900), headers={"x-razorpay-signature": "x"})).status_code == 503
 
 
-@pytest.mark.asyncio
-async def test_stripe_webhook_is_refused_without_its_secret(client):
-    forged = {"type": "payment_intent.succeeded", "data": {"object": {"id": "pi_1", "metadata": {"payment_id": "x"}}}}
-    assert (await client.post("/api/v1/webhooks/stripe", json=forged)).status_code == 503
-
-
 async def paid_by_razorpay(client, key: str, booking: str = "bk-1") -> str:
     body = {"booking_id": booking, "payment_method": "upi", "idempotency_key": key}
     payment = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()

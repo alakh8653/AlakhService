@@ -1,9 +1,6 @@
 """Failed and completed payments are reported to trust_risk_service, for the payer."""
 
-import hashlib
-import hmac
 import json
-import time
 
 import httpx
 import pytest
@@ -70,26 +67,6 @@ async def test_cash_confirmed_by_the_shop_is_a_safe_signal_for_the_payer(client)
     body = {"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-risk-4"}
     pid = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"]
     assert (await client.post(f"/api/v1/payments/{pid}/cash-received", headers=auth("owner"))).status_code == 200
-    assert REPORTED == [("cust", "payment_completed", 0.0, False)]
-
-
-@pytest.mark.asyncio
-async def test_a_stripe_payment_is_a_safe_signal_for_the_payer(client, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(settings, "STRIPE_WEBHOOK_SECRET", "whsec_test")
-    body = {"booking_id": "bk-1", "payment_method": "cash", "idempotency_key": "key-risk-5"}
-    pid = (await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))).json()["id"]
-    event = json.dumps(
-        {
-            "id": "evt_1",
-            "object": "event",
-            "type": "payment_intent.succeeded",
-            "data": {"object": {"id": "pi_1", "amount": 49900, "metadata": {"payment_id": pid}}},
-        }
-    )
-    t = int(time.time())
-    sig = hmac.new(b"whsec_test", f"{t}.{event}".encode(), hashlib.sha256).hexdigest()
-    resp = await client.post("/api/v1/webhooks/stripe", content=event, headers={"stripe-signature": f"t={t},v1={sig}"})
-    assert resp.status_code == 200, resp.text
     assert REPORTED == [("cust", "payment_completed", 0.0, False)]
 
 

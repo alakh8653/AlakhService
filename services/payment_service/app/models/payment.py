@@ -47,7 +47,7 @@ class Payment(Base):
     payment_method = Column(String, nullable=False)
     provider_payment_id = Column(String, nullable=True)
     provider_order_id = Column(String, nullable=True, index=True)
-    gateway = Column(String, nullable=True)  # razorpay, stripe
+    gateway = Column(String, nullable=True)  # razorpay, cash
     idempotency_key = Column(String, unique=True, nullable=False)
     metadata_json = Column("metadata", Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

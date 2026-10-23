@@ -259,17 +259,6 @@ class PaymentService:
             return "payment.failed", payment
         return None
 
-    async def process_stripe_event(self, db: AsyncSession, event: dict) -> Optional[tuple[str, Payment]]:
-        """Applies a Stripe webhook event whose signature has already been checked; returns what changed."""
-        if event.get("type") != "payment_intent.succeeded":
-            return None
-        intent = event.get("data", {}).get("object", {})
-        payment = await self._find_for_gateway(db, (intent.get("metadata") or {}).get("payment_id"), None)
-        if payment and intent.get("amount_received", intent.get("amount")) == payment.amount_cents:
-            changed = await self.record_capture(db, payment, intent.get("id"), "stripe")
-            return (changed, payment) if changed else None
-        return None
-
     async def request_refund(
         self, db: AsyncSession, payment_id: str, refund_data: RefundRequest, gateway=None
     ) -> Refund:

@@ -17,8 +17,6 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: Optional[str] = None
     # Set in the Razorpay dashboard when adding the webhook; without it webhooks are refused.
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
-    STRIPE_SECRET_KEY: Optional[str] = None
-    STRIPE_WEBHOOK_SECRET: Optional[str] = None
     PLATFORM_ACCOUNT_ID: str = "platform_account"
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
@@ -30,7 +28,8 @@ class Settings(BaseSettings):
     # signals or audit reports are sent.
     INTERNAL_API_KEY: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env")
+    # extra="ignore": old .env files may still carry settings that are gone (e.g. STRIPE_*).
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()

@@ -8,7 +8,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core import risk
 from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
@@ -337,29 +336,4 @@ async def razorpay_webhook(
         await db.commit()  # visible before anyone is told (the background task delays the session's commit)
         background.add_task(notify_payment, notifier, event, payment_snapshot(payment))
         _report_risk_after(background, event, payment)
-    return {"status": "processed"}
-
-
-@router.post("/webhooks/stripe")
-async def stripe_webhook(
-    request: Request,
-    background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    """Stripe events, accepted only with a valid Stripe-Signature."""
-    if not settings.STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(status_code=503, detail="Stripe webhooks are not configured")
-    import stripe
-
-    body = await request.body()
-    try:
-        stripe.Webhook.construct_event(
-            body, request.headers.get("stripe-signature", ""), settings.STRIPE_WEBHOOK_SECRET
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid signature") from e
-    changed = await payment_service.process_stripe_event(db, json.loads(body))
-    if changed:
-        await db.commit()
-        _report_risk_after(background, *changed)
     return {"status": "processed"}

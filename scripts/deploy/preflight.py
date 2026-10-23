@@ -248,7 +248,28 @@ def check_file(env: dict[str, str], r: Report) -> None:
     check_backups_and_monitoring(env, r)
 
 
+def check_invoicing(env: dict[str, str], r: Report) -> None:
+    r.section("Commission and invoices")
+    missing = [k for k in ("PLATFORM_LEGAL_NAME", "PLATFORM_GSTIN", "PLATFORM_ADDRESS") if not env.get(k)]
+    if missing:
+        r.warn(f"Invoices will say 'not set' until you fill {', '.join(missing)}")
+    elif not re.fullmatch(r"\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]", env["PLATFORM_GSTIN"]):
+        r.error("PLATFORM_GSTIN is not a valid GSTIN (15 characters, e.g. 27ABCDE1234F1Z5)")
+    else:
+        r.ok(f"invoices are issued by {env['PLATFORM_LEGAL_NAME']} ({env['PLATFORM_GSTIN']})")
+    try:
+        rate = float(env.get("PLATFORM_COMMISSION_PERCENT") or 10)
+    except ValueError:
+        r.error("PLATFORM_COMMISSION_PERCENT must be a number")
+        return
+    if not 0 <= rate <= 50:
+        r.error("PLATFORM_COMMISSION_PERCENT must be between 0 and 50")
+    else:
+        r.ok(f"commission: {rate:g}% of each booking, plus GST on it")
+
+
 def check_integrations(env: dict[str, str], r: Report) -> None:
+    check_invoicing(env, r)
     r.section("Payments (Razorpay)")
     keys = ("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET")
     present = [k for k in keys if env.get(k)]

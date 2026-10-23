@@ -92,6 +92,8 @@ jobs:
           expect_fail "$RUNNER_TEMP/variant.env" "half-configured Razorpay" "half configured"
           variant 's/^COMPOSE_PROFILES=.*/COMPOSE_PROFILES=monitoring/'
           expect_fail "$RUNNER_TEMP/variant.env" "monitoring without a Grafana password" "GRAFANA_ADMIN_PASSWORD"
+          variant 's/^PLATFORM_GSTIN=.*/PLATFORM_GSTIN=NOTAGSTIN/; s/^PLATFORM_LEGAL_NAME=.*/PLATFORM_LEGAL_NAME=Alakh Pvt Ltd/; s/^PLATFORM_ADDRESS=.*/PLATFORM_ADDRESS=Pune/'
+          expect_fail "$RUNNER_TEMP/variant.env" "an invalid GSTIN" "not a valid GSTIN"
 
       - name: Shellcheck
         run: |

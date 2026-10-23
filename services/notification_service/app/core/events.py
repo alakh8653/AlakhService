@@ -90,7 +90,19 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Your payment of ₹{amount} did not go through. You can try again.",
     ),
     ("payment.refunded", "customer"): ("Refund issued", "₹{amount} has been refunded to you."),
+    # Shop onboarding (shop_service): the owner hears the review's outcome.
+    ("shop.approved", "shop"): (
+        "Your shop is live",
+        "{shop_name} has been approved. Customers can now find it and book your services.",
+    ),
+    ("shop.rejected", "shop"): (
+        "Shop not approved yet",
+        "{shop_name} was not approved: {reason}. Update your details and submit it for review again.",
+    ),
 }
+
+# Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
+SHOP_EMAIL_EVENTS = frozenset({"booking.created", "shop.approved", "shop.rejected"})
 
 
 # Events important enough to text or email someone who has no app installed (no push token).

@@ -160,21 +160,10 @@ def approve_shop(api: Api, shop: dict, make_admin_cmd: str | None, terms: str) -
     _, admin_email, _ = sign_up(api, "admin", terms)
     subprocess.run(shlex.split(make_admin_cmd.format(admin_email)), check=True, capture_output=True)
     admin = sign_in(api, "admin", admin_email)  # signs in again: the role is in the token
-    body = {"verification_status": "APPROVED", "status": "APPROVED"}
-    for method, path in (
-        ("PUT", f"/api/v1/admin/shops/{shop['id']}/verification"),
-        ("POST", f"/api/v1/admin/shops/{shop['id']}/verification"),
-        ("PUT", f"/api/v1/shops/{shop['id']}/verification"),
-        ("POST", f"/api/v1/shops/{shop['id']}/verification"),
-        ("POST", f"/api/v1/admin/shops/{shop['id']}/approve"),
-        ("POST", f"/api/v1/shops/{shop['id']}/approve"),
-    ):
-        code, _ = api.call(method, path, body=body, token=admin)
-        if code in (200, 201, 204):
-            print(f"  ok    admin approves the shop ({method} {path})")
-            return
-    # TODO(WP2): use the shop verification endpoint once it is merged.
-    print("  SKIP  no shop approval endpoint answered; continuing with the shop unapproved")
+    api.expect("admin sees it in the review queue", "GET", "/api/v1/admin/shops/review-queue", token=admin)
+    approved = api.expect("admin approves the shop", "POST", f"/api/v1/admin/shops/{shop['id']}/approve", token=admin)
+    if approved.get("verification_status") != "APPROVED":
+        raise Failure(f"shop was not approved: {approved}")
 
 
 def run(api: Api, args) -> None:
@@ -270,20 +259,20 @@ def run(api: Api, args) -> None:
     if seen.get("status") != "COMPLETED":
         raise Failure(f"customer sees {seen.get('status')}")
 
-    print("Payment settlement and earnings (WP1; skipped where not merged yet)")
+    print("Payment settlement and earnings")
     if payment:
-        api.soft("owner confirms the cash", "POST", f"/api/v1/payments/{payment['id']}/cash-received", token=owner)
-        api.soft("invoice", "GET", f"/api/v1/payments/{payment['id']}/invoice", token=customer)
+        api.expect("owner confirms the cash", "POST", f"/api/v1/payments/{payment['id']}/cash-received", token=owner)
+        api.expect("invoice", "GET", f"/api/v1/payments/{payment['id']}/invoice", token=customer)
     today = datetime.now(timezone.utc).date()
-    earnings = api.soft(
+    earnings = api.expect(
         "shop earnings",
         "GET",
         f"/api/v1/payments/shops/{shop['id']}/earnings?from={today - timedelta(days=1)}&to={today + timedelta(days=3)}",
         token=owner,
     )
-    if earnings is not None and earnings.get("currency") != "INR":
+    if earnings.get("currency") != "INR":
         raise Failure(f"earnings response is not in INR: {earnings}")
-    api.soft("shop payouts", "GET", f"/api/v1/payments/shops/{shop['id']}/payouts", token=owner)
+    api.expect("shop payouts", "GET", f"/api/v1/payments/shops/{shop['id']}/payouts", token=owner)
 
     print("Notifications")
     api.expect("customer's notifications list", "GET", "/api/v1/notifications/me", token=customer)

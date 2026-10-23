@@ -15,7 +15,7 @@ from app.channels.push import FCMChannel
 from app.channels.sms import TwilioSMSChannel
 from app.config import settings
 from app.core.contact import fetch_contact
-from app.core.events import CRITICAL_EVENTS, render_sms
+from app.core.events import CRITICAL_EVENTS, SHOP_EMAIL_EVENTS, render_sms
 from app.core.events import render as render_event
 from app.core.exceptions import NotificationNotFoundError, TemplateNotFoundError
 from app.models.notification import DeviceToken, Notification, NotificationPreference, NotificationTemplate
@@ -77,25 +77,27 @@ class NotificationService:
     ) -> Optional[str]:
         """SMS or email for people the app cannot reach, after the event is recorded. Returns the channel used.
 
-        - A shop owner hears about every new booking by email: the shop dashboard has no push.
+        - A shop owner hears about every new booking, and the outcome of the shop's review, by email:
+          the shop dashboard has no push.
         - Critical booking events (CRITICAL_EVENTS) go by SMS, or else email, to anyone with no push device.
 
         Messages go to the recipient's OWN phone/email and never contain anyone else's (events.scrub).
         """
-        shop_new_booking = event == "booking.created" and role == "shop"
-        if not shop_new_booking and (pushed or event not in CRITICAL_EVENTS):
+        shop_email = event in SHOP_EMAIL_EVENTS and role == "shop"
+        if not shop_email and (pushed or event not in CRITICAL_EVENTS):
             return None
         contact = await fetch_contact(user_id)
         if not contact:
             return None
-        if not shop_new_booking and contact.get("phone"):
+        if not shop_email and contact.get("phone"):
             text = render_sms(event, data)
             if text and await self.send_sms(contact["phone"], text, event):
                 return "sms"
         if contact.get("email"):
             email_body = f"{body}\n\n"
-            if shop_new_booking:
-                email_body += "Please confirm or decline it in your shop dashboard"
+            if shop_email:
+                action = "Please confirm or decline it" if event == "booking.created" else "See the details"
+                email_body += f"{action} in your shop dashboard"
                 email_body += f": {settings.SHOP_DASHBOARD_URL}\n" if settings.SHOP_DASHBOARD_URL else ".\n"
             else:
                 email_body += "Open the AlakhService app for the details.\n"

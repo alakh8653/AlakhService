@@ -192,6 +192,16 @@ services:
     image: localhost/alakhservice/payment_service:${IMAGE_TAG:-latest}
     environment:
       <<: *prod-env
+      # Commission and cancellation policy (docs/DEPLOYMENT.md, "Money").
+      PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
+      GST_ON_COMMISSION_PERCENT: ${GST_ON_COMMISSION_PERCENT:-18}
+      CANCEL_FREE_HOURS: ${CANCEL_FREE_HOURS:-2}
+      CANCEL_FEE_PERCENT: ${CANCEL_FEE_PERCENT:-0}
+      # Printed on every invoice.
+      PLATFORM_LEGAL_NAME: ${PLATFORM_LEGAL_NAME:-AlakhService (legal name not set)}
+      PLATFORM_GSTIN: ${PLATFORM_GSTIN:-GSTIN-NOT-SET}
+      PLATFORM_ADDRESS: ${PLATFORM_ADDRESS:-Registered address not set}
+      INVOICE_PREFIX: ${INVOICE_PREFIX:-ALK}
 
   notification_service:
     <<: *prod-python

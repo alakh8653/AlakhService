@@ -147,6 +147,17 @@ async def test_shop_owners_get_new_bookings_by_email(client, monkeypatch):
     assert "9876543210" not in body and "cust@example.com" not in body
 
 
+@pytest.mark.asyncio
+async def test_shop_owners_hear_the_outcome_of_their_review_by_email(client):
+    rejected = {"shop_name": "Glow Salon", "reason": "PAN card is unreadable"}
+    await notify(client, "shop.rejected", [{"user_id": "owner", "role": "shop"}], data=rejected)
+    [(channel, to, subject, body)] = client.sent
+    assert (channel, to, subject) == ("email", "owner@example.com", "AlakhService: Shop not approved yet")
+    assert "Glow Salon was not approved: PAN card is unreadable." in body
+    assert "See the details in your shop dashboard" in body
+    assert render("shop.approved", "shop", {"shop_name": "Glow Salon"})[0] == "Your shop is live"
+
+
 def test_reminder_and_expiry_wording():
     assert render("booking.reminder", "shop", DATA) == (
         "Upcoming booking",

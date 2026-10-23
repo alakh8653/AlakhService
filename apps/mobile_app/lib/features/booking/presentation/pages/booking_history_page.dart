@@ -20,6 +20,8 @@ import '../../domain/entities/booking.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
+import '../widgets/report_problem.dart';
+import '../../../../l10n/l10n.dart';
 
 class BookingHistoryPage extends StatefulWidget {
   /// Takes the customer to the catalogue (from the empty list).
@@ -69,18 +71,18 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
         _ => context.palette.muted,
       };
 
-  static String statusLabel(String status) => switch (status) {
-        BookingStatus.pending => 'Awaiting confirmation',
-        BookingStatus.confirmed => 'Confirmed',
-        BookingStatus.assigned => 'Provider assigned',
-        BookingStatus.enRoute => 'Provider on the way',
-        BookingStatus.pickedUp => 'Item picked up',
-        BookingStatus.inProgress => 'In progress',
-        BookingStatus.outForDelivery => 'On its way back',
-        BookingStatus.completed => 'Completed',
-        BookingStatus.cancelled => 'Cancelled',
-        BookingStatus.disputed => 'Problem reported',
-        BookingStatus.refunded => 'Refunded',
+  static String statusLabel(AppLocalizations l10n, String status) => switch (status) {
+        BookingStatus.pending => l10n.statusPending,
+        BookingStatus.confirmed => l10n.statusConfirmed,
+        BookingStatus.assigned => l10n.statusAssigned,
+        BookingStatus.enRoute => l10n.statusEnRoute,
+        BookingStatus.pickedUp => l10n.statusPickedUp,
+        BookingStatus.inProgress => l10n.statusInProgress,
+        BookingStatus.outForDelivery => l10n.statusOutForDelivery,
+        BookingStatus.completed => l10n.statusCompleted,
+        BookingStatus.cancelled => l10n.statusCancelled,
+        BookingStatus.disputed => l10n.statusDisputed,
+        BookingStatus.refunded => l10n.statusRefunded,
         _ => status,
       };
 
@@ -132,17 +134,8 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
   }
 
   Future<void> _report(Booking booking) async {
-    final report = await showDialog<(String, String)>(context: context, builder: (_) => const _ReportDialog());
-    if (report == null || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     final bloc = context.read<BookingBloc>();
-    try {
-      await (widget.disputeApi ?? sl<DisputeApi>()).report(bookingId: booking.id, type: report.$1, description: report.$2);
-      messenger.showSnackBar(const SnackBar(content: Text('Thanks. Our support team will look into it and get back to you.')));
-      bloc.add(const RefreshBookings());
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
-    }
+    if (await reportBookingProblem(context, booking, api: widget.disputeApi)) bloc.add(const RefreshBookings());
   }
 
   void _open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) {
@@ -162,7 +155,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
   Widget _card(Booking b) => _BookingCard(
         booking: b,
         statusColor: statusColor(context, b.status),
-        statusLabel: statusLabel(b.status),
+        statusLabel: statusLabel(context.l10n, b.status),
         cancelling: _cancelling == b.id,
         onCancel: b.canCancel && _cancelling != b.id ? () => _confirmCancel(b) : null,
         onTrack: b.canTrack ? () => _open(LiveTrackingPage(booking: b)) : null,
@@ -268,7 +261,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 }
 
 /// What a booking's status means to the customer, e.g. "Awaiting confirmation".
-String bookingStatusLabel(String status) => _BookingHistoryPageState.statusLabel(status);
+String bookingStatusLabel(AppLocalizations l10n, String status) => _BookingHistoryPageState.statusLabel(l10n, status);
 
 /// Bookings still ahead or under way (soonest first), and finished ones (latest first).
 (List<Booking>, List<Booking>) splitBookings(List<Booking> bookings) {
@@ -520,69 +513,6 @@ class _RatingDialogState extends State<_RatingDialog> {
             Navigator.pop(context, (_stars, review.isEmpty ? null : review));
           },
           child: const Text('Submit'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Asks what went wrong; pops with (type, description).
-class _ReportDialog extends StatefulWidget {
-  const _ReportDialog();
-
-  @override
-  State<_ReportDialog> createState() => _ReportDialogState();
-}
-
-class _ReportDialogState extends State<_ReportDialog> {
-  String _type = disputeTypes.keys.first;
-  final _description = TextEditingController();
-
-  @override
-  void dispose() {
-    _description.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final valid = _description.text.trim().length >= 3;
-    return AlertDialog(
-      title: const Text('Report a problem'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _type,
-              isExpanded: true,
-              items: [
-                for (final e in disputeTypes.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
-              ],
-              onChanged: (v) => setState(() => _type = v ?? _type),
-              decoration: const InputDecoration(labelText: 'What went wrong?'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _description,
-              maxLines: 4,
-              maxLength: 2000,
-              textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                labelText: 'Tell us what happened',
-                helperText: 'At least 3 characters',
-                alignLabelWithHint: true,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(
-          onPressed: valid ? () => Navigator.pop(context, (_type, _description.text.trim())) : null,
-          child: const Text('Send'),
         ),
       ],
     );

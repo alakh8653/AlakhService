@@ -13,6 +13,7 @@ import '../../../notifications/data/notifications_api.dart';
 import '../../../services/domain/entities/service_entity.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
+import '../../../../l10n/l10n.dart';
 import 'home_widgets.dart';
 
 class HomePage extends StatefulWidget {
@@ -140,7 +141,7 @@ class _HomePageState extends State<HomePage> {
                 NextBookingCard(
                   serviceName: _next!.serviceName,
                   when: friendlyDateTime(_next!.scheduledAt),
-                  status: bookingStatusLabel(_next!.status),
+                  status: bookingStatusLabel(context.l10n, _next!.status),
                   onTap: widget.onOpenBookings,
                 )
               else

@@ -12,6 +12,7 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../help/presentation/help_support_page.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
 import 'display_settings.dart';
@@ -112,6 +113,11 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: widget.onOpenNotifications,
             ),
             const DisplaySettings(),
+            _ProfileMenuItem(
+              icon: Icons.help_outline,
+              label: l10n.helpTitle,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage())),
+            ),
             const SizedBox(height: 16),
             CustomButton(
               label: l10n.logout,

@@ -212,7 +212,12 @@ async def test_admin_status_changes_are_reported_to_the_audit_log(client):
     assert [(e["admin_id"], e["action"], e["old_values"], e["new_values"]) for e in entries] == [
         ("ops", "update_dispute_status", {"status": "OPEN"}, {"status": "UNDER_REVIEW"}),
         ("lead", "update_dispute_status", {"status": "UNDER_REVIEW"}, {"status": "ESCALATED"}),
-        ("ops", "resolve_dispute", {"status": "ESCALATED"}, {"status": "RESOLVED", "resolution": "Refunded 50%"}),
+        (
+            "ops",
+            "resolve_dispute",
+            {"status": "ESCALATED"},
+            {"status": "RESOLVED", "resolution": "Refunded 50%", "outcome": "NO_ACTION"},
+        ),
     ]
     assert {
         (e["resource_type"], e["resource_id"], e["ip_address"], e["user_agent"], e["service"]) for e in entries

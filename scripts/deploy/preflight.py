@@ -56,7 +56,6 @@ REQUIRED = [
     "POSTGRES_USER",
     "POSTGRES_PASSWORD",
     "CORS_ORIGINS",
-    "PASSWORD_RESET_URL",
 ]
 HOSTNAME = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -174,7 +173,7 @@ def check_file(env: dict[str, str], r: Report) -> None:
         elif not HOSTNAME.match(domain):
             r.error(f"DOMAIN {domain!r} is not a valid domain name")
         else:
-            r.ok(f"sites: https://api.{domain}  https://shop.{domain}  https://admin.{domain}")
+            r.ok(f"sites: https://{domain}  https://api.{domain}  https://shop.{domain}  https://admin.{domain}")
     if not HOSTNAME.match(domain) or looks_like_placeholder(domain):
         domain = ""  # checks that compare against the domain are skipped until it is valid
     email = env.get("ACME_EMAIL", "")
@@ -207,13 +206,25 @@ def check_file(env: dict[str, str], r: Report) -> None:
             r.ok("CORS_ORIGINS lists both dashboards")
 
     reset_url = env.get("PASSWORD_RESET_URL", "")
-    if reset_url and not looks_like_placeholder(reset_url):
-        if not reset_url.startswith("https://"):
-            r.error("PASSWORD_RESET_URL must start with https://")
-        elif domain and not reset_url.startswith(f"https://shop.{domain}/"):
-            r.warn(f"PASSWORD_RESET_URL does not point at https://shop.{domain}/reset-password")
-        else:
-            r.ok("PASSWORD_RESET_URL points at the shop dashboard")
+    if not reset_url:
+        r.ok("password-reset emails link to https://<DOMAIN>/reset-password (the default)")
+    elif looks_like_placeholder(reset_url):
+        r.error(f"PASSWORD_RESET_URL still holds a placeholder ({reset_url[:30]!r}); fill it in or remove the line")
+    elif not reset_url.startswith("https://"):
+        r.error("PASSWORD_RESET_URL must start with https://")
+    elif domain and reset_url.rstrip("/") == f"https://{domain}/reset-password":
+        r.ok("PASSWORD_RESET_URL is the app link on the public site")
+    elif domain and reset_url.startswith(f"https://shop.{domain}/"):
+        r.warn(
+            "PASSWORD_RESET_URL points at the shop dashboard, so reset emails will not open the app; "
+            f"use https://{domain}/reset-password"
+        )
+    elif domain:
+        r.warn(f"PASSWORD_RESET_URL does not point at https://{domain}/reset-password")
+
+    version = env.get("TERMS_VERSION", "")
+    if version and not re.fullmatch(r"[A-Za-z0-9._-]{1,32}", version):
+        r.error("TERMS_VERSION must be a short version like 2026-10 (letters, digits, . _ -)")
 
     allowed = env.get("ADMIN_ALLOWED_IPS", "").split()
     if allowed:
@@ -263,9 +274,32 @@ def check_integrations(env: dict[str, str], r: Report) -> None:
         r.ok(f"Razorpay webhook URL to set: https://api.{domain}/api/v1/webhooks/razorpay")
 
     r.section("SMS, email and push")
+    sms_provider = (env.get("SMS_PROVIDER") or "twilio").strip().lower()
     twilio = ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER")
     present = [k for k in twilio if env.get(k)]
-    if not present:
+    if sms_provider not in ("twilio", "msg91", "none"):
+        r.error(f"SMS_PROVIDER must be twilio, msg91 or none, not {sms_provider}")
+    elif sms_provider == "none":
+        r.warn("SMS_PROVIDER=none: one-time sign-in codes and booking updates will NOT be sent by SMS")
+    elif sms_provider == "msg91":
+        needed = ("MSG91_AUTH_KEY", "MSG91_SENDER_ID", "MSG91_OTP_TEMPLATE_ID")
+        missing = [k for k in needed if not env.get(k)]
+        if len(missing) == len(needed):
+            r.warn("MSG91 is not configured: one-time sign-in codes will NOT be sent by SMS")
+        elif missing:
+            r.error(f"SMS_PROVIDER=msg91 but {', '.join(missing)} empty: sign-in codes would not be texted")
+        elif not re.fullmatch(r"[A-Za-z]{6}", env["MSG91_SENDER_ID"]):
+            r.error("MSG91_SENDER_ID should be your 6-letter DLT sender id (header), e.g. ALAKHS")
+        else:
+            r.ok(f"one-time codes texted by MSG91 from {env['MSG91_SENDER_ID']}")
+        events = ("CONFIRMED", "CANCELLED", "REMINDER", "REFUNDED", "EXPIRED")
+        no_template = [e.lower() for e in events if not env.get(f"MSG91_TEMPLATE_BOOKING_{e}")]
+        if no_template:
+            r.warn(
+                f"no MSG91 DLT template for booking {', '.join(no_template)}: people without the app get those "
+                "by email only (docs/DEPLOYMENT.md, SMS)"
+            )
+    elif not present:
         r.warn("Twilio is not configured: one-time sign-in codes will NOT be sent by SMS")
     elif len(present) < len(twilio):
         r.error(f"Twilio is half configured; also set {', '.join(k for k in twilio if not env.get(k))}")
@@ -319,6 +353,31 @@ def check_integrations(env: dict[str, str], r: Report) -> None:
     for flag in ("LOG_OTP_CODES", "LOG_PASSWORD_RESET_TOKENS"):
         if env.get(flag, "").lower() in ("1", "true", "yes"):
             r.error(f"{flag} must not be on in production (it writes secrets to the logs)")
+
+
+def check_site(repo: Path, r: Report) -> None:
+    """The public site's legal pages and app-link files must be filled in before launch."""
+    r.section("Public site (deploy/site)")
+    site = repo / "deploy" / "site"
+    if not site.is_dir():
+        r.error("deploy/site is missing: the legal pages and app links would not be served")
+        return
+    unfilled = sorted(f.name for f in site.glob("*.html") if 'class="placeholder"' in f.read_text(encoding="utf-8"))
+    if unfilled:
+        r.warn(
+            f"legal pages still have [PLACEHOLDERS] (company, address, Grievance Officer): {', '.join(unfilled)}; "
+            "see docs/LEGAL_PAGES.md"
+        )
+    else:
+        r.ok("legal pages filled in")
+    for name in ("assetlinks.json", "apple-app-site-association"):
+        path = site / ".well-known" / name
+        if not path.is_file():
+            r.error(f"deploy/site/.well-known/{name} is missing: app links will not open the app")
+        elif "REPLACE_WITH" in path.read_text(encoding="utf-8"):
+            r.warn(f".well-known/{name} still has a placeholder: app links will open the web page, not the app")
+        else:
+            r.ok(f".well-known/{name} filled in")
 
 
 def check_backups_and_monitoring(env: dict[str, str], r: Report) -> None:
@@ -420,7 +479,7 @@ def check_system(env: dict[str, str], repo: Path, r: Report) -> None:
     if not domain or looks_like_placeholder(domain):
         return
     my_ip = public_ip()
-    for name in (f"api.{domain}", f"shop.{domain}", f"admin.{domain}"):
+    for name in (domain, f"api.{domain}", f"shop.{domain}", f"admin.{domain}"):
         try:
             addresses = sorted({info[4][0] for info in socket.getaddrinfo(name, 443, proto=socket.IPPROTO_TCP)})
         except socket.gaierror:
@@ -467,6 +526,7 @@ def main(argv: list[str]) -> int:
         r.ok(f"{len(env)} settings read")
 
     check_file(env, r)
+    check_site(repo, r)
     if not args.no_system:
         check_system(env, repo, r)
 

@@ -146,8 +146,22 @@ jobs:
               yaml.safe_load(open(f))
           for f in glob.glob("deploy/**/*.json", recursive=True):
               json.load(open(f))
-          print(f"{len(files)} YAML files and the Grafana dashboards parse")
+          # App-link files of the public site (hidden folder, so not matched above).
+          links = json.load(open("deploy/site/.well-known/assetlinks.json"))
+          assert links[0]["target"]["package_name"] == "com.alakhservice.alakh_service"
+          json.load(open("deploy/site/.well-known/apple-app-site-association"))
+          print(f"{len(files)} YAML files, the Grafana dashboards and the app-link files parse")
           EOF
+
+      - name: Public site pages are present and self-contained
+        run: |
+          for page in index terms privacy refunds grievance delete-account open-app reset-password 404; do
+            test -f "deploy/site/$page.html" || { echo "::error::deploy/site/$page.html is missing"; exit 1; }
+          done
+          # The site's CSP allows no inline scripts or styles, and no third-party hosts.
+          if grep -nE '<script>|<script [^>]*>[^<]|style="|https?://[^"]*\.(js|css)' deploy/site/*.html; then
+            echo "::error::inline script/style or external asset in deploy/site (blocked by the CSP)"; exit 1
+          fi
 
   proxy-image:
     name: Build the Caddy + dashboards image

@@ -21,7 +21,7 @@ When you are done you will have:
              Internet (80/443 only)
                      │
              ┌───────▼────────┐  automatic HTTPS (Let's Encrypt), security headers,
-             │     Caddy      │  serves both dashboards as static files
+             │     Caddy      │  serves both dashboards and the public site (legal pages)
              └───────┬────────┘
                      │ api.<domain>
              ┌───────▼────────┐  sign-in checks, rate limits, circuit breakers, /metrics
@@ -35,6 +35,9 @@ When you are done you will have:
 
 Nothing except Caddy is reachable from the internet. The database, Redis and every service
 listen only inside Docker's private network.
+
+**Legal pages and Play Store:** see [LEGAL_PAGES.md](LEGAL_PAGES.md) for the public site, consent at
+sign-up and account deletion.
 
 **Contents:**
 [1. What you need](#1-what-you-need) ·
@@ -65,11 +68,15 @@ listen only inside Docker's private network.
 - **A Linux server** (step 2), with an SSH key to log in.
 - **A Razorpay account** with KYC completed, for online payments. Without it, customers can only
   pay cash; everything else works.
-- **An SMS provider** for one-time sign-in codes. The code supports **Twilio**. Sending SMS to
-  Indian numbers requires **DLT registration** (TRAI rules): register your business and an SMS
-  template on a DLT portal (Jio, Airtel, Vodafone Idea or BSNL), then link the sender ID and
-  template in Twilio. This can take a few days, so start early. Without SMS, phone-number sign-in
-  does not work, but email and password sign-in does.
+- **An SMS provider** for one-time sign-in codes and booking updates to people without the app.
+  The code supports **MSG91** (recommended in India) and **Twilio**. Sending SMS to Indian numbers
+  requires **DLT registration** (TRAI rules): register your business, a 6-letter sender ID and each
+  message template on a DLT portal (Jio, Airtel, Vodafone Idea or BSNL); see [SMS](#sms-msg91-and-dlt).
+  This can take a few days, so start early. Without SMS, phone-number sign-in does not work, but
+  email and password sign-in does.
+- **Your company's legal details** for the Terms, Privacy Policy and Grievance pages (company name,
+  registered address, a named Grievance Officer). The pages are drafts: **have a lawyer review them**
+  before launch. See [LEGAL_PAGES.md](LEGAL_PAGES.md).
 - **An email (SMTP) account** for password-reset emails and alerts, e.g. Amazon SES (Mumbai
   region), Zoho Mail, Brevo or Google Workspace. It must support port **587 (STARTTLS)**.
 - *Optional:* a Firebase project for push notifications, and a Telegram bot for alerts.
@@ -126,10 +133,11 @@ Note the server's **public IP address**; you need it next.
 
 ## 3. Point your domain at the server
 
-At your DNS provider create three **A records** (TTL 300 or "automatic"):
+At your DNS provider create four **A records** (TTL 300 or "automatic"):
 
 | Type | Name | Value |
 |---|---|---|
+| A | `@` (the bare domain) | your server's public IP: the public site with the legal pages and app links |
 | A | `api` | your server's public IP |
 | A | `shop` | your server's public IP |
 | A | `admin` | your server's public IP |
@@ -142,7 +150,8 @@ the admin IP allowlist would stop working properly.
 Check from your laptop (changes can take from minutes to a few hours to appear):
 
 ```bash
-dig +short api.alakhservice.in     # must print your server's IP
+dig +short alakhservice.in         # must print your server's IP
+dig +short api.alakhservice.in
 dig +short shop.alakhservice.in
 dig +short admin.alakhservice.in
 ```
@@ -207,7 +216,11 @@ Every setting is explained in the file. Replace every `REPLACE_ME`. The essentia
 - `DOMAIN`: your bare domain, e.g. `alakhservice.in` (no `https://`, no `www.`).
 - `ACME_EMAIL`: your email; Let's Encrypt writes here if a certificate cannot be renewed.
 - `CORS_ORIGINS`: `https://shop.<DOMAIN>,https://admin.<DOMAIN>`
-- `PASSWORD_RESET_URL`: `https://shop.<DOMAIN>/reset-password`
+- `PASSWORD_RESET_URL` *(optional)*: leave it as `https://<DOMAIN>/reset-password`. That link opens
+  the app when installed, and otherwise lets the person (or a shop owner on a computer) set a new
+  password in the browser.
+- `TERMS_VERSION`: the Terms and Privacy Policy version people accept when signing up (default
+  `2026-10`). Change it whenever the pages change materially; see [LEGAL_PAGES.md](LEGAL_PAGES.md).
 - `ADMIN_ALLOWED_IPS` *(optional)*: your office/home IP, e.g. `203.0.113.7/32` (find it at
   [ifconfig.me](https://ifconfig.me)). Only these addresses can open the admin dashboard and call
   admin APIs. The default allows everyone (the admin login still applies).
@@ -240,14 +253,53 @@ database on the very first start; see [Changing secrets](#changing-secrets) befo
 Test first if you like: test-mode keys (`rzp_test_...`) work the same way (with a webhook created
 in test mode); preflight warns you so you do not go live by accident with test keys.
 
-**SMS (Twilio)**: `TWILIO_ACCOUNT_SID` (starts with `AC`), `TWILIO_AUTH_TOKEN` and
-`TWILIO_FROM_NUMBER` from the [Twilio console](https://console.twilio.com). For Indian numbers,
-complete DLT registration (see [What you need](#1-what-you-need)). Other Indian SMS providers
-(MSG91, Gupshup, ...) are not supported by the code yet.
+<a id="sms-msg91-and-dlt"></a>**SMS (MSG91 and DLT)**: set `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY` (MSG91 → API),
+`MSG91_SENDER_ID` (your approved 6-letter DLT header, e.g. `ALAKHS`) and one DLT **template id** per
+message. Register these templates on your DLT portal **exactly** as written (category: service
+implicit / transactional), then copy each template id into the setting beside it:
+
+| Setting | Template text to register |
+|---|---|
+| `MSG91_OTP_TEMPLATE_ID` | `Your AlakhService code is {#var#}. It expires in {#var#} minutes. Never share it.` |
+| `MSG91_TEMPLATE_BOOKING_CONFIRMED` | `AlakhService: booking {#var#} for {#var#} is confirmed. Details in the app.` |
+| `MSG91_TEMPLATE_BOOKING_CANCELLED` | `AlakhService: booking {#var#} for {#var#} was cancelled. Details in the app.` |
+| `MSG91_TEMPLATE_BOOKING_REMINDER` | `AlakhService reminder: booking {#var#} is at {#var#}.` |
+| `MSG91_TEMPLATE_BOOKING_REFUNDED` | `AlakhService: booking {#var#} has been refunded. It can take 5-7 working days to reach your account.` |
+| `MSG91_TEMPLATE_BOOKING_EXPIRED` | `AlakhService: booking {#var#} for {#var#} expired as the shop did not confirm it in time. Any online payment will be refunded.` |
+
+The texts live in `services/auth_service/app/core/sms.py` and `services/notification_service/app/core/events.py`
+(`SMS_TEXTS`); if you change one there, register the new text too. The booking messages go only to
+people with **no push device** (they have not installed the app or allowed notifications); everyone
+else gets a push notification. A booking event without a template id is emailed instead. The services
+call MSG91's send-SMS API (`MSG91_API_URL`, default `https://api.msg91.com/api/v2/sendsms`) with the
+sender id and the template id; check the first messages in MSG91 → Reports.
+
+*Twilio instead:* `SMS_PROVIDER=twilio` with `TWILIO_ACCOUNT_SID` (starts with `AC`), `TWILIO_AUTH_TOKEN`
+and `TWILIO_FROM_NUMBER` from the [Twilio console](https://console.twilio.com); Indian numbers still need
+the DLT sender and templates linked in Twilio.
 
 **Email (SMTP)**: `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD` and a verified
 `SMTP_FROM_EMAIL`. Add the SPF and DKIM DNS records your provider gives you, or the emails will
-land in spam.
+land in spam. Besides password resets, email carries booking updates to people without the app, and
+every new booking to the shop owner (the shop dashboard has no push notifications).
+
+**Public site and app links** (`deploy/site`, served at `https://<DOMAIN>`): the landing page,
+`/terms`, `/privacy`, `/refunds` (Razorpay's KYC review asks for it), `/grievance`, `/delete-account`
+(Google Play's "delete account" URL) and the app-link files. Before launch:
+
+1. Fill in the `[PLACEHOLDERS]` (company, address, Grievance Officer) and have a lawyer review the
+   text: [LEGAL_PAGES.md](LEGAL_PAGES.md). Preflight warns while placeholders remain.
+2. In `deploy/site/.well-known/assetlinks.json` replace `REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT`
+   with the **SHA-256 certificate fingerprint** from Play Console → *Setup → App signing* (the
+   app-signing key, not your upload key). Add the upload key's fingerprint too if you test release
+   builds installed outside Play.
+3. In `deploy/site/.well-known/apple-app-site-association` replace `REPLACE_WITH_APPLE_TEAM_ID` with your
+   Apple Team ID (when the iOS app ships).
+
+The files are mounted into Caddy, so after editing them on the server they are live at once (no rebuild).
+Links `https://<DOMAIN>/b/<booking id>` and `https://<DOMAIN>/reset-password?token=...` open the app
+when it is installed, and otherwise show a short "get the app" page (the reset page can also reset the
+password in the browser).
 
 **Masked calls** *(optional)*: customers and shops talk through the in-app chat by default
 (phone numbers and emails written there are hidden). To also let them call each other without
@@ -325,7 +377,11 @@ Grant further admins the same way. To remove admin rights:
 ## 10. Verify everything
 
 - [ ] `make prod-status`: every container `Up ... (healthy)`.
-- [ ] The three sites open with a padlock (valid HTTPS).
+- [ ] The four sites open with a padlock (valid HTTPS): `https://<DOMAIN>`, `api.`, `shop.`, `admin.`.
+- [ ] `https://<DOMAIN>/privacy`, `/terms`, `/refunds`, `/grievance` and `/delete-account` show your real
+      company and Grievance Officer details (no yellow `[PLACEHOLDERS]`).
+- [ ] [Google's Statement List tester](https://developers.google.com/digital-asset-links/tools/generator)
+      confirms `https://<DOMAIN>` for `com.alakhservice.alakh_service`.
 - [ ] Sign in to the shop dashboard; set up a shop and a service.
 - [ ] Book that service from the mobile app (see [Android release](#android-release-play-store)).
 - [ ] Make a small **real** payment (e.g. ₹1 service), then refund it from the Razorpay dashboard.
@@ -568,7 +624,9 @@ info handled by Razorpay), and a privacy-policy URL. Promote to production when 
 | Deploy stops at "did not become healthy" | read the printed log lines; usually a migration error or the database is unreachable |
 | Build killed / "exit code 137" | out of memory: add swap (step 4) or a bigger server |
 | Razorpay payments stay "pending" | webhook URL or secret wrong; check Razorpay → Webhooks → deliveries; `make prod-logs S=payment_service` |
-| No OTP SMS | Twilio not set, or DLT template/sender not approved; `make prod-logs S=auth_service` |
+| No OTP SMS | `SMS_PROVIDER` keys not set, or the DLT sender/template not approved, or the text does not match the template word for word; `make prod-logs S=auth_service` and MSG91 → Reports |
+| Booking SMS/emails never arrive | they go only to people without a push device; check `MSG91_TEMPLATE_BOOKING_*` and SMTP; `make prod-logs S=notification_service` |
+| App links open the browser, not the app | `assetlinks.json` fingerprint is a placeholder or the wrong key (use Play's app-signing key) |
 | Admin dashboard says "not allowed from this network" | your IP is not in `ADMIN_ALLOWED_IPS`; update it and `make prod-deploy` |
 | Disk full | `docker image prune -a`, `docker builder prune`, check `backups/`, grow the disk |
 | `PublicSiteDown` alert, but the sites work in your browser | the server cannot reach its own public IP (some providers block this "hairpin" traffic); rely on an external uptime check and ignore or delete that alert |
@@ -582,7 +640,9 @@ Be aware of what a single server does and does not give you:
   updates cause a few seconds of errors per service; there is no zero-downtime deploy.
 - **Avatar uploads are not stored yet.** `user_service` records a path but does not write the
   image anywhere; object storage (S3/R2) is still to be added in the code.
-- **SMS: Twilio only;** SMTP: port 587 (STARTTLS) only.
+- **SMS: MSG91 or Twilio;** SMTP: port 587 (STARTTLS) only.
+- **dispatch_service, catalog_service and the legacy `backend/`** are deprecated and not deployed
+  (see the `DEPRECATED.md` in each). Their old databases stay on servers that had them.
 - **Redis has no password.** It is reachable only inside the Docker network, never from the
   internet. Add one if other software will share the server.
 - **The gateway has no `/ready`;** its health check uses `/health`, and the Python services'

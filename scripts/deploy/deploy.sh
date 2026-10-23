@@ -156,9 +156,9 @@ cmd_smoke() {
   domain=$(env_value DOMAIN)
   [ -n "$domain" ] || die "DOMAIN is empty in $ENV_FILE"
   local resolve=(--resolve "api.$domain:443:127.0.0.1" --resolve "shop.$domain:443:127.0.0.1"
-    --resolve "admin.$domain:443:127.0.0.1")
+    --resolve "admin.$domain:443:127.0.0.1" --resolve "$domain:443:127.0.0.1")
 
-  step "Smoke test through Caddy (https://api.$domain, shop., admin.)"
+  step "Smoke test through Caddy (https://$domain, api., shop., admin.)"
   # A first deploy may still be fetching certificates; wait for up to 2 minutes.
   for i in $(seq 1 24); do
     if curl -fsS --max-time 10 "${resolve[@]}" "https://api.$domain/health" > /dev/null 2>&1; then break; fi
@@ -194,6 +194,11 @@ cmd_smoke() {
   expect "shop dashboard client routes" "https://shop.$domain/login" 200 'id="root"'
   # 403 is right when ADMIN_ALLOWED_IPS does not include this server.
   expect "admin dashboard" "https://admin.$domain/" '200|403'
+  expect "privacy policy" "https://$domain/privacy" 200 'Privacy Policy'
+  expect "refund policy (Razorpay checks it)" "https://$domain/refunds" 200 'Refund'
+  expect "account deletion page" "https://$domain/delete-account" 200 'Delete your'
+  expect "Android app links file" "https://$domain/.well-known/assetlinks.json" 200 'com.alakhservice.alakh_service'
+  expect "legal links from the API" "https://$domain/api/v1/legal/current" 200 'terms_version'
 
   if [ "$failures" -gt 0 ]; then
     die "$failures smoke check(s) failed. See: make prod-status, make prod-logs S=<service>"
@@ -273,6 +278,7 @@ cmd_deploy() {
   local domain
   domain=$(env_value DOMAIN)
   step "Deployed $tag"
+  printf '  Public site      https://%s (terms, privacy, refunds, delete-account)\n' "$domain"
   printf '  API              https://api.%s/api/v1\n' "$domain"
   printf '  Shop dashboard   https://shop.%s\n' "$domain"
   printf '  Admin dashboard  https://admin.%s\n' "$domain"

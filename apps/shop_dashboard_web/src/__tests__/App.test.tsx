@@ -100,3 +100,31 @@ describe('LoginPage', () => {
     await waitFor(() => expect(screen.getByText('Enter a valid email address')).toBeInTheDocument());
   });
 });
+
+describe('Signed-in layout', () => {
+  it('links to Earnings & Payouts and Verification, the legal pages, and has a mute toggle', () => {
+    store.dispatch(setCredentials({ tokens, user, shop }));
+    renderAt('/no-such-page');
+    expect(screen.getByRole('link', { name: 'Earnings & Payouts' })).toHaveAttribute('href', '/earnings');
+    expect(screen.getByRole('link', { name: 'Verification' })).toHaveAttribute('href', '/onboarding');
+    const legal = screen.getByRole('navigation', { name: 'Legal' });
+    expect(legal.querySelector('a[href$="/terms"]')).not.toBeNull();
+    expect(legal.querySelector('a[href$="/grievance"]')).not.toBeNull();
+    const mute = screen.getByRole('button', { name: 'Mute new booking sound' });
+    expect(mute).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(mute);
+    expect(mute).toHaveAttribute('aria-pressed', 'true');
+    expect(localStorage.getItem('shop_alerts_muted')).toBe('1');
+    fireEvent.click(mute);
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
+    // An approved shop gets no verification banner.
+    expect(screen.queryByText(/not visible to customers yet/)).not.toBeInTheDocument();
+  });
+
+  it('shows the verification banner while the shop waits for review', () => {
+    store.dispatch(setCredentials({ tokens, user, shop: { ...shop, isVerified: false, verificationStatus: 'PENDING_REVIEW' } }));
+    renderAt('/no-such-page');
+    expect(screen.getByText(/not visible to customers yet/)).toBeInTheDocument();
+    expect(screen.getByText('Pending verification')).toBeInTheDocument();
+  });
+});

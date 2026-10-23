@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from './state/store';
@@ -9,6 +9,8 @@ import Header from './components/Header';
 import { ToastProvider } from './components/Toast';
 import OnboardingBanner from './components/OnboardingBanner';
 import LegalFooter from './components/LegalFooter';
+import { useNewBookingAlerts } from './hooks/useNewBookingAlerts';
+import { fetchBookings } from './state/bookingSlice';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -53,6 +55,12 @@ function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
   const shop = useSelector((state: RootState) => state.auth.shop);
+  const dispatch = useDispatch<AppDispatch>();
+  const bookingFilters = useSelector((state: RootState) => state.bookings.activeFilters);
+  const filtersRef = useRef(bookingFilters);
+  filtersRef.current = bookingFilters;
+  // A new booking also refreshes the bookings list, wherever it is shown.
+  useNewBookingAlerts(shop?.id, () => void dispatch(fetchBookings(filtersRef.current)));
 
   // Every page starts at the top, with the phone menu closed.
   useEffect(() => {

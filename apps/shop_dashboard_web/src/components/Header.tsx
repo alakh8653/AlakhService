@@ -1,9 +1,12 @@
-import { LogOut, Menu, Store } from 'lucide-react';
+import { LogOut, Menu, Store, Volume2, VolumeX } from 'lucide-react';
+import NotificationBell from './NotificationBell';
+import { useMuted } from '../services/alertSound';
 import { useAuth } from '../hooks/useAuth';
 import { verificationOf } from '../services/shopService';
 
 export default function Header({ onOpenMenu, menuOpen = false }: { onOpenMenu?: () => void; menuOpen?: boolean }) {
   const { user, shop, logout } = useAuth();
+  const [muted, setMuted] = useMuted();
 
   return (
     <header className="h-14 md:h-16 bg-white border-b border-gray-200 flex items-center justify-between gap-2 px-3 md:px-6 flex-shrink-0">
@@ -37,7 +40,18 @@ export default function Header({ onOpenMenu, menuOpen = false }: { onOpenMenu?: 
           )}
         </p>
       </div>
-      <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+      <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => setMuted(!muted)}
+          aria-pressed={muted}
+          aria-label="Mute new booking sound"
+          title={muted ? 'New booking sound is off' : 'New booking sound is on'}
+          className="p-2 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
+        >
+          {muted ? <VolumeX size={18} aria-hidden /> : <Volume2 size={18} aria-hidden />}
+        </button>
+        <NotificationBell />
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-semibold text-indigo-600" aria-hidden>
             {user?.name?.charAt(0) ?? '?'}

@@ -5,6 +5,7 @@ import { useShopServices } from '../hooks/useShopServices';
 import {
   callNext,
   completeEntry,
+  customerLabel,
   getQueues,
   getWaiting,
   markNoShow,
@@ -14,7 +15,7 @@ import {
   type QueueEntry,
   type WalkInQueue,
 } from '../services/queueService';
-import { apiErrorMessage, formatClock as clock, formatElapsed, shortId } from '../services/format';
+import { apiErrorMessage, formatClock as clock, formatElapsed } from '../services/format';
 import { useToast } from '../components/Toast';
 
 const REFRESH_MS = 15_000;
@@ -61,7 +62,7 @@ function QueueCard({ queue, serviceName, onChange }: { queue: WalkInQueue; servi
   const next = () =>
     run(async () => {
       const called = await callNext(queue.id);
-      toast(called ? `Called customer ${shortId(called.customerId)}. They have been notified.` : 'Nobody is waiting.');
+      toast(called ? `Called ${customerLabel(called)}. They have been notified.` : 'Nobody is waiting.');
       load();
       onChange({ ...queue, waiting: Math.max(0, queue.waiting - (called ? 1 : 0)) });
     });
@@ -69,7 +70,7 @@ function QueueCard({ queue, serviceName, onChange }: { queue: WalkInQueue; servi
   const finish = (entry: QueueEntry, noShow: boolean) =>
     run(async () => {
       await (noShow ? markNoShow(queue.id, entry.id) : completeEntry(queue.id, entry.id));
-      toast(noShow ? `Customer ${shortId(entry.customerId)} marked as a no-show.` : `Customer ${shortId(entry.customerId)} served.`);
+      toast(noShow ? `${customerLabel(entry)} marked as a no-show.` : `${customerLabel(entry)} served.`);
       load();
       // Done updates the queue's average service time; pick it up.
       if (!noShow) {
@@ -155,7 +156,7 @@ function QueueCard({ queue, serviceName, onChange }: { queue: WalkInQueue; servi
             {serving.map((e) => (
               <li key={e.id} className="py-2 flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  Customer {shortId(e.customerId)}
+                  {customerLabel(e)}
                   {e.calledAt && (
                     <span className="text-gray-500">
                       {' '}
@@ -196,7 +197,7 @@ function QueueCard({ queue, serviceName, onChange }: { queue: WalkInQueue; servi
             {waiting.map((e) => (
               <li key={e.id} className="py-2 flex flex-wrap justify-between gap-x-3">
                 <span>
-                  #{e.position} · Customer {shortId(e.customerId)}
+                  #{e.position} · {customerLabel(e)}
                 </span>
                 <span className="text-gray-600">
                   joined {clock(e.enteredAt)}

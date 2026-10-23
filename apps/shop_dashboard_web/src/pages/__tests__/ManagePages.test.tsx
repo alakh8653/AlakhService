@@ -140,7 +140,7 @@ describe('QueuesPage', () => {
     expect(await screen.findByText(/\(1 day 2 h ago\)/)).toBeInTheDocument();
     expect(screen.queryByText('Add a service first; queues are opened per service.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Call next' }));
-    expect(await screen.findByText('Called customer CUST2222. They have been notified.')).toBeInTheDocument();
+    expect(await screen.findByText('Called Customer CUST2222. They have been notified.')).toBeInTheDocument();
     await waitFor(() => expect(api.getWaiting).toHaveBeenCalledTimes(2));
   });
 });

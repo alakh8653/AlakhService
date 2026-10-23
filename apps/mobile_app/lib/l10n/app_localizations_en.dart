@@ -288,6 +288,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get otpResend => 'Didn\'t get it? Resend code';
 
   @override
+  String get forgotTitle => 'Forgot Password';
+
+  @override
+  String get resetPassword => 'Reset Password';
+
+  @override
+  String get forgotIntro =>
+      'Enter the phone number or email on your account and we\'ll send you a code.';
+
+  @override
+  String forgotEnterCode(String destination) {
+    return 'Enter the code we sent to $destination and choose a new password.';
+  }
+
+  @override
+  String get forgotDifferent => 'Use a different phone or email';
+
+  @override
+  String get code => 'Code';
+
+  @override
+  String get codeHint => '6-digit code';
+
+  @override
+  String get newPassword => 'New Password';
+
+  @override
+  String get newPasswordHint => 'Choose a new password';
+
+  @override
+  String get sendCode => 'Send Code';
+
+  @override
+  String get passwordChanged => 'Password Changed';
+
+  @override
+  String get passwordChangedBody =>
+      'Sign in with your new password. Other devices have been signed out.';
+
+  @override
+  String get backToLogin => 'Back to Login';
+
+  @override
   String get greetingMorning => 'Good morning';
 
   @override
@@ -1332,7 +1375,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqSessionsA =>
-      'Tap Log out in Profile to sign out on this phone. If you are signed in on a phone you no longer have, contact Alakh support and we will sign you out of your other devices.';
+      'Tap Log out in Profile to sign out on this phone. To sign out of all your other devices (a lost phone, say), choose a new password with Forgot Password on the sign-in screen: every other device is signed out. Alakh support can also help.';
 
   @override
   String get faqDeleteQ => 'How do I delete my account?';

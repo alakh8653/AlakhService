@@ -13,6 +13,7 @@ import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
 import 'login_page.dart' show isTopRoute;
 import 'otp_verification_page.dart';
+import '../../../../l10n/l10n.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -52,8 +53,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: Text(l10n.registerTitle)),
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (_, __) => isTopRoute(context),
         listener: (context, state) {
@@ -80,15 +82,15 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Join AlakhService', style: AppTextStyles.heading2),
+                Text(l10n.registerHeading, style: AppTextStyles.heading2),
                 const SizedBox(height: 8),
-                Text('Create your account to get started',
+                Text(l10n.registerSubtitle,
                     style: AppTextStyles.body2.themed(context)),
                 const SizedBox(height: 32),
                 CustomTextField(
                   controller: _nameController,
-                  label: 'Full Name',
-                  hint: 'e.g. Priya Sharma',
+                  label: l10n.fullName,
+                  hint: l10n.registerNameHint,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.name],
@@ -97,7 +99,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _phoneController,
-                  label: 'Mobile Number',
+                  label: l10n.mobileNumber,
                   hint: '98765 43210',
                   prefixText: '+91 ',
                   keyboardType: TextInputType.phone,
@@ -110,8 +112,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _passwordController,
-                  label: 'Password',
-                  hint: 'Choose a password',
+                  label: l10n.password,
+                  hint: l10n.registerPasswordHint,
                   helper: Validators.passwordRules,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.done,
@@ -119,7 +121,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   validator: Validators.password,
                   onSubmitted: (_) => _onRegister(),
                   suffix: IconButton(
-                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                    tooltip: _obscurePassword ? l10n.showPassword : l10n.hidePassword,
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_off
@@ -133,14 +135,14 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 12),
                 // Provider accounts are set up by a shop or an admin, so sign-up is for customers.
                 Text(
-                  'We will text a verification code to this number.',
+                  l10n.registerCodeNote,
                   style: AppTextStyles.caption.themed(context),
                 ),
                 const SizedBox(height: 32),
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
                     return CustomButton(
-                      label: 'Create account',
+                      label: l10n.registerButton,
                       onPressed: state is AuthLoading ? null : _onRegister,
                       isLoading: state is AuthLoading,
                     );
@@ -153,8 +155,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     alignment: WrapAlignment.center,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('Already have an account?', style: AppTextStyles.body2.themed(context)),
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Login')),
+                      Text(l10n.registerHaveAccount, style: AppTextStyles.body2.themed(context)),
+                      TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.loginButton)),
                     ],
                   ),
                 ),

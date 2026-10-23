@@ -11,6 +11,7 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Asks for the one-time code sent to [phone] (a phone number or email), to confirm a new
 /// account ('registration') or to sign in without a password ('login').
@@ -80,9 +81,16 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final where = widget.phone.contains('@') ? 'email' : 'phone';
+    final l10n = context.l10n;
+    final email = widget.phone.contains('@');
     return Scaffold(
-      appBar: AppBar(title: Text(widget.purpose == 'login' ? 'Login with OTP' : 'Verify your $where')),
+      appBar: AppBar(
+        title: Text(widget.purpose == 'login'
+            ? l10n.otpTitleLogin
+            : email
+                ? l10n.otpTitleVerifyEmail
+                : l10n.otpTitleVerifyPhone),
+      ),
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (_, __) => ModalRoute.of(context)?.isCurrent ?? true,
         listener: (context, state) {
@@ -97,7 +105,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
             );
           } else if (state is OtpResent) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('A new code is on its way')),
+              SnackBar(content: Text(l10n.otpResent)),
             );
           }
         },
@@ -107,16 +115,16 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              Semantics(header: true, child: const Text('Enter the code', style: AppTextStyles.heading2)),
+              Semantics(header: true, child: Text(l10n.otpEnterCode, style: AppTextStyles.heading2)),
               const SizedBox(height: 8),
               Text(
-                'We sent a ${AppConstants.otpLength}-digit code to ${widget.phone}.',
+                l10n.otpSentTo(AppConstants.otpLength, widget.phone),
                 style: AppTextStyles.body2.themed(context),
               ),
               TextButton(
                 style: TextButton.styleFrom(padding: EdgeInsets.zero),
                 onPressed: () => Navigator.pop(context),
-                child: Text('Wrong $where? Change it'),
+                child: Text(email ? l10n.otpWrongEmail : l10n.otpWrongPhone),
               ),
               const SizedBox(height: 24),
               TextField(
@@ -128,10 +136,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 autofillHints: const [AutofillHints.oneTimeCode],
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: AppTextStyles.heading2.copyWith(letterSpacing: 12),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   counterText: '',
                   hintText: '••••••',
-                  labelText: 'One-time code',
+                  labelText: l10n.otpFieldLabel,
                   floatingLabelBehavior: FloatingLabelBehavior.never,
                 ),
                 onChanged: (_) {
@@ -144,7 +152,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (context, state) {
                   return CustomButton(
-                    label: widget.purpose == 'login' ? 'Verify and login' : 'Verify',
+                    label: widget.purpose == 'login' ? l10n.otpVerifyLogin : l10n.otpVerify,
                     onPressed: (_complete && state is! AuthLoading) ? _onVerify : null,
                     isLoading: state is AuthLoading,
                   );
@@ -154,12 +162,12 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
               Center(
                 child: _secondsLeft > 0
                     ? Text(
-                        "Didn't get it? You can resend in ${_secondsLeft}s",
+                        l10n.otpResendIn(_secondsLeft),
                         style: AppTextStyles.body2.themed(context),
                       )
                     : TextButton(
                         onPressed: _resend,
-                        child: const Text("Didn't get it? Resend code"),
+                        child: Text(l10n.otpResend),
                       ),
               ),
             ],

@@ -129,6 +129,26 @@
     }
   },
   "otpResend": "Didn't get it? Resend code",
+  "forgotTitle": "Forgot Password",
+  "resetPassword": "Reset Password",
+  "forgotIntro": "Enter the phone number or email on your account and we'll send you a code.",
+  "forgotEnterCode": "Enter the code we sent to {destination} and choose a new password.",
+  "@forgotEnterCode": {
+    "placeholders": {
+      "destination": {
+        "type": "String"
+      }
+    }
+  },
+  "forgotDifferent": "Use a different phone or email",
+  "code": "Code",
+  "codeHint": "6-digit code",
+  "newPassword": "New Password",
+  "newPasswordHint": "Choose a new password",
+  "sendCode": "Send Code",
+  "passwordChanged": "Password Changed",
+  "passwordChangedBody": "Sign in with your new password. Other devices have been signed out.",
+  "backToLogin": "Back to Login",
   "greetingMorning": "Good morning",
   "greetingAfternoon": "Good afternoon",
   "greetingEvening": "Good evening",
@@ -759,7 +779,7 @@
   "faqProfileQ": "How do I change my name or addresses?",
   "faqProfileA": "In Profile, use Edit Profile for your name and Saved addresses for the places we come to. Your sign-in number can't be changed in the app; contact Alakh support for that.",
   "faqSessionsQ": "How do I sign out, or sign out of other devices?",
-  "faqSessionsA": "Tap Log out in Profile to sign out on this phone. If you are signed in on a phone you no longer have, contact Alakh support and we will sign you out of your other devices.",
+  "faqSessionsA": "Tap Log out in Profile to sign out on this phone. To sign out of all your other devices (a lost phone, say), choose a new password with Forgot Password on the sign-in screen: every other device is signed out. Alakh support can also help.",
   "faqDeleteQ": "How do I delete my account?",
   "faqDeleteA": "In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops' records."
 }

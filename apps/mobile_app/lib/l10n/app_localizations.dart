@@ -626,6 +626,84 @@ abstract class AppLocalizations {
   /// **'Didn\'t get it? Resend code'**
   String get otpResend;
 
+  /// No description provided for @forgotTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot Password'**
+  String get forgotTitle;
+
+  /// No description provided for @resetPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Password'**
+  String get resetPassword;
+
+  /// No description provided for @forgotIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the phone number or email on your account and we\'ll send you a code.'**
+  String get forgotIntro;
+
+  /// No description provided for @forgotEnterCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code we sent to {destination} and choose a new password.'**
+  String forgotEnterCode(String destination);
+
+  /// No description provided for @forgotDifferent.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a different phone or email'**
+  String get forgotDifferent;
+
+  /// No description provided for @code.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get code;
+
+  /// No description provided for @codeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get codeHint;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New Password'**
+  String get newPassword;
+
+  /// No description provided for @newPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new password'**
+  String get newPasswordHint;
+
+  /// No description provided for @sendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Code'**
+  String get sendCode;
+
+  /// No description provided for @passwordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Password Changed'**
+  String get passwordChanged;
+
+  /// No description provided for @passwordChangedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with your new password. Other devices have been signed out.'**
+  String get passwordChangedBody;
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to Login'**
+  String get backToLogin;
+
   /// No description provided for @greetingMorning.
   ///
   /// In en, this message translates to:
@@ -2405,7 +2483,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqSessionsA.
   ///
   /// In en, this message translates to:
-  /// **'Tap Log out in Profile to sign out on this phone. If you are signed in on a phone you no longer have, contact Alakh support and we will sign you out of your other devices.'**
+  /// **'Tap Log out in Profile to sign out on this phone. To sign out of all your other devices (a lost phone, say), choose a new password with Forgot Password on the sign-in screen: every other device is signed out. Alakh support can also help.'**
   String get faqSessionsA;
 
   /// No description provided for @faqDeleteQ.

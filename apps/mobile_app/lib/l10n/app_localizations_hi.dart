@@ -287,6 +287,49 @@ class AppLocalizationsHi extends AppLocalizations {
   String get otpResend => 'कोड नहीं मिला? दोबारा भेजें';
 
   @override
+  String get forgotTitle => 'पासवर्ड भूल गए';
+
+  @override
+  String get resetPassword => 'नया पासवर्ड बनाएँ';
+
+  @override
+  String get forgotIntro =>
+      'अपने खाते का फ़ोन नंबर या ईमेल डालें, हम आपको एक कोड भेजेंगे।';
+
+  @override
+  String forgotEnterCode(String destination) {
+    return '$destination पर भेजा गया कोड डालें और नया पासवर्ड चुनें।';
+  }
+
+  @override
+  String get forgotDifferent => 'कोई दूसरा फ़ोन या ईमेल इस्तेमाल करें';
+
+  @override
+  String get code => 'कोड';
+
+  @override
+  String get codeHint => '6 अंकों का कोड';
+
+  @override
+  String get newPassword => 'नया पासवर्ड';
+
+  @override
+  String get newPasswordHint => 'नया पासवर्ड चुनें';
+
+  @override
+  String get sendCode => 'कोड भेजें';
+
+  @override
+  String get passwordChanged => 'पासवर्ड बदल गया';
+
+  @override
+  String get passwordChangedBody =>
+      'नए पासवर्ड से साइन इन करें। दूसरे डिवाइस से आपको साइन आउट कर दिया गया है।';
+
+  @override
+  String get backToLogin => 'लॉग इन पर वापस जाएँ';
+
+  @override
   String get greetingMorning => 'सुप्रभात';
 
   @override
@@ -1314,7 +1357,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get faqSessionsA =>
-      'इस फ़ोन से साइन आउट करने के लिए प्रोफ़ाइल में \"लॉग आउट करें\" दबाएँ। अगर आप किसी ऐसे फ़ोन पर साइन इन हैं जो अब आपके पास नहीं है, तो Alakh सपोर्ट से संपर्क करें, हम आपको दूसरे डिवाइस से साइन आउट कर देंगे।';
+      'इस फ़ोन से साइन आउट करने के लिए प्रोफ़ाइल में \"लॉग आउट करें\" दबाएँ। बाकी सभी डिवाइस से साइन आउट करने के लिए (जैसे फ़ोन खो जाने पर) साइन-इन स्क्रीन पर \"पासवर्ड भूल गए?\" से नया पासवर्ड बनाएँ: बाकी सभी डिवाइस से साइन आउट हो जाएगा। Alakh सपोर्ट भी मदद कर सकती है।';
 
   @override
   String get faqDeleteQ => 'अपना खाता कैसे हटाएँ?';

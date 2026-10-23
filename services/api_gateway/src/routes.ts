@@ -87,11 +87,24 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
   { prefix: '/api/v1/admin/chat', upstream: 'booking', rewrite: '/api/v1/chat-moderation', access: 'admin' },
+  // Shop onboarding review (queue, approve, reject); shop_service serves it under the same path.
+  { prefix: '/api/v1/admin/shops', upstream: 'shop', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/audit-logs', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/system-config', upstream: 'admin', access: 'admin' },
   { prefix: '/api/v1/access', upstream: 'admin', access: 'admin' },
 ];
+
+/** Routes that take file uploads, allowed the larger UPLOAD_MAX_BODY_BYTES body. */
+export const UPLOAD_PATHS: RegExp[] = [
+  /^\/api\/v1\/users\/me\/avatar$/,
+  // A shop's KYC document (shop_service caps it at DOCUMENT_MAX_BYTES, 5 MB by default).
+  /^\/api\/v1\/shops\/[^/]+\/documents\/upload$/,
+];
+
+export function isUpload(path: string): boolean {
+  return UPLOAD_PATHS.some((pattern) => pattern.test(path));
+}
 
 export function matchesPrefix(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);

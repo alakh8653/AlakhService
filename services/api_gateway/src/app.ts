@@ -12,7 +12,7 @@ import { RollingMetrics } from './metrics.js';
 import { GatewayMetrics } from './prometheus.js';
 import { proxyRequest } from './proxy.js';
 import { createRevocationCheck, type SendCommand } from './revocation.js';
-import { findRoute, requiredAccess, upstreamPath } from './routes.js';
+import { findRoute, isUpload, requiredAccess, upstreamPath } from './routes.js';
 
 export interface LogEntry {
   requestId: string;
@@ -34,8 +34,6 @@ export interface AppOptions {
 
 // Sign-in, sign-up, codes and password resets: guessing targets, so they get their own budget.
 const AUTH_LIMITED = /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh)$/;
-// Routes that take file uploads, allowed a larger body.
-const UPLOADS = /^\/api\/v1\/users\/me\/avatar$/;
 
 const defaultLog = (entry: LogEntry) => console.log(JSON.stringify({ msg: 'request', ...entry }));
 
@@ -200,7 +198,8 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
       timeoutMs: config.upstreamTimeoutMs,
       requestId: res.locals.requestId,
       metrics: metrics.get(route.upstream),
-      maxBodyBytes: UPLOADS.test(path) ? config.uploadMaxBodyBytes : config.maxBodyBytes,
+      // Routes that take file uploads are allowed a larger body.
+      maxBodyBytes: isUpload(path) ? config.uploadMaxBodyBytes : config.maxBodyBytes,
     });
   });
 

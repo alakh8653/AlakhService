@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findRoute, requiredAccess, upstreamPath } from '../src/routes.js';
+import { findRoute, isUpload, requiredAccess, upstreamPath } from '../src/routes.js';
 
 describe('route table', () => {
   it('matches the longest prefix on whole path segments', () => {
@@ -66,6 +66,28 @@ describe('route table', () => {
     expect(requiredAccess(findRoute('/api/v1/admin/payments/commission/s1')!, 'PUT')).toBe('admin');
     // Internal routes are never reachable through the gateway.
     expect(findRoute('/internal/payments/booking/b1/cancelled')).toBeUndefined();
+  });
+
+  it('sends shop onboarding review to shop_service for admins only, and KYC documents to signed-in owners', () => {
+    const queue = findRoute('/api/v1/admin/shops/review-queue')!;
+    expect(queue.upstream).toBe('shop');
+    expect(requiredAccess(queue, 'GET')).toBe('admin');
+    expect(upstreamPath(queue, '/api/v1/admin/shops/s1/approve')).toBe('/api/v1/admin/shops/s1/approve');
+    expect(findRoute('/api/v1/admin/shopsx')?.upstream).toBe('admin');
+
+    const docs = findRoute('/api/v1/shops/s1/documents/upload')!;
+    expect(docs.upstream).toBe('shop');
+    expect(requiredAccess(docs, 'POST')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/shops/s1/payout-details')!, 'PUT')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/shops/s1/submit-for-review')!, 'POST')).toBe('user');
+  });
+
+  it('allows a larger body only on upload routes', () => {
+    expect(isUpload('/api/v1/users/me/avatar')).toBe(true);
+    expect(isUpload('/api/v1/shops/s1/documents/upload')).toBe(true);
+    expect(isUpload('/api/v1/shops/s1/documents')).toBe(false);
+    expect(isUpload('/api/v1/shops/s1/x/documents/upload')).toBe(false);
+    expect(isUpload('/api/v1/bookings')).toBe(false);
   });
 
   it('only opens read-only methods on browse routes', () => {

@@ -20,6 +20,7 @@ The server enforces the rule, not just the apps: the fields are never in the res
 | Notes, item description, status reasons | As written | With phone numbers, emails and UPI handles replaced by "[hidden for your safety]" |
 | Reviews | Reviewer as a display name; contact details in comments and replies hidden | The same |
 | Walk-in queue | — | Display names |
+| Disputes | The shop's messages, contact details hidden | The customer's description and messages, contact details hidden |
 
 Admins see everything, including the original text of masked chat messages.
 

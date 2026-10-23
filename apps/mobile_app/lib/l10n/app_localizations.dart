@@ -2497,6 +2497,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops\' records.'**
   String get faqDeleteA;
+
+  /// No description provided for @chatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat with the shop'**
+  String get chatTitle;
+
+  /// No description provided for @chatOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get chatOpen;
+
+  /// No description provided for @chatUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat, {count} unread'**
+  String chatUnread(int count);
+
+  /// No description provided for @chatLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading messages…'**
+  String get chatLoading;
+
+  /// No description provided for @chatEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet. Ask the shop anything about this booking.'**
+  String get chatEmpty;
+
+  /// No description provided for @chatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a message'**
+  String get chatHint;
+
+  /// No description provided for @chatLoadEarlier.
+  ///
+  /// In en, this message translates to:
+  /// **'Load earlier messages'**
+  String get chatLoadEarlier;
+
+  /// No description provided for @chatShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get chatShop;
+
+  /// No description provided for @chatRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get chatRead;
+
+  /// No description provided for @chatSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get chatSent;
+
+  /// No description provided for @chatFlaggedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact details are hidden to keep you safe'**
+  String get chatFlaggedHint;
+
+  /// No description provided for @chatClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'This chat is closed. You can still read it.'**
+  String get chatClosed;
+
+  /// No description provided for @chatClosedSince.
+  ///
+  /// In en, this message translates to:
+  /// **'This chat closed {when}. You can still read it.'**
+  String chatClosedSince(String when);
+
+  /// No description provided for @chatOpenUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'You can send messages until {when}'**
+  String chatOpenUntil(String when);
+
+  /// No description provided for @chatCallShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Call shop'**
+  String get chatCallShop;
+
+  /// No description provided for @chatCallPlaced.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re calling you to connect you to the shop.'**
+  String get chatCallPlaced;
+
+  /// No description provided for @bookingDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking details'**
+  String get bookingDetailsTitle;
+
+  /// No description provided for @viewInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'View invoice'**
+  String get viewInvoice;
+
+  /// No description provided for @invoiceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice'**
+  String get invoiceTitle;
+
+  /// No description provided for @invoiceLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading invoice…'**
+  String get invoiceLoading;
+
+  /// No description provided for @paymentPartlyRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Partly refunded'**
+  String get paymentPartlyRefunded;
+
+  /// No description provided for @cancelPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Free cancellation until 2 hours before your booking. After that, a cancellation fee may apply.'**
+  String get cancelPolicy;
+
+  /// No description provided for @cancelPolicyLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Your booking is less than 2 hours away, so a cancellation fee may apply.'**
+  String get cancelPolicyLate;
 }
 
 class _AppLocalizationsDelegate

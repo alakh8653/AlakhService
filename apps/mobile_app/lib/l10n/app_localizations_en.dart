@@ -1385,4 +1385,82 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get faqDeleteA =>
       'In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops\' records.';
+
+  @override
+  String get chatTitle => 'Chat with the shop';
+
+  @override
+  String get chatOpen => 'Chat';
+
+  @override
+  String chatUnread(int count) {
+    return 'Chat, $count unread';
+  }
+
+  @override
+  String get chatLoading => 'Loading messages…';
+
+  @override
+  String get chatEmpty =>
+      'No messages yet. Ask the shop anything about this booking.';
+
+  @override
+  String get chatHint => 'Write a message';
+
+  @override
+  String get chatLoadEarlier => 'Load earlier messages';
+
+  @override
+  String get chatShop => 'Shop';
+
+  @override
+  String get chatRead => 'Read';
+
+  @override
+  String get chatSent => 'Sent';
+
+  @override
+  String get chatFlaggedHint => 'Contact details are hidden to keep you safe';
+
+  @override
+  String get chatClosed => 'This chat is closed. You can still read it.';
+
+  @override
+  String chatClosedSince(String when) {
+    return 'This chat closed $when. You can still read it.';
+  }
+
+  @override
+  String chatOpenUntil(String when) {
+    return 'You can send messages until $when';
+  }
+
+  @override
+  String get chatCallShop => 'Call shop';
+
+  @override
+  String get chatCallPlaced => 'We\'re calling you to connect you to the shop.';
+
+  @override
+  String get bookingDetailsTitle => 'Booking details';
+
+  @override
+  String get viewInvoice => 'View invoice';
+
+  @override
+  String get invoiceTitle => 'Invoice';
+
+  @override
+  String get invoiceLoading => 'Loading invoice…';
+
+  @override
+  String get paymentPartlyRefunded => 'Partly refunded';
+
+  @override
+  String get cancelPolicy =>
+      'Free cancellation until 2 hours before your booking. After that, a cancellation fee may apply.';
+
+  @override
+  String get cancelPolicyLate =>
+      'Your booking is less than 2 hours away, so a cancellation fee may apply.';
 }

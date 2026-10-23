@@ -89,6 +89,36 @@ class PaymentApi {
     }
   }
 
+  /// The id of the booking's completed payment (refunded ones included), for its invoice; null
+  /// when it has none.
+  Future<String?> settledPaymentId(String bookingId) async {
+    try {
+      final response = await apiClient.get<List<dynamic>>(ApiConstants.payments);
+      for (final p in response.data ?? const []) {
+        final m = p as Map<String, dynamic>;
+        if (m['booking_id'] == bookingId && const {'COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'}.contains(m['status'])) {
+          return m['id'] as String;
+        }
+      }
+      return null;
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
+  /// The payment's invoice as a printable HTML page, fetched with the customer's session.
+  Future<String> invoiceHtml(String paymentId) async {
+    try {
+      final response = await apiClient.get<String>(
+        ApiConstants.paymentInvoice(paymentId),
+        options: Options(responseType: ResponseType.plain, headers: {'Accept': 'text/html'}),
+      );
+      return response.data ?? '';
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   /// Hands the gateway's signed receipt to the server, which completes the payment if it checks out.
   Future<PaymentResult> verify({
     required String paymentId,

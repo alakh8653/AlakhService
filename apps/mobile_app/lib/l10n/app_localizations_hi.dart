@@ -1367,4 +1367,83 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get faqDeleteA =>
       'प्रोफ़ाइल में \"मेरा खाता हटाएँ\" दबाएँ। आपकी प्रोफ़ाइल, सेव किए गए पते और साइन-इन हटा दिए जाते हैं; पुरानी बुकिंग और भुगतान दुकानों के रिकॉर्ड के लिए आपके नाम के बिना रखे जाते हैं।';
+
+  @override
+  String get chatTitle => 'दुकान से चैट';
+
+  @override
+  String get chatOpen => 'चैट';
+
+  @override
+  String chatUnread(int count) {
+    return 'चैट, $count नए संदेश';
+  }
+
+  @override
+  String get chatLoading => 'संदेश लोड हो रहे हैं…';
+
+  @override
+  String get chatEmpty =>
+      'अभी कोई संदेश नहीं। इस बुकिंग के बारे में दुकान से कुछ भी पूछें।';
+
+  @override
+  String get chatHint => 'संदेश लिखें';
+
+  @override
+  String get chatLoadEarlier => 'पुराने संदेश देखें';
+
+  @override
+  String get chatShop => 'दुकान';
+
+  @override
+  String get chatRead => 'पढ़ लिया गया';
+
+  @override
+  String get chatSent => 'भेजा गया';
+
+  @override
+  String get chatFlaggedHint =>
+      'आपकी सुरक्षा के लिए संपर्क जानकारी छिपाई गई है';
+
+  @override
+  String get chatClosed => 'यह चैट बंद हो गई है। आप इसे अब भी पढ़ सकते हैं।';
+
+  @override
+  String chatClosedSince(String when) {
+    return 'यह चैट $when बंद हो गई। आप इसे अब भी पढ़ सकते हैं।';
+  }
+
+  @override
+  String chatOpenUntil(String when) {
+    return 'आप $when तक संदेश भेज सकते हैं';
+  }
+
+  @override
+  String get chatCallShop => 'दुकान को कॉल करें';
+
+  @override
+  String get chatCallPlaced => 'दुकान से जोड़ने के लिए हम आपको कॉल कर रहे हैं।';
+
+  @override
+  String get bookingDetailsTitle => 'बुकिंग की जानकारी';
+
+  @override
+  String get viewInvoice => 'इनवॉइस देखें';
+
+  @override
+  String get invoiceTitle => 'इनवॉइस';
+
+  @override
+  String get invoiceLoading => 'इनवॉइस लोड हो रहा है…';
+
+  @override
+  String get paymentPartlyRefunded => 'कुछ पैसे वापस हुए';
+
+  @override
+  String get cancelPolicy =>
+      'बुकिंग से 2 घंटे पहले तक रद्द करना मुफ़्त है। उसके बाद रद्द करने का शुल्क लग सकता है।';
+
+  @override
+  String get cancelPolicyLate =>
+      'आपकी बुकिंग में 2 घंटे से कम समय बचा है, इसलिए रद्द करने का शुल्क लग सकता है।';
 }

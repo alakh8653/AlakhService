@@ -788,5 +788,49 @@
   "faqSessionsQ": "How do I sign out, or sign out of other devices?",
   "faqSessionsA": "Tap Log out in Profile to sign out on this phone. To sign out of all your other devices (a lost phone, say), choose a new password with Forgot Password on the sign-in screen: every other device is signed out. Alakh support can also help.",
   "faqDeleteQ": "How do I delete my account?",
-  "faqDeleteA": "In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops' records."
+  "faqDeleteA": "In Profile, tap Delete my account. Your profile, saved addresses and sign-in are removed; past bookings and payments are kept without your name for the shops' records.",
+  "chatTitle": "Chat with the shop",
+  "chatOpen": "Chat",
+  "chatUnread": "Chat, {count} unread",
+  "@chatUnread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatLoading": "Loading messages…",
+  "chatEmpty": "No messages yet. Ask the shop anything about this booking.",
+  "chatHint": "Write a message",
+  "chatLoadEarlier": "Load earlier messages",
+  "chatShop": "Shop",
+  "chatRead": "Read",
+  "chatSent": "Sent",
+  "chatFlaggedHint": "Contact details are hidden to keep you safe",
+  "chatClosed": "This chat is closed. You can still read it.",
+  "chatClosedSince": "This chat closed {when}. You can still read it.",
+  "@chatClosedSince": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "chatOpenUntil": "You can send messages until {when}",
+  "@chatOpenUntil": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCallShop": "Call shop",
+  "chatCallPlaced": "We're calling you to connect you to the shop.",
+  "bookingDetailsTitle": "Booking details",
+  "viewInvoice": "View invoice",
+  "invoiceTitle": "Invoice",
+  "invoiceLoading": "Loading invoice…",
+  "paymentPartlyRefunded": "Partly refunded",
+  "cancelPolicy": "Free cancellation until 2 hours before your booking. After that, a cancellation fee may apply.",
+  "cancelPolicyLate": "Your booking is less than 2 hours away, so a cancellation fee may apply."
 }

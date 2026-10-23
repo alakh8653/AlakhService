@@ -176,6 +176,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/booking_db
       SHOP_SERVICE_URL: http://shop_service:8000
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
       REDIS_URL: redis://redis:6379/3
 
   payment_service:
@@ -240,6 +241,7 @@ services:
       REDIS_URL: redis://redis:6379/7
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
       SHOP_SERVICE_URL: http://shop_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
 
   dispatch_service:
     <<: *python-service

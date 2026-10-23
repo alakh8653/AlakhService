@@ -170,6 +170,13 @@ services:
     image: localhost/alakhservice/booking_service:${IMAGE_TAG:-latest}
     environment:
       <<: *prod-env
+      # Masked calls between customer and shop (docs/PRIVACY_AND_CONTACT.md). Off unless set.
+      CALL_PROVIDER: ${CALL_PROVIDER:-none}
+      EXOTEL_API_KEY: ${EXOTEL_API_KEY:-}
+      EXOTEL_API_TOKEN: ${EXOTEL_API_TOKEN:-}
+      EXOTEL_ACCOUNT_SID: ${EXOTEL_ACCOUNT_SID:-}
+      EXOTEL_CALLER_ID: ${EXOTEL_CALLER_ID:-}
+      EXOTEL_SUBDOMAIN: ${EXOTEL_SUBDOMAIN:-api.exotel.com}
 
   payment_service:
     <<: *prod-python

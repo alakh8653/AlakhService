@@ -249,6 +249,21 @@ complete DLT registration (see [What you need](#1-what-you-need)). Other Indian 
 `SMTP_FROM_EMAIL`. Add the SPF and DKIM DNS records your provider gives you, or the emails will
 land in spam.
 
+**Masked calls** *(optional)*: customers and shops talk through the in-app chat by default
+(phone numbers and emails written there are hidden). To also let them call each other without
+seeing each other's numbers, set up [Exotel](https://exotel.com) click-to-call:
+
+1. Buy an **ExoPhone** (virtual number) and complete Exotel's KYC.
+2. *Settings → API Settings*: copy the **API key**, **API token** and **Account SID** into
+   `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN` and `EXOTEL_ACCOUNT_SID`.
+3. Put the ExoPhone in `EXOTEL_CALLER_ID` and your account's API host in `EXOTEL_SUBDOMAIN`
+   (`api.in.exotel.com` for Mumbai, `api.exotel.com` for Singapore).
+4. Set `CALL_PROVIDER=exotel` and deploy. With any setting missing, calling stays off (logged as
+   `call_provider_misconfigured`) and the apps keep offering only the chat.
+
+Calls ring the phone number on the person's account, so a customer or shop without one is told to
+add it. See [PRIVACY_AND_CONTACT.md](PRIVACY_AND_CONTACT.md) for what each side sees.
+
 **Push notifications** *(optional)*: Firebase console → Project settings → Service accounts →
 *Generate new private key*. Put the JSON on one line into `FCM_SERVICE_ACCOUNT_JSON`:
 

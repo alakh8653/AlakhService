@@ -290,6 +290,19 @@ def check_integrations(env: dict[str, str], r: Report) -> None:
         if len(r.errors) == errors_before:
             r.ok(f"email via {env['SMTP_HOST']}")
 
+    provider = (env.get("CALL_PROVIDER") or "none").strip().lower()
+    exotel = ("EXOTEL_API_KEY", "EXOTEL_API_TOKEN", "EXOTEL_ACCOUNT_SID", "EXOTEL_CALLER_ID")
+    if provider == "exotel":
+        missing = [k for k in exotel if not env.get(k)]
+        if missing:
+            r.error(f"CALL_PROVIDER=exotel but {', '.join(missing)} empty: calling would stay off")
+        else:
+            r.ok(f"masked calls via Exotel from {env['EXOTEL_CALLER_ID']}")
+    elif provider not in ("", "none"):
+        r.error(f"CALL_PROVIDER must be none or exotel, not {provider}")
+    else:
+        r.ok("masked calls off: customers and shops talk through the in-app chat only")
+
     fcm = env.get("FCM_SERVICE_ACCOUNT_JSON", "")
     if not fcm:
         r.warn("FCM_SERVICE_ACCOUNT_JSON is empty: no push notifications to the mobile app")

@@ -16,3 +16,4 @@ The project contains the application services and web/mobile apps for AlakhServi
 
 - [Deploying to production (one server, Docker, HTTPS)](DEPLOYMENT.md)
 - [Backups and disaster recovery](DISASTER_RECOVERY.md)
+- [Privacy and contact between customers and shops](PRIVACY_AND_CONTACT.md)

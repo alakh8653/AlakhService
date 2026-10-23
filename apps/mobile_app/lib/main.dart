@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'app/app_keys.dart';
 import 'app/app_view.dart';
 import 'app/auth_gate.dart';
 import 'app/link_handler.dart';
@@ -12,10 +13,6 @@ import 'core/settings/app_settings.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/push/push_service.dart';
-
-/// The app's navigator and snackbar host, for links and notifications that arrive from outside a screen.
-final appNavigatorKey = GlobalKey<NavigatorState>();
-final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -1504,4 +1504,18 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get view => 'देखें';
+
+  @override
+  String get locationWhyTitle => 'आपकी लोकेशन इस्तेमाल करें?';
+
+  @override
+  String get locationWhyEta =>
+      'आपका प्रोवाइडर कितनी दूर है और कब पहुँचेगा, यह दिखाने के लिए AlakhService को ऐप खुला रहने पर आपकी लोकेशन चाहिए। यह दुकान के साथ शेयर नहीं की जाती।';
+
+  @override
+  String get locationWhySharing =>
+      'काम चलने के दौरान आपकी लोकेशन उस काम के ग्राहक के साथ शेयर होती है ताकि वे आपको आते देख सकें। काम खत्म होने पर शेयर करना बंद हो जाता है।';
+
+  @override
+  String get continueLabel => 'आगे बढ़ें';
 }

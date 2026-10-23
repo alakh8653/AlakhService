@@ -1521,4 +1521,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get view => 'View';
+
+  @override
+  String get locationWhyTitle => 'Use your location?';
+
+  @override
+  String get locationWhyEta =>
+      'To show how far your provider is and when they\'ll reach you, AlakhService needs your location while the app is open. It isn\'t shared with the shop.';
+
+  @override
+  String get locationWhySharing =>
+      'While a job is under way, your location is shared with that job\'s customer so they can see you arrive. Sharing stops when the job ends.';
+
+  @override
+  String get continueLabel => 'Continue';
 }

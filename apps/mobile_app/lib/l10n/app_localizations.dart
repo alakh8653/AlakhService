@@ -2743,6 +2743,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View'**
   String get view;
+
+  /// No description provided for @locationWhyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your location?'**
+  String get locationWhyTitle;
+
+  /// No description provided for @locationWhyEta.
+  ///
+  /// In en, this message translates to:
+  /// **'To show how far your provider is and when they\'ll reach you, AlakhService needs your location while the app is open. It isn\'t shared with the shop.'**
+  String get locationWhyEta;
+
+  /// No description provided for @locationWhySharing.
+  ///
+  /// In en, this message translates to:
+  /// **'While a job is under way, your location is shared with that job\'s customer so they can see you arrive. Sharing stops when the job ends.'**
+  String get locationWhySharing;
+
+  /// No description provided for @continueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
 }
 
 class _AppLocalizationsDelegate

@@ -857,5 +857,9 @@
   "dataExportBody": "We'll prepare a file with your account, bookings and payments. You'll see here when it's ready to download.",
   "dataExportRequest": "Request",
   "dataExportRequested": "Request sent. We'll prepare your data.",
-  "view": "View"
+  "view": "View",
+  "locationWhyTitle": "Use your location?",
+  "locationWhyEta": "To show how far your provider is and when they'll reach you, AlakhService needs your location while the app is open. It isn't shared with the shop.",
+  "locationWhySharing": "While a job is under way, your location is shared with that job's customer so they can see you arrive. Sharing stops when the job ends.",
+  "continueLabel": "Continue"
 }

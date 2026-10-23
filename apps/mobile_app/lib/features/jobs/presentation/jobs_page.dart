@@ -9,6 +9,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../booking/domain/entities/booking.dart';
 import '../../tracking/data/tracking_api.dart';
 import '../data/jobs_api.dart';
+import '../../../shared/widgets/location_rationale.dart';
 import '../data/location_reporter.dart';
 
 /// A provider's assigned jobs: move each one along, and share location while one is under way.
@@ -28,7 +29,7 @@ class _JobsPageState extends State<JobsPage> {
   late final LocationReporter _reporter = widget.reporter ??
       LocationReporter(
         tracking: sl<TrackingApi>(),
-        source: DeviceLocationSource(),
+        source: DeviceLocationSource(purpose: LocationPurpose.sharing),
         providerId: widget.providerId,
         onState: _onSharing,
       );

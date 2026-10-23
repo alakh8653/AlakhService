@@ -28,6 +28,9 @@ class BookingDetailsPage extends StatefulWidget {
   final PaymentApi? paymentApi;
   final ChatApi? chatApi;
 
+  /// Shows the invoice's HTML (a web view by default).
+  final HtmlViewBuilder? invoiceViewer;
+
   const BookingDetailsPage({
     super.key,
     required this.bookingId,
@@ -35,6 +38,7 @@ class BookingDetailsPage extends StatefulWidget {
     this.repository,
     this.paymentApi,
     this.chatApi,
+    this.invoiceViewer,
   });
 
   @override
@@ -176,7 +180,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             child: TextButton.icon(
               onPressed: () => Navigator.push<void>(
                 context,
-                MaterialPageRoute(builder: (_) => InvoicePage(paymentId: _paymentId!, paymentApi: widget.paymentApi)),
+                MaterialPageRoute(builder: (_) => InvoicePage(paymentId: _paymentId!, paymentApi: widget.paymentApi, viewer: widget.invoiceViewer)),
               ),
               icon: const Icon(Icons.description_outlined, size: 18),
               label: Text(l10n.viewInvoice),

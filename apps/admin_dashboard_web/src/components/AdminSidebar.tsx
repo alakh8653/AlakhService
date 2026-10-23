@@ -6,6 +6,7 @@ import {
   FileClock,
   Gauge,
   KeyRound,
+  MessageSquareWarning,
   Scale,
   ShieldCheck,
   Wallet,
@@ -28,6 +29,7 @@ export const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { to: '/users', label: 'Users', icon: Users },
       { to: '/audit', label: 'Audit Logs', icon: FileClock },
       { to: '/disputes', label: 'Disputes', icon: Scale },
+      { to: '/moderation/contact-sharing', label: 'Contact Sharing', icon: MessageSquareWarning },
     ],
   },
   {

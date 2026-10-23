@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
+from app.core.contact_filter import mask_contact
 from app.core.exceptions import DisputeNotFoundError
 from app.core.fsm import DisputeStatus
 from app.database import get_db
@@ -19,6 +20,18 @@ from app.schemas.dispute import (
 from app.services.dispute_service import dispute_service
 
 router = APIRouter()
+
+
+def _masked(text: Optional[str]) -> Optional[str]:
+    return mask_contact(text).text if text else text
+
+
+def _for_caller(dispute, caller: Caller) -> DisputeResponse:
+    """The other party of a booking never reads contact details out of a dispute; admins see it as written."""
+    out = DisputeResponse.model_validate(dispute)
+    if caller.is_admin or dispute.raised_by == caller.user_id:
+        return out
+    return out.model_copy(update={"description": _masked(out.description)})
 
 
 async def _visible_dispute(db: AsyncSession, dispute_id: str, caller: Caller, booking_check: BookingCheck):
@@ -76,7 +89,7 @@ async def get_dispute(
     caller: Caller = Depends(require_caller),
     booking_check: BookingCheck = Depends(get_booking_check),
 ):
-    return await _visible_dispute(db, dispute_id, caller, booking_check)
+    return _for_caller(await _visible_dispute(db, dispute_id, caller, booking_check), caller)
 
 
 async def _change_status(
@@ -181,4 +194,9 @@ async def get_messages(
     booking_check: BookingCheck = Depends(get_booking_check),
 ):
     await _visible_dispute(db, dispute_id, caller, booking_check)
-    return await dispute_service.get_messages(db, dispute_id)
+    messages = [DisputeMessageResponse.model_validate(m) for m in await dispute_service.get_messages(db, dispute_id)]
+    if caller.is_admin:
+        return messages
+    return [
+        m if m.author_id == caller.user_id else m.model_copy(update={"content": _masked(m.content)}) for m in messages
+    ]

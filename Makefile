@@ -582,9 +582,9 @@ health: ## Check health of the gateway and every service (needs make dev)
 	$(call log,"Checking service health...")
 	@for svc_port in api_gateway:3000 auth_service:8001 user_service:8002 shop_service:8003 \
 		booking_service:8004 payment_service:8005 notification_service:8006 tracking_service:8007 \
-		queue_service:8008 dispatch_service:8009 analytics_service:8010 dispute_service:8011 \
+		queue_service:8008 analytics_service:8010 dispute_service:8011 \
 		trust_risk_service:8012 admin_service:8013 compliance_service:8014 pricing_engine:8015 \
-		service_catalog_service:8016 catalog_service:8017; do \
+		service_catalog_service:8016; do \
 		svc=$${svc_port%%:*}; port=$${svc_port##*:}; \
 		status=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null || true); \
 		if [ "$$status" = "200" ]; then \

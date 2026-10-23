@@ -41,7 +41,6 @@ scrape_configs:
           - http://notification_service:8000/ready
           - http://tracking_service:8000/ready
           - http://queue_service:8000/ready
-          - http://dispatch_service:8000/ready
           - http://analytics_service:8000/ready
           - http://dispute_service:8000/ready
           - http://trust_risk_service:8000/ready
@@ -49,7 +48,6 @@ scrape_configs:
           - http://compliance_service:8000/ready
           - http://pricing_engine:8000/ready
           - http://service_catalog_service:8000/ready
-          - http://catalog_service:8000/ready
           - http://api_gateway:3000/health
     relabel_configs: &probe_relabel
       - source_labels: [__address__]

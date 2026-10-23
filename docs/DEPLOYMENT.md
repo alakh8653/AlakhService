@@ -27,7 +27,7 @@ When you are done you will have:
              ┌───────▼────────┐  sign-in checks, rate limits, circuit breakers, /metrics
              │  API gateway   │
              └───────┬────────┘
-     ┌───────────────┼──────────────────┐   17 Python services, each with its own
+     ┌───────────────┼──────────────────┐   15 Python services, each with its own
      │ auth  booking  payment  shop ... │   database; migrations run on start
      └───────────────┬──────────────────┘
           PostgreSQL · Redis · backup (daily, verified) · optional monitoring

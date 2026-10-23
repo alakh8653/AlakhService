@@ -91,7 +91,7 @@ describe('route table', () => {
   });
 
   it('only opens read-only methods on browse routes', () => {
-    const route = findRoute('/api/v1/catalog/categories')!;
+    const route = findRoute('/api/v1/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');
     expect(requiredAccess(route, 'POST')).toBe('user');
   });

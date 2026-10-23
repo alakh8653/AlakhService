@@ -92,7 +92,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in .env.production}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.production}
-    # 17 services x a pool of up to 15 connections each, plus backups.
+    # 15 services x a pool of up to 15 connections each, plus backups.
     command:
       - postgres
       - -c
@@ -117,7 +117,7 @@ services:
   redis:
     restart: always
     ports: !reset []
-    # catalog_service uses database 16, one past Redis's default of 16 (0-15).
+    # Each service has its own database number (0-15); 32 leaves room for more.
     # noeviction: rate-limit and sign-out keys must never be silently dropped.
     command: redis-server --appendonly yes --databases 32 --maxmemory 384mb --maxmemory-policy noeviction
     deploy:
@@ -205,12 +205,6 @@ services:
     environment:
       <<: *prod-env
 
-  dispatch_service:
-    <<: *prod-python
-    image: localhost/alakhservice/dispatch_service:${IMAGE_TAG:-latest}
-    environment:
-      <<: *prod-env
-
   analytics_service:
     <<: *prod-python
     image: localhost/alakhservice/analytics_service:${IMAGE_TAG:-latest}
@@ -250,12 +244,6 @@ services:
   service_catalog_service:
     <<: *prod-python
     image: localhost/alakhservice/service_catalog_service:${IMAGE_TAG:-latest}
-    environment:
-      <<: *prod-env
-
-  catalog_service:
-    <<: *prod-python
-    image: localhost/alakhservice/catalog_service:${IMAGE_TAG:-latest}
     environment:
       <<: *prod-env
 

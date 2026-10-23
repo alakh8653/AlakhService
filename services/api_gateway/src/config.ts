@@ -41,7 +41,6 @@ const UPSTREAMS: Record<string, [string, string]> = {
   notification: ['NOTIFICATION_SERVICE_URL', 'notification_service'],
   tracking: ['TRACKING_SERVICE_URL', 'tracking_service'],
   queue: ['QUEUE_SERVICE_URL', 'queue_service'],
-  dispatch: ['DISPATCH_SERVICE_URL', 'dispatch_service'],
   analytics: ['ANALYTICS_SERVICE_URL', 'analytics_service'],
   dispute: ['DISPUTE_SERVICE_URL', 'dispute_service'],
   trustRisk: ['TRUST_RISK_SERVICE_URL', 'trust_risk_service'],
@@ -49,7 +48,6 @@ const UPSTREAMS: Record<string, [string, string]> = {
   compliance: ['COMPLIANCE_SERVICE_URL', 'compliance_service'],
   pricing: ['PRICING_ENGINE_URL', 'pricing_engine'],
   serviceCatalog: ['SERVICE_CATALOG_URL', 'service_catalog_service'],
-  catalog: ['CATALOG_SERVICE_URL', 'catalog_service'],
 };
 
 /** Placeholder secrets from the examples and compose defaults: never acceptable in production. */

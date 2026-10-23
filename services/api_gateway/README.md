@@ -30,7 +30,6 @@ service, so the gateway forwards by longest matching prefix (see `src/routes.ts`
 | `notifications` | notification_service |
 | `locations`, `geofences` | tracking_service |
 | `queues` | queue_service |
-| `dispatch`, `providers` | dispatch_service |
 | `events`, `metrics`, `funnels`, `cohorts` | analytics_service |
 | `disputes` | dispute_service |
 | `risk` | trust_risk_service |
@@ -38,7 +37,6 @@ service, so the gateway forwards by longest matching prefix (see `src/routes.ts`
 | `consent`, `gdpr` | compliance_service |
 | `pricing`, `coupons` | pricing_engine |
 | `categories`, `services` | service_catalog_service |
-| `catalog` | catalog_service |
 
 Admin dashboard paths are mapped onto the owning services:
 
@@ -57,7 +55,7 @@ Tokens are the HS256 access tokens issued by auth_service, verified with the sha
 Refresh tokens and single-purpose tokens (password reset) are rejected.
 
 - **Public:** sign-in, registration, token refresh, OTP and password recovery; payment webhooks
-  (verified by signature in payment_service); `GET` on `shops`, `categories`, `services`, `catalog`.
+  (verified by signature in payment_service); `GET` on `shops`, `categories`, `services`, `availability`.
 - **Admin role:** `admin/*`, `audit-logs`, `system-config`, `risk`, and analytics reporting.
 - **Everything else:** any signed-in user. Services still check the token themselves.
 

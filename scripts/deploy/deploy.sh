@@ -34,9 +34,8 @@ IMAGE_PREFIX=localhost/alakhservice
 # Caddy, its own database and Alembic migrations).
 PYTHON_SERVICES=(
   auth_service user_service shop_service booking_service payment_service notification_service
-  tracking_service queue_service dispatch_service analytics_service dispute_service
+  tracking_service queue_service analytics_service dispute_service
   trust_risk_service admin_service compliance_service pricing_engine service_catalog_service
-  catalog_service
 )
 BUILT_SERVICES=("${PYTHON_SERVICES[@]}" api_gateway caddy)
 MONITORING_SERVICES=(prometheus alertmanager grafana blackbox node_exporter backup_metrics)

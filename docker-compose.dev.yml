@@ -38,10 +38,6 @@ services:
     <<: *dev
     volumes:
       - ./services/queue_service:/app
-  dispatch_service:
-    <<: *dev
-    volumes:
-      - ./services/dispatch_service:/app
   analytics_service:
     <<: *dev
     volumes:
@@ -70,10 +66,6 @@ services:
     <<: *dev
     volumes:
       - ./services/service_catalog_service:/app
-  catalog_service:
-    <<: *dev
-    volumes:
-      - ./services/catalog_service:/app
   api_gateway:
     build:
       context: ./services/api_gateway

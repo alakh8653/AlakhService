@@ -5,7 +5,6 @@ on:
     branches: [main, develop]
     paths:
       - "services/**"
-      - "backend/**"
       - "ruff.toml"
       - "scripts/backup/**"
       - ".github/workflows/backend-ci.yml"
@@ -13,7 +12,6 @@ on:
     branches: [main, develop]
     paths:
       - "services/**"
-      - "backend/**"
       - "ruff.toml"
       - "scripts/backup/**"
       - ".github/workflows/backend-ci.yml"
@@ -46,10 +44,10 @@ jobs:
         run: pip install ruff==0.17.1
 
       - name: Run ruff
-        run: ruff check services backend --output-format=github
+        run: ruff check services --output-format=github
 
       - name: Check formatting (fix with `make format-python`)
-        run: ruff format --check services backend
+        run: ruff format --check services
 
   # ---------------------------------------------------------------------------
   # API gateway (TypeScript)
@@ -106,7 +104,7 @@ jobs:
 
       - name: Run bandit
         run: |
-          bandit -r services/ backend/ \
+          bandit -r services/ \
             -x "*/tests/*" \
             --severity-level medium \
             --confidence-level medium \
@@ -160,9 +158,7 @@ jobs:
           - analytics_service
           - auth_service
           - booking_service
-          - catalog_service
           - compliance_service
-          - dispatch_service
           - dispute_service
           - notification_service
           - payment_service
@@ -173,10 +169,11 @@ jobs:
           - tracking_service
           - trust_risk_service
           - user_service
-          - backend
 
     env:
-      SERVICE_DIR: ${{ matrix.service == 'backend' && 'backend' || format('services/{0}', matrix.service) }}
+      # dispatch_service, catalog_service and the legacy backend/ are deprecated (see their DEPRECATED.md)
+      # and no longer tested.
+      SERVICE_DIR: services/${{ matrix.service }}
 
     steps:
       - name: Checkout code

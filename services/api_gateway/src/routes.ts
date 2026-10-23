@@ -58,8 +58,6 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/locations', upstream: 'tracking' },
   { prefix: '/api/v1/geofences', upstream: 'tracking' },
   { prefix: '/api/v1/queues', upstream: 'queue' },
-  { prefix: '/api/v1/dispatch', upstream: 'dispatch' },
-  { prefix: '/api/v1/providers', upstream: 'dispatch' },
   { prefix: '/api/v1/events', upstream: 'analytics' },
   { prefix: '/api/v1/metrics', upstream: 'analytics', access: 'admin' },
   { prefix: '/api/v1/funnels', upstream: 'analytics', access: 'admin' },
@@ -74,9 +72,6 @@ export const ROUTES: Route[] = [
   // Browsing the catalogue does not require an account.
   { prefix: '/api/v1/categories', upstream: 'serviceCatalog', access: 'public', publicMethods: READ_ONLY },
   { prefix: '/api/v1/services', upstream: 'serviceCatalog', access: 'public', publicMethods: READ_ONLY },
-  // Searching takes its filters as a POST body but is still just browsing.
-  { prefix: '/api/v1/catalog/services/search', upstream: 'catalog', access: 'public', publicMethods: ['POST'] },
-  { prefix: '/api/v1/catalog', upstream: 'catalog', access: 'public', publicMethods: READ_ONLY },
 
   // Admin dashboard API (apps/admin_dashboard_web), mapped onto the owning services.
   { prefix: '/api/v1/admin/audit-logs', upstream: 'admin', rewrite: '/api/v1/audit-logs', access: 'admin' },

@@ -54,3 +54,22 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+
+# App icon and launch screen, drawn by tool/make_brand_assets.py. Regenerate the platform files with
+# `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/app_icon.png
+  adaptive_icon_background: "#5B52F0"
+  adaptive_icon_foreground: assets/branding/app_icon_foreground.png
+  remove_alpha_ios: true
+  min_sdk_android: 24
+
+flutter_native_splash:
+  color: "#5B52F0"
+  image: assets/branding/splash_mark.png
+  android_12:
+    color: "#5B52F0"
+    image: assets/branding/app_icon_foreground.png
+  web: false

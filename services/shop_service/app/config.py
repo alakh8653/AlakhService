@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
     # Reviewers' public names (first name and last initial) come from their account.
     AUTH_SERVICE_URL: str = "http://auth_service:8000"
+    # Shop approvals are reported to admin_service's audit log and the owner is told through
+    # notification_service; both are best effort and skipped without INTERNAL_API_KEY.
+    ADMIN_SERVICE_URL: str = "http://admin_service:8000"
+    NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
+    # Shared with the other services for /internal/... calls (payment_service reads payout details).
+    INTERNAL_API_KEY: str = ""
+    # KYC files uploaded through the API are kept here (mount a volume in production); empty turns
+    # uploads off, and owners give https links to their documents instead.
+    DOCUMENT_STORAGE_DIR: str = "/app/data/shop_documents"
+    DOCUMENT_MAX_BYTES: int = 5 * 1024 * 1024
+    MAX_DOCUMENTS_PER_SHOP: int = 20
 
     model_config = SettingsConfigDict(env_file=".env")
 

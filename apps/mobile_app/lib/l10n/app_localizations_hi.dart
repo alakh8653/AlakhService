@@ -543,22 +543,22 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String hoursOpenCloses(String time) {
-    return 'अभी खुला है · $time बजे बंद होगा';
+    return 'अभी खुला है · $time पर बंद होगा';
   }
 
   @override
   String hoursClosedOpens(String time) {
-    return 'बंद है · $time बजे खुलेगा';
+    return 'बंद है · $time पर खुलेगा';
   }
 
   @override
   String hoursClosedOpensTomorrow(String time) {
-    return 'बंद है · कल $time बजे खुलेगा';
+    return 'बंद है · कल $time पर खुलेगा';
   }
 
   @override
   String hoursClosedOpensDay(String day, String time) {
-    return 'बंद है · $day को $time बजे खुलेगा';
+    return 'बंद है · $day को $time पर खुलेगा';
   }
 
   @override
@@ -1141,7 +1141,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get addressDeleted => 'पता हटा दिया गया';
 
   @override
-  String get defaultAddressSet => 'डिफ़ॉल्ट पता बदल गया';
+  String defaultAddressSet(String label) {
+    return '$label अब आपका डिफ़ॉल्ट पता है';
+  }
 
   @override
   String get noAddresses => 'अभी कोई पता सेव नहीं है';

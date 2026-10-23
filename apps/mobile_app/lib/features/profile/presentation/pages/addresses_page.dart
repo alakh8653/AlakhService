@@ -9,6 +9,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../data/address_api.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Asks for a new address and saves it. Returns the saved address, or null if the customer
 /// backed out or saving failed (the failure is shown). Used here and from the booking screen.
@@ -16,6 +17,7 @@ Future<SavedAddress?> addAddress(BuildContext context, AddressApi api) async {
   final added = await showDialog<_NewAddress>(context: context, builder: (_) => const _AddressDialog());
   if (added == null || !context.mounted) return null;
   final messenger = ScaffoldMessenger.of(context);
+  final savedText = context.l10n.addressSaved;
   try {
     final saved = await api.add(
       label: added.label,
@@ -24,7 +26,7 @@ Future<SavedAddress?> addAddress(BuildContext context, AddressApi api) async {
       state: added.state,
       postalCode: added.postalCode,
     );
-    messenger.showSnackBar(const SnackBar(content: Text('Address saved'), backgroundColor: AppColors.success));
+    messenger.showSnackBar(SnackBar(content: Text(savedText), backgroundColor: AppColors.success));
     return saved;
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
@@ -86,19 +88,19 @@ class _AddressesPageState extends State<AddressesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Delete "${a.label}"?'),
+        title: Text(context.l10n.deleteAddressQuestion(a.label)),
         content: Text(a.oneLine),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep it')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(context.l10n.keepIt)),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: context.colors.error),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
     );
-    if (confirmed == true && mounted) await _run(() => _api.delete(a.id), 'Address deleted');
+    if (confirmed == true && mounted) await _run(() => _api.delete(a.id), context.l10n.addressDeleted);
   }
 
   @override
@@ -119,15 +121,15 @@ class _AddressesPageState extends State<AddressesPage> {
           const SizedBox(height: 80),
           const Icon(Icons.location_off_outlined, size: 64, color: AppColors.textDisabled),
           const SizedBox(height: 16),
-          const Text('No saved addresses yet', style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
+          Text(context.l10n.noAddresses, style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
           const SizedBox(height: 4),
           Text(
-            'Add your home or work address for home visits and pickups.',
+            context.l10n.noAddressesBody,
             style: AppTextStyles.body2.themed(context),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          Center(child: CustomButton(label: 'Add address', width: 200, leadingIcon: Icons.add, onPressed: _add)),
+          Center(child: CustomButton(label: context.l10n.addAddress, width: 200, leadingIcon: Icons.add, onPressed: _add)),
         ],
       );
     } else {
@@ -140,13 +142,13 @@ class _AddressesPageState extends State<AddressesPage> {
               title: Text(a.isDefault ? '${a.label} (default)' : a.label),
               subtitle: Text(a.oneLine),
               trailing: PopupMenuButton<String>(
-                tooltip: 'Options for ${a.label}',
+                tooltip: context.l10n.addressOptions(a.label),
                 onSelected: (choice) => choice == 'default'
-                    ? _run(() => _api.makeDefault(a.id), '${a.label} is now your default address')
+                    ? _run(() => _api.makeDefault(a.id), context.l10n.defaultAddressSet(a.label))
                     : _delete(a),
                 itemBuilder: (_) => [
-                  if (!a.isDefault) const PopupMenuItem(value: 'default', child: Text('Make default')),
-                  const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  if (!a.isDefault) PopupMenuItem(value: 'default', child: Text(context.l10n.makeDefault)),
+                  PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
                 ],
               ),
             ),
@@ -154,12 +156,12 @@ class _AddressesPageState extends State<AddressesPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved addresses')),
+      appBar: AppBar(title: Text(context.l10n.savedAddresses)),
       floatingActionButton: (addresses?.isNotEmpty ?? false)
           ? FloatingActionButton.extended(
               onPressed: _add,
               icon: const Icon(Icons.add_location_alt_outlined),
-              label: const Text('Add address'),
+              label: Text(context.l10n.addAddress),
             )
           : null,
       body: RefreshIndicator(onRefresh: _load, child: body),
@@ -182,7 +184,8 @@ class _AddressDialog extends StatefulWidget {
 
 class _AddressDialogState extends State<_AddressDialog> {
   final _form = GlobalKey<FormState>();
-  final _label = TextEditingController(text: 'Home');
+  // The suggested label, in the language on screen; read on first build.
+  late final _label = TextEditingController(text: context.l10n.addressDefaultLabel);
   final _street = TextEditingController();
   final _city = TextEditingController();
   final _state = TextEditingController();
@@ -196,7 +199,7 @@ class _AddressDialogState extends State<_AddressDialog> {
     super.dispose();
   }
 
-  String? _required(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
+  String? _required(String? v) => (v == null || v.trim().isEmpty) ? context.l10n.requiredField : null;
 
   void _save() {
     if (!(_form.currentState?.validate() ?? false)) return;
@@ -209,7 +212,7 @@ class _AddressDialogState extends State<_AddressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New address'),
+      title: Text(context.l10n.newAddress),
       content: Form(
         key: _form,
         child: SingleChildScrollView(
@@ -220,7 +223,7 @@ class _AddressDialogState extends State<_AddressDialog> {
                 controller: _label,
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Label (Home, Work…)'),
+                decoration: InputDecoration(labelText: context.l10n.addressLabel),
                 validator: _required,
               ),
               TextFormField(
@@ -228,7 +231,7 @@ class _AddressDialogState extends State<_AddressDialog> {
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.streetAddressLine1],
-                decoration: const InputDecoration(labelText: 'Flat / house no., street, area'),
+                decoration: InputDecoration(labelText: context.l10n.addressStreet),
                 validator: _required,
               ),
               TextFormField(
@@ -236,7 +239,7 @@ class _AddressDialogState extends State<_AddressDialog> {
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.addressCity],
-                decoration: const InputDecoration(labelText: 'City'),
+                decoration: InputDecoration(labelText: context.l10n.city),
                 validator: _required,
               ),
               TextFormField(
@@ -244,7 +247,7 @@ class _AddressDialogState extends State<_AddressDialog> {
                 textCapitalization: TextCapitalization.words,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.addressState],
-                decoration: const InputDecoration(labelText: 'State'),
+                decoration: InputDecoration(labelText: context.l10n.state),
                 validator: _required,
               ),
               TextFormField(
@@ -253,8 +256,8 @@ class _AddressDialogState extends State<_AddressDialog> {
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.postalCode],
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-                decoration: const InputDecoration(labelText: 'PIN code'),
-                validator: (v) => RegExp(r'^[1-9]\d{5}$').hasMatch((v ?? '').trim()) ? null : 'Enter a 6-digit PIN code',
+                decoration: InputDecoration(labelText: context.l10n.pinCode),
+                validator: (v) => RegExp(r'^[1-9]\d{5}$').hasMatch((v ?? '').trim()) ? null : context.l10n.pinInvalid,
                 onFieldSubmitted: (_) => _save(),
               ),
             ],
@@ -262,8 +265,8 @@ class _AddressDialogState extends State<_AddressDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        TextButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        TextButton(onPressed: _save, child: Text(context.l10n.save)),
       ],
     );
   }

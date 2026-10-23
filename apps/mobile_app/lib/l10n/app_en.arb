@@ -678,7 +678,14 @@
   },
   "keepIt": "Keep it",
   "addressDeleted": "Address deleted",
-  "defaultAddressSet": "Default address updated",
+  "defaultAddressSet": "{label} is now your default address",
+  "@defaultAddressSet": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "noAddresses": "No saved addresses yet",
   "noAddressesBody": "Add your home or work address for home visits and pickups.",
   "addressOptions": "Options for {label}",

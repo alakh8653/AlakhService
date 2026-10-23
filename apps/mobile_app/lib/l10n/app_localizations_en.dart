@@ -1158,7 +1158,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addressDeleted => 'Address deleted';
 
   @override
-  String get defaultAddressSet => 'Default address updated';
+  String defaultAddressSet(String label) {
+    return '$label is now your default address';
+  }
 
   @override
   String get noAddresses => 'No saved addresses yet';

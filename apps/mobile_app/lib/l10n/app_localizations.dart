@@ -2105,8 +2105,8 @@ abstract class AppLocalizations {
   /// No description provided for @defaultAddressSet.
   ///
   /// In en, this message translates to:
-  /// **'Default address updated'**
-  String get defaultAddressSet;
+  /// **'{label} is now your default address'**
+  String defaultAddressSet(String label);
 
   /// No description provided for @noAddresses.
   ///

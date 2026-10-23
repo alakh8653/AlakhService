@@ -82,6 +82,8 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/audit-logs', upstream: 'admin', rewrite: '/api/v1/audit-logs', access: 'admin' },
   { prefix: '/api/v1/admin/disputes', upstream: 'dispute', rewrite: '/api/v1/disputes', access: 'admin' },
   { prefix: '/api/v1/admin/finance', upstream: 'payment', rewrite: '/api/v1/finance', access: 'admin' },
+  // Commission rates and shop payouts (batches, mark paid, CSV export); payment_service serves them as is.
+  { prefix: '/api/v1/admin/payments', upstream: 'payment', access: 'admin' },
   { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
   { prefix: '/api/v1/admin/chat', upstream: 'booking', rewrite: '/api/v1/chat-moderation', access: 'admin' },

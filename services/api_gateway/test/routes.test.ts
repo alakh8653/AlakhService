@@ -51,6 +51,23 @@ describe('route table', () => {
     expect(upstreamPath(viaAdmin, '/api/v1/admin/chat/repeat-offenders')).toBe('/api/v1/chat-moderation/repeat-offenders');
   });
 
+  it('sends shop earnings, payouts and invoices to payment_service, and payout admin to admins only', () => {
+    const earnings = findRoute('/api/v1/payments/shops/s1/earnings')!;
+    expect(earnings.upstream).toBe('payment');
+    expect(requiredAccess(earnings, 'GET')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/payments/p1/invoice')!, 'GET')).toBe('user');
+
+    const payouts = findRoute('/api/v1/admin/payments/payouts/export.csv')!;
+    expect(payouts.upstream).toBe('payment');
+    expect(requiredAccess(payouts, 'GET')).toBe('admin');
+    expect(upstreamPath(payouts, '/api/v1/admin/payments/payouts/export.csv')).toBe(
+      '/api/v1/admin/payments/payouts/export.csv',
+    );
+    expect(requiredAccess(findRoute('/api/v1/admin/payments/commission/s1')!, 'PUT')).toBe('admin');
+    // Internal routes are never reachable through the gateway.
+    expect(findRoute('/internal/payments/booking/b1/cancelled')).toBeUndefined();
+  });
+
   it('only opens read-only methods on browse routes', () => {
     const route = findRoute('/api/v1/catalog/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');

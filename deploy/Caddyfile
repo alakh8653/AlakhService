@@ -1,6 +1,7 @@
 # =============================================================================
 # AlakhService — Caddy reverse proxy (automatic HTTPS from Let's Encrypt)
 #
+#   https://{$DOMAIN}        -> public site (deploy/site): legal pages, account deletion, app links
 #   https://api.{$DOMAIN}    -> api_gateway:3000 (mobile app + dashboards)
 #   https://shop.{$DOMAIN}   -> shop dashboard (static files built into the image)
 #   https://admin.{$DOMAIN}  -> admin dashboard (static files), optionally IP-restricted
@@ -104,6 +105,76 @@ api.{$DOMAIN} {
 shop.{$DOMAIN} {
 	import common
 	import spa /srv/shop
+}
+
+# The public site (deploy/site): landing page, Terms, Privacy, Refunds, Grievance, account deletion,
+# app-link files and the "open in the app" pages for app links. Plain files, no build step.
+{$DOMAIN} {
+	import common
+	root * /srv/site
+	header {
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+	}
+
+	# The only API calls the site's forms make (account deletion, password reset), forwarded on this
+	# same origin so the gateway's CORS list stays the two dashboards. The gateway still applies its
+	# sign-in rate limit to them; everything else under /api is not served here.
+	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current
+	handle @site_api {
+		request_body {
+			max_size 16KiB
+		}
+		reverse_proxy api_gateway:3000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 30s
+			}
+		}
+	}
+	handle /api/* {
+		header Content-Type application/json
+		respond `{"detail":"Not found"}` 404
+	}
+
+	# Android App Links and iOS Universal Links: both must be served as JSON, without redirects.
+	@app_link_files path /.well-known/assetlinks.json /.well-known/apple-app-site-association
+	handle @app_link_files {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	redir /shop-dashboard https://shop.{$DOMAIN}/ 302
+
+	# App links: the app opens them when installed; otherwise these pages say how to get it.
+	handle /b/* {
+		header Cache-Control "no-cache"
+		rewrite * /open-app.html
+		file_server
+	}
+	handle /reset-password* {
+		# The token is in the query string: never cache this page.
+		header Cache-Control "no-store"
+		rewrite * /reset-password.html
+		file_server
+	}
+
+	handle {
+		header Cache-Control "public, max-age=300"
+		# /terms serves terms.html, and so on.
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+
+	handle_errors {
+		@not_found expression {err.status_code} == 404
+		handle @not_found {
+			rewrite * /404.html
+			file_server
+		}
+		respond "{err.status_code} {err.status_text}"
+	}
 }
 
 admin.{$DOMAIN} {

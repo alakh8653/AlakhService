@@ -1,4 +1,4 @@
-# Caddy reverse proxy with both web dashboards built in as static files.
+# Caddy reverse proxy with both web dashboards and the public site (deploy/site) built in as static files.
 # Built by docker-compose.prod.yml (context: repository root). The API address is baked into the
 # JavaScript at build time, so changing DOMAIN means rebuilding this image (deploy.sh does).
 
@@ -24,3 +24,5 @@ COPY --from=admin /app/dist /srv/admin
 # The Caddyfile is mounted from deploy/Caddyfile so it can be edited without a rebuild;
 # this copy is only a fallback.
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
+# The public site (legal pages, account deletion, app links); also mounted from deploy/site.
+COPY deploy/site /srv/site

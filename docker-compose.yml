@@ -137,6 +137,9 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/auth_db
       REDIS_URL: redis://redis:6379/0
+      # Terms acceptance at sign-up is recorded in the consent register here.
+      COMPLIANCE_SERVICE_URL: http://compliance_service:8000
+      USER_SERVICE_URL: http://user_service:8000
 
   user_service:
     <<: *python-service
@@ -211,6 +214,8 @@ services:
       REDIS_URL: redis://redis:6379/5
       # Push: path to the Firebase service-account JSON mounted into the container (optional).
       FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      # The recipient's own phone/email, for SMS and email when they have no app installed.
+      AUTH_SERVICE_URL: http://auth_service:8000
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}

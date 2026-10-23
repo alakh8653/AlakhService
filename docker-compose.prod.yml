@@ -74,11 +74,15 @@ x-smtp-env: &smtp-env
   SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
   SMTP_FROM_NAME: ${SMTP_FROM_NAME:-AlakhService}
 
-# SMS (Twilio), used by auth_service (one-time codes) and notification_service.
+# SMS, used by auth_service (one-time codes) and notification_service (booking updates for people
+# without the app). SMS_PROVIDER picks twilio, msg91 (DLT-registered Indian sender) or none.
 x-sms-env: &sms-env
+  SMS_PROVIDER: ${SMS_PROVIDER:-twilio}
   TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
   TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
   TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+  MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+  MSG91_SENDER_ID: ${MSG91_SENDER_ID:-}
 
 services:
 
@@ -148,7 +152,12 @@ services:
     image: localhost/alakhservice/auth_service:${IMAGE_TAG:-latest}
     environment:
       <<: [*prod-env, *smtp-env, *sms-env]
-      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:?PASSWORD_RESET_URL must be set in .env.production}
+      # Reset emails link to the public site, which opens the app or resets the password in the browser.
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-https://${DOMAIN:?DOMAIN must be set in .env.production}/reset-password}
+      # GET /api/v1/legal/current: the Terms version sign-up must accept, and the legal pages' site.
+      TERMS_VERSION: ${TERMS_VERSION:-2026-10}
+      LEGAL_BASE_URL: https://${DOMAIN:?DOMAIN must be set in .env.production}
+      MSG91_OTP_TEMPLATE_ID: ${MSG91_OTP_TEMPLATE_ID:-}
       # Never log one-time codes or reset tokens on a live server.
       LOG_OTP_CODES: "false"
       LOG_PASSWORD_RESET_TOKENS: "false"
@@ -192,6 +201,14 @@ services:
       # Push notifications: the Firebase service-account key as one line of JSON (optional).
       FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
       FCM_SERVICE_ACCOUNT_FILE: ""
+      # Linked from the new-booking email shop owners get.
+      SHOP_DASHBOARD_URL: https://shop.${DOMAIN:?DOMAIN must be set in .env.production}
+      # One DLT template id per event texted with MSG91 (texts: docs/DEPLOYMENT.md, "SMS").
+      MSG91_TEMPLATE_BOOKING_CONFIRMED: ${MSG91_TEMPLATE_BOOKING_CONFIRMED:-}
+      MSG91_TEMPLATE_BOOKING_CANCELLED: ${MSG91_TEMPLATE_BOOKING_CANCELLED:-}
+      MSG91_TEMPLATE_BOOKING_REMINDER: ${MSG91_TEMPLATE_BOOKING_REMINDER:-}
+      MSG91_TEMPLATE_BOOKING_REFUNDED: ${MSG91_TEMPLATE_BOOKING_REFUNDED:-}
+      MSG91_TEMPLATE_BOOKING_EXPIRED: ${MSG91_TEMPLATE_BOOKING_EXPIRED:-}
 
   tracking_service:
     <<: *prod-python
@@ -294,7 +311,7 @@ services:
     <<: *logging
 
   # ---------------------------------------------------------------------------
-  # Reverse proxy: HTTPS for api./shop./admin.<DOMAIN>, serves the dashboards
+  # Reverse proxy: HTTPS for <DOMAIN> and api./shop./admin.<DOMAIN>; serves the site and dashboards
   # ---------------------------------------------------------------------------
 
   caddy:
@@ -321,6 +338,8 @@ services:
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-0.0.0.0/0 ::/0}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The public site (legal pages, account deletion, app links): edit and it is live, no rebuild.
+      - ./deploy/site:/srv/site:ro
       # Certificates and ACME account: keep this volume, or Let's Encrypt rate limits may bite.
       - caddy_data:/data
       - caddy_config:/config

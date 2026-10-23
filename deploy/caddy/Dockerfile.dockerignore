@@ -3,6 +3,7 @@
 !apps/shop_dashboard_web/**
 !apps/admin_dashboard_web/**
 !deploy/Caddyfile
+!deploy/site/**
 **/node_modules
 **/dist
 **/coverage

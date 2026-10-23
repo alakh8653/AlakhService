@@ -226,3 +226,20 @@ async def call_contact(user_id: str, db: AsyncSession = Depends(get_db)):
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     return {"phone": user.phone}
+
+
+class NotifyContact(BaseModel):
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
+@internal_router.get(
+    "/internal/users/{user_id}/contact", response_model=NotifyContact, dependencies=[Depends(require_internal)]
+)
+async def notify_contact(user_id: str, db: AsyncSession = Depends(get_db)):
+    """Where notification_service texts or emails the person THEMSELVES (booking updates when they have
+    no app installed). Never put into a message to anyone else."""
+    user = await db.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"phone": user.phone, "email": user.email}

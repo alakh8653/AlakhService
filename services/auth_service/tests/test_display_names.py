@@ -63,6 +63,11 @@ async def test_internal_contact_routes_need_the_key(client, monkeypatch):  # noq
     assert (await client.get(contact, headers=bearer(ids["Ravi Kumar"]))).status_code == 401
     assert (await client.get(contact, headers=INTERNAL)).json() == {"phone": None}
     assert (await client.get("/internal/users/nobody/call-contact", headers=INTERNAL)).status_code == 404
+    # Where notification_service reaches the person themselves when they have no app installed.
+    own = f"/internal/users/{ids['Ravi Kumar']}/contact"
+    assert (await client.get(own, headers=bearer(ids["Ravi Kumar"]))).status_code == 401
+    assert (await client.get(own, headers=INTERNAL)).json() == {"phone": None, "email": "ravi@example.com"}
+    assert (await client.get("/internal/users/nobody/contact", headers=INTERNAL)).status_code == 404
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
     assert (await client.post(url, json={"user_ids": ["x"]}, headers={"X-Internal-Key": ""})).status_code == 503
 

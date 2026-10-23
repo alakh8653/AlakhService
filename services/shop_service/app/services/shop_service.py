@@ -8,11 +8,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
-from app.models.shop import Shop, ShopRating
+from app.models.shop import APPROVED, PENDING_REVIEW, Shop, ShopRating
 from app.schemas.shop import ShopCreate, ShopUpdate
 from app.services.review_service import review_service
 
 log = structlog.get_logger()
+
+# What customers may find: approved by an admin and not closed by its owner.
+PUBLIC = (Shop.is_active == True, Shop.verification_status == APPROVED)
+
+
+def is_public(shop: Shop) -> bool:
+    return bool(shop.is_active) and shop.verification_status == APPROVED
 
 
 class ShopService:
@@ -32,7 +39,12 @@ class ShopService:
             rating_avg=0.0,
             rating_count=0,
             is_active=True,
+            # Hidden from customers until an admin has checked its documents.
             is_verified=False,
+            verification_status=PENDING_REVIEW,
+            legal_name=data.legal_name,
+            legal_address=data.legal_address,
+            gstin=data.gstin,
         )
         db.add(shop)
         await db.flush()
@@ -47,13 +59,25 @@ class ShopService:
         return shop
 
     async def list_shops(
-        self, db: AsyncSession, skip: int = 0, limit: int = 20, owner_id: Optional[str] = None
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 20,
+        owner_id: Optional[str] = None,
+        include_hidden: bool = False,
     ) -> List[Shop]:
-        """Active shops; filtered by owner it also includes the owner's inactive shops."""
+        """Approved, active shops; include_hidden (the owner's own list) adds the rest of theirs."""
         query = select(Shop)
-        query = query.where(Shop.owner_id == owner_id) if owner_id else query.where(Shop.is_active == True)
+        if owner_id:
+            query = query.where(Shop.owner_id == owner_id)
+        if not (owner_id and include_hidden):
+            query = query.where(*PUBLIC)
         result = await db.execute(query.order_by(Shop.created_at, Shop.id).offset(skip).limit(limit))
         return list(result.scalars().all())
+
+    async def owner_has_shop(self, db: AsyncSession, owner_id: str) -> bool:
+        result = await db.execute(select(Shop.id).where(Shop.owner_id == owner_id).limit(1))
+        return result.first() is not None
 
     async def search_shops(
         self,
@@ -63,7 +87,7 @@ class ShopService:
         category: Optional[str] = None,
         limit: int = 20,
     ) -> List[Shop]:
-        stmt = select(Shop).where(Shop.is_active == True)
+        stmt = select(Shop).where(*PUBLIC)
         if city:
             stmt = stmt.where(Shop.city == city)
         if category:

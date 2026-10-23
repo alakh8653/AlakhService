@@ -77,11 +77,24 @@ async def test_create_shop_keeps_its_contact_details_and_location(db_session, se
 
 @pytest.mark.anyio
 async def test_search_shops_by_city(db_session, service):
-    await service.create_shop(db_session, ShopCreate(owner_id="o1", name="Mumbai Shop", category="spa", city="Mumbai"))
-    await service.create_shop(db_session, ShopCreate(owner_id="o2", name="Delhi Shop", category="spa", city="Delhi"))
+    for owner, name, city in (("o1", "Mumbai Shop", "Mumbai"), ("o2", "Delhi Shop", "Delhi")):
+        shop = await service.create_shop(db_session, ShopCreate(owner_id=owner, name=name, category="spa", city=city))
+        shop.verification_status = "APPROVED"
     results = await service.search_shops(db_session, city="Mumbai")
     assert len(results) == 1
     assert results[0].city == "Mumbai"
+
+
+@pytest.mark.anyio
+async def test_new_shops_wait_for_review_and_stay_out_of_search(db_session, service):
+    shop = await service.create_shop(
+        db_session, ShopCreate(owner_id="o1", name="New Shop", category="spa", city="Agra")
+    )
+    assert (shop.verification_status, shop.is_verified) == ("PENDING_REVIEW", False)
+    assert await service.search_shops(db_session, city="Agra") == []
+    assert await service.list_shops(db_session) == []
+    # The owner's own list includes it.
+    assert [s.id for s in await service.list_shops(db_session, owner_id="o1", include_hidden=True)] == [shop.id]
 
 
 @pytest.mark.anyio

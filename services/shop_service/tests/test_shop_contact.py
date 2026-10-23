@@ -3,7 +3,7 @@
 import pytest
 
 from tests.test_hours_api import client  # noqa: F401  (fixture)
-from tests.test_staff_api import ADMIN, OTHER, OWNER
+from tests.test_staff_api import ADMIN, OTHER, OWNER, approve
 
 
 @pytest.mark.asyncio
@@ -23,6 +23,7 @@ async def test_customers_never_get_a_shops_phone_or_email(client):  # noqa: F811
     )
     assert created.status_code == 201
     shop_id = created.json()["id"]
+    await approve(client, shop_id)
 
     for headers in ({}, OTHER, {"Authorization": "Bearer not-a-token"}):
         one = (await client.get(f"/api/v1/shops/{shop_id}", headers=headers)).json()

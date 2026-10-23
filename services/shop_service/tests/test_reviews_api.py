@@ -59,6 +59,9 @@ async def make_shop(client, owner="owner-1"):
         "/api/v1/shops", json={"owner_id": owner, "name": f"Shop {owner}", "category": "salon"}, headers=auth(owner)
     )
     assert resp.status_code == 201
+    # Approved, so customers can find it (new shops wait for review).
+    approved = await client.post(f"/api/v1/admin/shops/{resp.json()['id']}/approve", headers=ADMIN)
+    assert approved.status_code == 200
     return resp.json()["id"]
 
 

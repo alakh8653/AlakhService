@@ -1,9 +1,10 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
+from app.core.internal import is_internal
 from app.database import get_db
 from app.dependencies import (
     BookingLookup,
@@ -16,21 +17,28 @@ from app.dependencies import (
     require_caller,
 )
 from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
-from app.services.shop_service import shop_service
+from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
 
+# Only for the owner and admins: how to reach the shop off-platform, and its KYC and review details.
+PRIVATE_FIELDS = ("phone", "email", "legal_name", "legal_address", "gstin", "rejection_reason", "submitted_at")
+
+
+def can_manage(shop, caller: Optional[Caller]) -> bool:
+    return caller is not None and (caller.is_admin or caller.user_id == shop.owner_id)
+
 
 def for_caller(shop, caller: Optional[Caller]) -> ShopResponse:
-    """A shop as this caller may see it: its phone and email only for its owner and admins.
+    """A shop as this caller may see it: its phone, email and KYC details only for its owner and admins.
 
     Customers reach a shop through the platform (booking chat, masked calls), so bookings and the
     commission on them stay on the platform.
     """
     view = ShopResponse.model_validate(shop)
-    if caller is not None and (caller.is_admin or caller.user_id == view.owner_id):
+    if can_manage(shop, caller):
         return view
-    return view.model_copy(update={"phone": None, "email": None})
+    return view.model_copy(update=dict.fromkeys(PRIVATE_FIELDS))
 
 
 @router.post("/shops", response_model=ShopResponse, status_code=201)
@@ -38,8 +46,9 @@ async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db), call
     # Only admins may open a shop on someone else's behalf.
     ensure_owner(data.owner_id, caller)
     # An owner runs one shop (the dashboard manages a single shop); a repeat submit must not open a second.
-    if not caller.is_admin and await shop_service.list_shops(db, skip=0, limit=1, owner_id=data.owner_id):
+    if not caller.is_admin and await shop_service.owner_has_shop(db, data.owner_id):
         raise HTTPException(status_code=409, detail="You already have a shop")
+    # New shops wait for an admin's review (PENDING_REVIEW) and stay out of the listings until approved.
     return await shop_service.create_shop(db, data)
 
 
@@ -51,7 +60,9 @@ async def list_shops(
     db: AsyncSession = Depends(get_db),
     caller: Optional[Caller] = Depends(optional_caller),
 ):
-    shops = await shop_service.list_shops(db, skip=skip, limit=limit, owner_id=owner_id)
+    # An owner listing their own shops (the dashboard) also sees the ones in review, rejected or closed.
+    own = owner_id is not None and caller is not None and (caller.is_admin or caller.user_id == owner_id)
+    shops = await shop_service.list_shops(db, skip=skip, limit=limit, owner_id=owner_id, include_hidden=own)
     return [for_caller(s, caller) for s in shops]
 
 
@@ -70,12 +81,24 @@ async def search_shops(
 
 @router.get("/shops/{shop_id}", response_model=ShopResponse)
 async def get_shop(
-    shop_id: str, db: AsyncSession = Depends(get_db), caller: Optional[Caller] = Depends(optional_caller)
+    shop_id: str,
+    db: AsyncSession = Depends(get_db),
+    caller: Optional[Caller] = Depends(optional_caller),
+    x_internal_key: Optional[str] = Header(None),
 ):
     try:
-        return for_caller(await shop_service.get_shop(db, shop_id), caller)
+        shop = await shop_service.get_shop(db, shop_id)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    # A shop in review, rejected or closed is not there for customers; its owner and admins still see it,
+    # and so do platform services that send the internal key (e.g. to find the owner of a pending shop).
+    if not is_public(shop) and not can_manage(shop, caller) and not is_internal(x_internal_key):
+        raise HTTPException(status_code=404, detail="Shop not found")
+    return for_caller(shop, caller)
+
+
+# Checked by an admin on approval: once approved, the owner cannot change them alone.
+LOCKED_WHEN_APPROVED = ("legal_name", "gstin")
 
 
 @router.put("/shops/{shop_id}", response_model=ShopResponse)
@@ -86,7 +109,16 @@ async def update_shop(
     caller: Caller = Depends(require_caller),
 ):
     try:
-        ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
+        shop = await shop_service.get_shop(db, shop_id)
+        ensure_owner(shop.owner_id, caller)
+        changes = data.model_dump(exclude_unset=True)
+        if not caller.is_admin and shop.verification_status == "APPROVED":
+            locked = [f for f in LOCKED_WHEN_APPROVED if f in changes and changes[f] != getattr(shop, f)]
+            if locked:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
+                )
         return await shop_service.update_shop(db, shop_id, data)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

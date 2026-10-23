@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
+    # Shared secret other platform services present on /internal routes (auth_service records the
+    # Terms and Privacy Policy acceptance made at sign-up).
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.observability import install_observability
 from app.routers.compliance import router as compliance_router
+from app.routers.internal import router as internal_router
 
 logger = structlog.get_logger()
 
@@ -28,6 +29,8 @@ app.add_middleware(
 )
 install_observability(app, service="compliance_service")
 app.include_router(compliance_router, prefix="/api/v1", tags=["compliance"])
+# Service-to-service only: outside /api/v1, so the gateway never forwards it.
+app.include_router(internal_router, tags=["internal"])
 
 
 @app.get("/health")

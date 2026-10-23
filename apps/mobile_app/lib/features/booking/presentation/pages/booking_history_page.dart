@@ -87,20 +87,18 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
       };
 
   Future<void> _confirmCancel(Booking booking) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cancel this booking?'),
-        content: Text(
-          '${booking.serviceName}, ${friendlyDateTime(booking.scheduledAt)}, will be cancelled. '
-          'This cannot be undone.',
-        ),
+        title: Text(l10n.cancelBookingQuestion),
+        content: Text(l10n.cancelBookingBody(booking.serviceName, friendlyDateTime(booking.scheduledAt, l10n: l10n))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Keep booking')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.keepBooking)),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: context.colors.error),
-            child: const Text('Yes, cancel'),
+            child: Text(l10n.yesCancel),
           ),
         ],
       ),
@@ -116,6 +114,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
     if (result == null || !mounted) return;
     final (stars, comment) = result;
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     try {
       await (widget.ratingApi ?? sl<RatingApi>()).rate(
         shopId: booking.shopId!,
@@ -125,7 +124,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
       );
       if (mounted) setState(() => _rated[booking.id] = stars);
       messenger.showSnackBar(SnackBar(
-        content: Text(comment == null ? 'Thanks for rating!' : 'Thanks for your review! It helps others choose.'),
+        content: Text(comment == null ? l10n.thanksRating : l10n.thanksReview),
         backgroundColor: AppColors.success,
       ));
     } catch (e) {
@@ -177,14 +176,15 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
+      appBar: AppBar(title: Text(l10n.myBookings)),
       body: BlocConsumer<BookingBloc, BookingState>(
         listener: (context, state) {
           if (state is BookingCancelled) {
             setState(() => _cancelling = null);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Booking cancelled'), backgroundColor: AppColors.success),
+              SnackBar(content: Text(l10n.bookingCancelled), backgroundColor: AppColors.success),
             );
           } else if (state is BookingActionFailed) {
             setState(() => _cancelling = null);
@@ -197,7 +197,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
         buildWhen: (previous, current) => current is! BookingCancelled && current is! BookingActionFailed,
         builder: (context, state) {
           if (state is BookingLoading || state is BookingInitial) {
-            return const LoadingIndicator(message: 'Loading bookings...');
+            return LoadingIndicator(message: l10n.loadingBookings);
           }
           if (state is BookingError) {
             return AppErrorWidget(
@@ -215,10 +215,10 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   const SizedBox(height: 80),
                   const Icon(Icons.calendar_today_outlined, size: 64, color: AppColors.textDisabled),
                   const SizedBox(height: 16),
-                  const Text('No bookings yet', style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
+                  Text(l10n.noBookings, style: AppTextStyles.subtitle1, textAlign: TextAlign.center),
                   const SizedBox(height: 4),
                   Text(
-                    'Book a salon visit, a doctor, a repair and more. Your bookings will show up here.',
+                    l10n.noBookingsBody,
                     style: AppTextStyles.body2.themed(context),
                     textAlign: TextAlign.center,
                   ),
@@ -226,7 +226,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                     const SizedBox(height: 24),
                     Center(
                       child: CustomButton(
-                        label: 'Browse services',
+                        label: l10n.browseServices,
                         width: 220,
                         leadingIcon: Icons.search,
                         onPressed: widget.onBrowseServices,
@@ -244,11 +244,11 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
                 if (upcoming.isNotEmpty) ...[
-                  _SectionHeader('Upcoming & active', count: upcoming.length),
+                  _SectionHeader(l10n.upcomingActive, count: upcoming.length),
                   for (final b in upcoming) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
                 ],
                 if (past.isNotEmpty) ...[
-                  _SectionHeader('Past', count: past.length),
+                  _SectionHeader(l10n.pastBookings, count: past.length),
                   for (final b in past) Padding(padding: const EdgeInsets.only(bottom: 12), child: _card(b)),
                 ],
               ],
@@ -339,26 +339,27 @@ class _BookingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final actions = <Widget>[
       if (onDirections != null)
-        TextButton.icon(onPressed: onDirections, icon: const Icon(Icons.directions, size: 18), label: const Text('How to get there')),
+        TextButton.icon(onPressed: onDirections, icon: const Icon(Icons.directions, size: 18), label: Text(l10n.howToGetThere)),
       if (onTrack != null)
-        TextButton.icon(onPressed: onTrack, icon: const Icon(Icons.location_on_outlined, size: 18), label: const Text('Track')),
+        TextButton.icon(onPressed: onTrack, icon: const Icon(Icons.location_on_outlined, size: 18), label: Text(l10n.track)),
       if (onPay != null)
         TextButton.icon(
           onPressed: onPay,
           icon: const Icon(Icons.payment, size: 18),
-          label: Text(payment == 'cash' ? 'Pay online instead' : 'Pay ${rupees(booking.totalAmount)}'),
+          label: Text(payment == 'cash' ? l10n.payOnlineInstead : l10n.payAmount(rupees(booking.totalAmount))),
         ),
       if (onRate != null)
-        TextButton.icon(onPressed: onRate, icon: const Icon(Icons.star_outline, size: 18), label: const Text('Rate')),
+        TextButton.icon(onPressed: onRate, icon: const Icon(Icons.star_outline, size: 18), label: Text(l10n.rate)),
       if (onReport != null)
-        TextButton.icon(onPressed: onReport, icon: const Icon(Icons.report_outlined, size: 18), label: const Text('Report a problem')),
+        TextButton.icon(onPressed: onReport, icon: const Icon(Icons.report_outlined, size: 18), label: Text(l10n.reportProblem)),
       if (onCancel != null || cancelling)
         TextButton(
           onPressed: onCancel,
           style: TextButton.styleFrom(foregroundColor: context.colors.error),
-          child: Text(cancelling ? 'Cancelling…' : 'Cancel booking'),
+          child: Text(cancelling ? l10n.cancelling : l10n.cancelBooking),
         ),
     ];
     final pickup = booking.serviceMode == 'PICKUP_DROP';
@@ -393,16 +394,16 @@ class _BookingCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (booking.bookingNumber.isNotEmpty) Text('Booking #${booking.bookingNumber}', style: AppTextStyles.caption.themed(context)),
+            if (booking.bookingNumber.isNotEmpty) Text(l10n.bookingNumber(booking.bookingNumber), style: AppTextStyles.caption.themed(context)),
             const SizedBox(height: 4),
-            _detail(context, Icons.calendar_today, friendlyDateTime(booking.scheduledAt)),
+            _detail(context, Icons.calendar_today, friendlyDateTime(booking.scheduledAt, l10n: l10n)),
             if (booking.isOverdue(DateTime.now()))
               _detail(
                 context,
                 Icons.info_outline,
                 booking.status == BookingStatus.pending
-                    ? "This time has passed and the shop hasn't confirmed. You can cancel and book another time."
-                    : 'This time has passed. If you missed it, contact the shop or cancel.',
+                    ? l10n.overduePending
+                    : l10n.overdueConfirmed,
                 color: context.palette.warning,
                 maxLines: 3,
               ),
@@ -411,12 +412,12 @@ class _BookingCard extends StatelessWidget {
                 context,
                 pickup ? Icons.local_shipping_outlined : Icons.home_outlined,
                 [
-                  pickup ? 'Pickup & drop' : 'Home visit',
+                  pickup ? l10n.modePickupDrop : l10n.modeHomeVisit,
                   if (booking.itemDescription != null) booking.itemDescription!,
                 ].join(' · '),
               ),
             if (booking.showsReadyBy)
-              _detail(context, Icons.event_available, 'Expected back by ${friendlyDateTime(booking.readyBy!)}', color: context.colors.primary),
+              _detail(context, Icons.event_available, l10n.expectedBackBy(friendlyDateTime(booking.readyBy!, l10n: l10n)), color: context.colors.primary),
             if (booking.address.isNotEmpty) _detail(context, Icons.location_on, booking.address),
             const SizedBox(height: 8),
             Wrap(
@@ -426,11 +427,11 @@ class _BookingCard extends StatelessWidget {
                 Text(rupees(booking.totalAmount), style: AppTextStyles.subtitle1.copyWith(color: context.colors.primary)),
                 if (payment != null)
                   Text(
-                    payment == 'paid' ? 'Paid' : 'Paying in cash',
+                    payment == 'paid' ? l10n.paid : l10n.payingCash,
                     style: AppTextStyles.caption.copyWith(color: payment == 'paid' ? context.palette.success : context.palette.warning),
                   ),
                 if (ratedStars != null)
-                  Text('You rated it $ratedStars★', style: AppTextStyles.caption.copyWith(color: context.palette.success)),
+                  Text(l10n.youRated(ratedStars!), style: AppTextStyles.caption.copyWith(color: context.palette.success)),
               ],
             ),
             if (actions.isNotEmpty) ...[
@@ -456,7 +457,6 @@ class _RatingDialogState extends State<_RatingDialog> {
   int _stars = 5;
   final _review = TextEditingController();
 
-  static const _words = ['Poor', 'Below average', 'Okay', 'Good', 'Excellent'];
 
   @override
   void dispose() {
@@ -466,8 +466,10 @@ class _RatingDialogState extends State<_RatingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final words = [l10n.ratingPoor, l10n.ratingBelowAverage, l10n.ratingOkay, l10n.ratingGood, l10n.ratingExcellent];
     return AlertDialog(
-      title: const Text('How was it?'),
+      title: Text(l10n.howWasIt),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -478,7 +480,7 @@ class _RatingDialogState extends State<_RatingDialog> {
                 children: List.generate(
                   5,
                   (i) => IconButton(
-                    tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
+                    tooltip: l10n.starsCount(i + 1),
                     isSelected: i < _stars,
                     onPressed: () => setState(() => _stars = i + 1),
                     icon: Icon(i < _stars ? Icons.star : Icons.star_border, color: AppColors.starFilled, size: 32),
@@ -486,7 +488,7 @@ class _RatingDialogState extends State<_RatingDialog> {
                 ),
               ),
             ),
-            Text(_words[_stars - 1], style: AppTextStyles.subtitle2.themed(context)),
+            Text(words[_stars - 1], style: AppTextStyles.subtitle2.themed(context)),
             const SizedBox(height: 12),
             TextField(
               controller: _review,
@@ -494,10 +496,10 @@ class _RatingDialogState extends State<_RatingDialog> {
               minLines: 2,
               maxLength: 1000,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Write a review (optional)',
-                hintText: 'What went well, what could be better?',
-                helperText: 'Shown with your first name and last initial',
+              decoration: InputDecoration(
+                labelText: l10n.writeReview,
+                hintText: l10n.reviewHint,
+                helperText: l10n.reviewHelper,
                 helperMaxLines: 2,
                 alignLabelWithHint: true,
               ),
@@ -506,13 +508,13 @@ class _RatingDialogState extends State<_RatingDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Not now')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.notNow)),
         TextButton(
           onPressed: () {
             final review = _review.text.trim();
             Navigator.pop(context, (_stars, review.isEmpty ? null : review));
           },
-          child: const Text('Submit'),
+          child: Text(l10n.submit),
         ),
       ],
     );

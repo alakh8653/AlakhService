@@ -13,6 +13,7 @@ import '../../../booking/domain/entities/booking.dart';
 import '../../data/tracking_api.dart';
 import '../../data/tracking_destination.dart';
 import '../../domain/travel_estimate.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Shows where the provider on a booking is, refreshing every few seconds, and roughly how far
 /// they are from where they are heading.
@@ -98,7 +99,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     final location = _location;
     final target = _target;
     return Scaffold(
-      appBar: AppBar(title: const Text('Live Tracking')),
+      appBar: AppBar(title: Text(context.l10n.liveTracking)),
       body: Stack(
         children: [
           GoogleMap(
@@ -113,7 +114,7 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
                 Marker(
                   markerId: const MarkerId('provider'),
                   position: LatLng(location.latitude, location.longitude),
-                  infoWindow: const InfoWindow(title: 'Your provider'),
+                  infoWindow: InfoWindow(title: context.l10n.yourProvider),
                 ),
               if (target != null)
                 Marker(
@@ -163,7 +164,7 @@ class TrackingStatusCard extends StatelessWidget {
   });
 
   /// Distance and ETA, once both ends are known.
-  String? get estimateText {
+  String? estimateText(AppLocalizations l10n) {
     final location = this.location;
     final target = this.target;
     if (loading || error != null || location == null || target == null) return null;
@@ -174,33 +175,34 @@ class TrackingStatusCard extends StatelessWidget {
       toLongitude: target.longitude,
       speedMps: location.speed,
     );
-    if (estimate.arriving) return 'Arriving now';
-    final to = booking.status == BookingStatus.pickedUp ? ' from ${target.label}' : '';
-    return '${estimate.label}$to';
+    if (estimate.arriving) return l10n.arrivingNow;
+    final away = l10n.awayEstimate(estimate.minutes, estimate.distanceText);
+    return booking.status == BookingStatus.pickedUp ? l10n.estimateFrom(away, target.label) : away;
   }
 
-  String get _statusText {
-    if (loading) return 'Finding your provider…';
+  String _statusText(AppLocalizations l10n) {
+    if (loading) return l10n.findingProvider;
     if (error != null) return error!;
     final location = this.location;
     if (location == null) {
-      return 'Waiting for your provider to share their location';
+      return l10n.waitingLocation;
     }
     final age = DateTime.now().difference(location.recordedAt);
-    final ago = age.inMinutes < 1 ? 'just now' : '${age.inMinutes} min ago';
+    final ago = age.inMinutes < 1 ? l10n.justNow : l10n.minutesAgo(age.inMinutes);
     final pickup = booking.serviceMode == 'PICKUP_DROP';
     return switch (booking.status) {
-      BookingStatus.enRoute => pickup ? 'Coming to collect your item · updated $ago' : 'On the way · updated $ago',
-      BookingStatus.pickedUp => 'Taking your item to the shop · updated $ago',
-      BookingStatus.inProgress =>
-        pickup ? 'Your item is being worked on · updated $ago' : 'Working on your booking · updated $ago',
-      BookingStatus.outForDelivery => 'Bringing your item back · updated $ago',
-      _ => 'Provider assigned · updated $ago',
+      BookingStatus.enRoute => pickup ? l10n.trackComingToCollect(ago) : l10n.trackOnTheWay(ago),
+      BookingStatus.pickedUp => l10n.trackTakingToShop(ago),
+      BookingStatus.inProgress => pickup ? l10n.trackItemWorkedOn(ago) : l10n.trackWorking(ago),
+      BookingStatus.outForDelivery => l10n.trackBringingBack(ago),
+      _ => l10n.trackAssigned(ago),
     };
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final estimate = estimateText(l10n);
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -223,9 +225,9 @@ class TrackingStatusCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(booking.serviceName, style: AppTextStyles.subtitle1),
-                if (estimateText != null)
-                  Text(estimateText!, style: AppTextStyles.subtitle2.copyWith(color: context.colors.primary)),
-                Text(_statusText, style: AppTextStyles.caption.themed(context)),
+                if (estimate != null)
+                  Text(estimate, style: AppTextStyles.subtitle2.copyWith(color: context.colors.primary)),
+                Text(_statusText(l10n), style: AppTextStyles.caption.themed(context)),
               ],
             ),
           ),

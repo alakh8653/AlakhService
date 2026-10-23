@@ -8,6 +8,7 @@ import '../../../shared/widgets/error_widget.dart';
 import '../../../shared/widgets/loading_indicator.dart';
 import '../data/reviews_api.dart';
 import 'reviews_widgets.dart';
+import '../../../l10n/l10n.dart';
 
 /// Every review of a shop, newest first, with chips to show only one star level.
 class AllReviewsPage extends StatefulWidget {
@@ -103,12 +104,12 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Semantics(
-                  label: stars == null ? 'All ratings' : '$stars star${stars == 1 ? '' : 's'} only',
+                  label: stars == null ? context.l10n.allRatings : context.l10n.starsOnly(stars),
                   excludeSemantics: true,
                   selected: _stars == stars,
                   button: true,
                   child: ChoiceChip(
-                    label: Text(stars == null ? 'All' : '$stars ★'),
+                    label: Text(stars == null ? context.l10n.allFilter : '$stars ★'),
                     selected: _stars == stars,
                     onSelected: (_) => _pick(stars),
                   ),
@@ -119,13 +120,13 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
       );
 
   Widget _body() {
-    if (_loading) return const LoadingIndicator(message: 'Loading reviews...');
+    if (_loading) return LoadingIndicator(message: context.l10n.loadingReviews);
     if (_error != null) return AppErrorWidget(message: _error!, onRetry: _load);
     if (_reviews.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          _stars == null ? 'No reviews yet.' : 'No $_stars-star reviews yet.',
+          _stars == null ? context.l10n.noReviewsYet : context.l10n.noStarReviews(_stars!),
           style: AppTextStyles.body2.themed(context),
           textAlign: TextAlign.center,
         ),
@@ -142,7 +143,7 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
             padding: const EdgeInsets.all(16),
             child: OutlinedButton(
               onPressed: _loadingMore ? null : _more,
-              child: Text(_loadingMore ? 'Loading…' : 'Show more reviews'),
+              child: Text(_loadingMore ? context.l10n.loadingMore : context.l10n.showMoreReviews),
             ),
           ),
       ],
@@ -153,7 +154,7 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
   Widget build(BuildContext context) {
     final summary = _summary;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.shopName == null ? 'Reviews' : 'Reviews of ${widget.shopName}')),
+      appBar: AppBar(title: Text(widget.shopName == null ? context.l10n.reviewsTitle : context.l10n.reviewsOf(widget.shopName!))),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [

@@ -7,8 +7,7 @@ import '../../../shared/utils/date_utils.dart';
 import '../../../shared/widgets/rating_widget.dart';
 import '../data/reviews_api.dart';
 import 'all_reviews_page.dart';
-
-String reviewsCount(int n) => '$n review${n == 1 ? '' : 's'}';
+import '../../../l10n/l10n.dart';
 
 /// The average, how many reviews, and a bar per star level.
 class RatingSummaryView extends StatelessWidget {
@@ -18,6 +17,7 @@ class RatingSummaryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final most = summary.distribution.fold<int>(1, (m, d) => d.count > m ? d.count : m);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -28,7 +28,7 @@ class RatingSummaryView extends StatelessWidget {
             Text(summary.average.toStringAsFixed(1), style: AppTextStyles.heading1),
             RatingWidget(rating: summary.average, size: 14),
             const SizedBox(height: 2),
-            Text(reviewsCount(summary.count), style: AppTextStyles.caption.themed(context)),
+            Text(l10n.reviewsCount(summary.count), style: AppTextStyles.caption.themed(context)),
           ],
         ),
         const SizedBox(width: 20),
@@ -37,7 +37,7 @@ class RatingSummaryView extends StatelessWidget {
             children: [
               for (final stars in [5, 4, 3, 2, 1])
                 Semantics(
-                  label: '$stars star${stars == 1 ? '' : 's'}: ${reviewsCount(summary.countFor(stars))}',
+                  label: l10n.starsReviewsSemantics(stars, summary.countFor(stars)),
                   excludeSemantics: true,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
@@ -96,7 +96,7 @@ class ReviewTile extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  'Verified booking',
+                  context.l10n.verifiedBooking,
                   style: AppTextStyles.caption.copyWith(color: context.palette.success),
                 ),
               ),
@@ -119,7 +119,7 @@ class ReviewTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Reply from the shop · ${AppDateUtils.formatDate(reply.updatedAt)}',
+                    context.l10n.shopReply(AppDateUtils.formatDate(reply.updatedAt)),
                     style: AppTextStyles.caption.themed(context).copyWith(fontWeight: FontWeight.w600, color: context.colors.onPrimaryContainer),
                   ),
                   const SizedBox(height: 4),
@@ -169,11 +169,11 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(header: true, child: const Text('Ratings & reviews', style: AppTextStyles.subtitle1)),
+        Semantics(header: true, child: Text(context.l10n.ratingsReviews, style: AppTextStyles.subtitle1)),
         const SizedBox(height: 8),
         if (summary.count == 0)
           Text(
-            'No reviews yet. Customers can review the shop after a completed booking.',
+            context.l10n.noReviewsYetLong,
             style: AppTextStyles.body2.themed(context),
           )
         else ...[
@@ -193,7 +193,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                     builder: (_) => AllReviewsPage(shopId: widget.shopId, api: widget.api, shopName: widget.shopName),
                   ),
                 ),
-                child: Text('See all reviews (${summary.count})'),
+                child: Text(context.l10n.seeAllReviews(summary.count)),
               ),
             ),
         ],

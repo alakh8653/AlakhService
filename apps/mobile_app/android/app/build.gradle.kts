@@ -33,7 +33,7 @@ val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKe
 
 android {
     namespace = "com.alakhservice.alakh_service"
-    // permission_handler_android 13 must be compiled against API 37 (compileSdk only;
+    // Some plugins must be compiled against API 37 (compileSdk only;
     // targetSdk stays on the Flutter default, so runtime behaviour is unchanged).
     compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion

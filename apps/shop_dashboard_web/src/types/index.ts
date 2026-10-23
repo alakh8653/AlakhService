@@ -116,7 +116,16 @@ export interface Shop {
   isActive: boolean;
   isVerified: boolean;
   createdAt: string;
+  /** KYC review: a new shop is hidden from customers until approved. Missing on older responses. */
+  verificationStatus?: VerificationStatus;
+  rejectionReason?: string | null;
+  legalName?: string | null;
+  legalAddress?: string | null;
+  gstin?: string | null;
+  submittedAt?: string | null;
 }
+
+export type VerificationStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 
 export interface DailyRevenue {
   date: string; // 'YYYY-MM-DD'

@@ -131,7 +131,7 @@
   "bannerMyBookings": "मेरी बुकिंग",
   "bannerSemantics": "अपनी बुकिंग ट्रैक करें। मेरी बुकिंग",
   "nextBooking": "आपकी अगली बुकिंग",
-  "nextBookingSemantics": "आपकी अगली बुकिंग: {service}, {when}, {status}। मेरी बुकिंग खोलें",
+  "nextBookingSemantics": "आपकी अगली बुकिंग: {service}, {when}, {statusText}। मेरी बुकिंग खोलें",
   "servicesTitle": "सेवाएँ",
   "clearSearch": "खोज मिटाएँ",
   "loadingServices": "सेवाएँ लोड हो रही हैं...",

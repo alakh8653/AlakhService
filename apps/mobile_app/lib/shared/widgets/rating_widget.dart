@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../l10n/l10n.dart';
 
 /// "4.6 out of 5 stars": what a screen reader says for a row of stars.
-String starsLabel(num rating) =>
-    '${rating == rating.roundToDouble() ? rating.round() : rating.toStringAsFixed(1)} out of 5 stars';
+String starsLabel(num rating, {AppLocalizations? l10n}) => (l10n ?? englishL10n)
+    .starsLabel(rating == rating.roundToDouble() ? '${rating.round()}' : rating.toStringAsFixed(1));
 
 /// "★ 4.6 (128)", or "New" when nobody has rated it yet, read out in words.
 class RatingBadge extends StatelessWidget {
@@ -20,13 +21,13 @@ class RatingBadge extends StatelessWidget {
     final textStyle = style ?? AppTextStyles.caption.themed(context);
     if (count == 0) {
       return Semantics(
-        label: 'New, no reviews yet',
+        label: context.l10n.ratingNewSemantics,
         excludeSemantics: true,
-        child: Text('New', style: textStyle.copyWith(color: context.palette.success)),
+        child: Text(context.l10n.ratingNew, style: textStyle.copyWith(color: context.palette.success)),
       );
     }
     return Semantics(
-      label: 'Rated ${rating.toStringAsFixed(1)} out of 5 from $count review${count == 1 ? '' : 's'}',
+      label: context.l10n.ratedSemantics(rating.toStringAsFixed(1), count),
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -57,7 +58,7 @@ class RatingWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: starsLabel(rating),
+      label: starsLabel(rating, l10n: context.l10n),
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,

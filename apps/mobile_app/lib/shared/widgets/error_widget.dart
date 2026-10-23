@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 import 'custom_button.dart';
+import '../../l10n/l10n.dart';
 
 /// Use [AppErrorWidget] instead of the framework's [ErrorWidget] to avoid name conflict.
 class AppErrorWidget extends StatelessWidget {
@@ -39,7 +40,7 @@ class AppErrorWidget extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              title ?? 'Something went wrong',
+              title ?? context.l10n.somethingWentWrong,
               style: AppTextStyles.subtitle1,
               textAlign: TextAlign.center,
             ),
@@ -52,7 +53,7 @@ class AppErrorWidget extends StatelessWidget {
             if (onRetry != null) ...[
               const SizedBox(height: 24),
               CustomButton(
-                label: 'Try Again',
+                label: context.l10n.tryAgainButton,
                 onPressed: onRetry,
                 width: 160,
               ),

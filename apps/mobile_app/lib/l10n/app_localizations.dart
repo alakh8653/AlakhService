@@ -887,8 +887,8 @@ abstract class AppLocalizations {
   /// No description provided for @nextBookingSemantics.
   ///
   /// In en, this message translates to:
-  /// **'Your next booking: {service}, {when}, {status}. Open my bookings'**
-  String nextBookingSemantics(String service, String when, int status);
+  /// **'Your next booking: {service}, {when}, {statusText}. Open my bookings'**
+  String nextBookingSemantics(String service, String when, String statusText);
 
   /// No description provided for @servicesTitle.
   ///

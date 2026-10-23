@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Category tile shown in the home services grid.
 class ServiceCategoryCard extends StatelessWidget {
@@ -63,7 +64,7 @@ class BannerWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Track your bookings. My bookings',
+      label: context.l10n.bannerSemantics,
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
@@ -85,7 +86,7 @@ class BannerWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Track your\nbookings',
+                      context.l10n.bannerTrack,
                       style: AppTextStyles.heading3.copyWith(
                         color: AppColors.textLight,
                       ),
@@ -98,7 +99,7 @@ class BannerWidget extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'My bookings',
+                        context.l10n.bannerMyBookings,
                         style: AppTextStyles.subtitle2.copyWith(color: AppColors.primary),
                       ),
                     ),
@@ -139,7 +140,7 @@ class NextBookingCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Semantics(
         button: true,
-        label: 'Your next booking: $serviceName, $when, $status. Open my bookings',
+        label: context.l10n.nextBookingSemantics(serviceName, when, status),
         excludeSemantics: true,
         child: Material(
           borderRadius: BorderRadius.circular(20),
@@ -158,7 +159,7 @@ class NextBookingCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Your next booking', style: AppTextStyles.caption.copyWith(color: AppColors.textLight)),
+                          Text(context.l10n.nextBooking, style: AppTextStyles.caption.copyWith(color: AppColors.textLight)),
                           const SizedBox(height: 4),
                           Text(serviceName, style: AppTextStyles.heading3.copyWith(color: AppColors.textLight)),
                           const SizedBox(height: 2),
@@ -194,13 +195,13 @@ class NextBookingCard extends StatelessWidget {
 class SearchBarWidget extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
-  final String hint;
+  final String? hint;
 
   const SearchBarWidget({
     super.key,
     this.onChanged,
     this.onSubmitted,
-    this.hint = 'Search services...',
+    this.hint,
   });
 
   @override
@@ -214,7 +215,7 @@ class SearchBarWidget extends StatelessWidget {
       },
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: hint ?? context.l10n.searchServicesHint,
         hintStyle: AppTextStyles.body2.themed(context),
         prefixIcon: Icon(Icons.search, color: context.palette.muted),
         contentPadding: const EdgeInsets.symmetric(vertical: 12),

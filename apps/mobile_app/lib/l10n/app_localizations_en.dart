@@ -423,8 +423,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextBooking => 'Your next booking';
 
   @override
-  String nextBookingSemantics(String service, String when, int status) {
-    return 'Your next booking: $service, $when, $status. Open my bookings';
+  String nextBookingSemantics(String service, String when, String statusText) {
+    return 'Your next booking: $service, $when, $statusText. Open my bookings';
   }
 
   @override

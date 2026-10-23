@@ -5,16 +5,20 @@ import '../../core/theme/app_text_styles.dart';
 import '../../features/services/domain/entities/service_entity.dart';
 import '../utils/format.dart';
 import 'rating_widget.dart';
+import '../../l10n/l10n.dart';
 
 /// "At shop · Home visit · Pickup & drop": how a service can be had, for cards and details.
-String serviceModesLabel(List<String> modes) => [
-      for (final m in modes)
-        switch (m) {
-          ServiceMode.atHome => 'Home visit',
-          ServiceMode.pickupDrop => 'Pickup & drop',
-          _ => 'At shop',
-        },
-    ].join(' · ');
+String serviceModesLabel(List<String> modes, {AppLocalizations? l10n}) {
+  final l = l10n ?? englishL10n;
+  return [
+    for (final m in modes)
+      switch (m) {
+        ServiceMode.atHome => l.modeHomeVisit,
+        ServiceMode.pickupDrop => l.modePickupDrop,
+        _ => l.modeAtShop,
+      },
+  ].join(' · ');
+}
 
 class ServiceCard extends StatelessWidget {
   final ServiceEntity service;
@@ -30,10 +34,11 @@ class ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     // The catalogue's generic "Service" category says nothing, so the card shows how it's offered.
     final subtitle = [
       if (service.category.isNotEmpty && service.category != 'Service') service.category,
-      if (service.durationMinutes != null && service.durationMinutes! > 0) '${service.durationMinutes} min',
+      if (service.durationMinutes != null && service.durationMinutes! > 0) l10n.minutesShort(service.durationMinutes!),
     ].join(' · ');
     return Semantics(
       button: true,
@@ -87,7 +92,7 @@ class ServiceCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  'Unavailable',
+                                  l10n.unavailable,
                                   style: AppTextStyles.caption.copyWith(color: context.colors.error),
                                 ),
                               ),
@@ -99,7 +104,7 @@ class ServiceCard extends StatelessWidget {
                         ],
                         const SizedBox(height: 4),
                         Text(
-                          serviceModesLabel(service.serviceModes),
+                          serviceModesLabel(service.serviceModes, l10n: l10n),
                           style: AppTextStyles.caption.copyWith(color: context.colors.onPrimaryContainer),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

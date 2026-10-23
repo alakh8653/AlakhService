@@ -186,7 +186,7 @@
   "bannerMyBookings": "My bookings",
   "bannerSemantics": "Track your bookings. My bookings",
   "nextBooking": "Your next booking",
-  "nextBookingSemantics": "Your next booking: {service}, {when}, {status}. Open my bookings",
+  "nextBookingSemantics": "Your next booking: {service}, {when}, {statusText}. Open my bookings",
   "@nextBookingSemantics": {
     "placeholders": {
       "service": {
@@ -195,8 +195,8 @@
       "when": {
         "type": "String"
       },
-      "status": {
-        "type": "int"
+      "statusText": {
+        "type": "String"
       }
     }
   },

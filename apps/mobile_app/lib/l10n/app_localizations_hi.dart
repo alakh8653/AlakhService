@@ -422,8 +422,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get nextBooking => 'आपकी अगली बुकिंग';
 
   @override
-  String nextBookingSemantics(String service, String when, int status) {
-    return 'आपकी अगली बुकिंग: $service, $when, $status। मेरी बुकिंग खोलें';
+  String nextBookingSemantics(String service, String when, String statusText) {
+    return 'आपकी अगली बुकिंग: $service, $when, $statusText। मेरी बुकिंग खोलें';
   }
 
   @override

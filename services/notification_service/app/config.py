@@ -21,16 +21,36 @@ class Settings(BaseSettings):
     # Shared secret other platform services present on /internal routes.
     INTERNAL_API_KEY: str = ""
 
+    # Where a person's own phone/email is looked up for SMS and email fallbacks (needs INTERNAL_API_KEY).
+    AUTH_SERVICE_URL: str = "http://auth_service:8000"
+    # Linked from the email a shop owner gets for a new booking (e.g. https://shop.<DOMAIN>); optional.
+    SHOP_DASHBOARD_URL: str = ""
+
+    # Who sends SMS: twilio, msg91 (Indian DLT-registered sender) or none.
+    SMS_PROVIDER: str = "twilio"
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_FROM_NUMBER: str = ""
+    # MSG91: auth key, the DLT sender id (header), and one DLT template id per event texted. The
+    # registered templates must match app/core/events.py SMS_TEXTS word for word. An event without a
+    # template id is not texted (it falls back to email).
+    MSG91_AUTH_KEY: str = ""
+    MSG91_SENDER_ID: str = ""
+    MSG91_API_URL: str = "https://api.msg91.com/api/v2/sendsms"
+    MSG91_TEMPLATE_BOOKING_CONFIRMED: str = ""
+    MSG91_TEMPLATE_BOOKING_CANCELLED: str = ""
+    MSG91_TEMPLATE_BOOKING_REMINDER: str = ""
+    MSG91_TEMPLATE_BOOKING_REFUNDED: str = ""
+    MSG91_TEMPLATE_BOOKING_EXPIRED: str = ""
 
-    SMTP_HOST: str = "smtp.gmail.com"
+    # Without SMTP_HOST no email is sent.
+    SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = "noreply@alakh.com"
-    SMTP_FROM_NAME: str = "Alakh"
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM_EMAIL: str = "noreply@alakhservice.com"
+    SMTP_FROM_NAME: str = "AlakhService"
 
     MAX_RETRY_ATTEMPTS: int = 3
     RETRY_BASE_DELAY: float = 1.0

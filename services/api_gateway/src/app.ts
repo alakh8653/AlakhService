@@ -33,7 +33,8 @@ export interface AppOptions {
 }
 
 // Sign-in, sign-up, codes and password resets: guessing targets, so they get their own budget.
-const AUTH_LIMITED = /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh)$/;
+const AUTH_LIMITED =
+  /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh|delete-account\/otp)$/;
 
 const defaultLog = (entry: LogEntry) => console.log(JSON.stringify({ msg: 'request', ...entry }));
 

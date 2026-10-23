@@ -66,7 +66,13 @@ async def client(monkeypatch):
         for email, name in (("ravi@example.com", "Ravi Kumar"), ("asha@example.com", "Asha Rao")):
             assert (
                 await ac.post(
-                    "/api/v1/auth/register", json={"email": email, "password": "Passw0rd!", "full_name": name}
+                    "/api/v1/auth/register",
+                    json={
+                        "email": email,
+                        "password": "Passw0rd!",
+                        "full_name": name,
+                        "accepted_terms_version": "2026-10",
+                    },
                 )
             ).status_code == 201
         yield ac
@@ -182,6 +188,12 @@ async def test_people_can_delete_their_own_account(client):
     ).status_code == 401
     # The email is free again for a new account.
     again = await client.post(
-        "/api/v1/auth/register", json={"email": "ravi@example.com", "password": "Passw0rd!", "full_name": "New Ravi"}
+        "/api/v1/auth/register",
+        json={
+            "email": "ravi@example.com",
+            "password": "Passw0rd!",
+            "full_name": "New Ravi",
+            "accepted_terms_version": "2026-10",
+        },
     )
     assert again.status_code == 201

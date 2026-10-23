@@ -90,6 +90,17 @@ describe('route table', () => {
     expect(isUpload('/api/v1/bookings')).toBe(false);
   });
 
+  it('opens the legal links and code-based account deletion without an account', () => {
+    const legal = findRoute('/api/v1/legal/current')!;
+    expect(legal.upstream).toBe('auth');
+    expect(requiredAccess(legal, 'GET')).toBe('public');
+    expect(requiredAccess(legal, 'POST')).toBe('user');
+    const byCode = findRoute('/api/v1/auth/delete-account/otp')!;
+    expect(requiredAccess(byCode, 'POST')).toBe('public');
+    // Deleting with a password still needs the person signed in.
+    expect(requiredAccess(findRoute('/api/v1/auth/delete-account')!, 'POST')).toBe('user');
+  });
+
   it('only opens read-only methods on browse routes', () => {
     const route = findRoute('/api/v1/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');

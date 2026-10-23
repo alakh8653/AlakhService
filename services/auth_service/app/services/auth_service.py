@@ -63,6 +63,8 @@ class AuthService:
             is_verified=False,
             is_superuser=False,
             role="user",
+            accepted_terms_version=user_create.accepted_terms_version,
+            accepted_terms_at=datetime.now(timezone.utc) if user_create.accepted_terms_version else None,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )

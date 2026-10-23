@@ -79,7 +79,13 @@ async def env(monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         assert (
             await client.post(
-                "/api/v1/auth/register", json={"email": "Ravi@Example.com", "password": PASSWORD, "full_name": "Ravi"}
+                "/api/v1/auth/register",
+                json={
+                    "email": "Ravi@Example.com",
+                    "password": PASSWORD,
+                    "full_name": "Ravi",
+                    "accepted_terms_version": "2026-10",
+                },
             )
         ).status_code == 201
         yield client, redis, factory
@@ -104,7 +110,13 @@ async def test_emails_are_one_account_whatever_their_case(env):
     client, _, _ = env
     assert (await login(client, email="RAVI@example.COM")).status_code == 200
     again = await client.post(
-        "/api/v1/auth/register", json={"email": "ravi@EXAMPLE.com", "password": PASSWORD, "full_name": "Copy"}
+        "/api/v1/auth/register",
+        json={
+            "email": "ravi@EXAMPLE.com",
+            "password": PASSWORD,
+            "full_name": "Copy",
+            "accepted_terms_version": "2026-10",
+        },
     )
     assert again.status_code == 409
     me = (await client.get("/api/v1/auth/me", headers=auth((await login(client)).json()))).json()

@@ -3,10 +3,12 @@
 import hmac
 import secrets
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 import httpx
 import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
@@ -14,15 +16,17 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.security import hash_password, verify_password
+from app.core.exceptions import OTPRateLimitedError
+from app.core.security import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.dependencies import get_current_user, get_redis, security
 from app.models.user import User
-from app.schemas.auth import UserResponse
+from app.schemas.auth import AccountDeletionByOTP, UserResponse
 from app.services.auth_service import auth_service
 
 router = APIRouter()
 internal_router = APIRouter()
+log = structlog.get_logger()
 
 
 def require_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -66,6 +70,23 @@ def get_profile_eraser():
     return erase_profile
 
 
+async def anonymise_account(db: AsyncSession, redis, user: User, token: str, erase) -> None:
+    """Erases the person's profile data, then anonymises the sign-in, so the email/phone are free and
+    the account can never be used again. Bookings and payments stay, under the anonymous id, for the
+    other party's records (and the law's: invoices are kept for 8 years)."""
+    # Profile first: if that fails nothing has changed and the person can simply retry.
+    await erase(token)
+    user.email = None
+    user.phone = None
+    user.full_name = "Deleted user"
+    user.is_active = False
+    user.is_verified = False
+    user.hashed_password = hash_password(secrets.token_urlsafe(32))
+    user.updated_at = datetime.now(timezone.utc)
+    await auth_service.revoke_all_sessions(db, redis, user.id)
+    log.info("account_deleted", user_id=user.id)
+
+
 @router.post("/auth/delete-account")
 async def delete_account(
     body: AccountDeletion,
@@ -75,23 +96,37 @@ async def delete_account(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     erase=Depends(get_profile_eraser),
 ):
-    """Deletes the caller's account (password required): their profile data is erased and the
-    sign-in is anonymised, so the email/phone are free and the account can never be used again.
-    Bookings and payments stay, under the anonymous id, for the other party's records."""
+    """Deletes the caller's account (password required). See anonymise_account."""
     user = await db.get(User, current_user["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     if not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect password")
-    # Profile first: if that fails nothing has changed and the person can simply retry.
-    await erase(credentials.credentials)
-    user.email = None
-    user.phone = None
-    user.full_name = "Deleted user"
-    user.is_active = False
-    user.is_verified = False
-    user.hashed_password = hash_password(secrets.token_urlsafe(32))
-    await auth_service.revoke_all_sessions(db, redis, user.id)
+    await anonymise_account(db, redis, user, credentials.credentials, erase)
+    return {"message": "Your account has been deleted"}
+
+
+@router.post("/auth/delete-account/otp")
+async def delete_account_with_code(
+    body: AccountDeletionByOTP,
+    db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+    erase=Depends(get_profile_eraser),
+):
+    """Deletes an account without signing in, for the web page app stores require
+    (https://<DOMAIN>/delete-account): first POST /auth/send-otp with purpose "delete_account",
+    then send the code here. Limited per email/phone, and each code allows 5 guesses."""
+    key = f"auth:delete_account_attempts:{body.phone_or_email}"
+    attempts = await redis.incr(key)
+    if attempts == 1:
+        await redis.expire(key, settings.DELETE_ACCOUNT_WINDOW_SECONDS)
+    if attempts > settings.DELETE_ACCOUNT_ATTEMPTS_PER_WINDOW:
+        raise OTPRateLimitedError("Too many attempts. Please try again later.")
+    user = await auth_service.verify_otp(db, body)
+    # A short-lived token so user_service erases the profile as the person themselves.
+    token = create_access_token({"sub": str(user.id), "role": user.role}, timedelta(minutes=2))
+    await anonymise_account(db, redis, user, token, erase)
+    await redis.delete(key)
     return {"message": "Your account has been deleted"}
 
 

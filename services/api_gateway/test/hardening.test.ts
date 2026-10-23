@@ -149,6 +149,16 @@ describe('sign-in rate limit', () => {
     // Browsing is not affected.
     expect((await request(app).get('/api/v1/categories')).status).toBe(200);
   });
+
+  it('counts code-based account deletion against the same budget, without a token', async () => {
+    const auth = await upstream();
+    const app = createApp(testConfig({ auth: auth.url }, { authRateLimit: { windowMs: 60_000, max: 1 } }), quiet);
+    const del = () => request(app).post('/api/v1/auth/delete-account/otp').send({ phone_or_email: 'a@b.c', code: '1' });
+    expect((await del()).status).toBe(200);
+    expect((await del()).status).toBe(429);
+    expect((await request(app).get('/api/v1/legal/current')).status).toBe(200);
+    expect(auth.requests.map((r) => r.url)).toEqual(['/api/v1/auth/delete-account/otp', '/api/v1/legal/current']);
+  });
 });
 
 describe('production settings', () => {

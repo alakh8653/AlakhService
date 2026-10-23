@@ -31,7 +31,11 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/auth/verify-otp', upstream: 'auth', access: 'public' },
   { prefix: '/api/v1/auth/forgot-password', upstream: 'auth', access: 'public' },
   { prefix: '/api/v1/auth/reset-password', upstream: 'auth', access: 'public' },
+  // Deleting an account with an emailed/texted code, from the web page app stores require.
+  { prefix: '/api/v1/auth/delete-account/otp', upstream: 'auth', access: 'public', publicMethods: ['POST'] },
   { prefix: '/api/v1/auth', upstream: 'auth' },
+  // The current Terms and Privacy Policy version and page links, shown before signing up.
+  { prefix: '/api/v1/legal', upstream: 'auth', access: 'public', publicMethods: READ_ONLY },
 
   { prefix: '/api/v1/users', upstream: 'user' },
   // Shops and their reviews are public to read; rating, replying and reporting need an account.

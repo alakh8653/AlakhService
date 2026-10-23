@@ -18,6 +18,9 @@ class User(Base):
     is_verified = Column(Boolean, default=False, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     role = Column(String, default="user", nullable=False)
+    # The Terms and Privacy Policy version the person accepted, and when (empty for older accounts).
+    accepted_terms_version = Column(String(32), nullable=True)
+    accepted_terms_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

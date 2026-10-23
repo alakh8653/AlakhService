@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_errors.dart';
+import '../../../shared/utils/format.dart';
+import '../../../l10n/l10n.dart';
 
 /// A shop's published opening hours (shop_service), in India time.
 class ShopHours {
@@ -39,9 +41,12 @@ class ShopHours {
 }
 
 /// Whether the shop is open at [now] and when that changes: "Open now · closes 8 PM", "Closed · opens 4 PM",
-/// "Closed · opens tomorrow 10 AM" or "Closed · opens Mon 10 AM". Null for a shop without published hours.
-({bool open, String text})? openingSummary(ShopHours hours, DateTime now) {
+/// "Closed · opens tomorrow 10 AM" or "Closed · opens Mon 10 AM", in the language of [l10n] (English
+/// without it). Null for a shop without published hours.
+({bool open, String text})? openingSummary(ShopHours hours, DateTime now, {AppLocalizations? l10n}) {
   if (!hours.configured) return null;
+  final l = l10n ?? englishL10n;
+  String clock(int minutes) => _clock(minutes, l);
   // The shop's wall clock: India is UTC+5:30 all year.
   final local = now.toUtc().add(const Duration(hours: 5, minutes: 30));
   final today = DateTime.utc(local.year, local.month, local.day);
@@ -49,30 +54,31 @@ class ShopHours {
   List<(int, int)> on(DateTime day) => hours.holidays.contains(_date(day)) ? const [] : hours.weekly[day.weekday - 1];
 
   for (final (start, end) in on(today)) {
-    if (start <= minute && minute < end) return (open: true, text: 'Open now · closes ${_clock(end)}');
+    if (start <= minute && minute < end) return (open: true, text: l.hoursOpenCloses(clock(end)));
   }
   for (final (start, _) in on(today)) {
-    if (start > minute) return (open: false, text: 'Closed · opens ${_clock(start)}');
+    if (start > minute) return (open: false, text: l.hoursClosedOpens(clock(start)));
   }
   for (var ahead = 1; ahead <= 7; ahead++) {
     final day = today.add(Duration(days: ahead));
     final intervals = on(day);
     if (intervals.isNotEmpty) {
-      final when = ahead == 1 ? 'tomorrow' : _weekdays[day.weekday - 1];
-      return (open: false, text: 'Closed · opens $when ${_clock(intervals.first.$1)}');
+      final at = clock(intervals.first.$1);
+      return (
+        open: false,
+        text: ahead == 1 ? l.hoursClosedOpensTomorrow(at) : l.hoursClosedOpensDay(shortWeekday(day, l), at),
+      );
     }
   }
-  return (open: false, text: 'Closed');
+  return (open: false, text: l.hoursClosed);
 }
-
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 String _date(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// "8 PM", "8:30 PM", "midnight".
-String _clock(int minutes) {
-  if (minutes % (24 * 60) == 0) return 'midnight';
+String _clock(int minutes, AppLocalizations l10n) {
+  if (minutes % (24 * 60) == 0) return l10n.midnight;
   final h = minutes ~/ 60, m = minutes % 60;
   final hour12 = h % 12 == 0 ? 12 : h % 12;
   return '$hour12${m == 0 ? '' : ':${m.toString().padLeft(2, '0')}'} ${h < 12 ? 'AM' : 'PM'}';

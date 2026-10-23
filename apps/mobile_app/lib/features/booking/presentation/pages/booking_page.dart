@@ -20,6 +20,7 @@ import '../../data/coupon_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
+import '../../../../l10n/l10n.dart';
 
 /// The days on offer and, for a shop that hasn't published opening hours, its start times.
 ///
@@ -163,15 +164,17 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   /// Why [day] has no times, in the customer's words.
+  /// A status the app knows reads in the customer's language; any other comes as booking_service sent it.
   String _noTimesMessage(DateTime day) {
+    final l10n = context.l10n;
     final times = _availability[day];
-    if (times == null || !times.hoursConfigured) return 'No more times today — try another day';
+    if (times == null || !times.hoursConfigured) return l10n.noMoreTimesToday;
     return switch (times.status) {
-      DayStatus.closed => 'Closed on this day',
-      DayStatus.holiday => times.holidayNote == null ? 'Closed on this day' : 'Closed on this day (${times.holidayNote})',
-      DayStatus.fullyBooked => 'Fully booked — try another day',
-      DayStatus.noMoreToday => 'No more times today — try another day',
-      _ => times.message ?? 'No times on this day — try another day',
+      DayStatus.closed => l10n.closedOnDay,
+      DayStatus.holiday => times.holidayNote == null ? l10n.closedOnDay : l10n.closedOnDayNote(times.holidayNote!),
+      DayStatus.fullyBooked => l10n.fullyBooked,
+      DayStatus.noMoreToday => l10n.noMoreTimesToday,
+      _ => times.message ?? l10n.noTimesOnDay,
     };
   }
 
@@ -287,10 +290,10 @@ class _BookingPageState extends State<BookingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(slot == null
-              ? 'Pick a time for your booking'
+              ? context.l10n.snackPickTime
               : addressMissing
-                  ? 'Add the address we should come to'
-                  : 'Please fill in the highlighted details'),
+                  ? context.l10n.snackAddAddress
+                  : context.l10n.snackFillDetails),
         ),
       );
       return;
@@ -325,22 +328,23 @@ class _BookingPageState extends State<BookingPage> {
 
   Future<void> _showBooked(Booking booking) async {
     final navigator = Navigator.of(context);
+    final l10n = context.l10n;
     final viewBookings = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(Icons.check_circle, color: context.palette.success, size: 56),
-        title: const Text('Booking requested'),
+        title: Text(l10n.bookingRequested),
         content: Text(
-          '${widget.serviceName}\n${friendlyDateTime(booking.scheduledAt)}'
-          '${booking.bookingNumber.isEmpty ? '' : '\nBooking #${booking.bookingNumber}'}\n\n'
-          "The shop will confirm it shortly. We'll notify you, and you can pay once it's confirmed.",
+          '${widget.serviceName}\n${friendlyDateTime(booking.scheduledAt, l10n: l10n)}'
+          '${booking.bookingNumber.isEmpty ? '' : '\n${l10n.bookingNumber(booking.bookingNumber)}'}\n\n'
+          '${l10n.bookingRequestedBody}',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Done')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('View my bookings')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.done)),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(l10n.viewMyBookings)),
         ],
       ),
     );
@@ -354,6 +358,7 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final slots = _slotsOn(_day);
     return BlocListener<BookingBloc, BookingState>(
       listener: (context, state) {
@@ -371,7 +376,7 @@ class _BookingPageState extends State<BookingPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Book Service')),
+        appBar: AppBar(title: Text(l10n.bookServiceTitle)),
         bottomNavigationBar: _BookBar(total: _price, onBook: _onBook),
         body: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -383,7 +388,7 @@ class _BookingPageState extends State<BookingPage> {
                 _SummaryCard(serviceName: widget.serviceName, mode: _mode, slot: _slot?.shown, now: widget.clock()),
                 const SizedBox(height: 24),
                 if (widget.serviceModes.length > 1) ...[
-                  const _Heading('How would you like it?'),
+                  _Heading(l10n.howWouldYouLikeIt),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -392,17 +397,17 @@ class _BookingPageState extends State<BookingPage> {
                         ChoiceChip(
                           avatar: Icon(modeIcon(mode), size: 18),
                           showCheckmark: false,
-                          label: Text(modeChoiceLabel(mode, _feeFor(mode))),
+                          label: Text(modeChoiceLabel(mode, _feeFor(mode), l10n: l10n)),
                           selected: _mode == mode,
                           onSelected: (_) => setState(() => _mode = mode),
                         ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(modeExplanation(_mode), style: AppTextStyles.caption.themed(context)),
+                  Text(modeExplanation(_mode, l10n: l10n), style: AppTextStyles.caption.themed(context)),
                   const SizedBox(height: 24),
                 ],
-                _Heading('When?', key: _whenKey),
+                _Heading(l10n.whenQuestion, key: _whenKey),
                 SizedBox(
                   height: 64,
                   child: ListView.separated(
@@ -424,11 +429,11 @@ class _BookingPageState extends State<BookingPage> {
                 const SizedBox(height: 12),
                 if (slots == null && _failedDays.containsKey(_day))
                   _TimesProblem(
-                    text: "Couldn't load the times for this day",
+                    text: l10n.timesLoadFailed,
                     action: TextButton.icon(
                       onPressed: () => _loadTimes(_day, refresh: true),
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Retry'),
+                      label: Text(l10n.retry),
                     ),
                   )
                 else if (slots == null)
@@ -438,7 +443,7 @@ class _BookingPageState extends State<BookingPage> {
                       children: [
                         const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                         const SizedBox(width: 12),
-                        Flexible(child: Text('Finding free times…', style: AppTextStyles.body2.themed(context))),
+                        Flexible(child: Text(l10n.findingTimes, style: AppTextStyles.body2.themed(context))),
                       ],
                     ),
                   )
@@ -446,9 +451,9 @@ class _BookingPageState extends State<BookingPage> {
                   _TimesProblem(text: _noTimesMessage(_day)),
                 // Grouped by part of the day so 20-odd times are quick to scan.
                 for (final (part, times) in [
-                  ('Morning', (slots ?? const <_Slot>[]).where((t) => t.shown.hour < 12)),
-                  ('Afternoon', (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 12 && t.shown.hour < 17)),
-                  ('Evening', (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 17)),
+                  (l10n.partMorning, (slots ?? const <_Slot>[]).where((t) => t.shown.hour < 12)),
+                  (l10n.partAfternoon, (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 12 && t.shown.hour < 17)),
+                  (l10n.partEvening, (slots ?? const <_Slot>[]).where((t) => t.shown.hour >= 17)),
                 ])
                   if (times.isNotEmpty) ...[
                     Padding(
@@ -473,11 +478,11 @@ class _BookingPageState extends State<BookingPage> {
                 if (_showMissing && _slot == null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Text('Pick a time', style: AppTextStyles.caption.copyWith(color: context.colors.error)),
+                    child: Text(l10n.pickATime, style: AppTextStyles.caption.copyWith(color: context.colors.error)),
                   ),
                 const SizedBox(height: 24),
                 if (_needsAddress) ...[
-                  _Heading(_mode == ServiceMode.pickupDrop ? 'Collect from' : 'Where should we come?', key: _addressKey),
+                  _Heading(_mode == ServiceMode.pickupDrop ? l10n.collectFrom : l10n.whereShouldWeCome, key: _addressKey),
                   if (!_addressesLoaded)
                     const LinearProgressIndicator()
                   else if (_saved.isEmpty)
@@ -491,12 +496,12 @@ class _BookingPageState extends State<BookingPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('You have no saved address yet.', style: AppTextStyles.body2.themed(context)),
+                          Text(l10n.noSavedAddress, style: AppTextStyles.body2.themed(context)),
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: _addAddress,
                             icon: const Icon(Icons.add_location_alt_outlined),
-                            label: const Text('Add address'),
+                            label: Text(l10n.addAddress),
                           ),
                         ],
                       ),
@@ -505,7 +510,7 @@ class _BookingPageState extends State<BookingPage> {
                     DropdownButtonFormField<SavedAddress>(
                       initialValue: _address,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Saved address'),
+                      decoration: InputDecoration(labelText: l10n.savedAddress),
                       items: [
                         for (final a in _saved)
                           DropdownMenuItem(value: a, child: Text('${a.label}: ${a.oneLine}', overflow: TextOverflow.ellipsis)),
@@ -517,7 +522,7 @@ class _BookingPageState extends State<BookingPage> {
                       child: TextButton.icon(
                         onPressed: _addAddress,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add another address'),
+                        label: Text(l10n.addAnotherAddress),
                       ),
                     ),
                   ],
@@ -527,18 +532,18 @@ class _BookingPageState extends State<BookingPage> {
                   CustomTextField(
                     key: _itemKey,
                     controller: _itemController,
-                    label: 'What should we collect?',
-                    hint: 'e.g. Honda Activa, brakes squeaking · Dell laptop, cracked screen',
+                    label: l10n.whatToCollect,
+                    hint: l10n.whatToCollectHint,
                     maxLines: 2,
                     textCapitalization: TextCapitalization.sentences,
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Tell us what to collect and what is wrong' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.whatToCollectError : null,
                   ),
                   const SizedBox(height: 16),
                 ],
                 CustomTextField(
                   controller: _notesController,
-                  label: 'Notes (optional)',
-                  hint: 'Any special instructions...',
+                  label: l10n.notesOptional,
+                  hint: l10n.notesHint,
                   maxLines: 2,
                   textCapitalization: TextCapitalization.sentences,
                 ),
@@ -552,8 +557,8 @@ class _BookingPageState extends State<BookingPage> {
                       Expanded(
                         child: CustomTextField(
                           controller: _couponController,
-                          label: 'Coupon code (optional)',
-                          hint: 'e.g. WELCOME10',
+                          label: l10n.couponOptional,
+                          hint: l10n.couponHint,
                           textCapitalization: TextCapitalization.characters,
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _applyCoupon(),
@@ -564,7 +569,7 @@ class _BookingPageState extends State<BookingPage> {
                         padding: const EdgeInsets.only(top: 28),
                         child: TextButton(
                           onPressed: _checkingCoupon ? null : _applyCoupon,
-                          child: Text(_checkingCoupon ? 'Checking…' : 'Apply'),
+                          child: Text(_checkingCoupon ? l10n.checking : l10n.apply),
                         ),
                       ),
                     ],
@@ -578,7 +583,7 @@ class _BookingPageState extends State<BookingPage> {
                 const SizedBox(height: 24),
                 _PriceBreakdown(
                   service: widget.servicePrice,
-                  feeLabel: _mode == ServiceMode.atHome ? 'Home visit fee' : 'Pickup & drop fee',
+                  feeLabel: _mode == ServiceMode.atHome ? l10n.homeVisitFee : l10n.pickupDropFee,
                   fee: _fee,
                   couponCode: _couponApplies ? _coupon!.code : null,
                   discount: _discount,
@@ -646,17 +651,16 @@ class _DayChip extends StatelessWidget {
 
   const _DayChip({required this.day, required this.now, required this.selected, required this.onTap});
 
-  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
   @override
   Widget build(BuildContext context) {
-    final relative = friendlyDay(day, now: now);
-    final top = relative == 'Today' || relative == 'Tomorrow' ? relative : _weekdays[day.weekday - 1];
+    final l10n = context.l10n;
+    final relative = friendlyDay(day, now: now, l10n: l10n);
+    final date = dayAndMonth(day, l10n);
+    final top = relative == l10n.today || relative == l10n.tomorrow ? relative : shortWeekday(day, l10n);
     return Semantics(
       button: true,
       selected: selected,
-      label: relative == top ? '$top, ${day.day} ${_months[day.month - 1]}' : relative,
+      label: relative == top ? '$top, $date' : relative,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
@@ -676,7 +680,7 @@ class _DayChip extends StatelessWidget {
               children: [
                 Text(top, style: AppTextStyles.caption.copyWith(color: selected ? context.colors.onPrimaryContainer : context.palette.muted)),
                 Text(
-                  '${day.day} ${_months[day.month - 1]}',
+                  date,
                   style: AppTextStyles.subtitle2.copyWith(color: selected ? context.colors.onPrimaryContainer : context.colors.onSurface),
                 ),
               ],
@@ -709,12 +713,15 @@ class _AppliedCoupon extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '${coupon.code} applied: ${coupon.discountPct.toStringAsFixed(coupon.discountPct % 1 == 0 ? 0 : 1)}% off, '
-                'you save ${rupees(saving)}',
+                context.l10n.couponApplied(
+                  coupon.code,
+                  coupon.discountPct.toStringAsFixed(coupon.discountPct % 1 == 0 ? 0 : 1),
+                  rupees(saving),
+                ),
                 style: AppTextStyles.body2.copyWith(color: context.palette.success),
               ),
             ),
-            TextButton(onPressed: onRemove, child: const Text('Remove')),
+            TextButton(onPressed: onRemove, child: Text(context.l10n.remove)),
           ],
         ),
       );
@@ -758,15 +765,15 @@ class _PriceBreakdown extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _Heading('Price details'),
-            _row(context, 'Service', rupees(service)),
+            _Heading(context.l10n.priceDetails),
+            _row(context, context.l10n.priceService, rupees(service)),
             if (fee > 0) _row(context, feeLabel, rupees(fee)),
-            if (discount > 0) _row(context, 'Coupon $couponCode', '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
+            if (discount > 0) _row(context, context.l10n.priceCoupon(couponCode ?? ''), '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
             const Divider(height: 16),
-            _row(context, 'Total', rupees(total), style: AppTextStyles.subtitle1),
+            _row(context, context.l10n.total, rupees(total), style: AppTextStyles.subtitle1),
             const SizedBox(height: 4),
             Text(
-              'Nothing to pay now. Pay online or in cash once the shop confirms.',
+              context.l10n.payLaterNote,
               style: AppTextStyles.caption.themed(context),
             ),
           ],
@@ -795,7 +802,7 @@ class _BookBar extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total', style: AppTextStyles.caption.themed(context)),
+                    Text(context.l10n.total, style: AppTextStyles.caption.themed(context)),
                     Text(rupees(total), style: AppTextStyles.heading3.copyWith(color: context.colors.primary)),
                   ],
                 ),
@@ -803,7 +810,7 @@ class _BookBar extends StatelessWidget {
                 Expanded(
                   child: BlocBuilder<BookingBloc, BookingState>(
                     builder: (context, state) => CustomButton(
-                      label: 'Confirm Booking',
+                      label: context.l10n.confirmBooking,
                       onPressed: state is BookingLoading ? null : onBook,
                       isLoading: state is BookingLoading,
                     ),
@@ -842,7 +849,7 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(serviceName, style: AppTextStyles.subtitle1),
                 Text(
-                  slot == null ? 'Choose a day and time below' : friendlyDateTime(slot!, now: now),
+                  slot == null ? context.l10n.chooseDayTime : friendlyDateTime(slot!, now: now, l10n: context.l10n),
                   style: AppTextStyles.body2.copyWith(color: context.colors.onPrimaryContainer),
                 ),
               ],
@@ -861,17 +868,21 @@ IconData modeIcon(String mode) => switch (mode) {
     };
 
 /// "Visit the shop", "At my place (+₹150)", "Pickup & drop (+₹99)".
-String modeChoiceLabel(String mode, double fee) {
+String modeChoiceLabel(String mode, double fee, {AppLocalizations? l10n}) {
+  final l = l10n ?? englishL10n;
   final name = switch (mode) {
-    ServiceMode.atHome => 'At my place',
-    ServiceMode.pickupDrop => 'Pickup & drop',
-    _ => 'Visit the shop',
+    ServiceMode.atHome => l.modeChoiceAtHome,
+    ServiceMode.pickupDrop => l.modePickupDrop,
+    _ => l.modeChoiceAtShop,
   };
   return fee > 0 ? '$name (+${rupees(fee)})' : name;
 }
 
-String modeExplanation(String mode) => switch (mode) {
-      ServiceMode.atHome => 'A professional comes to your address at the time you choose.',
-      ServiceMode.pickupDrop => "We collect your item from your address, service it and bring it back. You'll be told at each step.",
-      _ => 'You go to the shop at the time you choose. See "How to get there" on your booking.',
-    };
+String modeExplanation(String mode, {AppLocalizations? l10n}) {
+  final l = l10n ?? englishL10n;
+  return switch (mode) {
+    ServiceMode.atHome => l.explainAtHome,
+    ServiceMode.pickupDrop => l.explainPickup,
+    _ => l.explainAtShop,
+  };
+}

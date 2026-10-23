@@ -21,6 +21,7 @@ import '../../../reviews/data/reviews_api.dart';
 import '../../../reviews/presentation/reviews_widgets.dart';
 import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
+import '../../../../l10n/l10n.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final ServiceEntity service;
@@ -133,6 +134,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final shop = _shop;
     final atShop = service.serviceModes.contains(ServiceMode.atShop);
     final rating = _summary?.average ?? service.rating;
@@ -152,7 +154,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      "This service isn't taking bookings right now.",
+                      l10n.serviceNotTaking,
                       style: AppTextStyles.caption.copyWith(color: context.colors.error),
                     ),
                   ),
@@ -162,12 +164,12 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('From', style: AppTextStyles.caption.themed(context)),
+                        Text(l10n.priceFrom, style: AppTextStyles.caption.themed(context)),
                         Text(rupees(service.basePrice), style: AppTextStyles.heading3.copyWith(color: context.colors.primary)),
                       ],
                     ),
                     const SizedBox(width: 16),
-                    Expanded(child: CustomButton(label: 'Book Now', onPressed: service.isAvailable ? _book : null)),
+                    Expanded(child: CustomButton(label: l10n.bookNow, onPressed: service.isAvailable ? _book : null)),
                   ],
                 ),
               ],
@@ -209,7 +211,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     ),
                   ],
                   if (_hours case final hours?)
-                    if (openingSummary(hours, widget.clock()) case final open?) ...[
+                    if (openingSummary(hours, widget.clock(), l10n: l10n) case final open?) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -233,23 +235,23 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     runSpacing: 4,
                     children: [
                       if (service.durationMinutes != null && service.durationMinutes! > 0)
-                        _Fact(icon: Icons.schedule, text: 'About ${service.durationMinutes} min'),
+                        _Fact(icon: Icons.schedule, text: l10n.aboutMinutes(service.durationMinutes!)),
                       if (reviewCount > 0)
                         Semantics(
-                          label: 'Rated ${rating.toStringAsFixed(1)} out of 5 from ${reviewsCount(reviewCount)}',
+                          label: l10n.ratedSemantics(rating.toStringAsFixed(1), reviewCount),
                           excludeSemantics: true,
                           child: _Fact(
                             icon: Icons.star,
                             iconColor: AppColors.starFilled,
-                            text: '${rating.toStringAsFixed(1)} (${reviewsCount(reviewCount)})',
+                            text: '${rating.toStringAsFixed(1)} (${l10n.reviewsCount(reviewCount)})',
                           ),
                         )
                       else
-                        const _Fact(icon: Icons.star_border, text: 'New, no reviews yet'),
+                        _Fact(icon: Icons.star_border, text: l10n.ratingNewSemantics),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const Text('How you can get it', style: AppTextStyles.subtitle1),
+                  Text(l10n.howYouCanGetIt, style: AppTextStyles.subtitle1),
                   const SizedBox(height: 8),
                   for (final mode in service.serviceModes)
                     ListTile(
@@ -261,22 +263,22 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       ),
                       title: Text(
                         switch (mode) {
-                          ServiceMode.atHome => 'At your place',
-                          ServiceMode.pickupDrop => 'Pickup & drop',
-                          _ => 'At the shop',
+                          ServiceMode.atHome => l10n.modeAtYourPlace,
+                          ServiceMode.pickupDrop => l10n.modePickupDrop,
+                          _ => l10n.modeAtTheShop,
                         },
                         style: AppTextStyles.body1,
                       ),
-                      subtitle: Text(modeExplanation(mode), style: AppTextStyles.caption.themed(context)),
+                      subtitle: Text(modeExplanation(mode, l10n: l10n), style: AppTextStyles.caption.themed(context)),
                       trailing: service.feeFor(mode) > 0
                           ? Text('+${rupees(service.feeFor(mode))}', style: AppTextStyles.subtitle2.themed(context))
                           : null,
                     ),
                   const SizedBox(height: 16),
-                  const Text('About this service', style: AppTextStyles.subtitle1),
+                  Text(l10n.aboutService, style: AppTextStyles.subtitle1),
                   const SizedBox(height: 8),
                   Text(
-                    service.description.isEmpty ? 'The shop has not added a description yet.' : service.description,
+                    service.description.isEmpty ? l10n.noDescription : service.description,
                     style: AppTextStyles.body2.themed(context),
                   ),
                   if (service.tags.isNotEmpty) ...[
@@ -295,7 +297,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                   const SizedBox(height: 24),
                   if (_openQueueId != null) ...[
                     CustomButton(
-                      label: 'Walk in now: join the queue',
+                      label: l10n.joinQueue,
                       variant: ButtonVariant.outlined,
                       leadingIcon: Icons.people_outline,
                       isLoading: _joining,
@@ -303,7 +305,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "No appointment needed: we'll tell you your place and when it's your turn.",
+                      l10n.joinQueueNote,
                       style: AppTextStyles.caption.themed(context),
                     ),
                     const SizedBox(height: 12),
@@ -313,7 +315,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       child: TextButton.icon(
                         onPressed: () => showHowToGetThere(context, shopId: service.shopId!),
                         icon: const Icon(Icons.directions),
-                        label: const Text('How to get there'),
+                        label: Text(l10n.howToGetThere),
                       ),
                     ),
                 ],

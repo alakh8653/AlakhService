@@ -32,7 +32,7 @@ from app.schemas.shop import (
     ShopReviewItem,
 )
 from app.services.kyc_service import ReviewStateError, kyc_service
-from app.services.shop_service import shop_service
+from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
 
@@ -305,6 +305,7 @@ async def approve_shop(
     background.add_task(
         reporter.notify_owner, "shop.approved", shop.owner_id, {"shop_id": shop.id, "shop_name": shop.name}
     )
+    background.add_task(reporter.sync_listing, shop.id, is_public(shop))
     return shop
 
 
@@ -336,4 +337,5 @@ async def reject_shop(
         shop.owner_id,
         {"shop_id": shop.id, "shop_name": shop.name, "reason": decision.reason},
     )
+    background.add_task(reporter.sync_listing, shop.id, False)
     return shop

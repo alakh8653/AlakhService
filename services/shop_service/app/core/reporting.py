@@ -1,4 +1,5 @@
-"""Best-effort reports of shop reviews: the admin_service audit log and the owner's notification.
+"""Best-effort reports of shop reviews: the admin_service audit log, the owner's notification, and
+whether service_catalog lists the shop's services.
 
 Both are sent after the response; one that cannot be delivered is logged, never a reason to fail the
 approval itself.
@@ -12,6 +13,7 @@ import structlog
 from fastapi import Request
 
 from app.config import settings
+from app.dependencies import path_segment
 
 log = structlog.get_logger()
 
@@ -37,9 +39,11 @@ class Reporter:
         notification_url: str,
         key: str,
         transport: Optional[httpx.AsyncBaseTransport] = None,
+        catalog_url: str = "",
     ):
         self.admin_url = admin_url
         self.notification_url = notification_url
+        self.catalog_url = catalog_url
         self.key = key
         self._transport = transport
 
@@ -88,6 +92,19 @@ class Reporter:
             "notify",
         )
 
+    async def sync_listing(self, shop_id: str, listed: bool) -> None:
+        """Customers see a shop's services only while it is approved and switched on."""
+        if not self.catalog_url:
+            return
+        await self._post(
+            self.catalog_url, f"/internal/shops/{path_segment(shop_id)}/listing", {"listed": listed}, "listing"
+        )
+
 
 def get_reporter() -> Reporter:
-    return Reporter(settings.ADMIN_SERVICE_URL, settings.NOTIFICATION_SERVICE_URL, settings.INTERNAL_API_KEY)
+    return Reporter(
+        settings.ADMIN_SERVICE_URL,
+        settings.NOTIFICATION_SERVICE_URL,
+        settings.INTERNAL_API_KEY,
+        catalog_url=settings.SERVICE_CATALOG_URL,
+    )

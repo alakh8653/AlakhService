@@ -27,12 +27,16 @@ class FakeReporter:
     def __init__(self):
         self.audits = []
         self.notifications = []
+        self.listings = []
 
     async def audit(self, admin_id, action, shop_id, origin, old_values=None, new_values=None):
         self.audits.append((admin_id, action, shop_id, old_values, new_values))
 
     async def notify_owner(self, event, owner_id, data):
         self.notifications.append((event, owner_id, data))
+
+    async def sync_listing(self, shop_id, listed):
+        self.listings.append((shop_id, listed))
 
 
 @pytest.fixture
@@ -266,6 +270,13 @@ async def test_review_queue_approve_and_reject(client, reporter):
         ("shop.approved", "owner-1"),
     ]
     assert reporter.notifications[0][2]["reason"] == "PAN photo is blurred"
+    # service_catalog hides the shop's services until approval, then shows them.
+    assert reporter.listings == [(first["id"], False), (first["id"], True)]
+    # Switching the approved shop off hides them again.
+    assert (
+        await client.put(f"/api/v1/shops/{first['id']}", json={"is_active": False}, headers=OWNER)
+    ).status_code == 200
+    assert reporter.listings[-1] == (first["id"], False)
     assert waiting["id"] not in [s["id"] for s in queue]
 
 
@@ -434,3 +445,20 @@ async def test_internal_shop_record_has_the_invoice_details_whatever_the_status(
     assert (await client.get("/internal/shops/missing", headers={"X-Internal-Key": INTERNAL_KEY})).status_code == 404
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "")
     assert (await client.get(url, headers={"X-Internal-Key": ""})).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_the_catalog_is_told_with_the_internal_key_and_the_id_escaped():
+    import httpx
+
+    from app.core.reporting import Reporter
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.url.raw_path, request.headers.get("x-internal-key"), request.read()))
+        return httpx.Response(200, json={})
+
+    reporter = Reporter("http://admin", "http://notify", INTERNAL_KEY, httpx.MockTransport(handler), "http://catalog")
+    await reporter.sync_listing("../x", True)
+    assert seen == [(b"/internal/shops/%2E%2E%2Fx/listing", INTERNAL_KEY, b'{"listed":true}')]

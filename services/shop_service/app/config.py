@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # notification_service; both are best effort and skipped without INTERNAL_API_KEY.
     ADMIN_SERVICE_URL: str = "http://admin_service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
+    # Told when a shop starts or stops being public, so its services show or hide in browsing.
+    SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     # Shared with the other services for /internal/... calls (payment_service reads payout details).
     INTERNAL_API_KEY: str = ""
     # KYC files uploaded through the API are kept here (mount a volume in production); empty turns

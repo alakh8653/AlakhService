@@ -168,6 +168,7 @@ services:
       AUTH_SERVICE_URL: http://auth_service:8000
       ADMIN_SERVICE_URL: http://admin_service:8000
       NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
     volumes:
       # KYC documents shops upload (PAN, GST, bank proof); kept across image updates.
       - shop_documents:/app/data/shop_documents

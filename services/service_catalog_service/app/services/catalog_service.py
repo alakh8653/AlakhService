@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ServiceListingNotFoundError
@@ -51,7 +51,9 @@ class CatalogService:
         result = await db.execute(select(ServiceCategory).where(ServiceCategory.is_active == True))
         return list(result.scalars().all())
 
-    async def create_service(self, db: AsyncSession, data: ServiceListingCreate) -> ServiceListing:
+    async def create_service(
+        self, db: AsyncSession, data: ServiceListingCreate, shop_listed: bool = True
+    ) -> ServiceListing:
         service = ServiceListing(
             id=str(uuid.uuid4()),
             category_id=data.category_id,
@@ -65,6 +67,7 @@ class CatalogService:
             home_visit_fee_cents=data.home_visit_fee_cents,
             pickup_fee_cents=data.pickup_fee_cents,
             is_active=True,
+            shop_listed=shop_listed,
             created_at=datetime.now(timezone.utc),
         )
         db.add(service)
@@ -91,7 +94,10 @@ class CatalogService:
     ) -> List[ServiceListing]:
         query = select(ServiceListing)
         if shop_id:
+            # A shop's own list (its dashboard) includes services of a shop still awaiting approval.
             query = query.where(ServiceListing.shop_id == shop_id)
+        else:
+            query = query.where(ServiceListing.shop_listed == True)
         if not include_inactive:
             query = query.where(ServiceListing.is_active == True)
         result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
@@ -110,7 +116,7 @@ class CatalogService:
     async def search_services(
         self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None, limit: int = 20
     ) -> List[ServiceListing]:
-        base = select(ServiceListing).where(ServiceListing.is_active == True)
+        base = select(ServiceListing).where(ServiceListing.is_active == True, ServiceListing.shop_listed == True)
         if category:
             base = base.where(ServiceListing.category_id == category)
         if q:
@@ -143,6 +149,16 @@ class CatalogService:
         _index_listing(service)
         log.info("service_updated", service_id=service_id)
         return service
+
+    async def set_shop_listed(self, db: AsyncSession, shop_id: str, listed: bool) -> int:
+        """Shows or hides every service of a shop in browsing and search. Returns how many changed."""
+        result = await db.execute(
+            update(ServiceListing)
+            .where(ServiceListing.shop_id == shop_id, ServiceListing.shop_listed != listed)
+            .values(shop_listed=listed)
+        )
+        log.info("shop_listing_changed", shop_id=shop_id, listed=listed, services=result.rowcount)
+        return result.rowcount
 
 
 catalog_service = CatalogService()

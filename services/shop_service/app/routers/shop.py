@@ -1,10 +1,11 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
+from app.core.reporting import Reporter, get_reporter
 from app.database import get_db
 from app.dependencies import (
     BookingLookup,
@@ -105,11 +106,14 @@ LOCKED_WHEN_APPROVED = ("legal_name", "gstin")
 async def update_shop(
     shop_id: str,
     data: ShopUpdate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
+    reporter: Reporter = Depends(get_reporter),
 ):
     try:
         shop = await shop_service.get_shop(db, shop_id)
+        was_public = is_public(shop)
         ensure_owner(shop.owner_id, caller)
         changes = data.model_dump(exclude_unset=True)
         if not caller.is_admin and shop.verification_status == "APPROVED":
@@ -119,16 +123,26 @@ async def update_shop(
                     status_code=409,
                     detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
                 )
-        return await shop_service.update_shop(db, shop_id, data)
+        shop = await shop_service.update_shop(db, shop_id, data)
+        if is_public(shop) != was_public:  # switched on or off
+            background.add_task(reporter.sync_listing, shop.id, is_public(shop))
+        return shop
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.delete("/shops/{shop_id}", status_code=204)
-async def delete_shop(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def delete_shop(
+    shop_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    caller: Caller = Depends(require_caller),
+    reporter: Reporter = Depends(get_reporter),
+):
     try:
         ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
         await shop_service.delete_shop(db, shop_id)
+        background.add_task(reporter.sync_listing, shop_id, False)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 

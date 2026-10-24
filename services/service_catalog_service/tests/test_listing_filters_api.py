@@ -10,10 +10,13 @@ from sqlalchemy.pool import StaticPool
 import app.models.catalog  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_shop_owner_lookup
+from app.dependencies import get_shop_listed_lookup, get_shop_owner_lookup
 from app.main import app
 
-OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
+OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2", "shop-new": "owner-3"}
+# shop-new still awaits approval in shop_service.
+LISTED = {"shop-1": True, "shop-2": True, "shop-new": False}
+KEY = "internal-test-key"
 
 
 def auth(sub: str, role: str = "user") -> dict:
@@ -37,7 +40,12 @@ async def client():
         return OWNERS.get(shop_id)
 
     app.dependency_overrides[get_db] = override_get_db
+
+    async def fake_listed(shop_id):
+        return LISTED[shop_id]
+
     app.dependency_overrides[get_shop_owner_lookup] = lambda: fake_owner
+    app.dependency_overrides[get_shop_listed_lookup] = lambda: fake_listed
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
@@ -199,3 +207,31 @@ async def test_negative_prices_and_durations_are_rejected(client, bad):
     resp = await client.put(f"/api/v1/services/{listing['id']}", json=bad, headers=owner)
     assert resp.status_code == 422
     assert (await client.get(f"/api/v1/services/{listing['id']}")).json()["price_cents"] == 50000
+
+
+@pytest.mark.asyncio
+async def test_services_of_a_shop_awaiting_approval_stay_hidden_until_it_is_approved(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", KEY)
+    body = {"shop_id": "shop-new", "name": "Bridal makeup", "price_cents": 900000}
+    created = await client.post("/api/v1/services", json=body, headers=auth("owner-3"))
+    assert created.status_code == 201
+    listed = {"shop_id": "shop-1", "name": "Bridal hair", "price_cents": 500000}
+    assert (await client.post("/api/v1/services", json=listed, headers=auth("owner-1"))).status_code == 201
+
+    def names(resp):
+        return sorted(s["name"] for s in resp.json())
+
+    assert names(await client.get("/api/v1/services")) == ["Bridal hair"]
+    assert names(await client.get("/api/v1/services/search", params={"q": "bridal"})) == ["Bridal hair"]
+    # The owner's dashboard still lists it, and booking_service can still look it up by id.
+    assert names(await client.get("/api/v1/services", params={"shop_id": "shop-new"})) == ["Bridal makeup"]
+    assert (await client.get(f"/api/v1/services/{created.json()['id']}")).status_code == 200
+
+    approve = "/internal/shops/shop-new/listing"
+    assert (await client.post(approve, json={"listed": True})).status_code == 401
+    done = await client.post(approve, json={"listed": True}, headers={"X-Internal-Key": KEY})
+    assert done.json() == {"shop_id": "shop-new", "listed": True, "changed": 1}
+    assert names(await client.get("/api/v1/services/search", params={"q": "bridal"})) == [
+        "Bridal hair",
+        "Bridal makeup",
+    ]

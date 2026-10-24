@@ -130,7 +130,9 @@ jobs:
           OUT="$RUNNER_TEMP/am-all.yml" ALERT_EMAIL_TO=ops@alakh-ci.in SMTP_HOST=smtp.example.net \
             SMTP_USERNAME=ops@alakh-ci.in SMTP_PASSWORD="p'ss" TELEGRAM_BOT_TOKEN=123:abc TELEGRAM_CHAT_ID=-100123 \
             sh deploy/monitoring/alertmanager/render-and-start.sh --render-only
-          docker run --rm --entrypoint amtool -v "$RUNNER_TEMP:/cfg:ro" "$ALERTMANAGER_IMAGE" \
+          # The rendered files hold secrets, so they are readable by their owner only (umask 077):
+          # run amtool as that user rather than the image's own (nobody).
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint amtool -v "$RUNNER_TEMP:/cfg:ro" "$ALERTMANAGER_IMAGE" \
             check-config /cfg/am-none.yml /cfg/am-all.yml
 
       - name: Set up Python

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from './state/store';
@@ -7,6 +7,10 @@ import { restoreSession, rememberRefreshToken, storedRefreshToken } from './serv
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { ToastProvider } from './components/Toast';
+import OnboardingBanner from './components/OnboardingBanner';
+import LegalFooter from './components/LegalFooter';
+import { useNewBookingAlerts } from './hooks/useNewBookingAlerts';
+import { fetchBookings } from './state/bookingSlice';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -18,9 +22,13 @@ const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const ServicesPage = lazy(() => import('./pages/ServicesPage'));
 const QueuesPage = lazy(() => import('./pages/QueuesPage'));
 const StaffPage = lazy(() => import('./pages/StaffPage'));
+const ReviewsPage = lazy(() => import('./pages/ReviewsPage'));
+const OpeningHoursPage = lazy(() => import('./pages/OpeningHoursPage'));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const EarningsPage = lazy(() => import('./pages/EarningsPage'));
 
 function PageFallback() {
   return (
@@ -46,6 +54,13 @@ export function NotFoundPage() {
 function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
+  const shop = useSelector((state: RootState) => state.auth.shop);
+  const dispatch = useDispatch<AppDispatch>();
+  const bookingFilters = useSelector((state: RootState) => state.bookings.activeFilters);
+  const filtersRef = useRef(bookingFilters);
+  filtersRef.current = bookingFilters;
+  // A new booking also refreshes the bookings list, wherever it is shown.
+  useNewBookingAlerts(shop?.id, () => void dispatch(fetchBookings(filtersRef.current)));
 
   // Every page starts at the top, with the phone menu closed.
   useEffect(() => {
@@ -62,6 +77,7 @@ function ProtectedLayout() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} />
         <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 md:p-6 focus:outline-none">
+          {shop && <OnboardingBanner shop={shop} />}
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -72,11 +88,16 @@ function ProtectedLayout() {
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/queues" element={<QueuesPage />} />
               <Route path="/staff" element={<StaffPage />} />
+              <Route path="/hours" element={<OpeningHoursPage />} />
+              <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/earnings" element={<EarningsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
+          <LegalFooter className="mt-10 pb-2" />
         </main>
       </div>
     </div>

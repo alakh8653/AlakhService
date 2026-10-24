@@ -26,6 +26,19 @@ class BookingStatus {
   static const payable = {confirmed, assigned, enRoute, pickedUp, inProgress, outForDelivery, completed};
 }
 
+/// A booking's payment, as booking_service reports it (payment_status).
+class PaymentStatus {
+  PaymentStatus._();
+
+  static const unpaid = 'UNPAID';
+  static const paid = 'PAID';
+  static const refunded = 'REFUNDED';
+  static const partiallyRefunded = 'PARTIALLY_REFUNDED';
+
+  /// Money was taken (and maybe given back): there is an invoice and nothing more to pay.
+  static const settled = {paid, refunded, partiallyRefunded};
+}
+
 /// How a booking is delivered and where: see ServiceMode. [addressId] is a saved address, needed
 /// for a home visit or a pickup; [itemDescription] says what to collect for a pickup.
 class BookingDelivery extends Equatable {
@@ -71,6 +84,10 @@ class Booking extends Equatable {
   /// Pickup & drop: when the shop expects the item to be back with the customer.
   final DateTime? readyBy;
 
+  /// What booking_service knows of its payment: one of [PaymentStatus]; null from servers that
+  /// don't report it (the app then works it out from the payments list).
+  final String? paymentStatus;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -92,6 +109,7 @@ class Booking extends Equatable {
     this.itemDescription,
     this.addressId,
     this.readyBy,
+    this.paymentStatus,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);
@@ -112,8 +130,17 @@ class Booking extends Equatable {
   bool isOverdue(DateTime now) =>
       const {BookingStatus.pending, BookingStatus.confirmed}.contains(status) &&
       scheduledAt.isBefore(now.subtract(const Duration(minutes: 30)));
+  /// booking_service says it has been paid (refunds included): no Pay button, and an invoice.
+  bool get isPaid => PaymentStatus.settled.contains(paymentStatus);
+
+  /// Inside the last two hours before its time, when cancelling may cost a fee.
+  bool inCancellationFeeWindow(DateTime now) => now.isAfter(scheduledAt.subtract(freeCancellationBefore));
+
+  /// Cancelling is free until this long before the booking's time.
+  static const freeCancellationBefore = Duration(hours: 2);
+
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override
-  List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId];
+  List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId, paymentStatus];
 }

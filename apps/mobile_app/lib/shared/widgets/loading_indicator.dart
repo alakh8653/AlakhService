@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/theme/app_theme.dart';
 
 class LoadingIndicator extends StatelessWidget {
   final String? message;
@@ -20,7 +21,7 @@ class LoadingIndicator extends StatelessWidget {
           ),
           if (message != null) ...[
             const SizedBox(height: 16),
-            Text(message!, style: AppTextStyles.body2),
+            Text(message!, style: AppTextStyles.body2.themed(context)),
           ],
         ],
       ),

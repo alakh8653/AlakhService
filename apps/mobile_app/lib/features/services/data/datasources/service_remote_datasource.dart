@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_errors.dart';
+import '../../../reviews/data/reviews_api.dart';
 import '../models/service_model.dart';
 
 abstract class ServiceRemoteDataSource {
@@ -17,10 +18,31 @@ abstract class ServiceRemoteDataSource {
 class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
   final ApiClient apiClient;
 
-  ServiceRemoteDataSourceImpl({required this.apiClient});
+  /// Adds each listing's shop rating (one request per page of results); without it cards say "New".
+  final ReviewsApi? ratings;
 
-  List<ServiceModel> _list(dynamic data) =>
-      (data as List<dynamic>).map((e) => ServiceModel.fromJson(e as Map<String, dynamic>)).toList();
+  ServiceRemoteDataSourceImpl({required this.apiClient, this.ratings});
+
+  Future<List<ServiceModel>> _list(dynamic data) async {
+    final services = (data as List<dynamic>).map((e) => ServiceModel.fromJson(e as Map<String, dynamic>)).toList();
+    return _withRatings(services);
+  }
+
+  /// Ratings are extra: if they can't be had, the services still show.
+  Future<List<ServiceModel>> _withRatings(List<ServiceModel> services) async {
+    final api = ratings;
+    final shopIds = services.map((s) => s.shopId).whereType<String>();
+    if (api == null || shopIds.isEmpty) return services;
+    try {
+      final byShop = await api.ratings(shopIds);
+      return [
+        for (final s in services)
+          if (byShop[s.shopId] case final r?) s.withRating(r.average, r.count) else s,
+      ];
+    } catch (_) {
+      return services;
+    }
+  }
 
   @override
   Future<List<ServiceModel>> getServices({int page = 1, int limit = 20, String? category}) async {
@@ -29,7 +51,7 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
         ApiConstants.services,
         queryParameters: {'skip': (page - 1) * limit, 'limit': limit},
       );
-      return _list(response.data);
+      return await _list(response.data);
     } on DioException catch (e) {
       throw toServerException(e);
     }
@@ -42,7 +64,7 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
         ApiConstants.searchServices,
         queryParameters: {'q': query, if (category != null) 'category': category},
       );
-      return _list(response.data);
+      return await _list(response.data);
     } on DioException catch (e) {
       throw toServerException(e);
     }
@@ -52,7 +74,7 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
   Future<ServiceModel> getServiceById(String id) async {
     try {
       final response = await apiClient.get<Map<String, dynamic>>('${ApiConstants.services}/$id');
-      return ServiceModel.fromJson(response.data!);
+      return (await _withRatings([ServiceModel.fromJson(response.data!)])).single;
     } on DioException catch (e) {
       throw toServerException(e);
     }

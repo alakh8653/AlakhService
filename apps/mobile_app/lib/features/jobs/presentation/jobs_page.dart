@@ -4,10 +4,12 @@ import 'package:intl/intl.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../booking/domain/entities/booking.dart';
 import '../../tracking/data/tracking_api.dart';
 import '../data/jobs_api.dart';
+import '../../../shared/widgets/location_rationale.dart';
 import '../data/location_reporter.dart';
 
 /// A provider's assigned jobs: move each one along, and share location while one is under way.
@@ -27,7 +29,7 @@ class _JobsPageState extends State<JobsPage> {
   late final LocationReporter _reporter = widget.reporter ??
       LocationReporter(
         tracking: sl<TrackingApi>(),
-        source: DeviceLocationSource(),
+        source: DeviceLocationSource(purpose: LocationPurpose.sharing),
         providerId: widget.providerId,
         onState: _onSharing,
       );
@@ -143,9 +145,9 @@ class _SharingBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, color) = switch (state) {
-      SharingState.noPermission => ('Allow location access so your customer can see you are on the way.', AppColors.error),
-      SharingState.failing => ('Could not share your location. Retrying…', AppColors.error),
-      _ => ('Sharing your location with your customer while this job is under way.', AppColors.primary),
+      SharingState.noPermission => ('Allow location access so your customer can see you are on the way.', context.colors.error),
+      SharingState.failing => ('Could not share your location. Retrying…', context.colors.error),
+      _ => ('Sharing your location with your customer while this job is under way.', context.colors.primary),
     };
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -191,25 +193,25 @@ class _JobCard extends StatelessWidget {
           children: [
             Row(children: [
               Expanded(child: Text(job.serviceName, style: AppTextStyles.subtitle1)),
-              Text(_labels[job.status] ?? job.status, style: AppTextStyles.caption),
+              Text(_labels[job.status] ?? job.status, style: AppTextStyles.caption.themed(context)),
             ]),
             const SizedBox(height: 4),
             Text(
               '${DateFormat('EEE d MMM, h:mm a').format(job.scheduledAt)}'
               '${job.bookingNumber.isEmpty ? '' : ' · ${job.bookingNumber}'}',
-              style: AppTextStyles.body2,
+              style: AppTextStyles.body2.themed(context),
             ),
             if (job.address.isNotEmpty) ...[
               const SizedBox(height: 4),
               Row(children: [
-                const Icon(Icons.place_outlined, size: 16, color: AppColors.textSecondary),
+                Icon(Icons.place_outlined, size: 16, color: context.palette.muted),
                 const SizedBox(width: 4),
-                Expanded(child: Text(job.address, style: AppTextStyles.body2)),
+                Expanded(child: Text(job.address, style: AppTextStyles.body2.themed(context))),
               ]),
             ],
             if (job.notes != null) ...[
               const SizedBox(height: 4),
-              Text(job.notes!, style: AppTextStyles.caption),
+              Text(job.notes!, style: AppTextStyles.caption.themed(context)),
             ],
             if (step != null) ...[
               const SizedBox(height: 12),

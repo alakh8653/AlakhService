@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +7,8 @@ import { register as registerAccount } from '../services/authService';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import PasswordInput from '../components/PasswordInput';
+import LegalFooter from '../components/LegalFooter';
+import { defaultLegalLinks, getLegalLinks, type LegalLinks } from '../services/legal';
 import { passwordProblem } from './ResetPasswordPage';
 
 const schema = z.object({
@@ -22,30 +24,46 @@ const schema = z.object({
     const problem = passwordProblem(v);
     if (problem) ctx.addIssue({ code: 'custom', message: problem });
   }),
+  acceptTerms: z.boolean().refine((v) => v, 'Please accept the Terms and Privacy Policy'),
 });
 type FormData = z.infer<typeof schema>;
 
 const inputClass =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 aria-[invalid=true]:border-red-400';
 
-const AUTOCOMPLETE: Record<keyof FormData, string> = { name: 'name', email: 'email', phone: 'tel', password: 'new-password' };
+type TextField = Exclude<keyof FormData, 'acceptTerms'>;
+const AUTOCOMPLETE: Record<TextField, string> = { name: 'name', email: 'email', phone: 'tel', password: 'new-password' };
 
 /** Sign-up for shop owners; after creating the account they are signed in and set up their shop. */
 export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [legal, setLegal] = useState<LegalLinks>(defaultLegalLinks);
+  useEffect(() => {
+    let current = true;
+    void getLegalLinks().then((links) => current && setLegal(links));
+    return () => {
+      current = false;
+    };
+  }, []);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { acceptTerms: false } });
 
   const onSubmit = async (values: FormData) => {
     try {
       setServerError(null);
       const email = values.email.trim().toLowerCase();
-      await registerAccount({ ...values, email, phone: values.phone ? normalizePhone(values.phone) : undefined });
+      await registerAccount({
+        name: values.name,
+        email,
+        password: values.password,
+        phone: values.phone ? normalizePhone(values.phone) : undefined,
+        acceptedTermsVersion: legal.termsVersion,
+      });
       await login({ email, password: values.password });
       navigate('/dashboard');
     } catch (err) {
@@ -53,7 +71,7 @@ export default function RegisterPage() {
     }
   };
 
-  const field = (name: keyof FormData, label: string, type = 'text', placeholder = '', hint?: string) => {
+  const field = (name: TextField, label: string, type = 'text', placeholder = '', hint?: string) => {
     const describedBy = [errors[name] ? `${name}-error` : null, hint ? `${name}-hint` : null].filter(Boolean).join(' ') || undefined;
     const props = {
       id: name,
@@ -100,6 +118,34 @@ export default function RegisterPage() {
           {field('email', 'Email', 'email', 'you@example.com')}
           {field('phone', 'Mobile (optional)', 'tel', '98765 43210')}
           {field('password', 'Password', 'password', '', 'At least 8 characters, with a capital letter and a number.')}
+          <div>
+            <div className="flex items-start gap-2">
+              <input
+                id="acceptTerms"
+                type="checkbox"
+                aria-invalid={!!errors.acceptTerms}
+                aria-describedby={errors.acceptTerms ? 'acceptTerms-error' : undefined}
+                aria-required="true"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                {...register('acceptTerms')}
+              />
+              <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+                I agree to the{' '}
+                <a href={legal.termsUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-medium hover:underline">
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a href={legal.privacyUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-medium hover:underline">
+                  Privacy Policy
+                </a>
+              </label>
+            </div>
+            {errors.acceptTerms && (
+              <p id="acceptTerms-error" className="mt-1 text-xs text-red-600">
+                {errors.acceptTerms.message}
+              </p>
+            )}
+          </div>
           <button
             type="submit"
             disabled={isSubmitting}
@@ -114,6 +160,7 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+        <LegalFooter className="mt-6" />
       </main>
     </div>
   );

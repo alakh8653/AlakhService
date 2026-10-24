@@ -1,0 +1,185 @@
+# =============================================================================
+# AlakhService — Caddy reverse proxy (automatic HTTPS from Let's Encrypt)
+#
+#   https://{$DOMAIN}        -> public site (deploy/site): legal pages, account deletion, app links
+#   https://api.{$DOMAIN}    -> api_gateway:3000 (mobile app + dashboards)
+#   https://shop.{$DOMAIN}   -> shop dashboard (static files built into the image)
+#   https://admin.{$DOMAIN}  -> admin dashboard (static files), optionally IP-restricted
+#
+# Values come from the container environment (docker-compose.prod.yml, from .env.production):
+#   DOMAIN, ACME_EMAIL, ADMIN_ALLOWED_IPS (space-separated IPs/CIDRs; default: everyone)
+#
+# Certificates are issued on first start once DNS points at this server, and renewed on
+# their own. They live in the caddy_data volume: do not delete it.
+# After editing this file:  docker compose ... exec caddy caddy reload --config /etc/caddy/Caddyfile
+# Validate it:              docker compose ... exec caddy caddy validate --config /etc/caddy/Caddyfile
+# =============================================================================
+{
+	email {$ACME_EMAIL}
+	servers {
+		# Slow clients may not hold connections open forever. `write` is generous because the
+		# gateway itself gives up on a service after 15 s (UPSTREAM_TIMEOUT_MS).
+		timeouts {
+			read_header 10s
+			read_body 60s
+			write 90s
+			idle 2m
+		}
+	}
+}
+
+# Headers for every site.
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# A single-page dashboard: hashed assets are cached for a year, everything else is revalidated,
+# and unknown paths fall back to index.html so client-side routes (e.g. /bookings) work.
+(spa) {
+	root * {args[0]}
+	header {
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.{$DOMAIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+	}
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@other not path /assets/*
+	header @other Cache-Control "no-cache"
+	try_files {path} /index.html
+	file_server
+}
+
+api.{$DOMAIN} {
+	import common
+
+	# Admin-only API paths from a network outside ADMIN_ALLOWED_IPS. The gateway already
+	# requires an admin token on all of them; this is an extra fence. Keep the list in step
+	# with the access: 'admin' routes in services/api_gateway/src/routes.ts.
+	@admin_api_blocked {
+		path /api/v1/admin /api/v1/admin/* /api/v1/finance /api/v1/finance/* /api/v1/metrics /api/v1/metrics/*
+		path /api/v1/funnels /api/v1/funnels/* /api/v1/cohorts /api/v1/cohorts/* /api/v1/risk /api/v1/risk/*
+		path /api/v1/audit-logs /api/v1/audit-logs/* /api/v1/system-config /api/v1/system-config/*
+		path /api/v1/access /api/v1/access/* /api/v1/reviews /api/v1/reviews/*
+		not remote_ip {$ADMIN_ALLOWED_IPS:0.0.0.0/0 ::/0}
+	}
+
+	# Slightly above the gateway's 6 MiB upload limit, so the gateway answers oversized
+	# uploads with its own JSON error; anything far larger is cut off here.
+	request_body {
+		max_size 7MiB
+	}
+
+	# Prometheus scrapes /metrics inside the Docker network; never serve it publicly.
+	handle /metrics {
+		respond 404
+	}
+
+	handle @admin_api_blocked {
+		header Content-Type application/json
+		respond `{"detail":"Admin access is not allowed from this network"}` 403
+	}
+
+	handle {
+		reverse_proxy api_gateway:3000 {
+			# Caddy sets X-Forwarded-For to the real client; the gateway trusts exactly one hop
+			# (TRUST_PROXY=1), so per-client rate limits see the visitor, not Caddy.
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 60s
+			}
+		}
+	}
+}
+
+shop.{$DOMAIN} {
+	import common
+	import spa /srv/shop
+}
+
+# The public site (deploy/site): landing page, Terms, Privacy, Refunds, Grievance, account deletion,
+# app-link files and the "open in the app" pages for app links. Plain files, no build step.
+{$DOMAIN} {
+	import common
+	root * /srv/site
+	header {
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+	}
+
+	# The only API calls the site's forms make (account deletion, password reset), forwarded on this
+	# same origin so the gateway's CORS list stays the two dashboards. The gateway still applies its
+	# sign-in rate limit to them; everything else under /api is not served here.
+	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current
+	handle @site_api {
+		request_body {
+			max_size 16KiB
+		}
+		reverse_proxy api_gateway:3000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 30s
+			}
+		}
+	}
+	handle /api/* {
+		header Content-Type application/json
+		respond `{"detail":"Not found"}` 404
+	}
+
+	# Android App Links and iOS Universal Links: both must be served as JSON, without redirects.
+	@app_link_files path /.well-known/assetlinks.json /.well-known/apple-app-site-association
+	handle @app_link_files {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	redir /shop-dashboard https://shop.{$DOMAIN}/ 302
+
+	# App links: the app opens them when installed; otherwise these pages say how to get it.
+	handle /b/* {
+		header Cache-Control "no-cache"
+		rewrite * /open-app.html
+		file_server
+	}
+	handle /reset-password* {
+		# The token is in the query string: never cache this page.
+		header Cache-Control "no-store"
+		rewrite * /reset-password.html
+		file_server
+	}
+
+	handle {
+		header Cache-Control "public, max-age=300"
+		# /terms serves terms.html, and so on.
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+
+	handle_errors {
+		@not_found expression {err.status_code} == 404
+		handle @not_found {
+			rewrite * /404.html
+			file_server
+		}
+		respond "{err.status_code} {err.status_text}"
+	}
+}
+
+admin.{$DOMAIN} {
+	import common
+	@blocked not remote_ip {$ADMIN_ALLOWED_IPS:0.0.0.0/0 ::/0}
+	respond @blocked "Admin access is not allowed from this network" 403
+	import spa /srv/admin
+}

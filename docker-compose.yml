@@ -79,7 +79,8 @@ services:
     restart: unless-stopped
     networks:
       - alakhservice_network
-    command: redis-server --appendonly yes
+    # Each service has its own database number (0-15, 8 is unused); 32 leaves room for more.
+    command: redis-server --appendonly yes --databases 32
     ports:
       - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
@@ -136,6 +137,9 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/auth_db
       REDIS_URL: redis://redis:6379/0
+      # Terms acceptance at sign-up is recorded in the consent register here.
+      COMPLIANCE_SERVICE_URL: http://compliance_service:8000
+      USER_SERVICE_URL: http://user_service:8000
 
   user_service:
     <<: *python-service
@@ -161,6 +165,13 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/shop_db
       REDIS_URL: redis://redis:6379/2
       BOOKING_SERVICE_URL: http://booking_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
+      ADMIN_SERVICE_URL: http://admin_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+    volumes:
+      # KYC documents shops upload (PAN, GST, bank proof); kept across image updates.
+      - shop_documents:/app/data/shop_documents
 
   booking_service:
     <<: *python-service
@@ -174,6 +185,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/booking_db
       SHOP_SERVICE_URL: http://shop_service:8000
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
       REDIS_URL: redis://redis:6379/3
 
   payment_service:
@@ -193,7 +207,6 @@ services:
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
 
   notification_service:
     <<: *python-service
@@ -208,6 +221,8 @@ services:
       REDIS_URL: redis://redis:6379/5
       # Push: path to the Firebase service-account JSON mounted into the container (optional).
       FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      # The recipient's own phone/email, for SMS and email when they have no app installed.
+      AUTH_SERVICE_URL: http://auth_service:8000
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
@@ -238,19 +253,7 @@ services:
       REDIS_URL: redis://redis:6379/7
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
       SHOP_SERVICE_URL: http://shop_service:8000
-
-  dispatch_service:
-    <<: *python-service
-    container_name: alakh_dispatch_service
-    build:
-      context: ./services/dispatch_service
-    ports:
-      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${DISPATCH_SERVICE_PORT:-8009}:8000"
-    environment:
-      <<: *service-env
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/dispatch_db
-      REDIS_URL: redis://redis:6379/8
-      BOOKING_SERVICE_URL: http://booking_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
 
   analytics_service:
     <<: *python-service
@@ -276,6 +279,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/dispute_db
       REDIS_URL: redis://redis:6379/10
       BOOKING_SERVICE_URL: http://booking_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
 
   trust_risk_service:
     <<: *python-service
@@ -338,18 +342,6 @@ services:
       REDIS_URL: redis://redis:6379/15
       SHOP_SERVICE_URL: http://shop_service:8000
 
-  catalog_service:
-    <<: *python-service
-    container_name: alakh_catalog_service
-    build:
-      context: ./services/catalog_service
-    ports:
-      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${CATALOG_SERVICE_PORT:-8017}:8000"
-    environment:
-      <<: *service-env
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/catalog_db
-      REDIS_URL: redis://redis:6379/16
-
   # ---------------------------------------------------------------------------
   # API Gateway (single entry point for the apps: http://localhost:3000/api/v1)
   # ---------------------------------------------------------------------------
@@ -374,7 +366,6 @@ services:
       NOTIFICATION_SERVICE_URL: http://notification_service:8000
       TRACKING_SERVICE_URL: http://tracking_service:8000
       QUEUE_SERVICE_URL: http://queue_service:8000
-      DISPATCH_SERVICE_URL: http://dispatch_service:8000
       ANALYTICS_SERVICE_URL: http://analytics_service:8000
       DISPUTE_SERVICE_URL: http://dispute_service:8000
       TRUST_RISK_SERVICE_URL: http://trust_risk_service:8000
@@ -382,13 +373,12 @@ services:
       COMPLIANCE_SERVICE_URL: http://compliance_service:8000
       PRICING_ENGINE_URL: http://pricing_engine:8000
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
-      CATALOG_SERVICE_URL: http://catalog_service:8000
     depends_on:
       auth_service:
         condition: service_healthy
       user_service:
         condition: service_healthy
-      catalog_service:
+      service_catalog_service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
@@ -401,6 +391,8 @@ volumes:
     name: alakhservice_postgres_data
   redis_data:
     name: alakhservice_redis_data
+  shop_documents:
+    name: alakhservice_shop_documents
 
 networks:
   alakhservice_network:

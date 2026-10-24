@@ -8,7 +8,17 @@ log = structlog.get_logger()
 
 
 class EmailChannel:
-    def __init__(self, host: str, port: int, username: str, password: str, from_email: str, from_name: str):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str,
+        password: str,
+        from_email: str,
+        from_name: str,
+        start_tls: bool = True,
+    ):
+        self.start_tls = start_tls
         self.host = host
         self.port = port
         self.username = username
@@ -29,12 +39,12 @@ class EmailChannel:
                 msg,
                 hostname=self.host,
                 port=self.port,
-                username=self.username,
-                password=self.password,
-                start_tls=True,
+                username=self.username or None,
+                password=self.password or None,
+                start_tls=self.start_tls,
             )
-            log.info("email_sent", to=to_email, subject=subject)
+            log.info("email_sent", subject=subject)
             return True
         except Exception as e:
-            log.error("email_send_failed", error=str(e), to=to_email)
+            log.error("email_send_failed", error=str(e))
             return False

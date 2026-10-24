@@ -1,17 +1,20 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/user.dart';
+import '../../../legal/data/legal_api.dart';
 
 abstract class AuthRepository {
   /// Signs in with an email or phone number and password.
   Future<Either<Failure, User>> login({required String phone, required String password});
 
-  /// Creates the account and texts a verification code to [phone].
+  /// Creates the account and texts a verification code to [phone]. [acceptedTermsVersion] is the
+  /// Terms version the user agreed to.
   Future<Either<Failure, bool>> register({
     required String name,
     required String phone,
     required String password,
     required String role,
+    String acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
   });
 
   /// Confirms a 'registration' or 'login' code, which signs the user in.

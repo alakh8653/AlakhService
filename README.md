@@ -73,6 +73,18 @@ make dev
 make test
 ```
 
+## Deploy to Production
+
+One Linux server with Docker, automatic HTTPS (Caddy), daily verified backups and optional
+monitoring. Step-by-step guide for non-experts, including the Android release:
+**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+```bash
+cp .env.production.example .env.production   # fill it in
+make prod-preflight                          # checks the file and the server
+make prod-deploy                             # build, migrate, rolling restart, smoke test
+```
+
 ## Project Structure
 
 # AlakhService — Enterprise-Grade Full-Stack Service Platform
@@ -284,7 +296,7 @@ and refuses to run against anything but `localhost`.
 | `notification_service` | 8006 | Push, SMS, email notifications |
 | `tracking_service` | 8007 | Real-time GPS tracking |
 | `queue_service` | 8008 | Job queue and priority scheduling |
-| `dispatch_service` | 8009 | Automated job assignment and routing |
+| ~~`dispatch_service`~~ | — | Deprecated, not deployed ([DEPRECATED.md](services/dispatch_service/DEPRECATED.md)) |
 | `analytics_service` | 8010 | Reporting, metrics, dashboards |
 | `dispute_service` | 8011 | Dispute creation and mediation |
 | `trust_risk_service` | 8012 | Fraud detection, KYC, risk scoring |
@@ -292,7 +304,7 @@ and refuses to run against anything but `localhost`.
 | `compliance_service` | 8014 | Regulatory compliance and audit |
 | `pricing_engine` | 8015 | Dynamic pricing rules and computation |
 | `service_catalog_service` | 8016 | Service definitions, variants, SKUs |
-| `catalog_service` | 8017 | Service categories, items and pricing tiers |
+| ~~`catalog_service`~~ | — | Deprecated, not deployed; `service_catalog_service` is the catalogue ([DEPRECATED.md](services/catalog_service/DEPRECATED.md)) |
 | `api_gateway` | 3000 | Single entry point: routing, JWT checks, rate limiting, circuit breaker ([docs](services/api_gateway/README.md)) |
 
 > The ML platform described in the architecture is not in this repository yet.
@@ -314,7 +326,7 @@ AlakhService/
 │   ├── booking_service/     # Booking FSM & management
 │   ├── payment_service/     # Payments & ledger
 │   └── ...                  # 14 more Python microservices (see 🧩 Microservices)
-├── backend/                 # Legacy monolith API (FastAPI)
+├── backend/                 # Deprecated legacy monolith, unused (see backend/DEPRECATED.md)
 ├── infra/postgres/          # Creates one database per service on first start
 └── docs/                    # GitHub Pages site
 ```
@@ -339,7 +351,7 @@ MIT — see [LICENSE](LICENSE).
 │   ├── notification_service/    # FastAPI — notifications
 │   ├── tracking_service/        # FastAPI — GPS tracking
 │   ├── queue_service/           # FastAPI — job queues
-│   ├── dispatch_service/        # FastAPI — dispatch logic
+│   ├── dispatch_service/        # deprecated, not deployed
 │   ├── analytics_service/       # FastAPI — analytics
 │   ├── dispute_service/         # FastAPI — disputes
 │   ├── trust_risk_service/      # FastAPI — trust & risk

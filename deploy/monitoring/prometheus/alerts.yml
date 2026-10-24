@@ -1,0 +1,149 @@
+# Alert rules for AlakhService. Each alert says what is wrong and what to look at first;
+# the runbook column in docs/DEPLOYMENT.md ("Monitoring") has the longer version.
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: probe_success{job="services"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} is not ready"
+          description: >-
+            {{ $labels.instance }} has failed its readiness check for 2 minutes (its database or Redis
+            may be unreachable, or it crashed). Check: make prod-logs S={{ $labels.service }}
+
+      - alert: GatewayMetricsDown
+        expr: up{job="gateway"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus cannot scrape the API gateway"
+          description: >-
+            The gateway is down or METRICS_TOKEN no longer matches. Check: make prod-logs
+            S=api_gateway
+
+      - alert: PublicSiteDown
+        expr: probe_success{job="public"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is unreachable from the internet side"
+          description: >-
+            The HTTPS check through Caddy has failed for 5 minutes (Caddy down, certificate problem or
+            DNS). Check: make prod-logs S=caddy
+
+      - alert: CertificateExpiresSoon
+        expr: probe_ssl_earliest_cert_expiry{job="public"} - time() < 14 * 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTPS certificate for {{ $labels.instance }} expires in under 14 days"
+          description: >-
+            Caddy renews certificates 30 days before expiry, so renewal is failing. Check DNS and:
+            make prod-logs S=caddy
+
+  - name: gateway
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (upstream) (rate(gateway_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum by (upstream) (rate(gateway_http_requests_total[5m]))
+          ) > 0.05
+          and sum by (upstream) (rate(gateway_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.upstream }}: {{ $value | humanizePercentage }} of requests fail with 5xx"
+          description: >-
+            More than 5% server errors for 5 minutes. Check: make prod-logs S={{ $labels.upstream }}
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, upstream) (rate(gateway_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+          and sum by (upstream) (rate(gateway_http_request_duration_seconds_count[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.upstream }}: 95% of requests take up to {{ $value | humanizeDuration }}"
+          description: >-
+            p95 latency above 2 s for 10 minutes. Look at server load (make prod-status, docker stats)
+            and the database.
+
+      - alert: CircuitOpen
+        expr: max by (upstream) (gateway_circuit_open) == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway stopped sending requests to {{ $labels.upstream }}"
+          description: >-
+            The circuit breaker opened after repeated failures; requests to it get 503 until it
+            recovers. Check: make prod-logs S={{ $labels.upstream }}
+
+      - alert: RedisErrors
+        expr: increase(gateway_redis_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The gateway cannot reach Redis"
+          description: >-
+            Rate limits and sign-out checks are being skipped (requests are let through). Check: make
+            prod-logs S=redis
+
+  - name: server
+    rules:
+      - alert: BackupTooOld
+        # Two daily backups missed (adjust if you change BACKUP_INTERVAL_HOURS).
+        expr: time() - alakh_backup_last_success_timestamp_seconds > 50 * 3600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No verified database backup for {{ $value | humanizeDuration }}"
+          description: >-
+            The backup service is failing or stopped. Check: make prod-logs S=backup, then make
+            prod-backup
+
+      - alert: BackupMetricMissing
+        expr: absent(alakh_backup_last_success_timestamp_seconds)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup age is not being reported"
+          description: "The backup_metrics or node_exporter container is not running (make prod-status)."
+
+      - alert: DiskAlmostFull
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"} < 0.15
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Less than 15% disk space left on the server"
+          description: >-
+            PostgreSQL stops when the disk is full. Free space: docker image prune -a, old backups, or
+            grow the disk.
+
+      - alert: MemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Less than 10% memory available on the server"
+          description: >-
+            Services may be killed for lack of memory. See docker stats; consider a bigger server.

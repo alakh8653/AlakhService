@@ -743,3 +743,9 @@ credentials/
 
 # Database backups (scripts/backup) never belong in git
 /backups/
+
+# Production deploy state (image tags for rollback; scripts/deploy/deploy.sh)
+/deploy/.state/
+
+# End-to-end stack (scripts/e2e/stack.sh)
+.e2e/

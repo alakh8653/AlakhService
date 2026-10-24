@@ -69,6 +69,13 @@ describe('bookingService', () => {
     });
     expect(page.totalPages).toBe(3);
     expect(page.data[0]).toMatchObject({ bookingNumber: 'BK-1', customerId: 'c1', totalAmount: 49900, scheduledAt: '2026-10-10T10:00:00Z' });
+    // Older servers send no display name: the shop still sees a name, never an id.
+    expect(page.data[0].customerDisplayName).toBe('Customer');
+  });
+
+  it('shows the customer by the display name the server gives', async () => {
+    api.get.mockResolvedValue({ data: { items: [{ ...apiBooking, customer_display_name: 'Ravi S.' }], total: 1, page: 1, per_page: 20 } });
+    expect((await getShopBookings('s1')).data[0].customerDisplayName).toBe('Ravi S.');
   });
 
   it('changes status with PUT and cancels through the cancel endpoint', async () => {

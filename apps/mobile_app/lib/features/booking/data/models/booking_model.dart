@@ -25,6 +25,7 @@ class BookingModel extends Booking {
     super.itemDescription,
     super.addressId,
     super.readyBy,
+    super.paymentStatus,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -54,6 +55,7 @@ class BookingModel extends Booking {
       itemDescription: json['item_description'] as String?,
       addressId: json['address_id'] as String?,
       readyBy: DateTime.tryParse((json['ready_by'] as String?) ?? '')?.toLocal(),
+      paymentStatus: json['payment_status'] as String?,
     );
   }
 

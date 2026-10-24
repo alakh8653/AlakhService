@@ -10,6 +10,7 @@ import 'package:alakh_service/features/auth/presentation/bloc/auth_state.dart';
 import 'package:alakh_service/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:alakh_service/features/auth/presentation/pages/login_page.dart';
 import 'package:alakh_service/features/auth/presentation/pages/otp_verification_page.dart';
+import 'package:alakh_service/features/legal/data/legal_api.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +22,7 @@ final _user = User(id: 'u1', name: 'Priya', phone: '+919876543210', role: 'custo
 class FakeAuth implements AuthRepository {
   final calls = <String>[];
   String? registerError;
+  String? termsVersion;
 
   @override
   Future<Either<Failure, User>> login({required String phone, required String password}) async {
@@ -29,8 +31,9 @@ class FakeAuth implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> register({required String name, required String phone, required String password, required String role}) async {
+  Future<Either<Failure, bool>> register({required String name, required String phone, required String password, required String role, String acceptedTermsVersion = LegalLinks.fallbackTermsVersion}) async {
     calls.add('register $phone');
+    termsVersion = acceptedTermsVersion;
     return registerError == null ? const Right(true) : Left(ServerFailure(message: registerError!));
   }
 
@@ -131,6 +134,8 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(0), 'Priya Sharma');
     await tester.enterText(find.byType(TextFormField).at(1), '9876543210');
     await tester.enterText(find.byType(TextFormField).at(2), 'Passw0rd!');
+    await tester.ensureVisible(find.byType(Checkbox));
+    await tester.tap(find.byType(Checkbox));
     await tester.ensureVisible(find.text('Create account'));
     await tester.tap(find.text('Create account'));
     await tester.pump();

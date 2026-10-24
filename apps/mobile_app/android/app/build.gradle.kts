@@ -11,6 +11,13 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
+// The app-link domain, kept with the iOS one in ../app_links.xcconfig ("KEY = value" lines also read
+// as Java properties; its // comment lines come out as one harmless "//" key).
+val appLinkDomain: String = Properties().apply {
+    val file = rootProject.file("../app_links.xcconfig")
+    if (file.exists()) file.inputStream().use { load(it) }
+}.getProperty("APP_LINK_DOMAIN")?.trim()?.takeIf { it.isNotEmpty() } ?: "alakhservice.in"
+
 val googleMapsApiKey: String =
     localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
 
@@ -33,7 +40,7 @@ val hasReleaseSigning = listOf(releaseStoreFile, releaseStorePassword, releaseKe
 
 android {
     namespace = "com.alakhservice.alakh_service"
-    // permission_handler_android 13 must be compiled against API 37 (compileSdk only;
+    // Some plugins must be compiled against API 37 (compileSdk only;
     // targetSdk stays on the Flutter default, so runtime behaviour is unchanged).
     compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
@@ -56,6 +63,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["googleMapsApiKey"] = googleMapsApiKey
+        manifestPlaceholders["appLinkDomain"] = appLinkDomain
     }
 
     signingConfigs {
@@ -90,4 +98,12 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Push (Firebase Cloud Messaging): only with android/app/google-services.json from the Firebase
+// console. Without it the build still works and the app runs without push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.warn("No android/app/google-services.json; building without push notifications.")
 }

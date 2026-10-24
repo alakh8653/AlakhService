@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_text_styles.dart';
 
 enum ButtonVariant { primary, secondary, outlined }
@@ -32,20 +33,20 @@ class CustomButton extends StatelessWidget {
       child: switch (variant) {
         ButtonVariant.primary => ElevatedButton(
             onPressed: isLoading ? null : onPressed,
-            child: _child,
+            child: _child(context),
           ),
         ButtonVariant.secondary => ElevatedButton(
             onPressed: isLoading ? null : onPressed,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
+              backgroundColor: context.colors.surface,
+              foregroundColor: context.colors.primary,
+              side: BorderSide(color: context.colors.primary),
             ),
-            child: _child,
+            child: _child(context),
           ),
         ButtonVariant.outlined => OutlinedButton(
             onPressed: isLoading ? null : onPressed,
-            child: _child,
+            child: _child(context),
           ),
       },
     );
@@ -60,12 +61,12 @@ class CustomButton extends StatelessWidget {
     letterSpacing: AppTextStyles.button.letterSpacing,
   );
 
-  Widget get _child => isLoading
+  Widget _child(BuildContext context) => isLoading
       ? SizedBox.square(
           dimension: 24,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: variant == ButtonVariant.primary ? Colors.white : AppColors.primary,
+            color: variant == ButtonVariant.primary ? AppColors.textLight : context.colors.primary,
           ),
         )
       : Row(

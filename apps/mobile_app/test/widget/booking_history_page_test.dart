@@ -162,5 +162,26 @@ void main() {
     expect(adapter.requests.where((r) => r.path.endsWith('/rating')).single.data, containsPair('rating', 4.0));
     expect(find.text('Rate'), findsNothing);
     expect(find.text('You rated it 4★'), findsOneWidget);
+    expect(find.text('Thanks for rating!'), findsOneWidget);
+    // Only stars were given, so no empty review is sent.
+    expect(adapter.requests.where((r) => r.path.endsWith('/rating')).single.data, isNot(contains('comment')));
+  });
+
+  testWidgets('the rating sheet takes an optional written review and says thank you', (tester) async {
+    final adapter = server([booking('b1', 'COMPLETED', past)]);
+    await tester.pumpWidget(page(adapter));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Rate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Shown with your first name and last initial'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Write a review (optional)'), '  Neat cut, on time.  ');
+    await tester.tap(find.text('Submit'));
+    await tester.pumpAndSettle();
+
+    final sent = adapter.requests.where((r) => r.path.endsWith('/rating')).single.data as Map;
+    expect(sent, {'booking_id': 'b1', 'rating': 5.0, 'comment': 'Neat cut, on time.'});
+    expect(find.text('Thanks for your review! It helps others choose.'), findsOneWidget);
+    expect(find.text('You rated it 5★'), findsOneWidget);
   });
 }

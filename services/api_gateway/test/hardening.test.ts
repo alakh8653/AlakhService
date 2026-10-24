@@ -136,7 +136,7 @@ describe('sign-in rate limit', () => {
     const auth = await upstream();
     const catalog = await upstream();
     const app = createApp(
-      testConfig({ auth: auth.url, catalog: catalog.url }, { authRateLimit: { windowMs: 60_000, max: 2 } }),
+      testConfig({ auth: auth.url, serviceCatalog: catalog.url }, { authRateLimit: { windowMs: 60_000, max: 2 } }),
       quiet,
     );
     const login = () => request(app).post('/api/v1/auth/login').send({ email: 'a@b.c', password: 'x' });
@@ -147,7 +147,17 @@ describe('sign-in rate limit', () => {
     expect(blocked.body.detail).toMatch(/Too many sign-in attempts/);
     expect(auth.requests).toHaveLength(2);
     // Browsing is not affected.
-    expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
+    expect((await request(app).get('/api/v1/categories')).status).toBe(200);
+  });
+
+  it('counts code-based account deletion against the same budget, without a token', async () => {
+    const auth = await upstream();
+    const app = createApp(testConfig({ auth: auth.url }, { authRateLimit: { windowMs: 60_000, max: 1 } }), quiet);
+    const del = () => request(app).post('/api/v1/auth/delete-account/otp').send({ phone_or_email: 'a@b.c', code: '1' });
+    expect((await del()).status).toBe(200);
+    expect((await del()).status).toBe(429);
+    expect((await request(app).get('/api/v1/legal/current')).status).toBe(200);
+    expect(auth.requests.map((r) => r.url)).toEqual(['/api/v1/auth/delete-account/otp', '/api/v1/legal/current']);
   });
 });
 
@@ -243,16 +253,16 @@ describe('dropped connections', () => {
 describe('Prometheus metrics', () => {
   it('counts requests per service and status, with latency and circuit state', async () => {
     const catalog = await upstream();
-    const app = createApp(testConfig({ catalog: catalog.url }), quiet);
-    await request(app).get('/api/v1/catalog/categories');
+    const app = createApp(testConfig({ serviceCatalog: catalog.url }), quiet);
+    await request(app).get('/api/v1/categories');
     await request(app).get('/api/v1/nope');
     const res = await request(app).get('/metrics');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/text\/plain/);
-    expect(res.text).toContain('gateway_http_requests_total{upstream="catalog_service",method="GET",status="200"} 1');
+    expect(res.text).toContain('gateway_http_requests_total{upstream="service_catalog_service",method="GET",status="200"} 1');
     expect(res.text).toContain('gateway_http_requests_total{upstream="gateway",method="GET",status="404"} 1');
-    expect(res.text).toContain('gateway_http_request_duration_seconds_count{upstream="catalog_service"} 1');
-    expect(res.text).toContain('gateway_circuit_open{upstream="catalog_service"} 0');
+    expect(res.text).toContain('gateway_http_request_duration_seconds_count{upstream="service_catalog_service"} 1');
+    expect(res.text).toContain('gateway_circuit_open{upstream="service_catalog_service"} 0');
   });
 
   it('needs the metrics token when one is set, and is off in production without one', async () => {

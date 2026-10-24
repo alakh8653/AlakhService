@@ -3,6 +3,7 @@ import 'package:alakh_service/core/network/network_info.dart';
 import 'package:alakh_service/core/network/token_store.dart';
 import 'package:alakh_service/features/directions/data/shop_location_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
+import 'package:alakh_service/features/reviews/data/reviews_api.dart';
 import 'package:alakh_service/features/services/data/datasources/service_remote_datasource.dart';
 import 'package:alakh_service/features/services/data/repositories/service_repository_impl.dart';
 import 'package:alakh_service/features/services/domain/entities/service_entity.dart';
@@ -11,6 +12,7 @@ import 'package:alakh_service/features/services/domain/usecases/search_services_
 import 'package:alakh_service/features/services/presentation/bloc/service_bloc.dart';
 import 'package:alakh_service/features/services/presentation/pages/service_detail_page.dart';
 import 'package:alakh_service/features/services/presentation/pages/service_list_page.dart';
+import 'package:alakh_service/features/shops/data/shop_hours_api.dart';
 import 'package:alakh_service/shared/widgets/service_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -102,7 +104,15 @@ void main() {
   });
 
   testWidgets('service details name the shop and list each way to get it with its fee', (tester) async {
-    final adapter = FakeAdapter((r) => r.path.contains('/shops/')
+    final adapter = FakeAdapter((r) => r.path.endsWith('/hours')
+        ? (status: 200, body: {
+            'configured': true,
+            'weekly': [
+              {'day': 6, 'intervals': [{'start': '10:00', 'end': '14:00'}, {'start': '16:00', 'end': '20:00'}]},
+            ],
+            'holidays': <Object>[],
+          })
+        : r.path.contains('/shops/')
         ? (status: 200, body: {'name': 'Demo Salon', 'address': '12 MG Road', 'city': 'Pune'})
         : (status: 200, body: <Object>[]));
     final client = clientFor(adapter);
@@ -111,9 +121,17 @@ void main() {
       shopId: 'shop-1', serviceModes: [ServiceMode.atShop, ServiceMode.pickupDrop], pickupFee: 99,
     );
     await tester.pumpWidget(MaterialApp(
-      home: ServiceDetailPage(service: service, shopApi: ShopLocationApi(client), queueApi: QueueApi(client)),
+      home: ServiceDetailPage(
+        service: service,
+        shopApi: ShopLocationApi(client),
+        queueApi: QueueApi(client),
+        reviewsApi: ReviewsApi(client),
+        hoursApi: ShopHoursApi(client),
+        clock: () => DateTime.utc(2026, 10, 18, 9), // Sunday 2:30 PM in India, between the two shifts
+      ),
     ));
     await tester.pumpAndSettle();
+    expect(find.text('Closed · opens 4 PM'), findsOneWidget);
 
     expect(find.text('Demo Salon · 12 MG Road, Pune'), findsOneWidget);
     expect(find.text('At the shop'), findsOneWidget);

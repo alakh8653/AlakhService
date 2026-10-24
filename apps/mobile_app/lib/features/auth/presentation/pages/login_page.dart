@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
@@ -11,6 +12,7 @@ import '../bloc/auth_state.dart';
 import 'otp_verification_page.dart';
 import 'register_page.dart';
 import 'forgot_password_page.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Whether [context] belongs to the screen on top, so a screen underneath (this login screen
 /// under Register, say) doesn't also react to the shared AuthBloc and repeat its messages.
@@ -67,6 +69,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: BlocListener<AuthBloc, AuthState>(
         listenWhen: (_, __) => isTopRoute(context),
@@ -95,17 +98,17 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 48),
-                    Semantics(header: true, child: const Text('Welcome Back', style: AppTextStyles.heading1)),
+                    Semantics(header: true, child: Text(l10n.loginWelcome, style: AppTextStyles.heading1)),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Sign in to book, track and pay for your services',
-                      style: AppTextStyles.body2,
+                    Text(
+                      l10n.loginSubtitle,
+                      style: AppTextStyles.body2.themed(context),
                     ),
                     const SizedBox(height: 40),
                     CustomTextField(
                       controller: _phoneController,
-                      label: 'Phone or email',
-                      hint: '98765 43210 or you@example.com',
+                      label: l10n.loginPhoneOrEmail,
+                      hint: l10n.loginPhoneOrEmailHint,
                       // Letters and @ must be typeable: a phone-only keypad can't enter an email.
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
@@ -115,18 +118,18 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 16),
                     CustomTextField(
                       controller: _passwordController,
-                      label: 'Password',
-                      hint: 'Enter your password',
+                      label: l10n.password,
+                      hint: l10n.loginPasswordHint,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
                       autofillHints: const [AutofillHints.password],
                       validator: Validators.loginPassword,
                       onSubmitted: (_) => _onLogin(),
                       suffix: IconButton(
-                        tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                        tooltip: _obscurePassword ? l10n.showPassword : l10n.hidePassword,
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: AppColors.textSecondary,
+                          color: context.palette.muted,
                         ),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
@@ -140,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                             builder: (_) => const ForgotPasswordPage(),
                           ),
                         ),
-                        child: const Text('Forgot Password?'),
+                        child: Text(l10n.loginForgot),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -150,13 +153,13 @@ class _LoginPageState extends State<LoginPage> {
                         return Column(
                           children: [
                             CustomButton(
-                              label: 'Login',
+                              label: l10n.loginButton,
                               onPressed: loading ? null : _onLogin,
                               isLoading: loading && !_requestedCode,
                             ),
                             const SizedBox(height: 12),
                             CustomButton(
-                              label: 'Login with OTP instead',
+                              label: l10n.loginWithOtp,
                               variant: ButtonVariant.outlined,
                               leadingIcon: Icons.sms_outlined,
                               onPressed: loading ? null : _onCodeLogin,
@@ -173,9 +176,9 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text(
-                          "Don't have an account?",
-                          style: AppTextStyles.body2,
+                        Text(
+                          l10n.loginNoAccount,
+                          style: AppTextStyles.body2.themed(context),
                         ),
                         TextButton(
                           onPressed: () => Navigator.push(
@@ -184,7 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                               builder: (_) => const RegisterPage(),
                             ),
                           ),
-                          child: const Text('Register'),
+                          child: Text(l10n.loginRegister),
                         ),
                       ],
                     ),

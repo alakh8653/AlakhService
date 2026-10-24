@@ -40,6 +40,14 @@ describe('App shell', () => {
     await waitFor(() => expect(document.title).toBe('Coupons · AlakhService Admin'));
   });
 
+  it('links to the Shops and Privacy requests pages from the sidebar', async () => {
+    renderAt('/nowhere');
+    expect(screen.getByRole('link', { name: 'Shops' })).toHaveAttribute('href', '/shops');
+    expect(screen.getByRole('link', { name: 'Privacy requests' })).toHaveAttribute('href', '/privacy-requests');
+    renderAt('/privacy-requests');
+    await waitFor(() => expect(document.title).toBe('Privacy requests · AlakhService Admin'));
+  });
+
   it('offers a skip link to the main content', () => {
     renderAt('/nowhere');
     expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main');

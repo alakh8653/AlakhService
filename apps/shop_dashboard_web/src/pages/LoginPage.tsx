@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiErrorMessage } from '../services/format';
 import PasswordInput from '../components/PasswordInput';
+import LegalFooter from '../components/LegalFooter';
 
 const schema = z.object({
   email: z.string().trim().email('Enter a valid email address'),
@@ -114,6 +115,7 @@ export default function LoginPage() {
             List your shop
           </Link>
         </p>
+        <LegalFooter className="mt-6" />
       </main>
     </div>
   );

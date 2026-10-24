@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   flutter_bloc: ^9.1.1
   dio: ^5.3.2
   get_it: ^9.3.0
@@ -24,13 +26,14 @@ dependencies:
   intl: ^0.20.3
   connectivity_plus: ^7.3.2
   encrypt: ^5.0.3
-  go_router: ^17.5.0
   fl_chart: ^1.2.0
-  image_picker: ^1.0.4
-  permission_handler: ^13.0.2
   razorpay_flutter: ^1.4.6
   location: ^10.0.2
   url_launcher: ^6.3.3
+  firebase_core: ^5.1.0
+  firebase_messaging: ^17.0.1
+  app_links: ^7.2.2
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -41,9 +44,32 @@ dev_dependencies:
   mockito: ^5.4.3
   build_runner: ^2.4.6
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 flutter:
   uses-material-design: true
+  # App strings live in lib/l10n/*.arb (see l10n.yaml); gen-l10n writes AppLocalizations from them.
+  generate: true
   assets:
     - assets/images/
     - assets/icons/
+
+# App icon and launch screen, drawn by tool/make_brand_assets.py. Regenerate the platform files with
+# `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/branding/app_icon.png
+  adaptive_icon_background: "#5B52F0"
+  adaptive_icon_foreground: assets/branding/app_icon_foreground.png
+  remove_alpha_ios: true
+  min_sdk_android: 24
+
+flutter_native_splash:
+  color: "#5B52F0"
+  image: assets/branding/splash_mark.png
+  android_12:
+    color: "#5B52F0"
+    image: assets/branding/app_icon_foreground.png
+  web: false

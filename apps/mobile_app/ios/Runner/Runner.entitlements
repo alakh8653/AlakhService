@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal links for https://$(APP_LINK_DOMAIN)/b/{id} and /reset-password; the domain is set in
+	     apps/mobile_app/app_links.xcconfig. The site must serve /.well-known/apple-app-site-association. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:$(APP_LINK_DOMAIN)</string>
+	</array>
+	<!-- Push notifications (Firebase Cloud Messaging through APNs). Xcode switches this to
+	     "production" for App Store builds. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

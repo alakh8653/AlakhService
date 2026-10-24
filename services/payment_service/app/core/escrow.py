@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 import structlog
 from sqlalchemy import select
@@ -68,7 +69,17 @@ class EscrowService:
             raise ValueError(f"Platform account '{settings.PLATFORM_ACCOUNT_ID}' not found")
         return account.id
 
-    async def release_funds(self, db: AsyncSession, payment_id: str, provider_account_id: str) -> Escrow:
+    async def release_funds(
+        self,
+        db: AsyncSession,
+        payment_id: str,
+        provider_account_id: str,
+        amount_cents: Optional[int] = None,
+        gst_account_id: Optional[str] = None,
+        gst_cents: int = 0,
+    ) -> Escrow:
+        """Releases the escrow: [amount_cents] (all of it by default) to the provider, [gst_cents] to the GST
+        payable account, and whatever is left (the commission) stays with the platform."""
         result = await db.execute(select(Escrow).where(Escrow.payment_id == payment_id))
         escrow = result.scalar_one_or_none()
         if not escrow:
@@ -84,16 +95,29 @@ class EscrowService:
 
         platform_account_id = await self._get_platform_account_id(db)
 
-        await ledger.transfer(
-            db,
-            from_account_id=platform_account_id,
-            to_account_id=provider_account_id,
-            amount_cents=escrow.amount_cents,
-            currency=escrow.currency,
-            description=f"Escrow release for booking {escrow.booking_id}",
-            reference_id=escrow.id,
-            reference_type="escrow_release",
-        )
+        to_provider = escrow.amount_cents if amount_cents is None else amount_cents
+        if to_provider > 0:
+            await ledger.transfer(
+                db,
+                from_account_id=platform_account_id,
+                to_account_id=provider_account_id,
+                amount_cents=to_provider,
+                currency=escrow.currency,
+                description=f"Escrow release for booking {escrow.booking_id}",
+                reference_id=escrow.id,
+                reference_type="escrow_release",
+            )
+        if gst_account_id and gst_cents > 0:
+            await ledger.transfer(
+                db,
+                from_account_id=platform_account_id,
+                to_account_id=gst_account_id,
+                amount_cents=gst_cents,
+                currency=escrow.currency,
+                description=f"GST on commission for booking {escrow.booking_id}",
+                reference_id=escrow.id,
+                reference_type="gst_on_commission",
+            )
 
         escrow.status = "RELEASED"
         escrow.released_at = datetime.now(timezone.utc)

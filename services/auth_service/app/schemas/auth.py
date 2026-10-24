@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 def check_password_strength(v: str) -> str:
@@ -26,6 +26,9 @@ class UserCreate(BaseModel):
     phone: Optional[str] = None
     password: str
     full_name: str
+    # The Terms and Privacy Policy version shown to the person (GET /legal/current). Required by the
+    # register endpoint, which answers 422 "Please accept the Terms and Privacy Policy" without it.
+    accepted_terms_version: Optional[str] = Field(None, max_length=32)
 
     @field_validator("phone")
     @classmethod
@@ -83,7 +86,8 @@ class RefreshTokenRequest(BaseModel):
 
 class OTPRequest(BaseModel):
     phone_or_email: str
-    purpose: Literal["registration", "login", "password_reset"]
+    # delete_account: the code is then confirmed at /auth/delete-account/otp, not /auth/verify-otp.
+    purpose: Literal["registration", "login", "password_reset", "delete_account"]
 
     _lower = field_validator("phone_or_email")(lower_email)
 
@@ -94,6 +98,31 @@ class OTPVerify(BaseModel):
     purpose: Literal["registration", "login", "password_reset"]
 
     _lower = field_validator("phone_or_email")(lower_email)
+
+
+class AccountDeletionByOTP(BaseModel):
+    """Deleting an account without signing in (the web page for app-store deletion requests)."""
+
+    phone_or_email: str = Field(min_length=3, max_length=254)
+    code: str = Field(min_length=4, max_length=10)
+
+    _lower = field_validator("phone_or_email")(lower_email)
+
+    @property
+    def purpose(self) -> str:
+        return "delete_account"
+
+
+class AcceptTerms(BaseModel):
+    accepted_terms_version: str = Field(min_length=1, max_length=32)
+
+
+class LegalInfo(BaseModel):
+    terms_version: str
+    privacy_url: str
+    terms_url: str
+    refund_url: str
+    grievance_url: str
 
 
 class OTPVerifyResponse(BaseModel):
@@ -134,6 +163,8 @@ class UserResponse(BaseModel):
     is_verified: bool
     role: str
     created_at: datetime
+    accepted_terms_version: Optional[str] = None
+    accepted_terms_at: Optional[datetime] = None
 
 
 class SessionResponse(BaseModel):

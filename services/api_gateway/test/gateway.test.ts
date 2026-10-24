@@ -59,13 +59,13 @@ describe('gateway', () => {
   it('rewrites redirects that point at the upstream host', async () => {
     const catalog = await upstream((_req, res) => {
       res.statusCode = 307;
-      res.setHeader('location', `${catalogUrl}/api/v1/catalog/categories/`);
+      res.setHeader('location', `${catalogUrl}/api/v1/categories/`);
       res.end();
     });
     const catalogUrl = catalog.url;
-    const res = await request(createApp(testConfig({ catalog: catalog.url }), quiet)).get('/api/v1/catalog/categories');
+    const res = await request(createApp(testConfig({ serviceCatalog: catalog.url }), quiet)).get('/api/v1/categories');
     expect(res.status).toBe(307);
-    expect(res.headers.location).toBe('/api/v1/catalog/categories/');
+    expect(res.headers.location).toBe('/api/v1/categories/');
   });
 
   describe('authentication', () => {
@@ -104,11 +104,19 @@ describe('gateway', () => {
 
     it('allows anonymous catalogue browsing but not catalogue writes', async () => {
       const catalog = await upstream();
-      const app = createApp(testConfig({ catalog: catalog.url }), quiet);
-      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
-      expect((await request(app).post('/api/v1/catalog/categories').send({})).status).toBe(401);
-      expect((await request(app).post('/api/v1/catalog/services/search').send({ query: 'cut' })).status).toBe(200);
-      expect((await request(app).put('/api/v1/catalog/services/search').send({})).status).toBe(401);
+      const app = createApp(testConfig({ serviceCatalog: catalog.url }), quiet);
+      expect((await request(app).get('/api/v1/categories')).status).toBe(200);
+      expect((await request(app).post('/api/v1/categories').send({})).status).toBe(401);
+      expect((await request(app).get('/api/v1/services?category_id=c1')).status).toBe(200);
+      expect((await request(app).put('/api/v1/services/s1').send({})).status).toBe(401);
+    });
+
+    it('shows bookable times without an account', async () => {
+      const booking = await upstream();
+      const app = createApp(testConfig({ booking: booking.url }), quiet);
+      expect((await request(app).get('/api/v1/availability?service_id=s1&date=2030-11-04')).status).toBe(200);
+      expect(booking.requests[0].url).toBe('/api/v1/availability?service_id=s1&date=2030-11-04');
+      expect((await request(app).post('/api/v1/availability').send({})).status).toBe(401);
     });
   });
 
@@ -127,6 +135,48 @@ describe('gateway', () => {
       expect(admin.requests.map((r) => r.url)).toEqual(['/api/v1/audit-logs?page=2']);
     });
 
+    it('keep review moderation to admins while anyone reads reviews', async () => {
+      const shop = await upstream();
+      const app = createApp(testConfig({ shop: shop.url }), quiet);
+
+      expect((await request(app).get('/api/v1/shops/s1/reviews?rating=5')).status).toBe(200);
+      expect((await request(app).post('/api/v1/shops/s1/reviews/r1/report').send({ reason: 'spam' })).status).toBe(401);
+      const asUser = await request(app).get('/api/v1/reviews/reported').set('authorization', `Bearer ${await token()}`);
+      expect(asUser.status).toBe(403);
+      const asAdmin = await request(app)
+        .put('/api/v1/admin/reviews/r1/visibility')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`)
+        .send({ hidden: true });
+      expect(asAdmin.status).toBe(200);
+      expect(shop.requests.map((r) => r.url)).toEqual([
+        '/api/v1/shops/s1/reviews?rating=5',
+        '/api/v1/reviews/r1/visibility',
+      ]);
+    });
+
+    it('keep chat moderation to admins and map it onto booking_service', async () => {
+      const booking = await upstream();
+      const app = createApp(testConfig({ booking: booking.url }), quiet);
+
+      const asUser = await request(app).get('/api/v1/admin/chat/flagged').set('authorization', `Bearer ${await token()}`);
+      expect(asUser.status).toBe(403);
+      const direct = await request(app).get('/api/v1/chat-moderation/flagged').set('authorization', `Bearer ${await token()}`);
+      expect(direct.status).toBe(403);
+      const asAdmin = await request(app)
+        .get('/api/v1/admin/chat/flagged?limit=20')
+        .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
+      expect(asAdmin.status).toBe(200);
+      const chat = await request(app)
+        .post('/api/v1/bookings/b1/messages')
+        .set('authorization', `Bearer ${await token()}`)
+        .send({ body: 'hi' });
+      expect(chat.status).toBe(200);
+      expect(booking.requests.map((r) => r.url)).toEqual([
+        '/api/v1/chat-moderation/flagged?limit=20',
+        '/api/v1/bookings/b1/messages',
+      ]);
+    });
+
     it('maps finance reports onto payment_service', async () => {
       const payment = await upstream();
       const res = await request(createApp(testConfig({ payment: payment.url }), quiet))
@@ -142,22 +192,22 @@ describe('gateway', () => {
         res.statusCode = calls++ === 0 ? 200 : 500;
         res.end('{}');
       });
-      const app = createApp(testConfig({ catalog: catalog.url }), quiet);
-      await request(app).get('/api/v1/catalog/categories');
-      await request(app).get('/api/v1/catalog/categories');
+      const app = createApp(testConfig({ serviceCatalog: catalog.url }), quiet);
+      await request(app).get('/api/v1/categories');
+      await request(app).get('/api/v1/categories');
 
       const res = await request(app)
         .get('/api/v1/admin/monitoring/metrics')
         .set('authorization', `Bearer ${await token({ role: 'admin' })}`);
       expect(res.status).toBe(200);
-      const catalogMetrics = res.body.data.find((m: { id: string }) => m.id === 'catalog');
-      expect(catalogMetrics).toMatchObject({ service: 'catalog_service', requests: 2, errorRate: 0.5, circuit: 'closed' });
-      expect(res.body.data).toHaveLength(17);
+      const catalogMetrics = res.body.data.find((m: { id: string }) => m.id === 'serviceCatalog');
+      expect(catalogMetrics).toMatchObject({ service: 'service_catalog_service', requests: 2, errorRate: 0.5, circuit: 'closed' });
+      expect(res.body.data).toHaveLength(15);
     });
 
     it('forwards the verified identity and strips client-supplied identity headers', async () => {
       const admin = await upstream();
-      const app = createApp(testConfig({ admin: admin.url, catalog: admin.url }), quiet);
+      const app = createApp(testConfig({ admin: admin.url, serviceCatalog: admin.url }), quiet);
 
       await request(app)
         .put('/api/v1/admin/access/roles/r1/permissions')
@@ -169,7 +219,7 @@ describe('gateway', () => {
       expect(admin.requests[0].headers['x-user-role']).toBe('admin');
 
       // Public routes never carry an identity, even a spoofed one.
-      await request(app).get('/api/v1/catalog/categories').set('x-user-id', 'spoofed').set('x-user-role', 'admin');
+      await request(app).get('/api/v1/categories').set('x-user-id', 'spoofed').set('x-user-role', 'admin');
       expect(admin.requests[1].headers['x-user-id']).toBeUndefined();
       expect(admin.requests[1].headers['x-user-role']).toBeUndefined();
     });
@@ -192,7 +242,7 @@ describe('gateway', () => {
       expect(byId.auth).toBe('healthy');
       expect(byId.user).toBe('degraded');
       expect(byId.booking).toBe('down');
-      expect(res.body.data).toHaveLength(17);
+      expect(res.body.data).toHaveLength(15);
     });
   });
 
@@ -204,7 +254,7 @@ describe('gateway', () => {
   describe('upstream failures', () => {
     it('returns 502 for an unreachable service and opens the circuit', async () => {
       const app = createApp(testConfig({}, { breaker: { failureThreshold: 2, resetTimeoutMs: 60_000 } }), quiet);
-      const get = () => request(app).get('/api/v1/catalog/categories');
+      const get = () => request(app).get('/api/v1/categories');
 
       expect((await get()).status).toBe(502);
       expect((await get()).status).toBe(502);
@@ -218,9 +268,9 @@ describe('gateway', () => {
         res.statusCode = 503;
         res.end();
       });
-      const app = createApp(testConfig({ catalog: catalog.url }, { breaker: { failureThreshold: 1, resetTimeoutMs: 60_000 } }), quiet);
-      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(503);
-      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(503);
+      const app = createApp(testConfig({ serviceCatalog: catalog.url }, { breaker: { failureThreshold: 1, resetTimeoutMs: 60_000 } }), quiet);
+      expect((await request(app).get('/api/v1/categories')).status).toBe(503);
+      expect((await request(app).get('/api/v1/categories')).status).toBe(503);
       expect(catalog.requests).toHaveLength(1);
     });
 
@@ -229,17 +279,17 @@ describe('gateway', () => {
         res.statusCode = req.url.includes('skip=-1') ? 500 : 200;
         res.end('{}');
       });
-      const app = createApp(testConfig({ catalog: catalog.url }, { breaker: { failureThreshold: 2, resetTimeoutMs: 60_000 } }), quiet);
-      for (let i = 0; i < 5; i++) expect((await request(app).get('/api/v1/catalog/categories?skip=-1')).status).toBe(500);
-      expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
+      const app = createApp(testConfig({ serviceCatalog: catalog.url }, { breaker: { failureThreshold: 2, resetTimeoutMs: 60_000 } }), quiet);
+      for (let i = 0; i < 5; i++) expect((await request(app).get('/api/v1/categories?skip=-1')).status).toBe(500);
+      expect((await request(app).get('/api/v1/categories')).status).toBe(200);
     });
 
     it('returns 504 when a service is too slow', async () => {
       const catalog = await upstream((_req, res) => {
         setTimeout(() => res.end('{}'), 500);
       });
-      const res = await request(createApp(testConfig({ catalog: catalog.url }, { upstreamTimeoutMs: 100 }), quiet)).get(
-        '/api/v1/catalog/categories',
+      const res = await request(createApp(testConfig({ serviceCatalog: catalog.url }, { upstreamTimeoutMs: 100 }), quiet)).get(
+        '/api/v1/categories',
       );
       expect(res.status).toBe(504);
     });
@@ -247,10 +297,10 @@ describe('gateway', () => {
 
   it('rate-limits API requests per client', async () => {
     const catalog = await upstream();
-    const app = createApp(testConfig({ catalog: catalog.url }, { rateLimit: { windowMs: 60_000, max: 2 } }), quiet);
-    expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
-    expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(200);
-    expect((await request(app).get('/api/v1/catalog/categories')).status).toBe(429);
+    const app = createApp(testConfig({ serviceCatalog: catalog.url }, { rateLimit: { windowMs: 60_000, max: 2 } }), quiet);
+    expect((await request(app).get('/api/v1/categories')).status).toBe(200);
+    expect((await request(app).get('/api/v1/categories')).status).toBe(200);
+    expect((await request(app).get('/api/v1/categories')).status).toBe(429);
     expect((await request(app).get('/health')).status).toBe(200);
   });
 });

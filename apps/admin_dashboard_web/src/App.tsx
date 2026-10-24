@@ -10,6 +10,9 @@ import { ToastProvider } from './components/Toast';
 const UsersPage = lazy(() => import('./users/UsersPage'));
 const CouponsPage = lazy(() => import('./coupons/CouponsPage'));
 const AuditLogPage = lazy(() => import('./audit/AuditLogPage'));
+const ContactSharingPage = lazy(() => import('./moderation/ContactSharingPage'));
+const ShopsPage = lazy(() => import('./shops/ShopsPage'));
+const PrivacyRequestsPage = lazy(() => import('./privacy/PrivacyRequestsPage'));
 const DisputeListPage = lazy(() => import('./disputes/DisputeListPage'));
 const DisputeDetailPage = lazy(() => import('./disputes/DisputeDetailPage'));
 const SettlementsPage = lazy(() => import('./finance/SettlementsPage'));
@@ -74,7 +77,10 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/disputes" replace />} />
                 <Route path="/audit" element={<AuditLogPage />} />
                 <Route path="/users" element={<UsersPage />} />
+                <Route path="/shops" element={<ShopsPage />} />
+                <Route path="/privacy-requests" element={<PrivacyRequestsPage />} />
                 <Route path="/disputes" element={<DisputeListPage />} />
+                <Route path="/moderation/contact-sharing" element={<ContactSharingPage />} />
                 <Route path="/disputes/:id" element={<DisputeDetailPage />} />
                 <Route path="/finance/settlements" element={<SettlementsPage />} />
                 <Route path="/finance/revenue" element={<RevenueReportPage />} />

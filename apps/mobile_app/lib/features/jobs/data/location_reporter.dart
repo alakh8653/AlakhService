@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:location/location.dart';
 
+import '../../../shared/widgets/location_rationale.dart';
 import '../../tracking/data/tracking_api.dart';
 
 class Fix {
@@ -22,11 +23,31 @@ abstract class LocationSource {
 class DeviceLocationSource implements LocationSource {
   final Location _location = Location();
 
+  /// Shown before the system asks for location the first time; false stops there.
+  final Future<bool> Function() explain;
+
+  DeviceLocationSource({LocationPurpose purpose = LocationPurpose.eta, Future<bool> Function()? explain})
+      : explain = explain ?? (() => explainLocation(purpose));
+
+  // Asked once per run: a "Not now" isn't repeated on every location tick.
+  bool _explained = false;
+  bool _declined = false;
+
   @override
   Future<Fix?> current() async {
     if (!await _location.serviceEnabled() && !await _location.requestService()) return null;
     var permission = await _location.hasPermission();
-    if (permission == PermissionStatus.denied) permission = await _location.requestPermission();
+    if (permission == PermissionStatus.denied) {
+      if (_declined) return null;
+      if (!_explained) {
+        _explained = true;
+        if (!await explain()) {
+          _declined = true;
+          return null;
+        }
+      }
+      permission = await _location.requestPermission();
+    }
     if (permission != PermissionStatus.granted && permission != PermissionStatus.grantedLimited) return null;
     final p = await _location.getLocation().timeout(const Duration(seconds: 15));
     return Fix(p.latitude, p.longitude, accuracy: p.accuracy, speed: p.speed, heading: p.heading);

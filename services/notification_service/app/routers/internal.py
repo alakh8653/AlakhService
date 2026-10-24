@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,10 +25,29 @@ class EventNotification(BaseModel):
 
 
 @router.post("/internal/notifications/events")
-async def notify_event(body: EventNotification, db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
-    """Tells each recipient about a booking or payment event (other platform services only)."""
+async def notify_event(
+    body: EventNotification,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+):
+    """Tells each recipient about a booking or payment event (other platform services only).
+
+    Recorded and pushed straight away; SMS and email for people without the app go after the response.
+    """
     created = 0
     for r in body.recipients:
-        if await notification_service.notify_event(db, redis, r.user_id, body.event, r.role, body.data):
+        notif = await notification_service.notify_event(db, redis, r.user_id, body.event, r.role, body.data)
+        if notif:
             created += 1
+            background.add_task(
+                notification_service.deliver_fallback,
+                r.user_id,
+                body.event,
+                r.role,
+                notif.title,
+                notif.body,
+                body.data,
+                notif.channel == "push",
+            )
     return {"created": created}

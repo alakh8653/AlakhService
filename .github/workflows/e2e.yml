@@ -1,0 +1,85 @@
+name: End-to-end flow
+
+# Starts every backend service and the API gateway against real PostgreSQL and Redis, then drives a
+# booking through the gateway the way the apps do (scripts/e2e/flow.py): health of all services,
+# sign-up with the Terms, shop, service, booking, confirm, complete, cash payment. Payment steps that
+# depend on endpoints not merged yet are reported as SKIP, not failures.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - "scripts/e2e/**"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - "scripts/e2e/**"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flow:
+    name: Booking flow through the gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      E2E_DIR: ${{ github.workspace }}/.e2e
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/*/requirements.txt
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/api_gateway/package-lock.json
+
+      - name: Install the services and the gateway
+        run: |
+          mkdir -p "$E2E_DIR"
+          scripts/e2e/stack.sh install
+
+      - name: Migrate and start the stack
+        run: scripts/e2e/stack.sh start
+
+      - name: Run the flow
+        run: python3 scripts/e2e/flow.py --timeout 180 --make-admin-cmd "scripts/e2e/stack.sh make-admin {}"
+
+      - name: Service logs
+        if: failure()
+        run: scripts/e2e/stack.sh logs
+
+      - name: Stop
+        if: always()
+        run: scripts/e2e/stack.sh stop

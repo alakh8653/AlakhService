@@ -70,6 +70,7 @@ interface BookingResponse {
   id: string;
   booking_number: string;
   customer_id: string;
+  customer_display_name?: string;
   provider_id: string | null;
   service_id: string;
   shop_id: string | null;
@@ -98,6 +99,7 @@ export function toBooking(data: BookingResponse): Booking {
     id: data.id,
     bookingNumber: data.booking_number,
     customerId: data.customer_id,
+    customerDisplayName: data.customer_display_name || 'Customer',
     providerId: data.provider_id,
     serviceId: data.service_id,
     shopId: data.shop_id,

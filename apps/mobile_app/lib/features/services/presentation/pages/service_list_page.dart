@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../../shared/widgets/service_card.dart';
 import '../../../../shared/widgets/error_widget.dart';
@@ -12,6 +13,7 @@ import '../bloc/service_bloc.dart';
 import '../bloc/service_event.dart';
 import '../bloc/service_state.dart';
 import 'service_detail_page.dart';
+import '../../../../l10n/l10n.dart';
 
 class ServiceListPage extends StatefulWidget {
   /// Search to run on open (e.g. a category picked on the home screen).
@@ -72,8 +74,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Services')),
+      appBar: AppBar(title: Text(l10n.servicesTitle)),
       body: Column(
         children: [
           Padding(
@@ -82,11 +85,11 @@ class _ServiceListPageState extends State<ServiceListPage> {
               controller: _searchController,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Search haircut, AC repair, doctor…',
+                hintText: l10n.searchHint,
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        tooltip: 'Clear search',
+                        tooltip: l10n.clearSearch,
                         icon: const Icon(Icons.clear),
                         onPressed: _clear,
                       )
@@ -100,7 +103,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
             child: BlocBuilder<ServiceBloc, ServiceState>(
               builder: (context, state) {
                 if (state is ServiceLoading || state is ServiceInitial) {
-                  return const LoadingIndicator(message: 'Loading services...');
+                  return LoadingIndicator(message: l10n.loadingServices);
                 }
                 if (state is ServiceError) {
                   return AppErrorWidget(message: state.message, onRetry: _search);
@@ -120,19 +123,19 @@ class _ServiceListPageState extends State<ServiceListPage> {
                         const Icon(Icons.search_off, size: 64, color: AppColors.textDisabled),
                         const SizedBox(height: 16),
                         Text(
-                          _query.isEmpty ? 'No services listed yet' : 'Nothing found for "$_query"',
+                          _query.isEmpty ? l10n.noServicesListed : l10n.nothingFound(_query),
                           style: AppTextStyles.subtitle1,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _query.isEmpty ? 'Pull down to check again.' : 'Try a shorter or different word.',
-                          style: AppTextStyles.body2,
+                          _query.isEmpty ? l10n.pullToCheck : l10n.tryDifferentWord,
+                          style: AppTextStyles.body2.themed(context),
                           textAlign: TextAlign.center,
                         ),
                         if (_query.isNotEmpty) ...[
                           const SizedBox(height: 16),
-                          Center(child: OutlinedButton(onPressed: _clear, child: const Text('Show all services'))),
+                          Center(child: OutlinedButton(onPressed: _clear, child: Text(l10n.showAllServices))),
                         ],
                       ],
                     ),

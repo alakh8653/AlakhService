@@ -63,6 +63,9 @@ class DisputeService:
         )
         return list(result.scalars().all()), total
 
+    def can_resolve(self, dispute: Dispute) -> bool:
+        return _fsm.can_transition(DisputeStatus(dispute.status), DisputeStatus.RESOLVED)
+
     async def transition(self, db: AsyncSession, dispute_id: str, new_status: str) -> Dispute:
         dispute = await self.get_dispute(db, dispute_id)
         current = DisputeStatus(dispute.status)
@@ -73,12 +76,21 @@ class DisputeService:
         log.info("dispute_transitioned", dispute_id=dispute_id, from_status=current, to_status=target)
         return dispute
 
-    async def resolve(self, db: AsyncSession, dispute_id: str, resolution: str) -> Dispute:
+    async def resolve(
+        self,
+        db: AsyncSession,
+        dispute_id: str,
+        resolution: str,
+        outcome: Optional[str] = None,
+        refund_amount_cents: Optional[int] = None,
+    ) -> Dispute:
         dispute = await self.get_dispute(db, dispute_id)
         current = DisputeStatus(dispute.status)
         _fsm.transition(current, DisputeStatus.RESOLVED)
         dispute.status = DisputeStatus.RESOLVED
         dispute.resolution = resolution
+        dispute.outcome = outcome
+        dispute.refund_amount_cents = refund_amount_cents
         dispute.resolved_at = datetime.now(timezone.utc)
         await db.flush()
         log.info("dispute_resolved", dispute_id=dispute_id)

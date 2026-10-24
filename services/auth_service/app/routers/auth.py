@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -7,13 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
 from app.core import risk
+from app.core.consent import record_terms_consent
 from app.core.exceptions import InvalidCredentialsError
 from app.core.mailer import send_otp_code, send_password_reset
-from app.core.security import create_password_reset_token, describe_device
+from app.core.security import client_ip, create_password_reset_token, describe_device
 from app.database import get_db
 from app.dependencies import get_current_user, get_redis
 from app.models.user import User
 from app.schemas.auth import (
+    AcceptTerms,
     OTPRequest,
     OTPVerify,
     OTPVerifyResponse,
@@ -32,9 +36,56 @@ router = APIRouter()
 log = structlog.get_logger()
 
 
+TERMS_REQUIRED = "Please accept the Terms and Privacy Policy"
+
+
 @router.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_create: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(
+    user_create: UserCreate,
+    request: Request,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Creates an account. accepted_terms_version (from GET /legal/current) is required: it is the
+    person's acceptance of the Terms and Privacy Policy, kept on the account and in the consent register."""
+    version = (user_create.accepted_terms_version or "").strip()
+    if not version:
+        raise HTTPException(status_code=422, detail=TERMS_REQUIRED)
+    user_create.accepted_terms_version = version
     user = await auth_service.register(db, user_create)
+    # Commit first: background tasks run before the session's own commit, and the app signs in
+    # straight after registering.
+    await db.commit()
+    background.add_task(
+        record_terms_consent, str(user.id), version, client_ip(request), request.headers.get("user-agent")
+    )
+    return user
+
+
+@router.post("/auth/accept-terms", response_model=UserResponse)
+async def accept_terms(
+    body: AcceptTerms,
+    request: Request,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Records that a signed-in person accepted a (newer) Terms and Privacy Policy version: older
+    accounts, and everyone after the terms change, are asked again by the app."""
+    user = await db.get(User, current_user["sub"])
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.accepted_terms_version = body.accepted_terms_version.strip()
+    user.accepted_terms_at = datetime.now(timezone.utc)
+    await db.commit()  # before the background task (see register)
+    await db.refresh(user)
+    background.add_task(
+        record_terms_consent,
+        str(user.id),
+        user.accepted_terms_version,
+        client_ip(request),
+        request.headers.get("user-agent"),
+    )
     return user
 
 

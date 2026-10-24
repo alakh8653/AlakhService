@@ -433,6 +433,74 @@ build-mobile-ios: ## Build Flutter iOS archive (release)
 	$(call success,"iOS archive built")
 
 # =============================================================================
+# PRODUCTION (one Linux server with Docker; see docs/DEPLOYMENT.md)
+# =============================================================================
+
+ENV_FILE     ?= .env.production
+PROD_SCRIPT  := ENV_FILE=$(ENV_FILE) $(SCRIPTS_DIR)/deploy/deploy.sh
+COMPOSE_PROD := docker compose --env-file $(ENV_FILE) -f docker-compose.yml -f docker-compose.prod.yml
+
+.PHONY: prod-preflight
+prod-preflight: ## Check .env.production and this server before deploying (no changes made)
+	python3 $(SCRIPTS_DIR)/deploy/preflight.py --env-file $(ENV_FILE)
+
+.PHONY: prod-config
+prod-config: ## Validate the production compose files with .env.production (no changes made)
+	$(COMPOSE_PROD) config --quiet
+	$(call success,"docker-compose.yml + docker-compose.prod.yml are valid")
+
+.PHONY: prod-deploy
+prod-deploy: ## First install or update: pull, preflight, build, migrate, rolling restart, smoke test [ARGS=--no-pull]
+	$(PROD_SCRIPT) deploy $(ARGS)
+
+.PHONY: prod-rollback
+prod-rollback: ## Switch back to the images of the previous deploy (undoes newer migrations after asking)
+	$(PROD_SCRIPT) rollback $(ARGS)
+
+.PHONY: prod-status
+prod-status: ## Show live containers, deployed version, last backup and disk space
+	$(PROD_SCRIPT) status
+
+.PHONY: prod-logs
+prod-logs: ## Follow production logs, all or one service: make prod-logs S=api_gateway
+	$(PROD_SCRIPT) logs $(S)
+
+.PHONY: prod-backup
+prod-backup: ## Back up every production database now, verify it, and copy it off-site if configured
+	$(PROD_SCRIPT) backup
+
+.PHONY: prod-smoke
+prod-smoke: ## Test the live api./shop./admin. sites through Caddy
+	$(PROD_SCRIPT) smoke
+
+.PHONY: prod-restart
+prod-restart: ## Start/restart the deployed version without building (e.g. after a restore or a reboot)
+	$(PROD_SCRIPT) restart
+
+.PHONY: prod-verify-backup
+prod-verify-backup: ## Prove a production backup restores: make prod-verify-backup [BACKUP=backups/<timestamp>]
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/verify.sh backup $(if $(BACKUP),/backups/$(notdir $(BACKUP)))
+
+.PHONY: prod-restore
+prod-restore: ## Restore a production backup next to the live data as <db>_restored: make prod-restore BACKUP=backups/<ts> [DBS=...]
+	@test -n "$(BACKUP)" || { echo "Usage: make prod-restore BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/restore.sh backup /backups/$(notdir $(BACKUP)) $(DBS)
+
+.PHONY: prod-restore-in-place
+prod-restore-in-place: ## Replace live production databases from a backup (DESTRUCTIVE; stops the services first)
+	@test -n "$(BACKUP)" || { echo "Usage: make prod-restore-in-place BACKUP=backups/<timestamp> [DBS=...]"; exit 1; }
+	$(call warn,"This REPLACES live production databases with $(BACKUP). Press Ctrl-C to cancel...")
+	@sleep 10
+	$(COMPOSE_PROD) stop $$($(COMPOSE_PROD) config --services | grep -E '_service$$|^pricing_engine$$|^api_gateway$$')
+	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
+	$(PROD_SCRIPT) restart
+
+.PHONY: prod-make-admin
+prod-make-admin: ## Grant admin to a registered account in production: make prod-make-admin ACCOUNT=you@example.com
+	@test -n "$$ACCOUNT" || { echo "Usage: make prod-make-admin ACCOUNT=<email or phone>"; exit 1; }
+	$(COMPOSE_PROD) exec -T auth_service python -m app.cli make-admin "$$ACCOUNT"
+
+# =============================================================================
 # CLEAN
 # =============================================================================
 
@@ -514,9 +582,9 @@ health: ## Check health of the gateway and every service (needs make dev)
 	$(call log,"Checking service health...")
 	@for svc_port in api_gateway:3000 auth_service:8001 user_service:8002 shop_service:8003 \
 		booking_service:8004 payment_service:8005 notification_service:8006 tracking_service:8007 \
-		queue_service:8008 dispatch_service:8009 analytics_service:8010 dispute_service:8011 \
+		queue_service:8008 analytics_service:8010 dispute_service:8011 \
 		trust_risk_service:8012 admin_service:8013 compliance_service:8014 pricing_engine:8015 \
-		service_catalog_service:8016 catalog_service:8017; do \
+		service_catalog_service:8016; do \
 		svc=$${svc_port%%:*}; port=$${svc_port##*:}; \
 		status=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$$port/health 2>/dev/null || true); \
 		if [ "$$status" = "200" ]; then \

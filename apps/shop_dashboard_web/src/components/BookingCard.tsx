@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Clock, Home, Package, Store, User, Scissors, UserCog } from 'lucide-react';
+import { CalendarCheck, Clock, Home, MessageCircle, Package, Store, User, Scissors, UserCog } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
 import { READY_BY_STATUSES, bookingActions } from '../services/bookingService';
 import { formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
 import CancelBookingDialog from './CancelBookingDialog';
+import BookingChat from './BookingChat';
 
 // Bookings a customer may already have chosen to pay in cash for.
 const CASH_STATUSES = new Set<BookingStatus>([
@@ -98,6 +99,7 @@ export default function BookingCard({
 }: BookingCardProps) {
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const actions = bookingActions(booking);
   const stepActions = actions.filter((a) => a.target !== 'CANCEL');
   const canCancel = actions.some((a) => a.target === 'CANCEL');
@@ -142,7 +144,15 @@ export default function BookingCard({
           {serviceName ?? `Service ${shortId(booking.serviceId)}`}
         </p>
         <p className="text-sm text-gray-600 flex items-center gap-1.5">
-          <User size={14} className="text-gray-400 flex-shrink-0" aria-hidden /> Customer {shortId(booking.customerId)}
+          <User size={14} className="text-gray-400 flex-shrink-0" aria-hidden /> {booking.customerDisplayName}
+          <button
+            type="button"
+            aria-expanded={chatOpen}
+            onClick={() => setChatOpen((open) => !open)}
+            className="ml-2 flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+          >
+            <MessageCircle size={12} aria-hidden /> {chatOpen ? 'Hide messages' : 'Messages'}
+          </button>
         </p>
         {booking.itemDescription && (
           <p className="text-sm text-gray-700">
@@ -169,6 +179,7 @@ export default function BookingCard({
           </p>
         )}
         {booking.notes && <p className="text-sm text-gray-600 italic">“{booking.notes}”</p>}
+        {chatOpen && <BookingChat bookingId={booking.id} customerName={booking.customerDisplayName} />}
       </div>
       <div className="flex flex-col sm:items-end gap-2 sm:min-w-44">
         <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>

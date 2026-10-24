@@ -19,16 +19,22 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import risk
+from app.core import availability, payments, risk
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
+from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.payments import PaymentClient, get_payment_client, get_session_factory
+from app.core.privacy import present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
     CouponPricer,
     CouponRejected,
+    ScheduleLookup,
+    get_clock,
     get_coupon_pricer,
     get_current_user,
+    get_schedule_lookup,
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
@@ -124,9 +130,12 @@ async def create_booking(
     notifier: Notifier = Depends(get_notifier),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     price_with_coupon: CouponPricer = Depends(get_coupon_pricer),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
     # Sent by the app with every try of one booking, so a double tap or a retry after a lost response
     # gets the booking already made rather than a second one.
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -136,7 +145,7 @@ async def create_booking(
         earlier = await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
         if earlier is not None:
             # Already priced, notified and paid for with its coupon: none of that happens twice.
-            return replay(earlier, fingerprint, response)
+            return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
     # Price, shop and duration come from the catalogue, never from the client.
     listing = await lookup_service(booking_data.service_id)
     if listing is None:
@@ -155,6 +164,8 @@ async def create_booking(
     fee = {AT_HOME: listing.get("home_visit_fee_cents") or 0, PICKUP_DROP: listing.get("pickup_fee_cents") or 0}.get(
         mode, 0
     )
+    # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
+    await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
     if code:
@@ -193,7 +204,7 @@ async def create_booking(
         if not earlier:
             raise
         log.info("booking_idempotency_race_lost", booking_id=earlier.id)
-        return replay(earlier, fingerprint, response)
+        return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
     background.add_task(
         notify_booking,
         notifier,
@@ -203,7 +214,28 @@ async def create_booking(
         lookup_owner,
         roles=("shop",),
     )
-    return booking
+    return await present(booking, current_user, lookup_names)
+
+
+async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime) -> None:
+    """409 unless the shop is open for the whole booking, it is far enough ahead, and a place is free.
+
+    A shop that has not published opening hours takes any future time, as before hours existed.
+    """
+    schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
+    if not schedule.accepting_bookings:
+        raise HTTPException(status_code=409, detail=availability.NOT_ACCEPTING_MESSAGE)
+    if not schedule.configured:
+        return
+    await booking_service.hold_shop_capacity(db, shop_id)
+    start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+    end = start + timedelta(minutes=duration)
+    booked = await booking_service.shop_spans(db, shop_id, start, end)
+    # The customer picked the time a little while ago; a slot that has just slipped inside the lead time
+    # is still taken.
+    problem = availability.booking_problem(schedule, start, duration, now, booked, grace=timedelta(minutes=5))
+    if problem:
+        raise HTTPException(status_code=409, detail=problem)
 
 
 @router.get("/bookings", response_model=BookingListResponse)
@@ -213,10 +245,11 @@ async def list_bookings(
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     user_id = current_user.get("sub")
     result = await booking_service.list_bookings(db, user_id, page, per_page, status)
-    return result
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/assigned", response_model=BookingListResponse)
@@ -226,9 +259,11 @@ async def list_assigned_bookings(
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
-    """Jobs assigned to the caller as a provider, newest first."""
-    return await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
+    """Jobs assigned to the caller as a provider, newest first (customers by display name only)."""
+    result = await booking_service.list_bookings(db, current_user.get("sub"), page, per_page, status, as_provider=True)
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/shop/{shop_id}", response_model=BookingListResponse)
@@ -241,10 +276,14 @@ async def list_shop_bookings(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
-    return await booking_service.list_shop_bookings(
+    """The shop's bookings; customers appear by display name only."""
+    result = await booking_service.list_shop_bookings(
         db, shop_id, page, per_page, status, provider_id=provider_id, date_from=date_from, date_to=date_to
     )
+    return await present_page(result, current_user, lookup_names)
 
 
 @router.get("/bookings/shop/{shop_id}/summary", response_model=ShopBookingSummary)
@@ -291,9 +330,10 @@ async def get_booking(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
@@ -307,10 +347,26 @@ async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
 
 async def _authorize_transition(db, booking_id: str, target: str, user: dict, lookup_owner) -> str:
     """Refuses a change the caller may not make; returns the booking's status before it."""
+    return (await _authorize_with_parties(db, booking_id, target, user, lookup_owner))[0]
+
+
+async def _authorize_with_parties(db, booking_id: str, target: str, user: dict, lookup_owner):
     booking, parties = await _visible_booking(db, booking_id, user, lookup_owner)
     if not may_transition(parties, target):
         raise HTTPException(status_code=403, detail=f"Not allowed to set this booking to {target}")
-    return booking.status
+    return booking.status, parties
+
+
+def cancelled_by(parties) -> str:
+    """Who cancelled, for the refund policy: an admin or the shop refund in full; a customer by the clock."""
+    if ADMIN in parties:
+        return "admin"
+    if SHOP_OWNER in parties:
+        return "shop"
+    return "customer"
+
+
+PAYMENT_EVENTS = {BookingStatus.COMPLETED.value: payments.COMPLETED, BookingStatus.DISPUTED.value: payments.DISPUTED}
 
 
 def _report_risk_after(background: BackgroundTasks, booking, previous_status: str, actor_id: Optional[str]) -> None:
@@ -328,6 +384,9 @@ async def update_status(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    payment_client: PaymentClient = Depends(get_payment_client),
+    session_factory=Depends(get_session_factory),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
@@ -339,15 +398,20 @@ async def update_status(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    queued = None
+    if booking.status in PAYMENT_EVENTS:
+        queued = await payments.enqueue(db, booking, PAYMENT_EVENTS[booking.status])
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    if queued is not None:
+        background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(
         notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
     )
     _report_risk_after(background, booking, previous_status, user_id)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.post("/bookings/{booking_id}/assign", response_model=BookingResponse)
@@ -361,6 +425,7 @@ async def assign_provider(
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_staff: Callable[[str, str], Awaitable[set]] = Depends(get_staff_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """Give a confirmed booking to a provider. Admins (including dispatch) or the booking's shop."""
     booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
@@ -389,7 +454,7 @@ async def assign_provider(
         lookup_owner,
         roles=("customer", "provider"),
     )
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.put("/bookings/{booking_id}/ready-by", response_model=BookingResponse)
@@ -401,6 +466,7 @@ async def set_ready_by(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
 ):
     """When a pickup & drop item should be back with the customer. The shop, its provider or an admin."""
     booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
@@ -421,7 +487,7 @@ async def set_ready_by(
             lookup_owner,
             roles=("customer",),
         )
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.post("/bookings/{booking_id}/cancel", response_model=BookingResponse)
@@ -433,22 +499,29 @@ async def cancel_booking(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    payment_client: PaymentClient = Depends(get_payment_client),
+    session_factory=Depends(get_session_factory),
 ):
+    """Cancels the booking; payment_service refunds its payment as the cancellation policy says
+    (in full when the shop or an admin cancels, or when the customer cancels in time)."""
     user_id = current_user.get("sub")
-    previous_status = await _authorize_transition(
+    previous_status, parties = await _authorize_with_parties(
         db, booking_id, BookingStatus.CANCELLED.value, current_user, lookup_owner
     )
     try:
         booking = await booking_service.cancel_booking(db, booking_id, user_id, body.reason)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    queued = await payments.enqueue(db, booking, payments.CANCELLED, cancelled_by(parties))
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
-    return booking
+    return await present(booking, current_user, lookup_names)
 
 
 @router.get("/bookings/{booking_id}/history", response_model=list[BookingStatusHistoryResponse])
@@ -458,9 +531,9 @@ async def get_history(
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
-    await _visible_booking(db, booking_id, current_user, lookup_owner)
+    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     history = await booking_service.get_booking_history(db, booking_id)
-    return history
+    return present_history(history, booking, current_user)
 
 
 @router.websocket("/ws/bookings/{booking_id}")

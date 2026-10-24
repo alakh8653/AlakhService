@@ -131,6 +131,14 @@ def test_messages_fill_in_what_is_known():
     )
     # Only the customer is told about a return time.
     assert render("booking.ready_by", "shop", {"booking_number": "BK-1"}) is None
+    # Chat messages are announced, never quoted.
+    assert render("booking.message", "customer", {"booking_number": "BK-1"}) == (
+        "New message",
+        "The shop sent you a message about booking BK-1.",
+    )
+    assert render("booking.message", "provider", {"booking_number": "BK-1"})[1] == (
+        "The customer sent a message about booking BK-1."
+    )
 
 
 @pytest.mark.asyncio

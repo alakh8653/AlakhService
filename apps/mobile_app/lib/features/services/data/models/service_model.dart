@@ -20,6 +20,26 @@ class ServiceModel extends ServiceEntity {
     super.pickupFee,
   });
 
+  /// This listing with its shop's rating (reviews are of the shop that does the work).
+  ServiceModel withRating(double rating, int reviewCount) => ServiceModel(
+        id: id,
+        name: name,
+        description: description,
+        category: category,
+        basePrice: basePrice,
+        priceUnit: priceUnit,
+        rating: rating,
+        reviewCount: reviewCount,
+        imageUrl: imageUrl,
+        isAvailable: isAvailable,
+        tags: tags,
+        shopId: shopId,
+        durationMinutes: durationMinutes,
+        serviceModes: serviceModes,
+        homeVisitFee: homeVisitFee,
+        pickupFee: pickupFee,
+      );
+
   /// Reads a service_catalog listing. Prices arrive in paise (`price_cents`).
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
     final duration = json['duration_minutes'] as int?;

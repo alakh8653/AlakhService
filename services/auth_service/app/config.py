@@ -38,14 +38,33 @@ class Settings(BaseSettings):
     # Local testing only, when SMTP is not configured: log reset tokens instead of emailing them.
     # Never enable where logs are shared; a logged token lets its reader take over the account.
     LOG_PASSWORD_RESET_TOKENS: bool = False
+    # Which provider texts one-time codes: twilio, msg91 (Indian DLT-registered sender) or none.
+    SMS_PROVIDER: str = "twilio"
     # SMS for one-time codes to phone numbers (Twilio REST API). Without these, no SMS is sent.
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_FROM_NUMBER: str = ""
+    # MSG91 (https://msg91.com): auth key, the 6-letter DLT sender id (header) and the DLT template id
+    # registered for the one-time-code text (app/core/sms.py, OTP_SMS_TEXT, must match it exactly).
+    MSG91_AUTH_KEY: str = ""
+    MSG91_SENDER_ID: str = ""
+    MSG91_OTP_TEMPLATE_ID: str = ""
+    MSG91_API_URL: str = "https://api.msg91.com/api/v2/sendsms"
     OTP_REQUESTS_PER_WINDOW: int = 3
     OTP_REQUEST_WINDOW_SECONDS: int = 600
     # Local testing only: log one-time codes when they cannot be delivered.
     LOG_OTP_CODES: bool = False
+    # Deleting an account with a one-time code (the web page at LEGAL_BASE_URL/delete-account):
+    # tries per email/phone per window, on top of the 5 guesses each code allows.
+    DELETE_ACCOUNT_ATTEMPTS_PER_WINDOW: int = 5
+    DELETE_ACCOUNT_WINDOW_SECONDS: int = 3600
+
+    # The Terms and Privacy Policy version people accept when they register (GET /legal/current),
+    # and the site that serves the legal pages (deploy/site, https://<DOMAIN> in production).
+    TERMS_VERSION: str = "2026-10"
+    LEGAL_BASE_URL: str = "http://localhost:8080"
+    # Consents are recorded here (best effort; needs INTERNAL_API_KEY).
+    COMPLIANCE_SERVICE_URL: str = "http://compliance_service:8000"
 
     model_config = SettingsConfigDict(env_file=".env")
 

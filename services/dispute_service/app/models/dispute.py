@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -16,6 +16,9 @@ class Dispute(Base):
     description = Column(Text, nullable=False)
     status = Column(String, default="OPEN", nullable=False)
     resolution = Column(Text, nullable=True)
+    # REFUND_FULL, REFUND_PARTIAL (refund_amount_cents), RELEASE_TO_SHOP or NO_ACTION.
+    outcome = Column(String(20), nullable=True)
+    refund_amount_cents = Column(Integer, nullable=True)
     evidence_urls = Column(Text, nullable=True)  # JSON array as string
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     resolved_at = Column(DateTime(timezone=True), nullable=True)

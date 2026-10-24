@@ -32,6 +32,8 @@ export interface Registration {
   email: string;
   phone?: string;
   password: string;
+  /** The Terms and Privacy Policy version the owner ticked; auth_service refuses sign-up without it. */
+  acceptedTermsVersion: string;
 }
 
 /** Creates an account; the owner then signs in and sets up their shop. */
@@ -41,6 +43,7 @@ export async function register(reg: Registration): Promise<User> {
     email: reg.email.trim().toLowerCase(),
     ...(reg.phone?.trim() ? { phone: reg.phone.trim() } : {}),
     password: reg.password,
+    accepted_terms_version: reg.acceptedTermsVersion,
   });
   return toUser(data);
 }

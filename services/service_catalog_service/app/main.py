@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.observability import install_observability
+from app.routers.catalog import internal_router
 from app.routers.catalog import router as catalog_router
 
 logger = structlog.get_logger()
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 install_observability(app, service="service_catalog_service")
 app.include_router(catalog_router, prefix="/api/v1", tags=["catalog"])
+app.include_router(internal_router, tags=["internal"])
 
 
 @app.get("/health")

@@ -3,7 +3,7 @@ import json
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +21,7 @@ from app.dependencies import (
 from app.models.notification import DeviceToken, NotificationTemplate
 from app.schemas.notification import (
     DeviceTokenCreate,
+    DeviceTokenRemove,
     DeviceTokenResponse,
     NotificationCreate,
     NotificationListResponse,
@@ -248,3 +249,15 @@ async def register_device_token(
     db.add(token)
     await db.flush()
     return token
+
+
+@router.post("/notifications/device-tokens/unregister", status_code=204)
+async def unregister_device_token(
+    payload: DeviceTokenRemove, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+):
+    """Signing out: this device stops getting the user's pushes. Unknown tokens are fine (204)."""
+    existing = (await db.execute(select(DeviceToken).where(DeviceToken.token == payload.token))).scalar_one_or_none()
+    if existing is not None and (caller.is_admin or existing.user_id == caller.user_id):
+        existing.is_active = False
+        await db.flush()
+    return Response(status_code=204)

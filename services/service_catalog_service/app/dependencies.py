@@ -4,11 +4,12 @@ Tokens are verified here rather than trusting gateway-set headers, because the s
 be reached without going through the gateway.
 """
 
+import hmac
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
 import httpx
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
@@ -50,7 +51,9 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     """Owner user id of a shop according to shop_service, or None if the shop does not exist."""
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
-            resp = await client.get(f"/api/v1/shops/{shop_id}")
+            # The internal key lets the owner of a shop awaiting approval set up its services.
+            key = settings.INTERNAL_API_KEY
+            resp = await client.get(f"/api/v1/shops/{shop_id}", headers={"X-Internal-Key": key} if key else {})
         except httpx.HTTPError as exc:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code == 404:
@@ -61,6 +64,35 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
 
 
 OwnerLookup = Callable[[str], Awaitable[Optional[str]]]
+
+
+async def fetch_shop_listed(shop_id: str) -> bool:
+    """Whether customers may see the shop's services now: approved and switched on (shop_service)."""
+    key = settings.INTERNAL_API_KEY
+    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(f"/api/v1/shops/{shop_id}", headers={"X-Internal-Key": key} if key else {})
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Shop service unavailable")
+    shop = resp.json()
+    return bool(shop.get("is_active", True)) and shop.get("verification_status", "APPROVED") == "APPROVED"
+
+
+ListedLookup = Callable[[str], Awaitable[bool]]
+
+
+def get_shop_listed_lookup() -> ListedLookup:
+    return fetch_shop_listed
+
+
+def require_internal(x_internal_key: Optional[str] = Header(None)) -> None:
+    """Calls from other platform services (X-Internal-Key), never from the gateway."""
+    if not settings.INTERNAL_API_KEY:
+        raise HTTPException(status_code=503, detail="Internal API is not configured")
+    if not x_internal_key or not hmac.compare_digest(x_internal_key, settings.INTERNAL_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid internal key")
 
 
 def get_shop_owner_lookup() -> OwnerLookup:

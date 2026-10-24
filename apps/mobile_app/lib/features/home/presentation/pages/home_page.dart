@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection_container.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/service_card.dart';
@@ -13,6 +13,7 @@ import '../../../notifications/data/notifications_api.dart';
 import '../../../services/domain/entities/service_entity.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
+import '../../../../l10n/l10n.dart';
 import 'home_widgets.dart';
 
 class HomePage extends StatefulWidget {
@@ -44,20 +45,21 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   // Everyday needs: visits (salon, parlour, doctor, offices), repairs with pickup & drop, and home services.
   static const List<_ServiceCategory> _categories = [
-    _ServiceCategory(icon: Icons.content_cut, label: 'Haircut'),
-    _ServiceCategory(icon: Icons.face_retouching_natural, label: 'Beauty Parlour', query: 'Beauty'),
-    _ServiceCategory(icon: Icons.medical_services, label: 'Doctor'),
-    _ServiceCategory(icon: Icons.event_available, label: 'Office Visits', query: 'Appointment'),
-    _ServiceCategory(icon: Icons.car_repair, label: 'Car Repair', query: 'Car'),
-    _ServiceCategory(icon: Icons.two_wheeler, label: 'Bike Repair', query: 'Bike'),
-    _ServiceCategory(icon: Icons.devices, label: 'Laptop & Phone', query: 'Repair'),
-    _ServiceCategory(icon: Icons.ac_unit, label: 'AC Repair', query: 'AC'),
-    _ServiceCategory(icon: Icons.cleaning_services, label: 'Cleaning'),
-    _ServiceCategory(icon: Icons.plumbing, label: 'Plumbing'),
-    _ServiceCategory(icon: Icons.electrical_services, label: 'Electrical'),
-    _ServiceCategory(icon: Icons.carpenter, label: 'Carpentry'),
-    _ServiceCategory(icon: Icons.pest_control, label: 'Pest Control'),
-    _ServiceCategory(icon: Icons.handyman, label: 'Handyman'),
+    // The query is in English whatever the app's language, as the catalogue is.
+    _ServiceCategory(icon: Icons.content_cut, label: _haircut, query: 'Haircut'),
+    _ServiceCategory(icon: Icons.face_retouching_natural, label: _beauty, query: 'Beauty'),
+    _ServiceCategory(icon: Icons.medical_services, label: _doctor, query: 'Doctor'),
+    _ServiceCategory(icon: Icons.event_available, label: _office, query: 'Appointment'),
+    _ServiceCategory(icon: Icons.car_repair, label: _car, query: 'Car'),
+    _ServiceCategory(icon: Icons.two_wheeler, label: _bike, query: 'Bike'),
+    _ServiceCategory(icon: Icons.devices, label: _devices, query: 'Repair'),
+    _ServiceCategory(icon: Icons.ac_unit, label: _ac, query: 'AC'),
+    _ServiceCategory(icon: Icons.cleaning_services, label: _cleaning, query: 'Cleaning'),
+    _ServiceCategory(icon: Icons.plumbing, label: _plumbing, query: 'Plumbing'),
+    _ServiceCategory(icon: Icons.electrical_services, label: _electrical, query: 'Electrical'),
+    _ServiceCategory(icon: Icons.carpenter, label: _carpentry, query: 'Carpentry'),
+    _ServiceCategory(icon: Icons.pest_control, label: _pest, query: 'Pest Control'),
+    _ServiceCategory(icon: Icons.handyman, label: _handyman, query: 'Handyman'),
   ];
 
   late Future<List<ServiceEntity>> _popular;
@@ -113,13 +115,15 @@ class _HomePageState extends State<HomePage> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    final l10n = context.l10n;
+    if (hour < 12) return l10n.greetingMorning;
+    if (hour < 17) return l10n.greetingAfternoon;
+    return l10n.greetingEvening;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _refresh,
@@ -133,14 +137,14 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SearchBarWidget(onSubmitted: widget.onSearch, hint: 'Search haircut, AC repair, doctor…'),
+                child: SearchBarWidget(onSubmitted: widget.onSearch, hint: l10n.searchHint),
               ),
               const SizedBox(height: 20),
               if (_next != null)
                 NextBookingCard(
                   serviceName: _next!.serviceName,
-                  when: friendlyDateTime(_next!.scheduledAt),
-                  status: bookingStatusLabel(_next!.status),
+                  when: friendlyDateTime(_next!.scheduledAt, l10n: l10n),
+                  status: bookingStatusLabel(l10n, _next!.status),
                   onTap: widget.onOpenBookings,
                 )
               else
@@ -148,14 +152,14 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Semantics(header: true, child: const Text('Our Services', style: AppTextStyles.heading3)),
+                child: Semantics(header: true, child: Text(l10n.homeOurServices, style: AppTextStyles.heading3)),
               ),
               const SizedBox(height: 16),
               _buildCategoriesGrid(),
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Semantics(header: true, child: const Text('Popular Services', style: AppTextStyles.heading3)),
+                child: Semantics(header: true, child: Text(l10n.homePopular, style: AppTextStyles.heading3)),
               ),
               const SizedBox(height: 12),
               _buildPopular(),
@@ -176,18 +180,18 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$_greeting${firstName.isEmpty ? '' : ', $firstName'} 👋', style: AppTextStyles.body2),
-                const Text('Find a Service', style: AppTextStyles.heading2),
+                Text('$_greeting${firstName.isEmpty ? '' : ', $firstName'} 👋', style: AppTextStyles.body2.themed(context)),
+                Text(context.l10n.homeFindService, style: AppTextStyles.heading2),
               ],
             ),
           ),
           IconButton(
-            tooltip: _unread > 0 ? 'Notifications, $_unread unread' : 'Notifications',
+            tooltip: _unread > 0 ? context.l10n.notificationsUnread(_unread) : context.l10n.notifications,
             onPressed: _openNotifications,
             icon: Badge(
               isLabelVisible: _unread > 0,
               label: Text(_unread > 99 ? '99+' : '$_unread'),
-              child: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+              child: Icon(Icons.notifications_outlined, color: context.colors.onSurface),
             ),
           ),
         ],
@@ -214,7 +218,7 @@ class _HomePageState extends State<HomePage> {
           itemCount: _categories.length,
           itemBuilder: (context, index) {
             final cat = _categories[index];
-            return ServiceCategoryCard(icon: cat.icon, label: cat.label, onTap: () => widget.onSearch(cat.query ?? cat.label));
+            return ServiceCategoryCard(icon: cat.icon, label: cat.label(context.l10n), onTap: () => widget.onSearch(cat.query));
           },
         );
       },
@@ -239,11 +243,11 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: Text(
-                    snapshot.hasError ? 'Could not load services.' : 'No services listed yet.',
-                    style: AppTextStyles.body2,
+                    snapshot.hasError ? context.l10n.homeLoadFailed : context.l10n.homeNoServices,
+                    style: AppTextStyles.body2.themed(context),
                   ),
                 ),
-                if (snapshot.hasError) TextButton(onPressed: _refresh, child: const Text('Try again')),
+                if (snapshot.hasError) TextButton(onPressed: _refresh, child: Text(context.l10n.tryAgain)),
               ],
             ),
           );
@@ -269,10 +273,25 @@ class _HomePageState extends State<HomePage> {
 
 class _ServiceCategory {
   final IconData icon;
-  final String label;
+  final String Function(AppLocalizations) label;
 
-  /// What tapping it searches for (defaults to the label).
-  final String? query;
+  /// What tapping it searches for.
+  final String query;
 
-  const _ServiceCategory({required this.icon, required this.label, this.query});
+  const _ServiceCategory({required this.icon, required this.label, required this.query});
 }
+
+String _haircut(AppLocalizations l) => l.catHaircut;
+String _beauty(AppLocalizations l) => l.catBeauty;
+String _doctor(AppLocalizations l) => l.catDoctor;
+String _office(AppLocalizations l) => l.catOffice;
+String _car(AppLocalizations l) => l.catCar;
+String _bike(AppLocalizations l) => l.catBike;
+String _devices(AppLocalizations l) => l.catDevices;
+String _ac(AppLocalizations l) => l.catAc;
+String _cleaning(AppLocalizations l) => l.catCleaning;
+String _plumbing(AppLocalizations l) => l.catPlumbing;
+String _electrical(AppLocalizations l) => l.catElectrical;
+String _carpentry(AppLocalizations l) => l.catCarpentry;
+String _pest(AppLocalizations l) => l.catPest;
+String _handyman(AppLocalizations l) => l.catHandyman;

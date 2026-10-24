@@ -68,6 +68,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         phone: event.phone,
         password: event.password,
         role: event.role,
+        acceptedTermsVersion: event.acceptedTermsVersion,
       ),
     );
     result.fold(

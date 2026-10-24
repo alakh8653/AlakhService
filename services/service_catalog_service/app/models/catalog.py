@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import true as sa_true
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -36,6 +37,9 @@ class ServiceListing(Base):
     # Added to the price when the customer chooses that mode.
     home_visit_fee_cents = Column(Integer, default=0, server_default="0", nullable=False)
     pickup_fee_cents = Column(Integer, default=0, server_default="0", nullable=False)
+    # False while the shop awaits approval (or is switched off): kept out of browsing and search.
+    # shop_service sets it when a shop is approved, rejected or switched on or off.
+    shop_listed = Column(Boolean, default=True, server_default=sa_true(), nullable=False, index=True)
 
 
 class ServiceTag(Base):

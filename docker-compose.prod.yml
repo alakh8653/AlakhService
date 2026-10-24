@@ -1,0 +1,546 @@
+# =============================================================================
+# AlakhService — production override for a single Linux VM
+#
+#   docker compose --env-file .env.production \
+#     -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Use scripts/deploy/deploy.sh (or `make prod-deploy`) rather than running this by hand: it
+# validates .env.production first, tags images with the git commit (so you can roll back),
+# restarts one service at a time and smoke-tests the result. See docs/DEPLOYMENT.md.
+#
+# What this file changes on top of docker-compose.yml:
+#   - Nothing is published on the host except Caddy on 80/443 (Grafana, when the
+#     "monitoring" profile is on, listens on 127.0.0.1 only; reach it over an SSH tunnel).
+#   - ENVIRONMENT=production everywhere, so every service refuses to start with weak secrets.
+#   - Services read ONLY the variables listed here, never a stray .env file (env_file is reset),
+#     so a secret reaches just the services that need it.
+#   - Health checks use /ready (database and Redis reachable), not just /health.
+#   - Restart policy, memory/CPU limits, rotated logs, no-new-privileges.
+#   - Images are tagged localhost/alakhservice/<name>:<IMAGE_TAG> and never pulled from a
+#     registry; deploy.sh sets IMAGE_TAG to the git commit and keeps the previous one for rollback.
+#   - The dashboards are built into the Caddy image as static files (deploy/caddy/Dockerfile).
+# =============================================================================
+
+# Rotated container logs: at most 5 x 10 MB per container, so logs can never fill the disk.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+# Settings every Python service gets.
+x-prod-python: &prod-python
+  restart: always
+  pull_policy: never
+  # Only the variables below reach the services; a .env left on the server is ignored.
+  env_file: !reset []
+  # Reachable only from inside the Docker network (through the gateway).
+  ports: !reset []
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  stop_grace_period: 20s
+  healthcheck:
+    # /ready answers 200 only when the service's database (and Redis, where used) responds.
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=4)"]
+    interval: 15s
+    timeout: 5s
+    retries: 4
+    # Migrations run before the API starts (see the command in docker-compose.yml).
+    start_period: 90s
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 384M
+  <<: *logging
+
+# Environment shared by every Python service (merged into each service's own environment).
+x-prod-env: &prod-env
+  ENVIRONMENT: production
+  SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in .env.production}
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY must be set in .env.production}
+  TZ: UTC
+
+# Mail settings, used by auth_service (password reset) and notification_service.
+x-smtp-env: &smtp-env
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+  SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+  SMTP_FROM_NAME: ${SMTP_FROM_NAME:-AlakhService}
+
+# SMS, used by auth_service (one-time codes) and notification_service (booking updates for people
+# without the app). SMS_PROVIDER picks twilio, msg91 (DLT-registered Indian sender) or none.
+x-sms-env: &sms-env
+  SMS_PROVIDER: ${SMS_PROVIDER:-twilio}
+  TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+  MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+  MSG91_SENDER_ID: ${MSG91_SENDER_ID:-}
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    restart: always
+    ports: !reset []
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.production}
+    # 15 services x a pool of up to 15 connections each, plus backups.
+    command:
+      - postgres
+      - -c
+      - max_connections=300
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+    shm_size: 256m
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+    <<: *logging
+
+  redis:
+    restart: always
+    ports: !reset []
+    # Each service has its own database number (0-15); 32 leaves room for more.
+    # noeviction: rate-limit and sign-out keys must never be silently dropped.
+    command: redis-server --appendonly yes --databases 32 --maxmemory 384mb --maxmemory-policy noeviction
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    <<: *logging
+
+  backup:
+    restart: always
+    environment:
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER must be set in .env.production}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.production}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    <<: *logging
+
+  # ---------------------------------------------------------------------------
+  # Microservices
+  # ---------------------------------------------------------------------------
+
+  auth_service:
+    <<: *prod-python
+    image: localhost/alakhservice/auth_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: [*prod-env, *smtp-env, *sms-env]
+      # Reset emails link to the public site, which opens the app or resets the password in the browser.
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-https://${DOMAIN:?DOMAIN must be set in .env.production}/reset-password}
+      # GET /api/v1/legal/current: the Terms version sign-up must accept, and the legal pages' site.
+      TERMS_VERSION: ${TERMS_VERSION:-2026-10}
+      LEGAL_BASE_URL: https://${DOMAIN:?DOMAIN must be set in .env.production}
+      MSG91_OTP_TEMPLATE_ID: ${MSG91_OTP_TEMPLATE_ID:-}
+      # Never log one-time codes or reset tokens on a live server.
+      LOG_OTP_CODES: "false"
+      LOG_PASSWORD_RESET_TOKENS: "false"
+
+  user_service:
+    <<: *prod-python
+    image: localhost/alakhservice/user_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  shop_service:
+    <<: *prod-python
+    image: localhost/alakhservice/shop_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  booking_service:
+    <<: *prod-python
+    image: localhost/alakhservice/booking_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+      # Masked calls between customer and shop (docs/PRIVACY_AND_CONTACT.md). Off unless set.
+      CALL_PROVIDER: ${CALL_PROVIDER:-none}
+      EXOTEL_API_KEY: ${EXOTEL_API_KEY:-}
+      EXOTEL_API_TOKEN: ${EXOTEL_API_TOKEN:-}
+      EXOTEL_ACCOUNT_SID: ${EXOTEL_ACCOUNT_SID:-}
+      EXOTEL_CALLER_ID: ${EXOTEL_CALLER_ID:-}
+      EXOTEL_SUBDOMAIN: ${EXOTEL_SUBDOMAIN:-api.exotel.com}
+
+  payment_service:
+    <<: *prod-python
+    image: localhost/alakhservice/payment_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+      # Commission and cancellation policy (docs/DEPLOYMENT.md, "Money").
+      PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
+      GST_ON_COMMISSION_PERCENT: ${GST_ON_COMMISSION_PERCENT:-18}
+      CANCEL_FREE_HOURS: ${CANCEL_FREE_HOURS:-2}
+      CANCEL_FEE_PERCENT: ${CANCEL_FEE_PERCENT:-0}
+      # Printed on every invoice.
+      PLATFORM_LEGAL_NAME: ${PLATFORM_LEGAL_NAME:-AlakhService (legal name not set)}
+      PLATFORM_GSTIN: ${PLATFORM_GSTIN:-GSTIN-NOT-SET}
+      PLATFORM_ADDRESS: ${PLATFORM_ADDRESS:-Registered address not set}
+      INVOICE_PREFIX: ${INVOICE_PREFIX:-ALK}
+
+  notification_service:
+    <<: *prod-python
+    image: localhost/alakhservice/notification_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: [*prod-env, *smtp-env, *sms-env]
+      # Push notifications: the Firebase service-account key as one line of JSON (optional).
+      FCM_SERVICE_ACCOUNT_JSON: ${FCM_SERVICE_ACCOUNT_JSON:-}
+      FCM_SERVICE_ACCOUNT_FILE: ""
+      # Linked from the new-booking email shop owners get.
+      SHOP_DASHBOARD_URL: https://shop.${DOMAIN:?DOMAIN must be set in .env.production}
+      # One DLT template id per event texted with MSG91 (texts: docs/DEPLOYMENT.md, "SMS").
+      MSG91_TEMPLATE_BOOKING_CONFIRMED: ${MSG91_TEMPLATE_BOOKING_CONFIRMED:-}
+      MSG91_TEMPLATE_BOOKING_CANCELLED: ${MSG91_TEMPLATE_BOOKING_CANCELLED:-}
+      MSG91_TEMPLATE_BOOKING_REMINDER: ${MSG91_TEMPLATE_BOOKING_REMINDER:-}
+      MSG91_TEMPLATE_BOOKING_REFUNDED: ${MSG91_TEMPLATE_BOOKING_REFUNDED:-}
+      MSG91_TEMPLATE_BOOKING_EXPIRED: ${MSG91_TEMPLATE_BOOKING_EXPIRED:-}
+
+  tracking_service:
+    <<: *prod-python
+    image: localhost/alakhservice/tracking_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  queue_service:
+    <<: *prod-python
+    image: localhost/alakhservice/queue_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  analytics_service:
+    <<: *prod-python
+    image: localhost/alakhservice/analytics_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  dispute_service:
+    <<: *prod-python
+    image: localhost/alakhservice/dispute_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  trust_risk_service:
+    <<: *prod-python
+    image: localhost/alakhservice/trust_risk_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  admin_service:
+    <<: *prod-python
+    image: localhost/alakhservice/admin_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  compliance_service:
+    <<: *prod-python
+    image: localhost/alakhservice/compliance_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  pricing_engine:
+    <<: *prod-python
+    image: localhost/alakhservice/pricing_engine:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  service_catalog_service:
+    <<: *prod-python
+    image: localhost/alakhservice/service_catalog_service:${IMAGE_TAG:-latest}
+    environment:
+      <<: *prod-env
+
+  # ---------------------------------------------------------------------------
+  # API gateway (reached only through Caddy at https://api.<DOMAIN>)
+  # ---------------------------------------------------------------------------
+
+  api_gateway:
+    image: localhost/alakhservice/api_gateway:${IMAGE_TAG:-latest}
+    pull_policy: never
+    restart: always
+    ports: !reset []
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in .env.production}
+      # Must list exactly https://shop.<DOMAIN> and https://admin.<DOMAIN> (checked by preflight).
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set in .env.production}
+      # Same Redis database auth_service writes sign-out markers to; also holds rate limits.
+      REDIS_URL: redis://redis:6379/0
+      # Caddy is the one proxy in front: take the client IP from the last X-Forwarded-For hop.
+      TRUST_PROXY: "1"
+      # Prometheus sends this as a bearer token; Caddy also hides /metrics from the internet.
+      METRICS_TOKEN: ${METRICS_TOKEN:?METRICS_TOKEN must be set in .env.production}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-60}
+      # Kept in step with Caddy's request_body limit in deploy/Caddyfile.
+      UPLOAD_MAX_BODY_BYTES: "6291456"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # The gateway has no /ready of its own; /health says it is up and serving.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 384M
+    <<: *logging
+
+  # ---------------------------------------------------------------------------
+  # Reverse proxy: HTTPS for <DOMAIN> and api./shop./admin.<DOMAIN>; serves the site and dashboards
+  # ---------------------------------------------------------------------------
+
+  caddy:
+    image: localhost/alakhservice/caddy:${IMAGE_TAG:-latest}
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+      args:
+        # Baked into the dashboards at build time (Vite reads VITE_API_BASE_URL).
+        API_BASE_URL: https://api.${DOMAIN:?DOMAIN must be set in .env.production}/api/v1
+    container_name: alakh_caddy
+    restart: always
+    networks:
+      - alakhservice_network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in .env.production}
+      # Who may open the admin dashboard and call admin APIs (space-separated IPs/CIDRs).
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-0.0.0.0/0 ::/0}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The public site (legal pages, account deletion, app links): edit and it is live, no rebuild.
+      - ./deploy/site:/srv/site:ro
+      # Certificates and ACME account: keep this volume, or Let's Encrypt rate limits may bite.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api_gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    <<: *logging
+
+  # ---------------------------------------------------------------------------
+  # Monitoring (optional): COMPOSE_PROFILES=monitoring in .env.production
+  # Grafana: ssh -L 3001:127.0.0.1:3001 <you>@<server>, then http://localhost:3001
+  # ---------------------------------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: alakh_prometheus
+    profiles: ["monitoring"]
+    restart: always
+    networks:
+      - alakhservice_network
+    # Prometheus does not expand variables in its config, so the entrypoint fills in the
+    # domain and writes the metrics token to a file before starting.
+    entrypoint: ["/bin/sh", "/etc/prometheus/render-and-start.sh"]
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN must be set in .env.production}
+      METRICS_TOKEN: ${METRICS_TOKEN:?METRICS_TOKEN must be set in .env.production}
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./deploy/monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    <<: *logging
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: alakh_alertmanager
+    profiles: ["monitoring"]
+    restart: always
+    networks:
+      - alakhservice_network
+    # Builds alertmanager.yml from the variables below: email and/or Telegram, whichever is set.
+    entrypoint: ["/bin/sh", "/etc/alertmanager/render-and-start.sh"]
+    environment:
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./deploy/monitoring/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    <<: *logging
+
+  grafana:
+    image: grafana/grafana-oss:12.1.1
+    container_name: alakh_grafana
+    profiles: ["monitoring"]
+    restart: always
+    networks:
+      - alakhservice_network
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    <<: *logging
+
+  # Probes each service's /ready and the public HTTPS endpoint (also reports certificate expiry).
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    container_name: alakh_blackbox
+    profiles: ["monitoring"]
+    restart: always
+    networks:
+      - alakhservice_network
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./deploy/monitoring/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    <<: *logging
+
+  # Disk, memory and CPU of the VM, plus the backup age written by backup_metrics.
+  node_exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: alakh_node_exporter
+    profiles: ["monitoring"]
+    restart: always
+    networks:
+      - alakhservice_network
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /:/host:ro,rslave
+      - node_textfile:/textfile:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+    <<: *logging
+
+  # Turns backups/.last_success (written by the backup service) into a Prometheus metric.
+  backup_metrics:
+    image: busybox:1.37
+    container_name: alakh_backup_metrics
+    profiles: ["monitoring"]
+    restart: always
+    network_mode: none
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          ts=$$(cat /backups/.last_success 2>/dev/null || echo 0)
+          {
+            echo '# HELP alakh_backup_last_success_timestamp_seconds Unix time of the last verified backup (0 = none).'
+            echo '# TYPE alakh_backup_last_success_timestamp_seconds gauge'
+            echo "alakh_backup_last_success_timestamp_seconds $$ts"
+          } > /textfile/backup.prom.tmp
+          mv /textfile/backup.prom.tmp /textfile/backup.prom
+          sleep 60
+        done
+    volumes:
+      - ${BACKUP_HOST_DIR:-./backups}:/backups:ro
+      - node_textfile:/textfile
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 16M
+    <<: *logging
+
+volumes:
+  caddy_data:
+    name: alakhservice_caddy_data
+  caddy_config:
+    name: alakhservice_caddy_config
+  prometheus_data:
+    name: alakhservice_prometheus_data
+  alertmanager_data:
+    name: alakhservice_alertmanager_data
+  grafana_data:
+    name: alakhservice_grafana_data
+  node_textfile:
+    name: alakhservice_node_textfile

@@ -31,8 +31,8 @@ class TwilioSMSChannel:
                     to=to_number,
                 ),
             )
-            log.info("sms_sent", sid=message.sid, to=to_number)
+            log.info("sms_sent", sid=message.sid)
             return True
         except Exception as e:
-            log.error("sms_send_failed", error=str(e), to=to_number)
+            log.error("sms_send_failed", error=str(e))
             return False

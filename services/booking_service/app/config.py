@@ -14,9 +14,30 @@ class Settings(BaseSettings):
     PRICING_ENGINE_URL: str = "http://pricing_engine:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
-    # Shared with notification_service and trust_risk_service; without it no notifications or risk
-    # signals are sent.
+    # Customers' display names ("Ravi S.") for the shop, and their numbers for masked calls.
+    AUTH_SERVICE_URL: str = "http://auth_service:8000"
+    # Shared with notification_service, trust_risk_service and auth_service; without it no notifications
+    # or risk signals are sent, and shops see every customer as "Customer".
     INTERNAL_API_KEY: str = ""
+    # Masked calls between a booking's customer and its shop through a telephony bridge, which rings both
+    # from a virtual number so neither sees the other's. "none" (the default) leaves only the chat.
+    CALL_PROVIDER: str = "none"
+    # Exotel click-to-call (CALL_PROVIDER=exotel): API key and token, account SID, the virtual number
+    # (ExoPhone) both sides see, and the API host of the account's region.
+    EXOTEL_API_KEY: str = ""
+    EXOTEL_API_TOKEN: str = ""
+    EXOTEL_ACCOUNT_SID: str = ""
+    EXOTEL_CALLER_ID: str = ""
+    EXOTEL_SUBDOMAIN: str = "api.exotel.com"
+    # Told when a booking is completed, cancelled or disputed (commission, refunds), over /internal.
+    PAYMENT_SERVICE_URL: str = "http://payment_service:8000"
+    # The background worker: booking reminders (24h and 1h before), expiring bookings the shop never
+    # confirmed, and retrying what payment_service has not accepted yet. Off in tests (conftest.py).
+    REMINDERS_ENABLED: bool = True
+    WORKER_INTERVAL_SECONDS: float = 60
+    # A PENDING booking the shop has not confirmed this long after it was made (or by its start time)
+    # is cancelled and refunded.
+    EXPIRE_PENDING_AFTER_HOURS: float = 12
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"
     # Browsers talk to the gateway, never to a service directly, so no cross-origin access by default.

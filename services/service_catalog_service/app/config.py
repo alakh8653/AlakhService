@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-in-production"
     ALGORITHM: str = "HS256"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    # Sent to shop_service so owners of shops awaiting approval can set up their services.
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

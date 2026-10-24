@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { shortId } from './format';
 
 // Walk-in queues (queue_service). A queue belongs to one of the shop's services.
 
@@ -19,6 +20,8 @@ export type EntryStatus = 'WAITING' | 'CALLED' | 'SERVED' | 'NO_SHOW' | 'LEFT';
 export interface QueueEntry {
   id: string;
   customerId: string;
+  /** First name and last initial ("Ravi S."); the shop never gets a customer's phone or email. */
+  customerDisplayName?: string;
   /** 0 for a customer who has been called (being served). */
   position: number;
   status: EntryStatus;
@@ -40,6 +43,7 @@ interface QueueRecord {
 interface EntryRecord {
   id: string;
   customer_id: string;
+  customer_display_name?: string;
   position: number;
   status: EntryStatus;
   entered_at: string;
@@ -60,12 +64,19 @@ const toQueue = (r: QueueRecord): WalkInQueue => ({
 const toEntry = (r: EntryRecord): QueueEntry => ({
   id: r.id,
   customerId: r.customer_id,
+  customerDisplayName: r.customer_display_name,
   position: r.position,
   status: r.status,
   enteredAt: r.entered_at,
   calledAt: r.called_at ?? null,
   estimatedWaitMinutes: r.estimated_wait_minutes,
 });
+
+/** How the shop refers to someone in the queue: their display name, or a short id when there is none. */
+export function customerLabel(entry: Pick<QueueEntry, 'customerId' | 'customerDisplayName'>): string {
+  const name = entry.customerDisplayName;
+  return name && name !== 'Customer' ? name : `Customer ${shortId(entry.customerId)}`;
+}
 
 /** Every queue of a service, open or closed. */
 export async function getQueues(serviceId: string): Promise<WalkInQueue[]> {

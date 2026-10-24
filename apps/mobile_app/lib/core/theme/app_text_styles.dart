@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
+/// The app's type scale. Primary text (headings, subtitle1, body1) leaves its colour to the theme, so it
+/// is the scheme's onSurface: near-black in the light theme, near-white in the dark one.
 class AppTextStyles {
   AppTextStyles._();
 
   static const TextStyle heading1 = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
     fontFamily: 'Poppins',
   );
 
   static const TextStyle heading2 = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.bold,
-    color: AppColors.textPrimary,
     fontFamily: 'Poppins',
   );
 
   static const TextStyle heading3 = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     fontFamily: 'Poppins',
   );
 
   static const TextStyle subtitle1 = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
     fontFamily: 'Poppins',
   );
 
@@ -42,7 +40,6 @@ class AppTextStyles {
   static const TextStyle body1 = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.normal,
-    color: AppColors.textPrimary,
     fontFamily: 'Poppins',
   );
 

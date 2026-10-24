@@ -87,6 +87,10 @@ class DeviceTokenCreate(BaseModel):
     platform: str
 
 
+class DeviceTokenRemove(BaseModel):
+    token: str
+
+
 class DeviceTokenResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

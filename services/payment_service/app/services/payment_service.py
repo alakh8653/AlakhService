@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 
 import redis.asyncio as aioredis
@@ -8,11 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import money
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
 from app.core.razorpay import GatewayError
 from app.models.payment import Account, LedgerEntry, Payment, Refund
 from app.schemas.payment import PaymentInitiate, RefundRequest
+from app.services import earnings_service, invoice_service
 
 log = structlog.get_logger()
 
@@ -21,6 +24,7 @@ PAID_STATUSES = {"COMPLETED", "PARTIALLY_REFUNDED", "REFUNDED"}
 # Never settled on our books, so a capture the gateway reports for one is new money, not a replay.
 UNSETTLED_STATUSES = {"PENDING", "CANCELLED", "FAILED"}
 DUPLICATE_REFUND_REASON = "Booking was already paid for"
+CANCELLED_REFUND_REASON = "Booking was cancelled"
 
 
 class PaymentService:
@@ -81,6 +85,7 @@ class PaymentService:
             booking_id=payment_data.booking_id,
             payer_id=payment_data.payer_id,
             payee_id=payment_data.payee_id,
+            shop_id=payment_data.shop_id,
             amount_cents=payment_data.amount_cents,
             currency=payment_data.currency,
             status="PENDING",
@@ -108,7 +113,11 @@ class PaymentService:
     async def mark_completed(
         self, db: AsyncSession, payment: Payment, provider_payment_id: str, gateway: str
     ) -> Payment:
-        """Records a confirmed payment once: funds go into escrow and the platform account is credited.
+        """Records a confirmed payment once and gives it its invoice number.
+
+        Money collected online goes into escrow on the platform account. Cash went straight to the shop,
+        so it never touches escrow or the platform's books; the commission it owes is recorded when the
+        booking completes.
 
         Only a pending payment completes; one already settled (or refunded, failed, cancelled) stays as it is.
         """
@@ -118,20 +127,21 @@ class PaymentService:
         payment.provider_payment_id = provider_payment_id
         payment.gateway = gateway
         payment.updated_at = datetime.now(timezone.utc)
-        try:
-            await escrow_service.hold_funds(db, payment.id)
-            platform_account = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
-            await ledger.credit(
-                db,
-                platform_account.id,
-                payment.amount_cents,
-                payment.currency,
-                f"Payment {payment.id} received",
-                payment.id,
-                "payment",
-            )
-        except Exception as e:
-            log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
+        if gateway != "cash":
+            try:
+                await escrow_service.hold_funds(db, payment.id)
+                platform_account = await self.get_or_create_account(db, settings.PLATFORM_ACCOUNT_ID, "platform")
+                await ledger.credit(
+                    db,
+                    platform_account.id,
+                    payment.amount_cents,
+                    payment.currency,
+                    f"Payment {payment.id} received",
+                    payment.id,
+                    "payment",
+                )
+            except Exception as e:
+                log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
         # Other attempts at paying this booking (e.g. a cash choice, then UPI) are now moot.
         others = await db.execute(
             select(Payment).where(
@@ -142,7 +152,9 @@ class PaymentService:
             other.status = "CANCELLED"
             other.updated_at = payment.updated_at
         await db.flush()
-        log.info("payment_completed", payment_id=payment.id, gateway=gateway)
+        await invoice_service.assign_invoice(db, payment)
+        await earnings_service.payment_completed(db, payment)
+        log.info("payment_completed", payment_id=payment.id, gateway=gateway, invoice=payment.invoice_number)
         return payment
 
     async def record_capture(
@@ -170,20 +182,30 @@ class PaymentService:
             payment.updated_at = datetime.now(timezone.utc)
             await self._refund_duplicate(db, payment, gateway)
             return "payment.refunded" if payment.status == "REFUNDED" else None
+        if payment.status == "CANCELLED":
+            # The booking was cancelled while this checkout was open: the money goes straight back.
+            payment.provider_payment_id = provider_payment_id
+            payment.gateway = gateway_name
+            payment.updated_at = datetime.now(timezone.utc)
+            await self._refund_duplicate(db, payment, gateway, CANCELLED_REFUND_REASON)
+            return "payment.refunded" if payment.status == "REFUNDED" else None
         if payment.status != "PENDING":
             log.warning("capture_for_closed_payment", payment_id=payment.id, status=payment.status)
             return None
         await self.mark_completed(db, payment, provider_payment_id, gateway_name)
         return "payment.completed"
 
-    async def _refund_duplicate(self, db: AsyncSession, payment: Payment, gateway) -> None:
-        """Gives a second payment for a booking back in full. It never reached escrow or the ledger."""
+    async def _refund_duplicate(
+        self, db: AsyncSession, payment: Payment, gateway, reason: str = DUPLICATE_REFUND_REASON
+    ) -> None:
+        """Gives a payment the booking cannot keep back in full (a second payment, or one for a booking
+        already cancelled). It never reached escrow or the ledger."""
         if payment.gateway == "razorpay" and gateway is not None and gateway.configured:
             refund = Refund(
                 id=str(uuid.uuid4()),
                 payment_id=payment.id,
                 amount_cents=payment.amount_cents,
-                reason=DUPLICATE_REFUND_REASON,
+                reason=reason,
                 status="PENDING",
                 created_at=payment.updated_at,
             )
@@ -191,7 +213,7 @@ class PaymentService:
                 result = await gateway.refund(
                     payment.provider_payment_id,
                     payment.amount_cents,
-                    {"refund_id": refund.id, "reason": DUPLICATE_REFUND_REASON},
+                    {"refund_id": refund.id, "reason": reason},
                 )
             except GatewayError as e:
                 log.warning("duplicate_refund_failed", payment_id=payment.id, error=str(e))
@@ -259,25 +281,26 @@ class PaymentService:
             return "payment.failed", payment
         return None
 
-    async def process_stripe_event(self, db: AsyncSession, event: dict) -> Optional[tuple[str, Payment]]:
-        """Applies a Stripe webhook event whose signature has already been checked; returns what changed."""
-        if event.get("type") != "payment_intent.succeeded":
-            return None
-        intent = event.get("data", {}).get("object", {})
-        payment = await self._find_for_gateway(db, (intent.get("metadata") or {}).get("payment_id"), None)
-        if payment and intent.get("amount_received", intent.get("amount")) == payment.amount_cents:
-            changed = await self.record_capture(db, payment, intent.get("id"), "stripe")
-            return (changed, payment) if changed else None
-        return None
-
     async def request_refund(
-        self, db: AsyncSession, payment_id: str, refund_data: RefundRequest, gateway=None
+        self,
+        db: AsyncSession,
+        payment_id: str,
+        refund_data: RefundRequest,
+        gateway=None,
+        idempotency_key: Optional[str] = None,
     ) -> Refund:
         """Refunds part or all of a payment that is still unrefunded.
 
         Card/UPI payments are refunded through Razorpay (the request fails if Razorpay refuses);
-        cash payments are recorded as MANUAL refunds, settled in person.
+        cash payments are recorded as MANUAL refunds, settled in person. With [idempotency_key] a
+        repeated request returns the refund already made instead of refunding again.
         """
+        if idempotency_key:
+            earlier = (
+                await db.execute(select(Refund).where(Refund.idempotency_key == idempotency_key))
+            ).scalar_one_or_none()
+            if earlier is not None:
+                return earlier
         payment = await self.get_payment(db, payment_id)
         if not payment:
             raise ValueError(f"Payment {payment_id} not found")
@@ -298,6 +321,7 @@ class PaymentService:
             amount_cents=refund_data.amount_cents,
             reason=refund_data.reason,
             status="PENDING",
+            idempotency_key=idempotency_key,
             created_at=now,
         )
         db.add(refund)
@@ -320,7 +344,9 @@ class PaymentService:
         payment.updated_at = now
         await db.flush()
         if not duplicate:  # a duplicate never reached escrow or the ledger
-            await self._return_funds(db, payment, refund_data.amount_cents, refunded_in_full, refund_data.reason)
+            if payment.gateway != "cash":  # nor did cash, which the shop took
+                await self._return_funds(db, payment, refund_data.amount_cents, refunded_in_full, refund_data.reason)
+            await earnings_service.after_refund(db, payment)
 
         log.info("refund_issued", payment_id=payment_id, amount=refund_data.amount_cents, status=refund.status)
         return refund
@@ -377,10 +403,104 @@ class PaymentService:
                 payment.status = "DUPLICATE" if await self._another_paid(db, payment) else "COMPLETED"
             elif payment:
                 payment.status = "REFUNDED" if remaining == payment.amount_cents else "PARTIALLY_REFUNDED"
+            if payment and payment.status != "DUPLICATE":
+                await db.flush()
+                await earnings_service.after_refund(db, payment)
         else:
             return None
         await db.flush()
         return refund
+
+    async def booking_cancelled(
+        self,
+        db: AsyncSession,
+        booking_id: str,
+        cancelled_by: str,
+        scheduled_at: Optional[datetime],
+        cancelled_at: Optional[datetime],
+        gateway=None,
+    ) -> dict:
+        """Refunds a cancelled booking's payment as the cancellation policy says (see app.core.money).
+
+        Safe to call again (booking_service retries until it gets an answer): the refund carries the key
+        cancel:{booking_id}, so it is made once. Checkouts still open are closed, and money captured for
+        one later is refunded in full. Raises GatewayError when Razorpay cannot be reached, so the caller
+        retries.
+        """
+        now = datetime.now(timezone.utc)
+        payments = await self.payments_for_booking(db, booking_id)
+        for p in payments:
+            if p.status == "PENDING":
+                p.status = "CANCELLED"
+                p.updated_at = now
+        await db.flush()
+        paid = next((p for p in payments if p.status in ("COMPLETED", "PARTIALLY_REFUNDED")), None)
+        key = f"cancel:{booking_id}"
+        earlier = (await db.execute(select(Refund).where(Refund.idempotency_key == key))).scalar_one_or_none()
+        if earlier is not None:
+            payment = await self.get_payment(db, earlier.payment_id)
+            return self._cancel_result(booking_id, payment, earlier, 0, "already_refunded")
+        if paid is None:
+            return self._cancel_result(booking_id, None, None, 0, "nothing_to_refund")
+        refundable = paid.amount_cents - await self._refunded_cents(db, paid.id)
+        policy = money.cancel_refund(
+            refundable,
+            cancelled_by,
+            scheduled_at,
+            cancelled_at or now,
+            settings.CANCEL_FREE_HOURS,
+            Decimal(settings.CANCEL_FEE_PERCENT),
+        )
+        refund = None
+        if policy.refund_cents > 0:
+            refund = await self.request_refund(
+                db,
+                paid.id,
+                RefundRequest(amount_cents=policy.refund_cents, reason=f"Booking cancelled ({policy.rule})"),
+                gateway,
+                idempotency_key=key,
+            )
+        if policy.fee_cents > 0:
+            # The late-cancellation fee is the shop's, less the platform's commission.
+            await earnings_service.settle_booking(db, booking_id, paid.shop_id, None)
+        log.info(
+            "cancel_refund",
+            booking_id=booking_id,
+            cancelled_by=cancelled_by,
+            refund_cents=policy.refund_cents,
+            fee_cents=policy.fee_cents,
+            rule=policy.rule,
+        )
+        return self._cancel_result(booking_id, paid, refund, policy.fee_cents, "refunded" if refund else "fee_kept")
+
+    @staticmethod
+    def _cancel_result(booking_id, payment, refund, fee_cents, status) -> dict:
+        return {
+            "booking_id": booking_id,
+            "status": status,
+            "payment_id": payment.id if payment else None,
+            "payment_status": payment.status if payment else None,
+            "refund_id": refund.id if refund else None,
+            "refund_cents": refund.amount_cents if refund else 0,
+            "refund_status": refund.status if refund else None,
+            "fee_cents": fee_cents,
+        }
+
+    async def booking_payment_status(self, db: AsyncSession, booking_id: str) -> str:
+        """How the booking's payment stands for booking_service: UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
+
+        Only the payment the booking kept counts; a duplicate paid and refunded leaves the booking PAID.
+        """
+        result = await db.execute(select(Payment.status).where(Payment.booking_id == booking_id))
+        statuses = set(result.scalars().all())
+        for status, shown in (
+            ("COMPLETED", "PAID"),
+            ("PARTIALLY_REFUNDED", "PARTIALLY_REFUNDED"),
+            ("REFUNDED", "REFUNDED"),
+        ):
+            if status in statuses:
+                return shown
+        return "UNPAID"
 
     async def payments_by_payer(self, db: AsyncSession, payer_id: str, limit: int = 100) -> List[Payment]:
         result = await db.execute(
@@ -391,6 +511,15 @@ class PaymentService:
     async def payments_for_booking(self, db: AsyncSession, booking_id: str) -> List[Payment]:
         result = await db.execute(select(Payment).where(Payment.booking_id == booking_id).order_by(Payment.created_at))
         return list(result.scalars().all())
+
+    async def get_refund(self, db: AsyncSession, refund_id: str) -> Optional[Refund]:
+        return await db.get(Refund, refund_id)
+
+    async def refund_by_key(self, db: AsyncSession, key: str) -> Optional[Refund]:
+        return (await db.execute(select(Refund).where(Refund.idempotency_key == key))).scalar_one_or_none()
+
+    async def refunded_cents(self, db: AsyncSession, payment_id: str) -> int:
+        return await self._refunded_cents(db, payment_id)
 
     async def get_payment(self, db: AsyncSession, payment_id: str) -> Optional[Payment]:
         result = await db.execute(select(Payment).where(Payment.id == payment_id))

@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 import app.models.shop  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_booking_lookup
+from app.dependencies import get_booking_lookup, get_name_lookup
 from app.main import app
 
 
@@ -24,6 +24,11 @@ def auth(sub: str, role: str = "user", token_type: str = "access") -> dict:
 
 
 BOOKINGS = {}
+
+
+async def fake_name(caller):
+    return None
+
 
 OWNER = auth("owner-1")
 OTHER = auth("owner-2")
@@ -49,28 +54,40 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_booking_lookup] = lambda: fake_booking
+    app.dependency_overrides[get_name_lookup] = lambda: fake_name
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
     await engine.dispose()
 
 
-async def make_shop(client, owner="owner-1", name="Glow Salon"):
+async def approve(client, shop_id: str) -> dict:
+    """New shops wait for review; most tests want one customers can already find."""
+    resp = await client.post(f"/api/v1/admin/shops/{shop_id}/approve", headers=auth("ops", "admin"))
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+async def make_shop(client, owner="owner-1", name="Glow Salon", approved=True):
     resp = await client.post(
         "/api/v1/shops", json={"owner_id": owner, "name": name, "category": "salon"}, headers=auth(owner)
     )
     assert resp.status_code == 201
-    return resp.json()
+    return await approve(client, resp.json()["id"]) if approved else resp.json()
 
 
 @pytest.mark.asyncio
-async def test_owner_filter_includes_inactive_shops(client):
+async def test_owner_filter_includes_inactive_shops_for_their_owner(client):
     mine = await make_shop(client)
     await make_shop(client, owner="owner-2", name="Other")
     await client.put(f"/api/v1/shops/{mine['id']}", json={"is_active": False}, headers=OWNER)
 
-    owned = (await client.get("/api/v1/shops", params={"owner_id": "owner-1"})).json()
-    assert [s["id"] for s in owned] == [mine["id"]]
+    for headers in (OWNER, ADMIN):
+        owned = (await client.get("/api/v1/shops", params={"owner_id": "owner-1"}, headers=headers)).json()
+        assert [s["id"] for s in owned] == [mine["id"]]
+    # Anyone else filtering by that owner sees only what customers may find.
+    for headers in ({}, OTHER):
+        assert (await client.get("/api/v1/shops", params={"owner_id": "owner-1"}, headers=headers)).json() == []
     public = (await client.get("/api/v1/shops")).json()
     assert mine["id"] not in [s["id"] for s in public]
 

@@ -40,7 +40,10 @@ async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
 
 
 async def _get_json(base_url: str, path: str, token: Optional[str] = None) -> Optional[dict]:
-    headers = {"Authorization": f"Bearer {token}"} if token else None
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    # Platform services also see shops that are not public yet (awaiting approval).
+    if settings.INTERNAL_API_KEY:
+        headers["X-Internal-Key"] = settings.INTERNAL_API_KEY
     async with httpx.AsyncClient(base_url=base_url, timeout=5.0) as client:
         try:
             resp = await client.get(path, headers=headers)

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/utils/helpers.dart';
@@ -11,9 +12,13 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../help/presentation/help_support_page.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
+import 'display_settings.dart';
 import 'edit_profile_page.dart';
+import 'legal_section.dart';
+import '../../../../l10n/l10n.dart';
 
 class ProfilePage extends StatefulWidget {
   final User user;
@@ -46,11 +51,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Log out?'),
-        content: const Text("You'll need to sign in again to book or see your bookings."),
+        title: Text(context.l10n.logoutQuestion),
+        content: Text(context.l10n.logoutBody),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Log out')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(context.l10n.logout)),
         ],
       ),
     );
@@ -63,10 +68,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final password = await showDialog<String>(context: context, builder: (_) => const _DeleteAccountDialog());
     if (password == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
+    final deleted = context.l10n.accountDeleted;
     final auth = context.read<AuthBloc>();
     try {
       await sl<ProfileApi>().deleteAccount(password);
-      messenger.showSnackBar(const SnackBar(content: Text('Your account has been deleted.')));
+      messenger.showSnackBar(SnackBar(content: Text(deleted)));
       auth.add(const LogoutRequested());
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
@@ -76,47 +82,55 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
+    final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: Text(l10n.profileTitle)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
             CircleAvatar(
               radius: 44,
-              backgroundColor: AppColors.primaryLight,
+              backgroundColor: context.colors.primaryContainer,
               child: _name.trim().isEmpty
-                  ? const Icon(Icons.person, size: 44, color: AppColors.primary)
-                  : Text(AppHelpers.initials(_name), style: AppTextStyles.heading2.copyWith(color: AppColors.primary)),
+                  ? Icon(Icons.person, size: 44, color: context.colors.primary)
+                  : Text(AppHelpers.initials(_name), style: AppTextStyles.heading2.copyWith(color: context.colors.primary)),
             ),
             const SizedBox(height: 12),
             Text(_name, style: AppTextStyles.heading3),
-            if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2),
-            if (user.email != null) Text(user.email!, style: AppTextStyles.body2),
+            if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2.themed(context)),
+            if (user.email != null) Text(user.email!, style: AppTextStyles.body2.themed(context)),
             const SizedBox(height: 24),
-            _ProfileMenuItem(icon: Icons.edit_outlined, label: 'Edit Profile', onTap: _editProfile),
-            _ProfileMenuItem(icon: Icons.history, label: 'My Bookings', onTap: widget.onOpenBookings),
+            _ProfileMenuItem(icon: Icons.edit_outlined, label: l10n.editProfile, onTap: _editProfile),
+            _ProfileMenuItem(icon: Icons.history, label: l10n.myBookings, onTap: widget.onOpenBookings),
             _ProfileMenuItem(
               icon: Icons.location_on_outlined,
-              label: 'Saved addresses',
+              label: l10n.savedAddresses,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesPage())),
             ),
             _ProfileMenuItem(
               icon: Icons.notifications_outlined,
-              label: 'Notifications',
+              label: l10n.notifications,
               onTap: widget.onOpenNotifications,
             ),
+            const DisplaySettings(),
+            _ProfileMenuItem(
+              icon: Icons.help_outline,
+              label: l10n.helpTitle,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportPage())),
+            ),
+            LegalSection(userId: user.id),
             const SizedBox(height: 16),
             CustomButton(
-              label: 'Log out',
+              label: l10n.logout,
               variant: ButtonVariant.secondary,
               onPressed: _confirmLogout,
             ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: _deleteAccount,
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
-              child: const Text('Delete my account'),
+              style: TextButton.styleFrom(foregroundColor: context.colors.error),
+              child: Text(l10n.deleteMyAccount),
             ),
           ],
         ),
@@ -135,9 +149,9 @@ class _ProfileMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: AppColors.textSecondary),
+      leading: Icon(icon, color: context.palette.muted),
       title: Text(label, style: AppTextStyles.body1),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+      trailing: Icon(Icons.chevron_right, color: context.palette.muted),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
     );
@@ -166,15 +180,14 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Delete your account?'),
+      title: Text(context.l10n.deleteAccountQuestion),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Your profile, saved addresses and sign-in are removed and cannot be recovered. '
-            'Past bookings and payments are kept without your name for the shops\' records.',
-            style: AppTextStyles.body2,
+          Text(
+            context.l10n.deleteAccountBody,
+            style: AppTextStyles.body2.themed(context),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -183,9 +196,9 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
             autofillHints: const [AutofillHints.password],
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: 'Enter your password to confirm',
+              labelText: context.l10n.enterPasswordConfirm,
               suffixIcon: IconButton(
-                tooltip: _obscure ? 'Show password' : 'Hide password',
+                tooltip: _obscure ? context.l10n.showPassword : context.l10n.hidePassword,
                 icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
@@ -194,11 +207,11 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         TextButton(
           onPressed: _password.text.isEmpty ? null : () => Navigator.pop(context, _password.text),
-          style: TextButton.styleFrom(foregroundColor: AppColors.error),
-          child: const Text('Delete account'),
+          style: TextButton.styleFrom(foregroundColor: context.colors.error),
+          child: Text(context.l10n.deleteAccount),
         ),
       ],
     );

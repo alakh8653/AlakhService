@@ -3,6 +3,7 @@ import apiClient from '../apiClient';
 import {
   callNext,
   completeEntry,
+  customerLabel,
   getQueues,
   getWaiting,
   markNoShow,
@@ -93,5 +94,11 @@ describe('queueService', () => {
       ['c2', 'WAITING', 1],
     ]);
     expect(api.get).toHaveBeenCalledWith('/queues/q1/entries');
+  });
+
+  it('names people in the queue by display name, else by a short id', () => {
+    expect(customerLabel({ customerId: 'abcdef123456', customerDisplayName: 'Ravi S.' })).toBe('Ravi S.');
+    expect(customerLabel({ customerId: 'abcdef123456', customerDisplayName: 'Customer' })).toBe('Customer ABCDEF12');
+    expect(customerLabel({ customerId: 'abcdef123456' })).toBe('Customer ABCDEF12');
   });
 });

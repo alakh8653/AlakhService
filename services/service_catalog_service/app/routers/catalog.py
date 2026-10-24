@@ -1,17 +1,21 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ServiceListingNotFoundError
 from app.database import get_db
 from app.dependencies import (
     Caller,
+    ListedLookup,
     OwnerLookup,
     ensure_shop_owner,
+    get_shop_listed_lookup,
     get_shop_owner_lookup,
     require_admin,
     require_caller,
+    require_internal,
 )
 from app.schemas.catalog import (
     CategoryCreate,
@@ -54,9 +58,10 @@ async def create_service(
     db: AsyncSession = Depends(get_db),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_listed: ListedLookup = Depends(get_shop_listed_lookup),
 ):
     await ensure_shop_owner(data.shop_id, caller, lookup_owner)
-    return await catalog_service.create_service(db, data)
+    return await catalog_service.create_service(db, data, shop_listed=await lookup_listed(data.shop_id))
 
 
 @router.get("/services/search", response_model=List[ServiceListingResponse])
@@ -91,3 +96,20 @@ async def update_service(
         return await catalog_service.update_service(db, service_id, data)
     except ServiceListingNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+class ShopListing(BaseModel):
+    listed: bool
+
+
+internal_router = APIRouter(dependencies=[Depends(require_internal)])
+
+
+@internal_router.post("/internal/shops/{shop_id}/listing")
+async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = Depends(get_db)):
+    """shop_service: the shop was approved, rejected, or switched on or off."""
+    return {
+        "shop_id": shop_id,
+        "listed": data.listed,
+        "changed": await catalog_service.set_shop_listed(db, shop_id, data.listed),
+    }

@@ -10,6 +10,7 @@ import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../data/profile_api.dart';
+import '../../../../l10n/l10n.dart';
 
 /// Edits the profile details kept by user_service. Pops with the saved name.
 class EditProfilePage extends StatefulWidget {
@@ -59,7 +60,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully')),
+        SnackBar(content: Text(context.l10n.profileUpdated)),
       );
       Navigator.pop(context, profile.fullName ?? _nameController.text.trim());
     } catch (e) {
@@ -74,7 +75,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profile')),
+      appBar: AppBar(title: Text(context.l10n.editProfile)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -82,11 +83,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Personal Information', style: AppTextStyles.subtitle1),
+              Text(context.l10n.personalInfo, style: AppTextStyles.subtitle1),
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _nameController,
-                label: 'Full Name',
+                label: context.l10n.fullName,
                 textCapitalization: TextCapitalization.words,
                 autofillHints: const [AutofillHints.name],
                 validator: Validators.name,
@@ -94,21 +95,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _bioController,
-                label: 'About you',
-                hint: 'Optional',
+                label: context.l10n.aboutYou,
+                hint: context.l10n.optional,
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _phoneController,
-                label: 'Phone Number',
-                helper: "Your sign-in number can't be changed here.",
+                label: context.l10n.phoneNumber,
+                helper: context.l10n.phoneCantChange,
                 readOnly: true,
               ),
               const SizedBox(height: 32),
               CustomButton(
-                label: 'Save Changes',
+                label: context.l10n.saveChanges,
                 onPressed: _isSaving ? null : _onSave,
                 isLoading: _isSaving,
               ),

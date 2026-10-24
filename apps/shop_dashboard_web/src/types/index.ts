@@ -22,6 +22,8 @@ export interface Booking {
   id: string;
   bookingNumber: string;
   customerId: string;
+  /** First name and last initial ("Ravi S."), or "Customer": shops never get a customer's phone or email. */
+  customerDisplayName: string;
   providerId: string | null;
   serviceId: string;
   shopId: string | null;
@@ -68,6 +70,34 @@ export interface StaffMember {
   createdAt: string;
 }
 
+/** One stretch of the day the shop is open, "HH:MM" in India time ("24:00" is midnight). */
+export interface OpenInterval {
+  start: string;
+  end: string;
+}
+
+export interface ShopHoliday {
+  date: string; // YYYY-MM-DD
+  note: string | null;
+}
+
+/** Opening hours, closures and capacity (shop_service), as customers can book against them. */
+export interface ShopHours {
+  /** False until the owner saves a week; until then customers may request any time. */
+  configured: boolean;
+  timezone: string;
+  /** Seven days, Monday first; an empty day is closed. */
+  weekly: OpenInterval[][];
+  /** Today and later, soonest first. */
+  holidays: ShopHoliday[];
+  /** How many customers can be served at the same time. */
+  capacity: number;
+  /** Set by the owner; null means one per active staff member. */
+  capacityOverride: number | null;
+  activeStaff: number;
+  updatedAt: string | null;
+}
+
 export interface Shop {
   id: string;
   ownerId: string;
@@ -86,7 +116,16 @@ export interface Shop {
   isActive: boolean;
   isVerified: boolean;
   createdAt: string;
+  /** KYC review: a new shop is hidden from customers until approved. Missing on older responses. */
+  verificationStatus?: VerificationStatus;
+  rejectionReason?: string | null;
+  legalName?: string | null;
+  legalAddress?: string | null;
+  gstin?: string | null;
+  submittedAt?: string | null;
 }
+
+export type VerificationStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
 
 export interface DailyRevenue {
   date: string; // 'YYYY-MM-DD'

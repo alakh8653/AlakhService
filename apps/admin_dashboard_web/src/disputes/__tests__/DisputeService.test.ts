@@ -1,8 +1,9 @@
 import adminApiClient from '../../apiClient';
-import { getDisputes, toDispute } from '../DisputeService';
+import { getDisputes, resolveDispute, toDispute } from '../DisputeService';
 
 vi.mock('../../apiClient', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 const get = vi.mocked(adminApiClient.get);
+const post = vi.mocked(adminApiClient.post);
 
 const record = {
   id: '3f2a9c1e-0000-4000-8000-000000000000',
@@ -35,5 +36,20 @@ describe('DisputeService', () => {
     expect(get).toHaveBeenCalledWith('/admin/disputes', { params: { status: 'OPEN', page: 3, per_page: 20 } });
     expect(result.total).toBe(41);
     expect(result.data[0].id).toBe(record.id);
+  });
+
+  it('sends the outcome, with an amount only for a partial refund', async () => {
+    post.mockResolvedValue({ data: { ...record, status: 'RESOLVED', outcome: 'REFUND_PARTIAL', refund_amount_cents: 500 } });
+    const resolved = await resolveDispute(record.id, 'Half', 'REFUND_PARTIAL', 500);
+    expect(post).toHaveBeenLastCalledWith(`/admin/disputes/${record.id}/resolve`, {
+      resolution: 'Half',
+      outcome: 'REFUND_PARTIAL',
+      amount_cents: 500,
+    });
+    expect([resolved.outcome, resolved.refundAmountCents]).toEqual(['REFUND_PARTIAL', 500]);
+    await resolveDispute(record.id, 'Shop wins', 'RELEASE_TO_SHOP', 999);
+    expect(post).toHaveBeenLastCalledWith(`/admin/disputes/${record.id}/resolve`, { resolution: 'Shop wins', outcome: 'RELEASE_TO_SHOP' });
+    await resolveDispute(record.id, 'Note');
+    expect(post).toHaveBeenLastCalledWith(`/admin/disputes/${record.id}/resolve`, { resolution: 'Note', outcome: 'NO_ACTION' });
   });
 });

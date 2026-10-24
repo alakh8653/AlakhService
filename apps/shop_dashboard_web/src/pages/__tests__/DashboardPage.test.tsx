@@ -20,6 +20,14 @@ const api = vi.hoisted(() => ({
   getShopSummary: vi.fn(),
   getServices: vi.fn(),
   getStaff: vi.fn(),
+  getReviewSummary: vi.fn(),
+  getReviews: vi.fn(),
+  getShopHours: vi.fn(),
+}));
+vi.mock('../../services/reviewService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/reviewService')>()),
+  getReviewSummary: api.getReviewSummary,
+  getReviews: api.getReviews,
 }));
 vi.mock('../../services/bookingService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/bookingService')>()),
@@ -30,6 +38,7 @@ vi.mock('../../services/shopService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/shopService')>()),
   getServices: api.getServices,
   getStaff: api.getStaff,
+  getShopHours: api.getShopHours,
 }));
 vi.mock('../../services/paymentService', () => ({ getBookingPayments: vi.fn().mockResolvedValue([]), confirmCashReceived: vi.fn() }));
 
@@ -37,7 +46,7 @@ const shop = { id: 's1', name: 'Asha Salon', isVerified: true, latitude: null, r
 const now = new Date();
 const at = (hours: number) => new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours).toISOString();
 const booking = (id: string, scheduledAt: string): Booking => ({
-  id, bookingNumber: `BK-${id}`, customerId: 'cust0001', providerId: null, serviceId: 'svc', shopId: 's1', status: 'CONFIRMED',
+  id, bookingNumber: `BK-${id}`, customerId: 'cust0001', customerDisplayName: 'Ravi S.', providerId: null, serviceId: 'svc', shopId: 's1', status: 'CONFIRMED',
   scheduledAt, durationMinutes: 30, serviceMode: 'AT_SHOP', itemDescription: null, readyBy: null, addressId: null,
   notes: null, totalAmount: 30000, createdAt: '', updatedAt: '',
 });
@@ -58,6 +67,9 @@ const renderPage = (page: React.ReactNode) =>
 beforeEach(() => {
   Object.values(api).forEach((f) => f.mockReset());
   api.getShopSummary.mockResolvedValue(summary());
+  api.getReviewSummary.mockResolvedValue({ averageRating: 0, reviewCount: 0, distribution: [] });
+  api.getReviews.mockResolvedValue({ items: [], total: 0 });
+  api.getShopHours.mockResolvedValue({ configured: true });
   store.dispatch(setCredentials({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 0 }, user: { id: 'u', name: 'Asha Rao', email: null, phone: null, role: 'shop_owner' }, shop }));
 });
 
@@ -82,17 +94,34 @@ describe('DashboardPage', () => {
     // Services and staff exist; only the map pin is left to do.
     expect(await screen.findByRole('link', { name: 'Pin your shop on the map so customers find you' })).toHaveAttribute('href', '/settings');
     expect(screen.queryByRole('link', { name: /Add the services/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Set opening hours/ })).not.toBeInTheDocument(); // already published
   });
 
   it('walks a new shop through setup and says when today is empty', async () => {
     api.getShopBookings.mockResolvedValue({ data: [], total: 0, page: 1, perPage: 100, totalPages: 0 });
     api.getServices.mockResolvedValue([]);
     api.getStaff.mockResolvedValue([]);
+    api.getShopHours.mockResolvedValue({ configured: false });
     renderPage(<DashboardPage />);
     expect(await screen.findByText('No bookings today.')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Add the services you offer, with prices' })).toHaveAttribute('href', '/services');
-    expect(screen.getByText('No ratings')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: "Set opening hours so customers book only when you're open" })).toHaveAttribute('href', '/hours');
+    expect(screen.getByText('No reviews yet')).toBeInTheDocument();
     expect(screen.queryByText(/waiting for you to confirm/)).not.toBeInTheDocument();
+  });
+
+  it('shows the live rating and how many reviews need a reply, linking to Reviews', async () => {
+    api.getShopBookings.mockResolvedValue({ data: [], total: 0, page: 1, perPage: 100, totalPages: 0 });
+    api.getServices.mockResolvedValue([]);
+    api.getStaff.mockResolvedValue([]);
+    api.getReviewSummary.mockResolvedValue({ averageRating: 4.6, reviewCount: 128, distribution: [] });
+    api.getReviews.mockResolvedValue({ items: [], total: 3 });
+    renderPage(<DashboardPage />);
+
+    const card = await screen.findByRole('link', { name: /4\.6 ★/ });
+    expect(card).toHaveAttribute('href', '/reviews');
+    expect(card).toHaveTextContent('128 reviews · 3 to reply to');
+    expect(api.getReviews).toHaveBeenCalledWith('s1', { needsReply: true, limit: 1 });
   });
 });
 

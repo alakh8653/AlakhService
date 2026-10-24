@@ -15,6 +15,7 @@ from app.core.exceptions import (
 )
 from app.core.observability import install_observability
 from app.routers.auth import router as auth_router
+from app.routers.legal import router as legal_router
 from app.routers.users import internal_router
 from app.routers.users import router as users_router
 
@@ -60,6 +61,7 @@ async def auth_error_handler(request: Request, exc: AuthServiceError):
 
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1", tags=["users"])
+app.include_router(legal_router, prefix="/api/v1", tags=["legal"])
 # Service-to-service only: outside /api/v1, so the gateway never forwards it.
 app.include_router(internal_router, tags=["internal"])
 

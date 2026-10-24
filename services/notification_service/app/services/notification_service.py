@@ -10,9 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels.email import EmailChannel
 from app.channels.in_app import InAppChannel
+from app.channels.msg91 import MSG91SMSChannel
 from app.channels.push import FCMChannel
 from app.channels.sms import TwilioSMSChannel
 from app.config import settings
+from app.core.contact import fetch_contact
+from app.core.events import CRITICAL_EVENTS, SHOP_EMAIL_EVENTS, render_sms
 from app.core.events import render as render_event
 from app.core.exceptions import NotificationNotFoundError, TemplateNotFoundError
 from app.models.notification import DeviceToken, Notification, NotificationPreference, NotificationTemplate
@@ -44,7 +47,65 @@ class NotificationService:
             settings.SMTP_PASSWORD,
             settings.SMTP_FROM_EMAIL,
             settings.SMTP_FROM_NAME,
+            settings.SMTP_USE_TLS,
         )
+
+    def _get_msg91(self) -> MSG91SMSChannel:
+        return MSG91SMSChannel(settings.MSG91_AUTH_KEY, settings.MSG91_SENDER_ID, settings.MSG91_API_URL)
+
+    @staticmethod
+    def _msg91_template(event: str) -> str:
+        # booking.confirmed -> MSG91_TEMPLATE_BOOKING_CONFIRMED
+        return getattr(settings, "MSG91_TEMPLATE_" + event.upper().replace(".", "_"), "") or ""
+
+    async def send_sms(self, to_number: str, body: str, event: str) -> bool:
+        """Texts [body] through SMS_PROVIDER; with MSG91 only events that have a DLT template id."""
+        provider = (settings.SMS_PROVIDER or "none").strip().lower()
+        if provider == "msg91":
+            return await self._get_msg91().send(to_number, body, self._msg91_template(event))
+        if provider == "twilio" and settings.TWILIO_ACCOUNT_SID and settings.TWILIO_FROM_NUMBER:
+            return await self._get_sms().send(to_number, body)
+        return False
+
+    async def send_email(self, to_email: str, subject: str, body: str) -> bool:
+        if not settings.SMTP_HOST:
+            return False
+        return await self._get_email().send(to_email, subject, body)
+
+    async def deliver_fallback(
+        self, user_id: str, event: str, role: Optional[str], title: str, body: str, data: dict, pushed: bool
+    ) -> Optional[str]:
+        """SMS or email for people the app cannot reach, after the event is recorded. Returns the channel used.
+
+        - A shop owner hears about every new booking, and the outcome of the shop's review, by email:
+          the shop dashboard has no push.
+        - Critical booking events (CRITICAL_EVENTS) go by SMS, or else email, to anyone with no push device.
+
+        Messages go to the recipient's OWN phone/email and never contain anyone else's (events.scrub).
+        """
+        shop_email = event in SHOP_EMAIL_EVENTS and role == "shop"
+        if not shop_email and (pushed or event not in CRITICAL_EVENTS):
+            return None
+        contact = await fetch_contact(user_id)
+        if not contact:
+            return None
+        if not shop_email and contact.get("phone"):
+            text = render_sms(event, data)
+            if text and await self.send_sms(contact["phone"], text, event):
+                return "sms"
+        if contact.get("email"):
+            email_body = f"{body}\n\n"
+            if shop_email:
+                action = "Please confirm or decline it" if event == "booking.created" else "See the details"
+                email_body += f"{action} in your shop dashboard"
+                email_body += f": {settings.SHOP_DASHBOARD_URL}\n" if settings.SHOP_DASHBOARD_URL else ".\n"
+            else:
+                email_body += "Open the AlakhService app for the details.\n"
+            email_body += "\nThis is an automatic message from AlakhService; replies are not read.\n"
+            if await self.send_email(contact["email"], f"AlakhService: {title}", email_body):
+                return "email"
+        log.info("notification_fallback_undelivered", notify_event=event, user_id=user_id)
+        return None
 
     async def check_quiet_hours(self, db: AsyncSession, user_id: str) -> bool:
         now_hour = datetime.now(timezone.utc).hour
@@ -183,8 +244,7 @@ class NotificationService:
             to_number = data.get("phone") or data.get("to_number")
             if not to_number:
                 return False
-            sms_ch = self._get_sms()
-            return await sms_ch.send(to_number, body)
+            return await self.send_sms(to_number, body, data.get("event", ""))
         return False
 
     async def notify_event(

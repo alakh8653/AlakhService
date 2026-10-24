@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
@@ -7,10 +8,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
-from app.models.shop import Shop, ShopRating
+from app.models.shop import APPROVED, PENDING_REVIEW, Shop, ShopRating
 from app.schemas.shop import ShopCreate, ShopUpdate
+from app.services.review_service import review_service
 
 log = structlog.get_logger()
+
+# What customers may find: approved by an admin and not closed by its owner.
+PUBLIC = (Shop.is_active == True, Shop.verification_status == APPROVED)
+
+
+def is_public(shop: Shop) -> bool:
+    return bool(shop.is_active) and shop.verification_status == APPROVED
 
 
 class ShopService:
@@ -30,7 +39,12 @@ class ShopService:
             rating_avg=0.0,
             rating_count=0,
             is_active=True,
+            # Hidden from customers until an admin has checked its documents.
             is_verified=False,
+            verification_status=PENDING_REVIEW,
+            legal_name=data.legal_name,
+            legal_address=data.legal_address,
+            gstin=data.gstin,
         )
         db.add(shop)
         await db.flush()
@@ -45,13 +59,25 @@ class ShopService:
         return shop
 
     async def list_shops(
-        self, db: AsyncSession, skip: int = 0, limit: int = 20, owner_id: Optional[str] = None
+        self,
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 20,
+        owner_id: Optional[str] = None,
+        include_hidden: bool = False,
     ) -> List[Shop]:
-        """Active shops; filtered by owner it also includes the owner's inactive shops."""
+        """Approved, active shops; include_hidden (the owner's own list) adds the rest of theirs."""
         query = select(Shop)
-        query = query.where(Shop.owner_id == owner_id) if owner_id else query.where(Shop.is_active == True)
+        if owner_id:
+            query = query.where(Shop.owner_id == owner_id)
+        if not (owner_id and include_hidden):
+            query = query.where(*PUBLIC)
         result = await db.execute(query.order_by(Shop.created_at, Shop.id).offset(skip).limit(limit))
         return list(result.scalars().all())
+
+    async def owner_has_shop(self, db: AsyncSession, owner_id: str) -> bool:
+        result = await db.execute(select(Shop.id).where(Shop.owner_id == owner_id).limit(1))
+        return result.first() is not None
 
     async def search_shops(
         self,
@@ -61,7 +87,7 @@ class ShopService:
         category: Optional[str] = None,
         limit: int = 20,
     ) -> List[Shop]:
-        stmt = select(Shop).where(Shop.is_active == True)
+        stmt = select(Shop).where(*PUBLIC)
         if city:
             stmt = stmt.where(Shop.city == city)
         if category:
@@ -96,20 +122,41 @@ class ShopService:
         return shop
 
     async def add_rating(
-        self, db: AsyncSession, shop_id: str, booking_id: str, customer_id: str, rating: float, comment=None
+        self,
+        db: AsyncSession,
+        shop_id: str,
+        booking_id: str,
+        customer_id: str,
+        rating: float,
+        comment=None,
+        service_id: Optional[str] = None,
+        reviewer_name: Optional[str] = None,
     ) -> Shop:
-        """Record a booking's rating once and fold it into the shop's average."""
+        """Record a booking's rating (and optional written review) once and refresh the shop's average."""
+        await self.get_shop(db, shop_id)
         existing = await db.execute(select(ShopRating).where(ShopRating.booking_id == booking_id))
         if existing.scalar_one_or_none() is not None:
             raise RatingExistsError()
         db.add(
-            ShopRating(shop_id=shop_id, booking_id=booking_id, customer_id=customer_id, rating=rating, comment=comment)
+            ShopRating(
+                shop_id=shop_id,
+                booking_id=booking_id,
+                customer_id=customer_id,
+                service_id=service_id,
+                reviewer_name=reviewer_name,
+                rating=rating,
+                comment=comment,
+                created_at=datetime.now(timezone.utc),
+            )
         )
         try:
-            return await self.update_rating(db, shop_id, rating)
+            await db.flush()
         except IntegrityError:  # the same booking rated concurrently
             await db.rollback()
             raise RatingExistsError() from None
+        shop = await review_service.refresh_shop_rating(db, shop_id)
+        log.info("shop_rated", shop_id=shop_id, new_avg=shop.rating_avg)
+        return shop
 
 
 shop_service = ShopService()

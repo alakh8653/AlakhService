@@ -4,6 +4,7 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../../shared/utils/phone.dart';
+import '../../../legal/data/legal_api.dart';
 import '../models/user_model.dart';
 
 /// Calls auth_service through the gateway. Every failure is a ServerException with a readable message.
@@ -11,7 +12,13 @@ abstract class AuthRemoteDataSource {
   /// Signs in with an email or phone number and password.
   Future<TokenPair> login({required String identifier, required String password});
 
-  Future<void> register({required String name, required String phone, required String password});
+  /// Creates the account; [acceptedTermsVersion] records which Terms the user agreed to.
+  Future<void> register({
+    required String name,
+    required String phone,
+    required String password,
+    String acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
+  });
 
   /// Sends a one-time code by SMS or email for 'registration', 'login' or 'password_reset'.
   Future<void> sendCode({required String identifier, required String purpose});
@@ -51,10 +58,21 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       });
 
   @override
-  Future<void> register({required String name, required String phone, required String password}) => _call(() async {
+  Future<void> register({
+    required String name,
+    required String phone,
+    required String password,
+    String acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
+  }) =>
+      _call(() async {
         await apiClient.post<dynamic>(
           ApiConstants.register,
-          data: {'full_name': name.trim(), 'phone': normalizePhone(phone), 'password': password},
+          data: {
+            'full_name': name.trim(),
+            'phone': normalizePhone(phone),
+            'password': password,
+            'accepted_terms_version': acceptedTermsVersion,
+          },
           options: ApiClient.anonymous,
         );
       });

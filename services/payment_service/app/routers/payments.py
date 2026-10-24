@@ -8,10 +8,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core import risk
 from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
+from app.core.peers import BookingSync, get_booking_sync
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
 from app.dependencies import (
@@ -58,6 +58,13 @@ def _report_risk_after(background: BackgroundTasks, event: Optional[str], paymen
     signal = risk.PAYMENT_SIGNALS.get(event)
     if signal:
         background.add_task(risk.report_risk, payment.payer_id, *signal)
+
+
+async def _sync_booking_after(
+    db: AsyncSession, background: BackgroundTasks, sync: BookingSync, booking_id: str
+) -> None:
+    """booking_service shows each booking's payment status; it is told after a payment or refund."""
+    background.add_task(sync.payment_status, booking_id, await payment_service.booking_payment_status(db, booking_id))
 
 
 def _with_checkout(payment: Payment, gateway: RazorpayGateway) -> PaymentCheckoutResponse:
@@ -108,6 +115,7 @@ async def initiate_payment(
         booking_id=checkout.booking_id,
         payer_id=payer_id,
         payee_id=payee_id,
+        shop_id=booking.get("shop_id"),
         amount_cents=booking["total_amount"],
         payment_method=checkout.payment_method,
         idempotency_key=checkout.idempotency_key,
@@ -144,6 +152,7 @@ async def verify_payment(
     current_user: dict = Depends(get_current_user),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
+    sync: BookingSync = Depends(get_booking_sync),
 ):
     """Confirms a checkout with the signature Razorpay gave the app; only a valid signature completes it."""
     payment = await payment_service.get_payment(db, payment_id)
@@ -162,6 +171,7 @@ async def verify_payment(
     if changed:
         background.add_task(notify_payment, notifier, changed, payment_snapshot(payment))
         _report_risk_after(background, changed, payment)
+        await _sync_booking_after(db, background, sync, payment.booking_id)
     return _with_checkout(payment, gateway)
 
 
@@ -206,6 +216,7 @@ async def confirm_cash_received(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     notifier: Notifier = Depends(get_notifier),
+    sync: BookingSync = Depends(get_booking_sync),
 ):
     """The shop (payee) confirms a cash payment was handed over, completing it."""
     payment = await payment_service.get_payment(db, payment_id)
@@ -225,6 +236,7 @@ async def confirm_cash_received(
     await db.commit()  # visible before anyone is told
     background.add_task(notify_payment, notifier, "payment.completed", payment_snapshot(payment))
     _report_risk_after(background, "payment.completed", payment)
+    await _sync_booking_after(db, background, sync, payment.booking_id)
     return payment
 
 
@@ -239,6 +251,7 @@ async def request_refund(
     notifier: Notifier = Depends(get_notifier),
     audit: AuditReporter = Depends(get_audit_reporter),
     origin: Origin = Depends(request_origin),
+    sync: BookingSync = Depends(get_booking_sync),
 ):
     """Refunds move money out of escrow, so they are issued by admins (e.g. resolving a dispute).
 
@@ -256,6 +269,7 @@ async def request_refund(
     background.add_task(
         notify_payment, notifier, "payment.refunded", {**payment_snapshot(payment), "amount_cents": refund.amount_cents}
     )
+    await _sync_booking_after(db, background, sync, payment.booking_id)
     background.add_task(
         audit.record,
         current_user["sub"],
@@ -320,6 +334,7 @@ async def razorpay_webhook(
     db: AsyncSession = Depends(get_db),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
+    sync: BookingSync = Depends(get_booking_sync),
 ):
     """Razorpay events, signed over the raw body with the webhook secret. Unsigned calls are refused."""
     if not gateway.webhook_secret:
@@ -329,7 +344,12 @@ async def razorpay_webhook(
         raise HTTPException(status_code=400, detail="Invalid signature")
     event = json.loads(body)
     if str(event.get("event", "")).startswith("refund."):
-        await payment_service.process_refund_event(db, event)
+        refund = await payment_service.process_refund_event(db, event)
+        if refund is not None:
+            payment = await payment_service.get_payment(db, refund.payment_id)
+            await db.commit()
+            if payment is not None:
+                await _sync_booking_after(db, background, sync, payment.booking_id)
         return {"status": "processed"}
     changed = await payment_service.process_razorpay_event(db, event, gateway)
     if changed:
@@ -337,29 +357,5 @@ async def razorpay_webhook(
         await db.commit()  # visible before anyone is told (the background task delays the session's commit)
         background.add_task(notify_payment, notifier, event, payment_snapshot(payment))
         _report_risk_after(background, event, payment)
-    return {"status": "processed"}
-
-
-@router.post("/webhooks/stripe")
-async def stripe_webhook(
-    request: Request,
-    background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    """Stripe events, accepted only with a valid Stripe-Signature."""
-    if not settings.STRIPE_WEBHOOK_SECRET:
-        raise HTTPException(status_code=503, detail="Stripe webhooks are not configured")
-    import stripe
-
-    body = await request.body()
-    try:
-        stripe.Webhook.construct_event(
-            body, request.headers.get("stripe-signature", ""), settings.STRIPE_WEBHOOK_SECRET
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid signature") from e
-    changed = await payment_service.process_stripe_event(db, json.loads(body))
-    if changed:
-        await db.commit()
-        _report_risk_after(background, *changed)
+        await _sync_booking_after(db, background, sync, payment.booking_id)
     return {"status": "processed"}

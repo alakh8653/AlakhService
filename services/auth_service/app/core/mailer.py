@@ -1,13 +1,13 @@
-"""Outgoing email for account messages (password reset links)."""
+"""Outgoing email and SMS for account messages (password reset links, one-time codes)."""
 
 from email.message import EmailMessage
 from urllib.parse import urlencode
 
 import aiosmtplib
-import httpx
 import structlog
 
 from app.config import settings
+from app.core import sms
 
 log = structlog.get_logger()
 
@@ -55,23 +55,17 @@ async def send_password_reset(user_id: str, to_email: str, name: str, token: str
 
 
 async def _send_sms(to_number: str, body: str) -> None:
-    """Send an SMS through Twilio's REST API."""
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.TWILIO_ACCOUNT_SID}/Messages.json"
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(
-            url,
-            data={"To": to_number, "From": settings.TWILIO_FROM_NUMBER, "Body": body},
-            auth=(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN),
-        )
-    resp.raise_for_status()
+    """Text a one-time code through SMS_PROVIDER (MSG91 with the OTP's DLT template, or Twilio)."""
+    await sms.send_sms(to_number, body, settings.MSG91_OTP_TEMPLATE_ID)
 
 
 async def send_otp_code(user_id: str, destination: str, code: str, purpose: str) -> None:
     """Deliver a one-time code by email or SMS. Runs after the response; failures are logged."""
     minutes = max(1, settings.OTP_EXPIRE_SECONDS // 60)
-    text = f"Your AlakhService code is {code}. It expires in {minutes} minutes. Never share it."
+    # The same words by email and SMS; for SMS they must match the DLT template (core/sms.py).
+    text = sms.OTP_SMS_TEXT.format(code=code, minutes=minutes)
     by_email = "@" in destination
-    configured = settings.SMTP_HOST if by_email else (settings.TWILIO_ACCOUNT_SID and settings.TWILIO_FROM_NUMBER)
+    configured = settings.SMTP_HOST if by_email else sms.configured()
     if not configured:
         if settings.LOG_OTP_CODES:
             log.warning("otp_code_for_local_testing", user_id=user_id, purpose=purpose, code=code)

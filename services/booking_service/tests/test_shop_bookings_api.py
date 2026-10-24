@@ -24,6 +24,7 @@ from app.database import Base, get_db
 from app.dependencies import (
     CouponRejected,
     get_coupon_pricer,
+    get_schedule_lookup,
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
@@ -63,6 +64,8 @@ class RecordingNotifier:
 
 
 TEST_DB = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Opening hours by shop as shop_service reports them; a shop not listed has not published any.
+SCHEDULES: dict = {}
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2"}
 STAFF = {"shop-1": {"staff-1", "staff-2"}}  # provider accounts of each shop's active staff
 LISTINGS = {
@@ -165,6 +168,12 @@ async def open_service():
     app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
     app.dependency_overrides[get_notifier] = RecordingNotifier
     app.dependency_overrides[get_coupon_pricer] = lambda: fake_pricer
+
+    async def fake_schedule(shop_id):
+        return SCHEDULES.get(shop_id, {"shop_id": shop_id, "configured": False, "weekly": [], "holidays": []})
+
+    app.dependency_overrides[get_schedule_lookup] = lambda: fake_schedule
+    SCHEDULES.clear()
     PRICED.clear()
     SESSIONS["factory"] = factory
     SENT.clear()

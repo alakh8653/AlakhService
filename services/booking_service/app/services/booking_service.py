@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.availability import CAPACITY_STATUSES, Span
 from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
@@ -103,6 +104,35 @@ class BookingService:
             await db.execute(
                 text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"booking:{customer_id}:{key}"}
             )
+
+    async def hold_shop_capacity(self, db: AsyncSession, shop_id: str) -> None:
+        """Makes bookings for one shop wait for each other until this transaction ends.
+
+        Otherwise two customers could both see the last place free and both take it. As with the
+        idempotency lock, only PostgreSQL has it.
+        """
+        if db.get_bind().dialect.name == "postgresql":
+            await db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"booking-capacity:{shop_id}"}
+            )
+
+    async def shop_spans(self, db: AsyncSession, shop_id: str, start: datetime, end: datetime) -> List[Span]:
+        """Start and end of the shop's bookings that hold a place at some time within [start, end)."""
+        # No booking runs longer than a day, so one that started more than a day before cannot reach [start].
+        result = await db.execute(
+            select(Booking.scheduled_at, Booking.duration_minutes).where(
+                Booking.shop_id == shop_id,
+                Booking.status.in_(CAPACITY_STATUSES),
+                Booking.scheduled_at >= start - timedelta(days=1),
+                Booking.scheduled_at < end,
+            )
+        )
+        spans = []
+        for at, minutes in result.all():
+            at = _utc(at)
+            if at + timedelta(minutes=minutes) > start:
+                spans.append((at, at + timedelta(minutes=minutes)))
+        return spans
 
     async def get_by_idempotency_key(self, db: AsyncSession, customer_id: str, key: str) -> Optional[Booking]:
         result = await db.execute(

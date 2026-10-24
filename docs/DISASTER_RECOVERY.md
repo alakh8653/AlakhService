@@ -39,6 +39,10 @@ CI runs the same scripts on every backend change (the **Backup & restore drill**
 
 ## Everyday commands
 
+On a production server deployed with docs/DEPLOYMENT.md, use the matching `prod-` targets
+(`make prod-backup`, `prod-verify-backup`, `prod-restore`, `prod-restore-in-place`): they read
+`.env.production` and the production compose file. The commands below are for a development stack.
+
 | Command | What it does |
 |---|---|
 | `make db-backup` | Back up now, then verify that backup |

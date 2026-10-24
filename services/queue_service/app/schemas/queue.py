@@ -48,6 +48,8 @@ class QueueEntryResponse(BaseModel):
     id: str
     queue_id: str
     customer_id: str
+    # What the shop calls the customer ("Ravi S."); never their phone, email or full name.
+    customer_display_name: str = "Customer"
     service_id: str
     priority: int
     weight: float

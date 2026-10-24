@@ -105,7 +105,7 @@ export default function BookingsPage() {
           serviceNames[b.serviceId] ?? shortId(b.serviceId),
           format(new Date(b.scheduledAt), 'yyyy-MM-dd HH:mm'),
           b.durationMinutes,
-          shortId(b.customerId),
+          b.customerDisplayName,
           staffName(b.providerId),
           b.itemDescription,
           (b.totalAmount / 100).toFixed(2),

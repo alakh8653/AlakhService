@@ -11,8 +11,8 @@ Generated with `flutter create` (Flutter 3.47) and configured for AlakhService.
 
 ## Permissions (`app/src/main/AndroidManifest.xml`)
 
-`INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `CAMERA`, `USE_BIOMETRIC`,
-`VIBRATE`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`.
+`INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `USE_BIOMETRIC`, `VIBRATE`,
+`POST_NOTIFICATIONS` (asked for at run time on Android 13+, see `PushService`).
 
 `MainActivity` extends `FlutterFragmentActivity`, which `local_auth` needs for the biometric prompt.
 

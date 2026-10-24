@@ -1,4 +1,6 @@
 import 'package:dartz/dartz.dart';
+
+import '../../../legal/data/legal_api.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
@@ -15,11 +17,16 @@ class AuthRepositoryImpl implements AuthRepository {
   final NetworkInfo networkInfo;
   final TokenStore tokens;
 
+  /// Runs at the start of [logout], while the session still works (e.g. to turn off this device's
+  /// push token). Failures are ignored: signing out must always succeed.
+  final Future<void> Function()? beforeSignOut;
+
   AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
     required this.tokens,
+    this.beforeSignOut,
   });
 
   Future<Either<Failure, T>> _online<T>(Future<T> Function() action) async {
@@ -49,9 +56,15 @@ class AuthRepositoryImpl implements AuthRepository {
     required String phone,
     required String password,
     required String role,
+    String acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
   }) =>
       _online(() async {
-        await remoteDataSource.register(name: name, phone: phone, password: password);
+        await remoteDataSource.register(
+          name: name,
+          phone: phone,
+          password: password,
+          acceptedTermsVersion: acceptedTermsVersion,
+        );
         await remoteDataSource.sendCode(identifier: phone, purpose: 'registration');
         return true;
       });
@@ -71,6 +84,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, bool>> logout() async {
+    try {
+      await beforeSignOut?.call();
+    } catch (_) {}
     final refresh = await tokens.refreshToken();
     if (refresh != null) {
       try {

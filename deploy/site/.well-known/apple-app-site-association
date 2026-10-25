@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.alakhservice.alakhService"],
+        "components": [
+          { "/": "/b/*", "comment": "A booking" },
+          { "/": "/reset-password", "?": { "token": "?*" }, "comment": "Password reset link" }
+        ]
+      }
+    ]
+  }
+}

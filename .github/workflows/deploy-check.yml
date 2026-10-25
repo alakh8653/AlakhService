@@ -1,0 +1,186 @@
+name: Deploy kit check
+
+# Validates the production deployment kit (docs/DEPLOYMENT.md) without deploying anything:
+# compose files, Caddyfile, preflight script, shell scripts, monitoring configs and alert rules.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "docker-compose*.yml"
+      - ".env.production.example"
+      - "deploy/**"
+      - "scripts/deploy/**"
+      - "scripts/backup/**"
+      - "apps/shop_dashboard_web/**"
+      - "apps/admin_dashboard_web/**"
+      - ".github/workflows/deploy-check.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "docker-compose*.yml"
+      - ".env.production.example"
+      - "deploy/**"
+      - "scripts/deploy/**"
+      - "scripts/backup/**"
+      - "apps/shop_dashboard_web/**"
+      - "apps/admin_dashboard_web/**"
+      - ".github/workflows/deploy-check.yml"
+
+permissions:
+  contents: read
+
+env:
+  # Keep in step with the image tags in docker-compose.prod.yml and deploy/caddy/Dockerfile.
+  CADDY_IMAGE: caddy:2.10-alpine
+  PROMETHEUS_IMAGE: prom/prometheus:v3.5.0
+  ALERTMANAGER_IMAGE: prom/alertmanager:v0.28.1
+
+jobs:
+  config:
+    name: Compose, preflight, scripts, Caddy and monitoring configs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Write test env files
+        run: |
+          scripts/deploy/make-test-env.sh good "$RUNNER_TEMP/good.env"
+          scripts/deploy/make-test-env.sh bad "$RUNNER_TEMP/bad.env"
+
+      - name: docker compose config (production, with and without monitoring)
+        run: |
+          compose() { docker compose --env-file "$RUNNER_TEMP/good.env" -f docker-compose.yml -f docker-compose.prod.yml "$@"; }
+          compose config --quiet
+          compose --profile monitoring config --quiet
+          # Only Caddy may listen on public interfaces.
+          compose --profile monitoring config --format json | python3 -c '
+          import json, sys
+          services = json.load(sys.stdin)["services"]
+          public = [(name, p.get("published")) for name, s in services.items() for p in s.get("ports", [])
+                    if p.get("host_ip") not in ("127.0.0.1", "::1")]
+          print("publicly published:", public)
+          assert all(name == "caddy" for name, _ in public), "only caddy may publish public ports"
+          '
+          # Without DOMAIN the production files must refuse to render.
+          grep -v '^DOMAIN=' "$RUNNER_TEMP/good.env" > "$RUNNER_TEMP/nodomain.env"
+          if docker compose --env-file "$RUNNER_TEMP/nodomain.env" -f docker-compose.yml -f docker-compose.prod.yml config --quiet 2>/dev/null; then
+            echo "::error::compose config should fail without DOMAIN"; exit 1
+          fi
+
+      - name: Preflight passes a complete env file
+        run: python3 scripts/deploy/preflight.py --env-file "$RUNNER_TEMP/good.env" --no-system
+
+      - name: Preflight rejects broken env files
+        run: |
+          expect_fail() {
+            if python3 scripts/deploy/preflight.py --env-file "$1" --no-system > "$RUNNER_TEMP/out.txt"; then
+              cat "$RUNNER_TEMP/out.txt"; echo "::error::preflight accepted $2"; exit 1
+            fi
+            grep -q "$3" "$RUNNER_TEMP/out.txt" || { cat "$RUNNER_TEMP/out.txt"; echo "::error::expected '$3' for $2"; exit 1; }
+            echo "rejected as expected: $2"
+          }
+          expect_fail "$RUNNER_TEMP/bad.env" "the unfilled example" "still holds a placeholder"
+          variant() { sed "$1" "$RUNNER_TEMP/good.env" > "$RUNNER_TEMP/variant.env"; chmod 600 "$RUNNER_TEMP/variant.env"; }
+          variant 's/^JWT_SECRET_KEY=.*/JWT_SECRET_KEY=tooshort/'
+          expect_fail "$RUNNER_TEMP/variant.env" "a short JWT secret" "needs at least 32"
+          variant 's|^CORS_ORIGINS=.*|CORS_ORIGINS=http://shop.alakh-ci.in,https://admin.alakh-ci.in|'
+          expect_fail "$RUNNER_TEMP/variant.env" "an http:// CORS origin" "must start with https://"
+          variant 's|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=abc@def/ghi:jklmnopq|'
+          expect_fail "$RUNNER_TEMP/variant.env" "a URL-unsafe database password" "inside a URL"
+          variant 's/^RAZORPAY_KEY_ID=.*/RAZORPAY_KEY_ID=rzp_live_abc/'
+          expect_fail "$RUNNER_TEMP/variant.env" "half-configured Razorpay" "half configured"
+          variant 's/^COMPOSE_PROFILES=.*/COMPOSE_PROFILES=monitoring/'
+          expect_fail "$RUNNER_TEMP/variant.env" "monitoring without a Grafana password" "GRAFANA_ADMIN_PASSWORD"
+          variant 's/^PLATFORM_GSTIN=.*/PLATFORM_GSTIN=NOTAGSTIN/; s/^PLATFORM_LEGAL_NAME=.*/PLATFORM_LEGAL_NAME=Alakh Pvt Ltd/; s/^PLATFORM_ADDRESS=.*/PLATFORM_ADDRESS=Pune/'
+          expect_fail "$RUNNER_TEMP/variant.env" "an invalid GSTIN" "not a valid GSTIN"
+
+      - name: Shellcheck
+        run: |
+          shellcheck --version
+          shellcheck scripts/deploy/*.sh
+          shellcheck -s sh deploy/monitoring/*/render-and-start.sh
+          bash -n scripts/deploy/deploy.sh
+
+      - name: Caddyfile validates
+        run: |
+          docker run --rm -e DOMAIN=alakh-ci.in -e ACME_EMAIL=ops@alakh-ci.in \
+            -e ADMIN_ALLOWED_IPS="203.0.113.7/32 198.51.100.0/24" \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" "$CADDY_IMAGE" \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm -e DOMAIN=alakh-ci.in -e ACME_EMAIL=ops@alakh-ci.in \
+            -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" "$CADDY_IMAGE" \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Prometheus config and alert rules
+        run: |
+          mkdir -p "$RUNNER_TEMP/prom"
+          sed 's/__DOMAIN__/alakh-ci.in/g' deploy/monitoring/prometheus/prometheus.yml > "$RUNNER_TEMP/prom/prometheus.yml"
+          echo test-token > "$RUNNER_TEMP/prom/metrics_token"
+          docker run --rm --entrypoint /bin/sh \
+            -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" -v "$RUNNER_TEMP/prom:/tmp/prom:ro" \
+            "$PROMETHEUS_IMAGE" -c '
+              sed "s|/tmp/metrics_token|/tmp/prom/metrics_token|" /tmp/prom/prometheus.yml > /tmp/p.yml &&
+              promtool check config /tmp/p.yml &&
+              cd /etc/prometheus && promtool test rules alerts.test.yml'
+
+      - name: Alertmanager config renders and validates
+        run: |
+          OUT="$RUNNER_TEMP/am-none.yml" sh deploy/monitoring/alertmanager/render-and-start.sh --render-only
+          OUT="$RUNNER_TEMP/am-all.yml" ALERT_EMAIL_TO=ops@alakh-ci.in SMTP_HOST=smtp.example.net \
+            SMTP_USERNAME=ops@alakh-ci.in SMTP_PASSWORD="p'ss" TELEGRAM_BOT_TOKEN=123:abc TELEGRAM_CHAT_ID=-100123 \
+            sh deploy/monitoring/alertmanager/render-and-start.sh --render-only
+          # The rendered files hold secrets, so they are readable by their owner only (umask 077):
+          # run amtool as that user rather than the image's own (nobody).
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint amtool -v "$RUNNER_TEMP:/cfg:ro" "$ALERTMANAGER_IMAGE" \
+            check-config /cfg/am-none.yml /cfg/am-all.yml
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: YAML and JSON parse
+        run: |
+          pip install --quiet pyyaml
+          python3 - <<'EOF'
+          import glob, json, yaml
+          files = glob.glob("deploy/**/*.yml", recursive=True) + glob.glob(".github/workflows/*.yml")
+          for f in files:
+              yaml.safe_load(open(f))
+          for f in glob.glob("deploy/**/*.json", recursive=True):
+              json.load(open(f))
+          # App-link files of the public site (hidden folder, so not matched above).
+          links = json.load(open("deploy/site/.well-known/assetlinks.json"))
+          assert links[0]["target"]["package_name"] == "com.alakhservice.alakh_service"
+          json.load(open("deploy/site/.well-known/apple-app-site-association"))
+          print(f"{len(files)} YAML files, the Grafana dashboards and the app-link files parse")
+          EOF
+
+      - name: Public site pages are present and self-contained
+        run: |
+          for page in index terms privacy refunds grievance delete-account open-app reset-password 404; do
+            test -f "deploy/site/$page.html" || { echo "::error::deploy/site/$page.html is missing"; exit 1; }
+          done
+          # The site's CSP allows no inline scripts or styles, and no third-party hosts.
+          if grep -nE '<script>|<script [^>]*>[^<]|style="|https?://[^"]*\.(js|css)' deploy/site/*.html; then
+            echo "::error::inline script/style or external asset in deploy/site (blocked by the CSP)"; exit 1
+          fi
+
+  proxy-image:
+    name: Build the Caddy + dashboards image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build deploy/caddy/Dockerfile
+        run: |
+          docker build -f deploy/caddy/Dockerfile \
+            --build-arg API_BASE_URL=https://api.alakh-ci.in/api/v1 -t alakh-caddy-ci .
+          # The API address must be baked into both dashboards.
+          docker run --rm --entrypoint sh alakh-caddy-ci -c '
+            for app in shop admin; do
+              test -f "/srv/$app/index.html" &&
+                grep -rq "https://api.alakh-ci.in/api/v1" "/srv/$app/assets" || { echo "$app: API URL missing"; exit 1; }
+            done'

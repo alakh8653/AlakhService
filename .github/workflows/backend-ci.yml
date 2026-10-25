@@ -1,0 +1,299 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - "ruff.toml"
+      - "scripts/backup/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/**"
+      - "ruff.toml"
+      - "scripts/backup/**"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint (configuration lives in ruff.toml at the repo root)
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Pinned so a new ruff release can't change formatting under everyone;
+      # keep in step with the ruff-pre-commit rev in .pre-commit-config.yaml.
+      - name: Install ruff
+        run: pip install ruff==0.17.1
+
+      - name: Run ruff
+        run: ruff check services --output-format=github
+
+      - name: Check formatting (fix with `make format-python`)
+        run: ruff format --check services
+
+  # ---------------------------------------------------------------------------
+  # API gateway (TypeScript)
+  # ---------------------------------------------------------------------------
+  gateway:
+    name: API gateway — lint / test / build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api_gateway
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/api_gateway/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test -- --coverage
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Security Scan
+  # ---------------------------------------------------------------------------
+  security:
+    name: Security Scan (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install bandit
+        run: pip install "bandit[toml]"
+
+      - name: Run bandit
+        run: |
+          bandit -r services/ \
+            -x "*/tests/*" \
+            --severity-level medium \
+            --confidence-level medium \
+            -f json \
+            -o bandit-report.json || true
+
+      - name: Upload bandit report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Test
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - admin_service
+          - analytics_service
+          - auth_service
+          - booking_service
+          - compliance_service
+          - dispute_service
+          - notification_service
+          - payment_service
+          - pricing_engine
+          - queue_service
+          - service_catalog_service
+          - shop_service
+          - tracking_service
+          - trust_risk_service
+          - user_service
+
+    env:
+      # dispatch_service, catalog_service and the legacy backend/ are deprecated (see their DEPRECATED.md)
+      # and no longer tested.
+      SERVICE_DIR: services/${{ matrix.service }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.SERVICE_DIR }}/requirements*.txt
+
+      - name: Install dependencies
+        working-directory: ${{ env.SERVICE_DIR }}
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx aiosqlite
+
+      - name: Apply migrations and check they match the models
+        working-directory: ${{ env.SERVICE_DIR }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          JWT_SECRET_KEY: test-secret-key
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Run tests with coverage
+        working-directory: ${{ env.SERVICE_DIR }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          # Tests that read TEST_DATABASE_URL run against PostgreSQL instead of SQLite.
+          TEST_DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: test-secret-key
+          ENVIRONMENT: test
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --junitxml=junit.xml \
+            -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ env.SERVICE_DIR }}/coverage.xml
+          retention-days: 14
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results-${{ matrix.service }}
+          path: ${{ env.SERVICE_DIR }}/junit.xml
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Disaster-recovery drill: back up, prove the backup restores, lose data, get it back
+  # ---------------------------------------------------------------------------
+  backup-drill:
+    name: Backup & restore drill
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_PASSWORD: drill
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U drill" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: drill
+      PGPASSWORD: drill
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create databases with data
+        run: |
+          # The scripts run in the same image as the compose backup service (its sh and busybox).
+          cat > /tmp/pg.sh <<'SH'
+          pg() {
+            docker run --rm --network host -e PGHOST -e PGUSER -e PGPASSWORD \
+              -v "$GITHUB_WORKSPACE/scripts/backup:/scripts:ro" -v /tmp/backups:/backups postgres:16-alpine "$@"
+          }
+          SH
+          . /tmp/pg.sh
+          for db in booking_db payment_db; do
+            pg psql -d postgres -c "create database $db"
+            pg psql -d $db -c "create table alembic_version (version_num varchar(32) primary key); insert into alembic_version values ('drill1');
+              create table records (id serial primary key, body text, amount int);
+              insert into records (body, amount) select md5(g::text), g from generate_series(1, 5000) g;"
+          done
+
+      - name: Back up and verify
+        run: |
+          . /tmp/pg.sh
+          pg /scripts/backup.sh
+          pg /scripts/verify.sh
+
+      - name: Lose data, restore it, compare
+        run: |
+          . /tmp/pg.sh
+          fingerprint() { pg psql -d booking_db -Atc "select count(*), sum(amount), md5(string_agg(body, '' order by id)) from records"; }
+          before=$(fingerprint)
+          pg psql -d booking_db -c "delete from records where id % 2 = 0"
+          [ "$(fingerprint)" != "$before" ]
+          latest=$(cat /tmp/backups/LATEST)
+          # Refuses to overwrite without --yes, and refuses a tampered backup.
+          ! pg /scripts/restore.sh --in-place "/backups/$latest" booking_db
+          sudo cp -r "/tmp/backups/$latest" /tmp/backups/tampered && echo x | sudo tee -a /tmp/backups/tampered/booking_db.dump > /dev/null
+          ! pg /scripts/restore.sh --in-place --yes /backups/tampered booking_db
+          pg /scripts/restore.sh --in-place --yes "/backups/$latest" booking_db
+          [ "$(fingerprint)" = "$before" ] && echo "restored: $before"
+

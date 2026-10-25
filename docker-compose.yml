@@ -1,0 +1,400 @@
+# =============================================================================
+# AlakhService — Docker Compose Orchestration
+# Starts PostgreSQL, Redis and every Python microservice for local development.
+#
+#   docker compose up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build   # hot reload
+#
+# Each service gets its own database (created by infra/postgres/init-databases.sql)
+# and applies its Alembic migrations (services/<name>/migrations) on start-up.
+#
+# Only the API gateway (port 3000) listens on every interface. PostgreSQL, Redis and the
+# services are published on 127.0.0.1 for local debugging, because most services rely on
+# the gateway for authentication. Set SERVICE_BIND_ADDRESS to change that, never to expose
+# them publicly.
+# =============================================================================
+
+x-python-service: &python-service
+  restart: unless-stopped
+  networks:
+    - alakhservice_network
+  env_file:
+    - path: .env
+      required: false
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+  # Apply this service's Alembic migrations, then start the API.
+  command:
+    - sh
+    - -c
+    - alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $${UVICORN_EXTRA_ARGS:-}
+
+x-service-env: &service-env
+  # Services that issue/verify JWTs read SECRET_KEY; one shared value across the stack.
+  SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  # Lets services call each other's /internal routes (booking -> notification, coupon redemption).
+  # The default only suits a laptop: production refuses to start without a random 32+ character key.
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: alakh_postgres
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-alakh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alakhpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-alakhservice_db}
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alakh} -d ${POSTGRES_DB:-alakhservice_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: alakh_redis
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    # Each service has its own database number (0-15, 8 is unused); 32 leaves room for more.
+    command: redis-server --appendonly yes --databases 32
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Scheduled, verified backups of every database (scripts/backup; see docs/DISASTER_RECOVERY.md).
+  backup:
+    image: postgres:16-alpine
+    container_name: alakh_backup
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-alakh}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-alakhpassword}
+      BACKUP_DIR: /backups
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_MIN_KEEP: ${BACKUP_MIN_KEEP:-3}
+      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
+    entrypoint: ["/scripts/schedule.sh"]
+    volumes:
+      - ./scripts/backup:/scripts:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    healthcheck:
+      # Healthy while the last verified backup is younger than two intervals.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /backups/.last_success 2>/dev/null || echo 0) )) -lt $$(( $${BACKUP_INTERVAL_HOURS:-24} * 7200 ))"]
+      interval: 5m
+      timeout: 10s
+      start_period: 15m
+      retries: 1
+
+  # ---------------------------------------------------------------------------
+  # Microservices (each listens on 8000 inside the network)
+  # ---------------------------------------------------------------------------
+
+  auth_service:
+    <<: *python-service
+    container_name: alakh_auth_service
+    build:
+      context: ./services/auth_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${AUTH_SERVICE_PORT:-8001}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/auth_db
+      REDIS_URL: redis://redis:6379/0
+      # Terms acceptance at sign-up is recorded in the consent register here.
+      COMPLIANCE_SERVICE_URL: http://compliance_service:8000
+      USER_SERVICE_URL: http://user_service:8000
+
+  user_service:
+    <<: *python-service
+    container_name: alakh_user_service
+    build:
+      context: ./services/user_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${USER_SERVICE_PORT:-8002}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/user_db
+      REDIS_URL: redis://redis:6379/1
+
+  shop_service:
+    <<: *python-service
+    container_name: alakh_shop_service
+    build:
+      context: ./services/shop_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${SHOP_SERVICE_PORT:-8003}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/shop_db
+      REDIS_URL: redis://redis:6379/2
+      BOOKING_SERVICE_URL: http://booking_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
+      ADMIN_SERVICE_URL: http://admin_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+    volumes:
+      # KYC documents shops upload (PAN, GST, bank proof); kept across image updates.
+      - shop_documents:/app/data/shop_documents
+
+  booking_service:
+    <<: *python-service
+    container_name: alakh_booking_service
+    build:
+      context: ./services/booking_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${BOOKING_SERVICE_PORT:-8004}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/booking_db
+      SHOP_SERVICE_URL: http://shop_service:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      REDIS_URL: redis://redis:6379/3
+
+  payment_service:
+    <<: *python-service
+    container_name: alakh_payment_service
+    build:
+      context: ./services/payment_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${PAYMENT_SERVICE_PORT:-8005}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/payment_db
+      REDIS_URL: redis://redis:6379/4
+      BOOKING_SERVICE_URL: http://booking_service:8000
+      SHOP_SERVICE_URL: http://shop_service:8000
+      # Online payments need the Razorpay keys; without them only cash is offered.
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+
+  notification_service:
+    <<: *python-service
+    container_name: alakh_notification_service
+    build:
+      context: ./services/notification_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${NOTIFICATION_SERVICE_PORT:-8006}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/notification_db
+      REDIS_URL: redis://redis:6379/5
+      # Push: path to the Firebase service-account JSON mounted into the container (optional).
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-}
+      # The recipient's own phone/email, for SMS and email when they have no app installed.
+      AUTH_SERVICE_URL: http://auth_service:8000
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+
+  tracking_service:
+    <<: *python-service
+    container_name: alakh_tracking_service
+    build:
+      context: ./services/tracking_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${TRACKING_SERVICE_PORT:-8007}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/tracking_db
+      REDIS_URL: redis://redis:6379/6
+      BOOKING_SERVICE_URL: http://booking_service:8000
+
+  queue_service:
+    <<: *python-service
+    container_name: alakh_queue_service
+    build:
+      context: ./services/queue_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${QUEUE_SERVICE_PORT:-8008}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/queue_db
+      REDIS_URL: redis://redis:6379/7
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+      SHOP_SERVICE_URL: http://shop_service:8000
+      AUTH_SERVICE_URL: http://auth_service:8000
+
+  analytics_service:
+    <<: *python-service
+    container_name: alakh_analytics_service
+    build:
+      context: ./services/analytics_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${ANALYTICS_SERVICE_PORT:-8010}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/analytics_db
+      REDIS_URL: redis://redis:6379/9
+
+  dispute_service:
+    <<: *python-service
+    container_name: alakh_dispute_service
+    build:
+      context: ./services/dispute_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${DISPUTE_SERVICE_PORT:-8011}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/dispute_db
+      REDIS_URL: redis://redis:6379/10
+      BOOKING_SERVICE_URL: http://booking_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+
+  trust_risk_service:
+    <<: *python-service
+    container_name: alakh_trust_risk_service
+    build:
+      context: ./services/trust_risk_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${TRUST_RISK_SERVICE_PORT:-8012}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/trust_risk_db
+      REDIS_URL: redis://redis:6379/11
+
+  admin_service:
+    <<: *python-service
+    container_name: alakh_admin_service
+    build:
+      context: ./services/admin_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${ADMIN_SERVICE_PORT:-8013}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/admin_db
+      REDIS_URL: redis://redis:6379/12
+
+  compliance_service:
+    <<: *python-service
+    container_name: alakh_compliance_service
+    build:
+      context: ./services/compliance_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${COMPLIANCE_SERVICE_PORT:-8014}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/compliance_db
+      REDIS_URL: redis://redis:6379/13
+
+  pricing_engine:
+    <<: *python-service
+    container_name: alakh_pricing_engine
+    build:
+      context: ./services/pricing_engine
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${PRICING_ENGINE_PORT:-8015}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/pricing_db
+      REDIS_URL: redis://redis:6379/14
+
+  service_catalog_service:
+    <<: *python-service
+    container_name: alakh_service_catalog_service
+    build:
+      context: ./services/service_catalog_service
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${SERVICE_CATALOG_PORT:-8016}:8000"
+    environment:
+      <<: *service-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/service_catalog_db
+      REDIS_URL: redis://redis:6379/15
+      SHOP_SERVICE_URL: http://shop_service:8000
+
+  # ---------------------------------------------------------------------------
+  # API Gateway (single entry point for the apps: http://localhost:3000/api/v1)
+  # ---------------------------------------------------------------------------
+
+  api_gateway:
+    container_name: alakh_api_gateway
+    build:
+      context: ./services/api_gateway
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    environment:
+      SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      AUTH_SERVICE_URL: http://auth_service:8000
+      USER_SERVICE_URL: http://user_service:8000
+      SHOP_SERVICE_URL: http://shop_service:8000
+      BOOKING_SERVICE_URL: http://booking_service:8000
+      PAYMENT_SERVICE_URL: http://payment_service:8000
+      NOTIFICATION_SERVICE_URL: http://notification_service:8000
+      TRACKING_SERVICE_URL: http://tracking_service:8000
+      QUEUE_SERVICE_URL: http://queue_service:8000
+      ANALYTICS_SERVICE_URL: http://analytics_service:8000
+      DISPUTE_SERVICE_URL: http://dispute_service:8000
+      TRUST_RISK_SERVICE_URL: http://trust_risk_service:8000
+      ADMIN_SERVICE_URL: http://admin_service:8000
+      COMPLIANCE_SERVICE_URL: http://compliance_service:8000
+      PRICING_ENGINE_URL: http://pricing_engine:8000
+      SERVICE_CATALOG_URL: http://service_catalog_service:8000
+    depends_on:
+      auth_service:
+        condition: service_healthy
+      user_service:
+        condition: service_healthy
+      service_catalog_service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: alakhservice_postgres_data
+  redis_data:
+    name: alakhservice_redis_data
+  shop_documents:
+    name: alakhservice_shop_documents
+
+networks:
+  alakhservice_network:
+    name: alakhservice_network
+    driver: bridge

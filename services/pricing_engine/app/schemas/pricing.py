@@ -1,0 +1,58 @@
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class PriceCalculationRequest(BaseModel):
+    service_id: str
+    customer_id: str
+    base_price_cents: int
+    customer_tier: str = "regular"
+    demand_level: float = 1.0
+    supply_level: float = 1.0
+    time_of_day: int = 12
+    coupon_code: Optional[str] = None
+
+
+class PriceCalculationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    service_id: str
+    customer_id: str
+    base_price_cents: int
+    final_price_cents: int
+    applied_rules: Optional[str] = None
+    demand_level: float
+    supply_level: float
+    coupon_code: Optional[str] = None
+    redeemed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class CouponCreate(BaseModel):
+    code: str = Field(min_length=3, max_length=50, pattern=r"^\s*[A-Za-z0-9_-]+\s*$")
+    # A fraction of the price: 0.10 is 10% off. The pricing rules cap a coupon at 50%.
+    discount_pct: float = Field(gt=0, le=0.5)
+    max_uses: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+
+
+class CouponResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    code: str
+    discount_pct: float
+    max_uses: Optional[int] = None
+    uses_count: int
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    is_active: bool
+
+
+class CouponValidateResponse(BaseModel):
+    code: str
+    is_valid: bool
+    discount_pct: float
+    message: str

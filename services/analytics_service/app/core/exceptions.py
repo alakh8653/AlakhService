@@ -1,0 +1,2 @@
+class AnalyticsServiceError(Exception):
+    pass

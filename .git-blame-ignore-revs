@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by `git blame` (GitHub does this automatically;
+# locally: git config blame.ignoreRevsFile .git-blame-ignore-revs).
+
+# style(python): apply ruff format to services/ and backend/
+3a4c0537c3fbc1ad2b5bfd762ba516069208449e

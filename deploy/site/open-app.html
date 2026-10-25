@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  Shown for app links (https://<DOMAIN>/b/<booking_id>) when the app is not installed, or the link was
+  opened somewhere that does not hand it to the app. With the app installed, Android (assetlinks.json)
+  and iOS (apple-app-site-association) open the app directly and this page is never seen.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Open in the AlakhService app</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="/">AlakhService</a>
+</div></header>
+
+<main class="wrap">
+  <h1>Open this in the AlakhService app</h1>
+  <p>This link opens your booking in the AlakhService app.</p>
+  <p lang="hi">यह लिंक AlakhService ऐप में आपकी बुकिंग खोलता है।</p>
+
+  <div class="card">
+    <h2 class="first">Have the app?</h2>
+    <p>Open AlakhService and go to <strong>My bookings</strong>, or tap the link again and choose
+      <strong>Open with AlakhService</strong>.</p>
+    <h2>Don't have it yet?</h2>
+    <a class="button" href="https://play.google.com/store/apps/details?id=com.alakhservice.alakh_service">Get it on Google Play</a>
+    <!-- Replace with the App Store link once the iOS app is published. -->
+    <a class="button secondary" href="#" aria-disabled="true">App Store (coming soon)</a>
+  </div>
+  <p>Shop owners: see your bookings in the <a href="/shop-dashboard">shop dashboard</a>.</p>
+</main>
+</body>
+</html>

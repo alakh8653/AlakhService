@@ -1,0 +1,36 @@
+import adminApiClient from '../../apiClient';
+import { couponState, createCoupon, getCoupons, type Coupon } from '../CouponService';
+
+vi.mock('../../apiClient', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+const get = vi.mocked(adminApiClient.get);
+const post = vi.mocked(adminApiClient.post);
+
+const record = {
+  id: 'c1', code: 'DIWALI25', discount_pct: 0.25, max_uses: 100, uses_count: 3,
+  valid_from: null, valid_to: '2026-11-15T00:00:00Z', is_active: true,
+};
+
+describe('CouponService', () => {
+  it('lists coupons', async () => {
+    get.mockResolvedValue({ data: [record] });
+    expect((await getCoupons())[0]).toMatchObject({ code: 'DIWALI25', discountPct: 25, usesCount: 3 });
+    expect(get).toHaveBeenCalledWith('/coupons');
+  });
+
+  it('creates a coupon with an upper-cased code', async () => {
+    post.mockResolvedValue({ data: record });
+    await createCoupon({ code: ' diwali25 ', discountPct: 25, maxUses: 100, validTo: '2026-11-15' });
+    expect(post).toHaveBeenCalledWith('/coupons', {
+      code: 'DIWALI25', discount_pct: 0.25, max_uses: 100, valid_to: '2026-11-15T18:29:59.999Z', // end of 15 Nov in IST
+    });
+  });
+
+  it('tells apart active, expired, used-up and switched-off coupons', () => {
+    const c: Coupon = { id: 'c', code: 'X', discountPct: 10, maxUses: 2, usesCount: 0, validFrom: null, validTo: '2026-11-15T18:29:59Z', isActive: true };
+    const now = new Date('2026-11-01T00:00:00Z');
+    expect(couponState(c, now)).toBe('active');
+    expect(couponState(c, new Date('2026-11-16T00:00:00Z'))).toBe('expired');
+    expect(couponState({ ...c, usesCount: 2 }, now)).toBe('used_up');
+    expect(couponState({ ...c, isActive: false }, now)).toBe('inactive');
+  });
+});

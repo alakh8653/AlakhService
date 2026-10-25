@@ -1,0 +1,84 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directories:
+      - /services/*
+    schedule:
+      interval: weekly
+    groups:
+      python-deps:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      python-deps:
+        patterns: ["*"]
+    ignore:
+      # celery[redis] (kombu) does not support redis-py 7+ yet
+      - dependency-name: redis
+        versions: [">=7"]
+
+  - package-ecosystem: npm
+    directory: /apps/shop_dashboard_web
+    schedule:
+      interval: weekly
+    groups:
+      npm-deps:
+        patterns: ["*"]
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1 only
+      - dependency-name: typescript
+        versions: [">=6.1"]
+      # keep Node type definitions on the Node major used in CI (22)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /apps/admin_dashboard_web
+    schedule:
+      interval: weekly
+    groups:
+      npm-deps:
+        patterns: ["*"]
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1 only
+      - dependency-name: typescript
+        versions: [">=6.1"]
+      # keep Node type definitions on the Node major used in CI (22)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /services/api_gateway
+    schedule:
+      interval: weekly
+    groups:
+      npm-deps:
+        patterns: ["*"]
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1 only
+      - dependency-name: typescript
+        versions: [">=6.1"]
+      # keep Node type definitions on the Node major used in CI (22)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: pub
+    directory: /apps/mobile_app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directories:
+      - /services/*
+      - /backend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

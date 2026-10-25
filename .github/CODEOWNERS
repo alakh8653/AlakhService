@@ -1,0 +1,13 @@
+# Global owners
+* @alakh8653
+
+# Services
+/services/auth_service/ @alakh8653
+/services/payment_service/ @alakh8653
+/services/ml_platform/ @alakh8653
+
+# Infrastructure
+/infra/ @alakh8653
+
+# Mobile
+/apps/mobile_app/ @alakh8653

@@ -1,0 +1,87 @@
+import 'package:equatable/equatable.dart';
+
+import '../../../legal/data/legal_api.dart';
+
+abstract class AuthEvent extends Equatable {
+  const AuthEvent();
+
+  @override
+  List<Object?> get props => [];
+}
+
+class LoginRequested extends AuthEvent {
+  final String phone;
+  final String password;
+
+  const LoginRequested({required this.phone, required this.password});
+
+  @override
+  List<Object> get props => [phone, password];
+}
+
+class RegisterRequested extends AuthEvent {
+  final String name;
+  final String phone;
+  final String password;
+  final String role;
+
+  /// The Terms version the user ticked to accept.
+  final String acceptedTermsVersion;
+
+  const RegisterRequested({
+    required this.name,
+    required this.phone,
+    required this.password,
+    required this.role,
+    this.acceptedTermsVersion = LegalLinks.fallbackTermsVersion,
+  });
+
+  @override
+  List<Object> get props => [name, phone, password, role, acceptedTermsVersion];
+}
+
+class OtpVerificationRequested extends AuthEvent {
+  final String phone;
+  final String otp;
+
+  /// 'registration' or 'login'.
+  final String purpose;
+
+  const OtpVerificationRequested({required this.phone, required this.otp, this.purpose = 'registration'});
+
+  @override
+  List<Object> get props => [phone, otp, purpose];
+}
+
+/// Sign in with a one-time code sent to [identifier] (a phone number or email) instead of a password.
+class OtpLoginRequested extends AuthEvent {
+  final String identifier;
+
+  const OtpLoginRequested(this.identifier);
+
+  @override
+  List<Object> get props => [identifier];
+}
+
+class LogoutRequested extends AuthEvent {
+  const LogoutRequested();
+}
+
+class CheckAuthStatus extends AuthEvent {
+  const CheckAuthStatus();
+}
+
+/// The stored session was rejected (refresh failed); the user must sign in again.
+class SessionExpired extends AuthEvent {
+  const SessionExpired();
+}
+
+class ResendOtpRequested extends AuthEvent {
+  final String phone;
+  final String purpose;
+
+  const ResendOtpRequested(this.phone, {this.purpose = 'registration'});
+
+  @override
+  List<Object> get props => [phone, purpose];
+}

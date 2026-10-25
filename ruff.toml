@@ -1,0 +1,20 @@
+# Shared Ruff config for the Python services (services/*) and the legacy backend/.
+target-version = "py311"
+line-length = 120
+extend-exclude = ["migrations", "alembic"]
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = [
+    "B008",  # FastAPI dependency injection uses calls in argument defaults (Depends/Query/...)
+    "E712",  # SQLAlchemy column expressions use `== True` / `== False`
+    "E501",  # line length is left to the formatter (ruff format; CI runs `ruff format --check`)
+]
+
+[lint.per-file-ignores]
+# Test modules adjust sys.path / env vars before importing the service under test.
+"**/tests/**" = ["E402"]
+"**/conftest.py" = ["E402"]
+
+[lint.isort]
+known-first-party = ["app"]

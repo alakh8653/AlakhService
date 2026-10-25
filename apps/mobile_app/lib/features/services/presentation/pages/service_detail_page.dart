@@ -1,0 +1,347 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/di/injection_container.dart';
+import '../../../../core/network/api_errors.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/utils/format.dart';
+import '../../../../shared/widgets/custom_button.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../booking/presentation/bloc/booking_bloc.dart';
+import '../../../booking/presentation/pages/booking_page.dart';
+import '../../../directions/data/shop_location_api.dart';
+import '../../../directions/data/travel_options.dart';
+import '../../../directions/presentation/how_to_get_there_sheet.dart';
+import '../../../queue/data/queue_api.dart';
+import '../../../queue/presentation/pages/queue_status_page.dart';
+import '../../../reviews/data/reviews_api.dart';
+import '../../../reviews/presentation/reviews_widgets.dart';
+import '../../../shops/data/shop_hours_api.dart';
+import '../../domain/entities/service_entity.dart';
+import '../../../../l10n/l10n.dart';
+
+class ServiceDetailPage extends StatefulWidget {
+  final ServiceEntity service;
+  final ShopLocationApi? shopApi;
+  final QueueApi? queueApi;
+  final ReviewsApi? reviewsApi;
+  final ShopHoursApi? hoursApi;
+
+  /// The current time (replaceable in tests).
+  final DateTime Function() clock;
+
+  const ServiceDetailPage({
+    super.key,
+    required this.service,
+    this.shopApi,
+    this.queueApi,
+    this.reviewsApi,
+    this.hoursApi,
+    this.clock = DateTime.now,
+  });
+
+  @override
+  State<ServiceDetailPage> createState() => _ServiceDetailPageState();
+}
+
+class _ServiceDetailPageState extends State<ServiceDetailPage> {
+  late final QueueApi _queueApi = widget.queueApi ?? sl<QueueApi>();
+  String? _openQueueId;
+  bool _joining = false;
+  // Who provides it: the shop's name and area, so the customer knows where they are booking.
+  Destination? _shop;
+  // What customers say about the shop, for choosing it.
+  late final ReviewsApi? _reviewsApi = service.shopId == null ? null : widget.reviewsApi ?? sl<ReviewsApi>();
+  RatingSummary? _summary;
+  // "Open now · closes 8 PM", once the shop's hours are in (none for a shop that hasn't published them).
+  ShopHours? _hours;
+
+  ServiceEntity get service => widget.service;
+
+  @override
+  void initState() {
+    super.initState();
+    // Walk-in queue, if the shop runs one for this service.
+    _queueApi.openQueueFor(service.id).then((id) {
+      if (mounted) setState(() => _openQueueId = id);
+    }).catchError((_) {});
+    final shopId = service.shopId;
+    if (shopId != null) {
+      (widget.shopApi ?? sl<ShopLocationApi>()).destination(shopId).then((shop) {
+        if (mounted) setState(() => _shop = shop);
+      }).catchError((Object _) {});
+      _reviewsApi!.summary(shopId).then((summary) {
+        if (mounted) setState(() => _summary = summary);
+      }).catchError((Object _) {});
+      // Only a line of extra information: if it can't be had, the page goes on without it.
+      Future(() => (widget.hoursApi ?? sl<ShopHoursApi>()).forShop(shopId)).then((hours) {
+        if (mounted) setState(() => _hours = hours);
+      }).catchError((Object _) {});
+    }
+  }
+
+  void _book() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider<BookingBloc>(
+          create: (_) => sl<BookingBloc>(),
+          child: BookingPage(
+            serviceId: service.id,
+            serviceName: service.name,
+            servicePrice: service.basePrice,
+            serviceModes: service.serviceModes,
+            homeVisitFee: service.homeVisitFee,
+            pickupFee: service.pickupFee,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _joinQueue() async {
+    final auth = context.read<AuthBloc>().state;
+    final queueId = _openQueueId;
+    if (auth is! Authenticated || queueId == null || _joining) return;
+    setState(() => _joining = true);
+    try {
+      final ticket = await _queueApi.join(queueId: queueId, serviceId: service.id, customerId: auth.user.id);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QueueStatusPage(ticket: ticket, customerId: auth.user.id, serviceName: service.name),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
+  }
+
+  Widget _placeholder() => Container(
+        color: context.colors.primaryContainer,
+        child: Icon(Icons.home_repair_service, size: 80, color: context.colors.primary),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final shop = _shop;
+    final atShop = service.serviceModes.contains(ServiceMode.atShop);
+    final rating = _summary?.average ?? service.rating;
+    final reviewCount = _summary?.count ?? service.reviewCount;
+    return Scaffold(
+      bottomNavigationBar: Material(
+        color: context.colors.surface,
+        elevation: 8,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!service.isAvailable)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      l10n.serviceNotTaking,
+                      style: AppTextStyles.caption.copyWith(color: context.colors.error),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.priceFrom, style: AppTextStyles.caption.themed(context)),
+                        Text(rupees(service.basePrice), style: AppTextStyles.heading3.copyWith(color: context.colors.primary)),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: CustomButton(label: l10n.bookNow, onPressed: service.isAvailable ? _book : null)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 200,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: service.imageUrl != null
+                  ? Image.network(service.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder())
+                  : _placeholder(),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(header: true, child: Text(service.name, style: AppTextStyles.heading2)),
+                  if (shop != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.storefront_outlined, size: 16, color: context.palette.muted),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            [shop.name, if (shop.address.isNotEmpty) shop.address].join(' · '),
+                            style: AppTextStyles.body2.themed(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (_hours case final hours?)
+                    if (openingSummary(hours, widget.clock(), l10n: l10n) case final open?) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule, size: 16, color: open.open ? context.palette.success : context.palette.muted),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            open.text,
+                            style: AppTextStyles.body2.themed(context).copyWith(
+                              color: open.open ? context.palette.success : context.palette.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 4,
+                    children: [
+                      if (service.durationMinutes != null && service.durationMinutes! > 0)
+                        _Fact(icon: Icons.schedule, text: l10n.aboutMinutes(service.durationMinutes!)),
+                      if (reviewCount > 0)
+                        Semantics(
+                          label: l10n.ratedSemantics(rating.toStringAsFixed(1), reviewCount),
+                          excludeSemantics: true,
+                          child: _Fact(
+                            icon: Icons.star,
+                            iconColor: AppColors.starFilled,
+                            text: '${rating.toStringAsFixed(1)} (${l10n.reviewsCount(reviewCount)})',
+                          ),
+                        )
+                      else
+                        _Fact(icon: Icons.star_border, text: l10n.ratingNewSemantics),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(l10n.howYouCanGetIt, style: AppTextStyles.subtitle1),
+                  const SizedBox(height: 8),
+                  for (final mode in service.serviceModes)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: CircleAvatar(
+                        backgroundColor: context.colors.primaryContainer,
+                        child: Icon(modeIcon(mode), color: context.colors.primary, size: 20),
+                      ),
+                      title: Text(
+                        switch (mode) {
+                          ServiceMode.atHome => l10n.modeAtYourPlace,
+                          ServiceMode.pickupDrop => l10n.modePickupDrop,
+                          _ => l10n.modeAtTheShop,
+                        },
+                        style: AppTextStyles.body1,
+                      ),
+                      subtitle: Text(modeExplanation(mode, l10n: l10n), style: AppTextStyles.caption.themed(context)),
+                      trailing: service.feeFor(mode) > 0
+                          ? Text('+${rupees(service.feeFor(mode))}', style: AppTextStyles.subtitle2.themed(context))
+                          : null,
+                    ),
+                  const SizedBox(height: 16),
+                  Text(l10n.aboutService, style: AppTextStyles.subtitle1),
+                  const SizedBox(height: 8),
+                  Text(
+                    service.description.isEmpty ? l10n.noDescription : service.description,
+                    style: AppTextStyles.body2.themed(context),
+                  ),
+                  if (service.tags.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      children: service.tags
+                          .map((t) => Chip(label: Text(t, style: AppTextStyles.caption.themed(context)), backgroundColor: context.colors.primaryContainer))
+                          .toList(),
+                    ),
+                  ],
+                  if (_reviewsApi != null && _summary != null) ...[
+                    const SizedBox(height: 24),
+                    ReviewsSection(shopId: service.shopId!, api: _reviewsApi!, summary: _summary, shopName: shop?.name),
+                  ],
+                  const SizedBox(height: 24),
+                  if (_openQueueId != null) ...[
+                    CustomButton(
+                      label: l10n.joinQueue,
+                      variant: ButtonVariant.outlined,
+                      leadingIcon: Icons.people_outline,
+                      isLoading: _joining,
+                      onPressed: _joining ? null : _joinQueue,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.joinQueueNote,
+                      style: AppTextStyles.caption.themed(context),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (service.shopId != null && atShop)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => showHowToGetThere(context, shopId: service.shopId!),
+                        icon: const Icon(Icons.directions),
+                        label: Text(l10n.howToGetThere),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Fact extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color? iconColor;
+
+  const _Fact({required this.icon, required this.text, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: iconColor ?? context.palette.muted),
+          const SizedBox(width: 4),
+          Flexible(child: Text(text, style: AppTextStyles.caption.themed(context))),
+        ],
+      );
+}

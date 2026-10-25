@@ -1,0 +1,49 @@
+from contextlib import asynccontextmanager
+
+import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.core.observability import install_observability
+from app.routers.finance import router as finance_router
+from app.routers.internal import router as internal_router
+from app.routers.money import admin_router as money_admin_router
+from app.routers.money import router as money_router
+from app.routers.payments import router as payments_router
+
+logger = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("payment_service_starting", service="payment_service")
+    yield
+    logger.info("payment_service_stopping", service="payment_service")
+
+
+app = FastAPI(
+    title="Payment Service",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+install_observability(app, service="payment_service", check_redis=True)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(money_router, prefix="/api/v1", tags=["earnings"])
+app.include_router(money_admin_router, prefix="/api/v1", tags=["admin-payments"])
+app.include_router(payments_router, prefix="/api/v1", tags=["payments"])
+app.include_router(internal_router, tags=["internal"])
+app.include_router(finance_router, prefix="/api/v1", tags=["finance"])
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "payment_service"}

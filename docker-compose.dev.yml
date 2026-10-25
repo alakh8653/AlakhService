@@ -1,0 +1,75 @@
+# Development overrides: mounts each service's source and enables uvicorn auto-reload.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+x-dev: &dev
+  environment:
+    UVICORN_EXTRA_ARGS: --reload
+
+services:
+  auth_service:
+    <<: *dev
+    volumes:
+      - ./services/auth_service:/app
+  user_service:
+    <<: *dev
+    volumes:
+      - ./services/user_service:/app
+  shop_service:
+    <<: *dev
+    volumes:
+      - ./services/shop_service:/app
+  booking_service:
+    <<: *dev
+    volumes:
+      - ./services/booking_service:/app
+  payment_service:
+    <<: *dev
+    volumes:
+      - ./services/payment_service:/app
+  notification_service:
+    <<: *dev
+    volumes:
+      - ./services/notification_service:/app
+  tracking_service:
+    <<: *dev
+    volumes:
+      - ./services/tracking_service:/app
+  queue_service:
+    <<: *dev
+    volumes:
+      - ./services/queue_service:/app
+  analytics_service:
+    <<: *dev
+    volumes:
+      - ./services/analytics_service:/app
+  dispute_service:
+    <<: *dev
+    volumes:
+      - ./services/dispute_service:/app
+  trust_risk_service:
+    <<: *dev
+    volumes:
+      - ./services/trust_risk_service:/app
+  admin_service:
+    <<: *dev
+    volumes:
+      - ./services/admin_service:/app
+  compliance_service:
+    <<: *dev
+    volumes:
+      - ./services/compliance_service:/app
+  pricing_engine:
+    <<: *dev
+    volumes:
+      - ./services/pricing_engine:/app
+  service_catalog_service:
+    <<: *dev
+    volumes:
+      - ./services/service_catalog_service:/app
+  api_gateway:
+    build:
+      context: ./services/api_gateway
+      target: dev
+    command: ["npx", "tsx", "watch", "src/server.ts"]
+    volumes:
+      - ./services/api_gateway/src:/app/src

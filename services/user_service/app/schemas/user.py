@@ -1,0 +1,148 @@
+from datetime import date, datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+def not_null(value):
+    """For partial updates of a column that always has a value: leave it out to keep it, but not null."""
+    if value is None:
+        raise ValueError("may be omitted but not null")
+    return value
+
+
+class UserProfileCreate(BaseModel):
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+
+    # Only for a value sent explicitly (defaults are not validated); null clears the other fields.
+    _required = field_validator("language", "timezone")(not_null)
+
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+
+    _required = field_validator("language", "timezone")(not_null)
+
+
+class UserProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    language: str
+    timezone: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserAddressCreate(BaseModel):
+    label: str
+    street: str
+    city: str
+    state: str
+    postal_code: str
+    country: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
+class UserAddressUpdate(BaseModel):
+    label: Optional[str] = None
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    _required = field_validator("label", "street", "city", "state", "postal_code", "country")(not_null)
+
+
+class UserAddressResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    label: str
+    street: str
+    city: str
+    state: str
+    postal_code: str
+    country: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserPreferencesUpdate(BaseModel):
+    notifications_enabled: Optional[bool] = None
+    push_enabled: Optional[bool] = None
+    email_enabled: Optional[bool] = None
+    sms_enabled: Optional[bool] = None
+    language: Optional[str] = None
+    currency: Optional[str] = None
+    theme: Optional[str] = None
+
+    # Every preference always has a value.
+    _required = field_validator("*")(not_null)
+
+
+class UserPreferencesResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    notifications_enabled: bool
+    push_enabled: bool
+    email_enabled: bool
+    sms_enabled: bool
+    language: str
+    currency: str
+    theme: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserDeviceCreate(BaseModel):
+    device_token: str
+    platform: Literal["ios", "android", "web"]
+    device_id: str
+
+
+class UserDeviceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    device_token: str
+    platform: str
+    device_id: str
+    is_active: bool
+    last_seen: Optional[datetime] = None
+    created_at: datetime
+
+
+class PaginatedResponse(BaseModel):
+    items: list
+    total: int
+    page: int
+    per_page: int
+    pages: int

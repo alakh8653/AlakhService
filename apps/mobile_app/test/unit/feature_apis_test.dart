@@ -1,0 +1,242 @@
+import 'package:alakh_service/core/constants/api_constants.dart';
+import 'package:alakh_service/core/network/api_client.dart';
+import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/booking/data/coupon_api.dart';
+import 'package:alakh_service/features/booking/data/dispute_api.dart';
+import 'package:alakh_service/features/booking/data/models/booking_model.dart';
+import 'package:alakh_service/features/booking/domain/entities/booking.dart';
+import 'package:alakh_service/features/payment/data/payment_api.dart';
+import 'package:alakh_service/features/profile/data/address_api.dart';
+import 'package:alakh_service/features/profile/data/profile_api.dart';
+import 'package:alakh_service/features/queue/data/queue_api.dart';
+import 'package:alakh_service/features/services/data/models/service_model.dart';
+import 'package:alakh_service/features/tracking/data/tracking_api.dart';
+import 'package:alakh_service/shared/utils/phone.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../support/fake_adapter.dart';
+
+Map<String, dynamic> bookingJson({String status = 'CONFIRMED', String? providerId, String? notes}) => {
+      'id': 'b1',
+      'booking_number': 'BK-1',
+      'customer_id': 'u1',
+      'service_id': 's1',
+      'provider_id': providerId,
+      'shop_id': 'shop1',
+      'status': status,
+      'scheduled_at': '2026-10-12T05:30:00Z',
+      'duration_minutes': 60,
+      'total_amount': 49900,
+      'notes': notes,
+      'created_at': '2026-10-11T05:30:00Z',
+    };
+
+void main() {
+  group('BookingModel', () {
+    test('reads paise as rupees and splits the address from the notes', () {
+      final b = BookingModel.fromJson(
+        bookingJson(notes: BookingModel.composeNotes(' 12 MG Road ', 'Ring the bell')),
+        serviceName: 'Haircut',
+      );
+
+      expect(b.totalAmount, 499.0);
+      expect(b.address, '12 MG Road');
+      expect(b.notes, 'Ring the bell');
+      expect(b.serviceName, 'Haircut');
+      expect(b.scheduledAt.toUtc(), DateTime.utc(2026, 10, 12, 5, 30));
+    });
+
+    test('actions follow the booking status', () {
+      final confirmed = BookingModel.fromJson(bookingJson());
+      expect(confirmed.canCancel, isTrue);
+      expect(confirmed.canPay, isTrue);
+      expect(confirmed.canTrack, isFalse);
+
+      final enRoute = BookingModel.fromJson(bookingJson(status: BookingStatus.enRoute, providerId: 'p1'));
+      expect(enRoute.canCancel, isFalse);
+      expect(enRoute.canTrack, isTrue);
+
+      final done = BookingModel.fromJson(bookingJson(status: BookingStatus.completed, providerId: 'p1'));
+      expect(done.canRate, isTrue);
+      expect(done.canTrack, isFalse);
+
+      expect(BookingModel.fromJson(bookingJson(status: BookingStatus.pending)).canPay, isFalse);
+      expect(done.canDispute, isTrue);
+      expect(confirmed.canDispute, isFalse);
+    });
+  });
+
+  test('ServiceModel reads catalogue prices in paise', () {
+    final s = ServiceModel.fromJson(const {
+      'id': 's1',
+      'shop_id': 'shop1',
+      'name': 'Haircut',
+      'description': 'Classic cut',
+      'category': 'salon',
+      'price_cents': 25000,
+      'duration_minutes': 30,
+      'is_active': true,
+    });
+
+    expect(s.basePrice, 250.0);
+    expect(s.priceUnit, '30 min');
+    expect(s.shopId, 'shop1');
+  });
+
+  test('phone numbers are normalised to E.164', () {
+    expect(normalizePhone('98765 43210'), '+919876543210');
+    expect(normalizePhone('+91 98765-43210'), '+919876543210');
+    expect(normalizeIdentifier('Me@Example.com '), 'me@example.com');
+  });
+
+  group('feature APIs', () {
+    test('payment sends only the booking, method and idempotency key', () async {
+      final adapter = FakeAdapter((_) => (status: 201, body: {'id': 'pay1', 'amount_cents': 49900, 'status': 'PENDING'}));
+      final api = PaymentApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final key = PaymentApi.newIdempotencyKey();
+      final result = await api.payForBooking(bookingId: 'b1', method: 'upi', idempotencyKey: key);
+
+      expect(adapter.requests.single.path, ApiConstants.initiatePayment);
+      expect(adapter.requests.single.data, {'booking_id': 'b1', 'payment_method': 'upi', 'idempotency_key': key});
+      expect(key.length, greaterThanOrEqualTo(8));
+      expect(result.amount, 499.0);
+      expect(result.status, 'PENDING');
+    });
+
+    test('tracking returns null until the provider shares a location', () async {
+      final adapter = FakeAdapter((_) => (status: 404, body: {'detail': 'No location'}));
+      final api = TrackingApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      expect(await api.providerLocation('p1'), isNull);
+    });
+
+    test('services and bookings say how they are delivered', () {
+      final repair = ServiceModel.fromJson(const {
+        'id': 's1', 'name': 'Bike service', 'price_cents': 99900, 'shop_id': 'sh1', 'is_active': true,
+        'service_modes': ['AT_SHOP', 'PICKUP_DROP'], 'pickup_fee_cents': 14900,
+      });
+      expect(repair.serviceModes, ['AT_SHOP', 'PICKUP_DROP']);
+      expect(repair.pickupFee, 149);
+      // Listings from before delivery modes are at the shop only.
+      final old = ServiceModel.fromJson(const {'id': 's2', 'name': 'Haircut', 'price_cents': 30000});
+      expect(old.serviceModes, ['AT_SHOP']);
+      expect(old.homeVisitFee, 0);
+
+      final booking = BookingModel.fromJson({
+        ...bookingJson(status: 'PICKED_UP'),
+        'service_mode': 'PICKUP_DROP',
+        'item_description': 'Honda Activa, brakes squeaking',
+      });
+      expect(booking.serviceMode, 'PICKUP_DROP');
+      expect(booking.itemDescription, 'Honda Activa, brakes squeaking');
+      expect(booking.canPay, isTrue); // payable while the item is with the shop
+      expect(BookingModel.fromJson(bookingJson()).serviceMode, 'AT_SHOP');
+    });
+
+    test('queue finds an open queue and reports position', () async {
+      final adapter = FakeAdapter((r) => r.path == ApiConstants.queues
+          ? (status: 200, body: [
+              {'id': 'q1'},
+            ])
+          : (status: 200, body: {'queue_id': 'q1', 'id': 'e1', 'position': 2, 'estimated_wait_minutes': 10}));
+      final api = QueueApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      expect(await api.openQueueFor('s1'), 'q1');
+      expect(adapter.requests.first.queryParameters, {'service_id': 's1'});
+      final ticket = await api.position(queueId: 'q1', customerId: 'u1');
+      expect(ticket!.position, 2);
+      expect(ticket.estimatedWaitMinutes, 10);
+    });
+
+    test('queue position reads people ahead, the expected call time and the called state', () async {
+      var body = <String, dynamic>{
+        'queue_id': 'q1',
+        'entry_id': 'e1',
+        'status': 'WAITING',
+        'position': 3,
+        'people_ahead': 2,
+        'estimated_wait_minutes': 30,
+        'estimated_call_at': '2026-10-16T05:40:00Z',
+      };
+      final adapter = FakeAdapter((_) => (status: 200, body: body));
+      final api = QueueApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final waiting = (await api.position(queueId: 'q1', customerId: 'u1'))!;
+      expect(waiting.entryId, 'e1');
+      expect(waiting.peopleAhead, 2);
+      expect(waiting.isCalled, isFalse);
+      expect(waiting.estimatedCallAt!.toUtc(), DateTime.utc(2026, 10, 16, 5, 40));
+
+      body = {...body, 'status': 'CALLED', 'position': 0, 'people_ahead': 0, 'estimated_wait_minutes': 0};
+      expect((await api.position(queueId: 'q1', customerId: 'u1'))!.isCalled, isTrue);
+    });
+
+    test('reporting a problem raises a dispute and marks the booking disputed', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: {}));
+      final api = DisputeApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      await api.report(bookingId: 'b1', type: 'no_show', description: 'Nobody came');
+
+      expect(adapter.requests.map((r) => '${r.method} ${r.path}'), ['POST /api/v1/disputes', 'PUT /api/v1/bookings/b1/status']);
+      expect(adapter.requests.first.data, {'booking_id': 'b1', 'dispute_type': 'no_show', 'description': 'Nobody came'});
+      expect(adapter.requests.last.data, {'status': 'DISPUTED'});
+    });
+
+    test('payments tell which bookings are already paid or due in cash', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: [
+            {'booking_id': 'b1', 'status': 'COMPLETED', 'payment_method': 'upi'},
+            {'booking_id': 'b1', 'status': 'CANCELLED', 'payment_method': 'cash'},
+            {'booking_id': 'b2', 'status': 'PENDING', 'payment_method': 'cash'},
+            {'booking_id': 'b3', 'status': 'PENDING', 'payment_method': 'upi'},
+          ]));
+      final api = PaymentApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+      expect(await api.paymentStateByBooking(), {'b1': 'paid', 'b2': 'cash'});
+      expect(adapter.requests.single.path, ApiConstants.payments);
+    });
+
+    test('coupons are checked before booking and the booking shows what was saved', () async {
+      final adapter = FakeAdapter((r) => r.path.contains('NOPE')
+          ? (status: 404, body: {'detail': 'Coupon not found'})
+          : (status: 200, body: {'code': 'WELCOME10', 'is_valid': true, 'discount_pct': 0.10, 'message': 'Coupon is valid'}));
+      final api = CouponApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final ok = await api.check(' welcome10 ');
+      expect((ok.code, ok.isValid, ok.discountPct.round()), ('WELCOME10', true, 10));
+      expect(adapter.requests.first.path, '/api/v1/coupons/WELCOME10/validate');
+      final missing = await api.check('nope');
+      expect((missing.isValid, missing.message), (false, 'Coupon not found'));
+
+      final booked = BookingModel.fromJson({...bookingJson(), 'total_amount': 44910, 'list_price': 49900, 'coupon_code': 'WELCOME10'});
+      expect((booked.totalAmount, booked.listPrice, booked.couponCode), (449.1, 499.0, 'WELCOME10'));
+    });
+
+    test('deleting the account sends the password to auth', () async {
+      final adapter = FakeAdapter((_) => (status: 200, body: {'message': 'Your account has been deleted'}));
+      await ProfileApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore())).deleteAccount('Passw0rd!');
+      expect(adapter.requests.single.path, '/api/v1/auth/delete-account');
+      expect(adapter.requests.single.data, {'password': 'Passw0rd!'});
+    });
+
+    test('saved addresses come default-first and add as Indian addresses', () async {
+      final adapter = FakeAdapter((r) => r.method == 'POST'
+          ? (status: 201, body: {'id': 'a3', 'label': 'Work', 'street': '5 Baner Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411045', 'is_default': false})
+          : (status: 200, body: [
+              {'id': 'a1', 'label': 'Gym', 'street': '1 FC Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411004', 'is_default': false},
+              {'id': 'a2', 'label': 'Home', 'street': '12 MG Road', 'city': 'Pune', 'state': 'MH', 'postal_code': '411001', 'is_default': true},
+            ]));
+      final api = AddressApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+
+      final saved = await api.list();
+      expect(saved.map((a) => a.label), ['Home', 'Gym']);
+      expect(saved.first.oneLine, '12 MG Road, Pune, MH 411001');
+
+      await api.add(label: 'Work', street: '5 Baner Rd', city: 'Pune', state: 'MH', postalCode: '411045');
+      expect(adapter.requests.last.data, {
+        'label': 'Work', 'street': '5 Baner Rd', 'city': 'Pune', 'state': 'MH', 'postal_code': '411045', 'country': 'India',
+      });
+      await api.makeDefault('a3');
+      expect(adapter.requests.last.path, '/api/v1/users/me/addresses/a3/default');
+    });
+  });
+}

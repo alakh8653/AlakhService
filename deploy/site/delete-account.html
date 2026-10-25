@@ -1,0 +1,72 @@
+<!doctype html>
+<!--
+  Account deletion on the web, linked from the Google Play listing ("Data deletion" URL) and the
+  privacy policy. It calls auth_service through Caddy on this same domain:
+    POST /api/v1/auth/send-otp            {phone_or_email, purpose: "delete_account"}
+    POST /api/v1/auth/delete-account/otp  {phone_or_email, code}
+  DRAFT wording – have a lawyer review the retention statement before going live.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delete your account – AlakhService</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/common.js" defer></script>
+  <script src="/delete-account.js" defer></script>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="/">AlakhService</a>
+  <nav><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/grievance">Grievance</a></nav>
+</div></header>
+
+<main class="wrap">
+  <h1>Delete your AlakhService account</h1>
+
+  <div class="summary-hi" lang="hi">
+    <h2>हिंदी में</h2>
+    <p>अपना रजिस्टर्ड ईमेल या मोबाइल नंबर डालें, आपको एक कोड भेजा जाएगा। कोड डालकर अपना खाता हमेशा के लिए
+      मिटा सकते हैं। यह वापस नहीं किया जा सकता।</p>
+  </div>
+
+  <p>You can also delete your account in the app: <strong>Profile → Delete account</strong>.</p>
+
+  <h2>What is deleted</h2>
+  <ul>
+    <li>Your profile, name, phone number, email, saved addresses and devices are erased straight away.</li>
+    <li>You are signed out everywhere, and the account can never be used again. You can sign up again later with the same email or phone.</li>
+    <li>Bookings, payments and invoices are kept under an anonymous id for 8 years, as tax law requires, and
+      so the Shop keeps its records. They no longer identify you.</li>
+  </ul>
+  <p>If you own a shop, settle any open bookings and payouts first, or contact support.</p>
+
+  <div class="card">
+    <form id="request-form" novalidate>
+      <label for="identifier">Email or mobile number on your account</label>
+      <input id="identifier" name="identifier" type="text" autocomplete="username" inputmode="email"
+             placeholder="you@example.com or +91 98765 43210" required>
+      <button type="submit">Send me a code</button>
+    </form>
+
+    <form id="confirm-form" novalidate hidden>
+      <p id="sent-to"></p>
+      <label for="code">Code</label>
+      <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+      <label class="check"><input id="sure" type="checkbox" required> I understand my account will be permanently deleted.</label>
+      <button type="submit" class="danger">Delete my account</button>
+      <button type="button" id="start-over" class="button secondary">Start over</button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </div>
+
+  <p>Need help? Email <span class="placeholder">[SUPPORT EMAIL]</span> or our <a href="/grievance">Grievance Officer</a>.</p>
+</main>
+
+<footer class="site"><div class="wrap">
+  <nav><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refunds">Refunds</a><a href="/grievance">Grievance</a><a href="/delete-account">Delete account</a></nav>
+  <p>© <span class="placeholder">[COMPANY LEGAL NAME]</span>, <span class="placeholder">[REGISTERED ADDRESS]</span>.</p>
+</div></footer>
+</body>
+</html>

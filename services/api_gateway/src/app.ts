@@ -36,6 +36,23 @@ export interface AppOptions {
 const AUTH_LIMITED =
   /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh|delete-account\/otp)$/;
 
+/**
+ * RedisStore loads its Lua script once, at startup, and keeps that promise. The gateway starts
+ * before its Redis client has connected, so the load fails and every later count would fail with
+ * it (and be let through) until a restart. Load the script again after a failure instead.
+ */
+class RecoveringRedisStore extends RedisStore {
+  override async increment(key: string) {
+    try {
+      return await super.increment(key);
+    } catch (err) {
+      this.incrementScriptSha = this.loadIncrementScript();
+      this.incrementScriptSha.catch(() => undefined); // surfaced by the next increment
+      throw err;
+    }
+  }
+}
+
 const defaultLog = (entry: LogEntry) => console.log(JSON.stringify({ msg: 'request', ...entry }));
 
 export function createApp(config: GatewayConfig, options: AppOptions = {}) {
@@ -61,7 +78,7 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
   // Shared across gateway instances when Redis is there; if Redis fails, requests are let through.
   const limitStore = (prefix: string): Store | undefined =>
     options.redis
-      ? new RedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })
+      ? new RecoveringRedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })
       : undefined;
 
   const app = express();

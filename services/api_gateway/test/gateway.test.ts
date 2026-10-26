@@ -284,6 +284,22 @@ describe('gateway', () => {
       expect((await request(app).get('/api/v1/categories')).status).toBe(200);
     });
 
+    it('passes a 401 to a request with a body through, without opening the circuit', async () => {
+      const auth = await upstream((req, res) => {
+        res.statusCode = JSON.parse(req.body).password === 'right' ? 200 : 401;
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ detail: res.statusCode === 200 ? 'ok' : 'Invalid credentials' }));
+      });
+      const app = createApp(testConfig({ auth: auth.url }, { breaker: { failureThreshold: 2, resetTimeoutMs: 60_000 } }), quiet);
+      const login = (password: string) => request(app).post('/api/v1/auth/login').send({ email: 'a@b.c', password });
+      for (let i = 0; i < 5; i++) {
+        const res = await login('wrong');
+        expect(res.status).toBe(401);
+        expect(res.body.detail).toBe('Invalid credentials');
+      }
+      expect((await login('right')).status).toBe(200);
+    });
+
     it('returns 504 when a service is too slow', async () => {
       const catalog = await upstream((_req, res) => {
         setTimeout(() => res.end('{}'), 500);

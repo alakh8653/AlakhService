@@ -359,7 +359,8 @@ services:
       SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
       # The image sets NODE_ENV=production; ENVIRONMENT wins, so the laptop defaults above are accepted.
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      REDIS_URL: redis://redis:6379/8
+      # Same Redis database auth_service writes sign-out markers to; also holds rate limits.
+      REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
       AUTH_SERVICE_URL: http://auth_service:8000
       USER_SERVICE_URL: http://user_service:8000

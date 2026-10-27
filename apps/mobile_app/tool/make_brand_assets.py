@@ -3,6 +3,7 @@
 Run from apps/mobile_app with `python3 tool/make_brand_assets.py` (needs Pillow), then
 `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create` (see pubspec.yaml).
 """
+
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -15,14 +16,21 @@ SS = 4  # supersampling for smooth edges
 
 def draw_a(draw: ImageDraw.ImageDraw, cx: float, cy: float, h: float, colour) -> None:
     """A geometric "A": two legs meeting in a flat apex, and a crossbar."""
-    w = h * 0.86          # overall width at the base
-    stroke = h * 0.20     # leg thickness
-    top_w = h * 0.22      # width of the flat apex
+    w = h * 0.86  # overall width at the base
+    stroke = h * 0.20  # leg thickness
+    top_w = h * 0.22  # width of the flat apex
     top, base = cy - h / 2, cy + h / 2
     left, right = cx - w / 2, cx + w / 2
     # Outer outline of the A, then the triangular counter cut out of it.
-    outer = [(cx - top_w / 2, top), (cx + top_w / 2, top), (right, base), (right - stroke * 1.15, base),
-             (cx, top + stroke * 1.2), (left + stroke * 1.15, base), (left, base)]
+    outer = [
+        (cx - top_w / 2, top),
+        (cx + top_w / 2, top),
+        (right, base),
+        (right - stroke * 1.15, base),
+        (cx, top + stroke * 1.2),
+        (left + stroke * 1.15, base),
+        (left, base),
+    ]
     draw.polygon(outer, fill=colour)
     # Crossbar between the inner edges of the legs.
     bar_top, bar_h = cy + h * 0.08, h * 0.15
@@ -34,9 +42,15 @@ def draw_a(draw: ImageDraw.ImageDraw, cx: float, cy: float, h: float, colour) ->
         t = (y - y0) / (y1 - y0)
         return cx + (x1 - cx) * t
 
-    draw.polygon([(inner_x(bar_top, -1) - 2, bar_top), (inner_x(bar_top, 1) + 2, bar_top),
-                  (inner_x(bar_top + bar_h, 1) + 2, bar_top + bar_h), (inner_x(bar_top + bar_h, -1) - 2, bar_top + bar_h)],
-                 fill=colour)
+    draw.polygon(
+        [
+            (inner_x(bar_top, -1) - 2, bar_top),
+            (inner_x(bar_top, 1) + 2, bar_top),
+            (inner_x(bar_top + bar_h, 1) + 2, bar_top + bar_h),
+            (inner_x(bar_top + bar_h, -1) - 2, bar_top + bar_h),
+        ],
+        fill=colour,
+    )
 
 
 def render(size: int, background, mark_height: float, rounded: float = 0.0) -> Image.Image:

@@ -25,6 +25,8 @@ interface DataTableProps<T extends { id: string }> {
   /** Accessible name for a clickable row, e.g. "Open case 3820D121". */
   rowLabel?: (row: T) => string;
   emptyMessage?: ReactNode;
+  /** Loading failed (the page shows why): say so instead of claiming there is nothing. */
+  failed?: boolean;
   /** Accessible name for the table. */
   label?: string;
 }
@@ -41,6 +43,7 @@ export default function DataTable<T extends { id: string }>({
   onRowClick,
   rowLabel,
   emptyMessage = 'No records found.',
+  failed = false,
   label,
 }: DataTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -79,7 +82,7 @@ export default function DataTable<T extends { id: string }>({
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
-                  {emptyMessage}
+                  {failed ? 'Could not load this list.' : emptyMessage}
                 </td>
               </tr>
             ) : (

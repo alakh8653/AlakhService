@@ -114,7 +114,7 @@ export default function ServiceMetricsPage() {
           {error}
         </p>
       )}
-      <DataTable label="Service metrics" columns={columns} rows={rows} isLoading={isLoading} emptyMessage="No traffic recorded yet." />
+      <DataTable failed={!!error} label="Service metrics" columns={columns} rows={rows} isLoading={isLoading} emptyMessage="No traffic recorded yet." />
     </div>
   );
 }

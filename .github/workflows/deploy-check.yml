@@ -177,10 +177,12 @@ jobs:
       - name: Build deploy/caddy/Dockerfile
         run: |
           docker build -f deploy/caddy/Dockerfile \
-            --build-arg API_BASE_URL=https://api.alakh-ci.in/api/v1 -t alakh-caddy-ci .
+            --build-arg API_BASE_URL=https://api.alakh-ci.in/api/v1 --build-arg SITE_URL=https://alakh-ci.in -t alakh-caddy-ci .
           # The API address must be baked into both dashboards.
           docker run --rm --entrypoint sh alakh-caddy-ci -c '
             for app in shop admin; do
               test -f "/srv/$app/index.html" &&
                 grep -rq "https://api.alakh-ci.in/api/v1" "/srv/$app/assets" || { echo "$app: API URL missing"; exit 1; }
-            done'
+            done
+            # The shop dashboard links to the legal pages on the public site.
+            grep -rq "https://alakh-ci.in" /srv/shop/assets || { echo "shop: site URL missing"; exit 1; }'

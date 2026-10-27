@@ -113,7 +113,7 @@ export default function ContactSharingPage() {
         <h2 id="offenders" className="text-lg font-semibold text-gray-900">
           Repeated attempts (last 30 days)
         </h2>
-        <DataTable
+        <DataTable failed={!!error}
           label="Repeated attempts"
           columns={offenderColumns}
           rows={offenders}
@@ -144,7 +144,7 @@ export default function ContactSharingPage() {
             </button>
           )}
         </div>
-        <DataTable
+        <DataTable failed={!!error}
           label="Flagged messages"
           columns={messageColumns}
           rows={messages}

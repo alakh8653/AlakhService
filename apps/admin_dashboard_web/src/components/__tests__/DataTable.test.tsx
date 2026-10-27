@@ -32,6 +32,12 @@ describe('DataTable', () => {
     expect(screen.getByText('No records found.')).toBeInTheDocument();
   });
 
+  it('does not claim the list is empty when loading failed', () => {
+    render(<DataTable columns={columns} rows={[]} emptyMessage="No disputes have been raised yet." failed />);
+    expect(screen.getByText('Could not load this list.')).toBeInTheDocument();
+    expect(screen.queryByText('No disputes have been raised yet.')).not.toBeInTheDocument();
+  });
+
   it('calls onRowClick with the clicked row', () => {
     const onRowClick = vi.fn();
     render(<DataTable columns={columns} rows={rows} onRowClick={onRowClick} />);

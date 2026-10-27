@@ -136,7 +136,7 @@ export default function DisputeListPage() {
           </button>
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Disputes"
         columns={columns}
         rows={disputes}

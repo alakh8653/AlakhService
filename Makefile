@@ -334,6 +334,8 @@ db-seed: ## Add demo accounts, a shop, services and a booking (needs make dev; s
 	$(call log,"Seeding demo data through the gateway...")
 	python3 $(SCRIPTS_DIR)/seed_database.py
 	docker compose exec -T auth_service python -m app.cli make-admin admin@example.com
+	@# Again, now as an admin: approves the demo shop so the customer can book it.
+	python3 $(SCRIPTS_DIR)/seed_database.py
 
 .PHONY: db-reset
 db-reset: ## Drop all service databases and re-run migrations (DESTRUCTIVE)

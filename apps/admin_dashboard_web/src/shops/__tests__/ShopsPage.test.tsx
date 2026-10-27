@@ -93,4 +93,14 @@ describe('ShopsPage', () => {
     fireEvent.click(within(table).getByRole('row', { name: 'Review Glow Salon' }));
     expect(await screen.findByRole('dialog', { name: 'Shop review' })).toBeInTheDocument();
   });
+
+  it('marks a shop that has not submitted its documents as awaiting them, not in review', async () => {
+    vi.spyOn(service, 'getReviewQueue').mockResolvedValue([]);
+    vi.spyOn(service, 'listShops').mockResolvedValue({ data: [shop, { ...shop, id: 'shop-2', name: 'New Salon', submittedAt: null }], total: 2 });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'All shops' }));
+    const table = await screen.findByRole('table', { name: 'Shops' });
+    expect(within(within(table).getByRole('row', { name: 'Review New Salon' })).getByText('Awaiting documents')).toBeInTheDocument();
+    expect(within(within(table).getByRole('row', { name: 'Review Glow Salon' })).getByText('In review')).toBeInTheDocument();
+  });
 });

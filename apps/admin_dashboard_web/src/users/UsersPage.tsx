@@ -225,7 +225,7 @@ export default function UsersPage() {
       )}
       {riskError && <p className="text-sm text-gray-600">Risk levels could not be loaded.</p>}
       {riskOf?.risk && <RiskPanel name={riskOf.name} profile={riskOf.risk} onClose={() => setRiskOf(null)} />}
-      <DataTable
+      <DataTable failed={!!error}
         label="Accounts"
         columns={columns}
         rows={rows}

@@ -97,7 +97,7 @@ function AllShops() {
     { key: 'name', header: 'Shop', render: (s) => <span className="font-medium">{s.name}</span> },
     { key: 'legalName', header: 'Legal name', className: 'hidden md:table-cell', render: (s) => s.legalName ?? '—' },
     { key: 'city', header: 'City', className: 'hidden sm:table-cell', render: (s) => s.city ?? '—' },
-    { key: 'status', header: 'Status', render: (s) => <StatusBadge status={s.status} /> },
+    { key: 'status', header: 'Status', render: (s) => <StatusBadge status={s.status} submitted={!!s.submittedAt} /> },
     { key: 'isActive', header: 'Open', className: 'hidden lg:table-cell', render: (s) => (s.isActive ? 'Yes' : 'Closed') },
     { key: 'createdAt', header: 'Joined', className: 'hidden lg:table-cell', render: (s) => formatDate(s.createdAt) },
   ];
@@ -133,7 +133,7 @@ function AllShops() {
           {error}
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Shops"
         columns={columns}
         rows={rows}

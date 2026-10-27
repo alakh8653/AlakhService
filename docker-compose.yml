@@ -390,6 +390,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # Public site (legal pages, account deletion): http://localhost:8080
+  # ---------------------------------------------------------------------------
+
+  site:
+    image: caddy:2.10-alpine
+    container_name: alakh_site
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${SITE_PORT:-8080}:8080"
+    volumes:
+      - ./deploy/site:/srv/site:ro
+      - ./deploy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+
 volumes:
   postgres_data:
     name: alakhservice_postgres_data

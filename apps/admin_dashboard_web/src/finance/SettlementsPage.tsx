@@ -121,7 +121,7 @@ export default function SettlementsPage() {
           </button>
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Settlements"
         columns={columns}
         rows={settlements}

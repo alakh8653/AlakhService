@@ -249,8 +249,8 @@ export default function DashboardPage() {
           <StatCard title="Customers" value={analytics?.uniqueCustomers ?? '–'} icon={<Users size={24} />} color="border-blue-500" />
           <StatCard
             title="Rating"
-            value={ratingCount ? `${ratingAvg.toFixed(1)} ★` : 'No reviews yet'}
-            hint={ratingCount ? ratingHint(ratingCount, rating?.unanswered) : undefined}
+            value={ratingCount ? `${ratingAvg.toFixed(1)} ★` : '–'}
+            hint={ratingCount ? ratingHint(ratingCount, rating?.unanswered) : 'No reviews yet'}
             icon={<Star size={24} />}
             color="border-yellow-500"
             to="/reviews"

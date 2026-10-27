@@ -1,0 +1,40 @@
+# The public site (deploy/site) for local development, at http://localhost:8080 — where auth_service's
+# LEGAL_BASE_URL and the shop dashboard's legal links point by default. A trimmed copy of the
+# {$DOMAIN} block in deploy/Caddyfile: plain HTTP, no security headers or caching.
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	root * /srv/site
+
+	# The site's forms (account deletion, password reset) call these on the same origin.
+	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current
+	handle @site_api {
+		reverse_proxy api_gateway:3000
+	}
+
+	handle /b/* {
+		rewrite * /open-app.html
+		file_server
+	}
+	handle /reset-password* {
+		rewrite * /reset-password.html
+		file_server
+	}
+
+	handle {
+		# /terms serves terms.html, and so on.
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
+
+	handle_errors {
+		@not_found expression {err.status_code} == 404
+		handle @not_found {
+			rewrite * /404.html
+			file_server
+		}
+	}
+}

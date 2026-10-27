@@ -3,8 +3,12 @@
 
 Creates, unless they already exist:
   * admin@example.com     - promoted to admin by `make db-seed` afterwards
-  * owner@example.com     - owns "Demo Salon" (Pune) with three services
+  * owner@example.com     - owns "Demo Salon" (Pune) with three services, submitted for KYC review
   * customer@example.com  - has one booking at Demo Salon tomorrow
+
+Customers can only book an approved shop, and only an admin can approve one, so the shop is
+approved and the booking made on a run where admin@example.com is already an admin: `make db-seed`
+runs this, promotes the admin, then runs it again.
 
 Every account uses the password below. Running it again reuses what is already there.
 It goes through the gateway rather than the databases, so the services validate
@@ -14,8 +18,10 @@ everything exactly as they do for the apps. Standard library only.
 """
 
 import argparse
+import base64
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -60,11 +66,15 @@ class Api:
         return json.loads(raw) if raw else None
 
 
-def sign_in(api, role):
+def sign_in(api, role, terms_version):
     """Registers the demo account if needed; returns (token, user id)."""
     email, name = ACCOUNTS[role]
     try:
-        api.call("POST", "/auth/register", {"email": email, "password": PASSWORD, "full_name": name})
+        api.call(
+            "POST",
+            "/auth/register",
+            {"email": email, "password": PASSWORD, "full_name": name, "accepted_terms_version": terms_version},
+        )
         print(f"  created {email}")
     except ApiError as e:
         if e.status not in (400, 409):
@@ -75,6 +85,12 @@ def sign_in(api, role):
     except ApiError as e:
         sys.exit(f"Cannot sign in as {email} with the demo password ({e}). Was it registered with another password?")
     return token, api.call("GET", "/auth/me", token=token)["id"]
+
+
+def token_role(token):
+    """The role claim of an access token (read, not verified: the API does that)."""
+    payload = token.split(".")[1]
+    return json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))).get("role")
 
 
 def main():
@@ -94,13 +110,17 @@ def main():
     except (urllib.error.URLError, ApiError) as e:
         sys.exit(f"The gateway at {args.gateway} is not answering ({e}). Start the stack first: make dev")
 
+    # Sign-up is refused unless the person accepted the Terms version currently in force.
+    terms_version = api.call("GET", "/legal/current")["terms_version"]
+
     print("Accounts:")
-    sign_in(api, "admin")
-    owner_token, owner_id = sign_in(api, "owner")
-    customer_token, _ = sign_in(api, "customer")
+    admin_token, _ = sign_in(api, "admin", terms_version)
+    owner_token, owner_id = sign_in(api, "owner", terms_version)
+    customer_token, _ = sign_in(api, "customer", terms_version)
 
     print("Shop:")
-    shops = api.call("GET", "/shops", query={"owner_id": owner_id})
+    # Signed in as the owner: a shop still waiting for approval is listed only to them.
+    shops = api.call("GET", "/shops", query={"owner_id": owner_id}, token=owner_token)
     if shops:
         shop = shops[0]
         print(f"  {shop['name']} already exists")
@@ -118,6 +138,21 @@ def main():
             services[spec["name"]] = api.call("POST", "/services", {"shop_id": shop["id"], **spec}, token=owner_token)
             print(f"  created {spec['name']} (Rs {spec['price_cents'] // 100})")
 
+    print("Verification:")
+    if shop.get("verification_status") != "APPROVED":
+        if not shop.get("submitted_at"):
+            api.call("PUT", f"/shops/{shop['id']}", {"legal_name": "Demo Salon Pvt Ltd"}, token=owner_token)
+            pan = {"type": "PAN", "url": "https://example.com/demo-pan.pdf", "file_name": "demo-pan.pdf"}
+            api.call("POST", f"/shops/{shop['id']}/documents", pan, token=owner_token)
+            shop = api.call("POST", f"/shops/{shop['id']}/submit-for-review", token=owner_token)
+            print("  submitted Demo Salon for review")
+        if token_role(admin_token) != "admin":
+            print("  Demo Salon waits for an admin; promote admin@example.com and run this again.")
+            print(f"\nDone for now. Sign in with any account above and the password {PASSWORD!r}.")
+            return
+        shop = api.call("POST", f"/admin/shops/{shop['id']}/approve", token=admin_token)
+    print("  Demo Salon is approved")
+
     print("Bookings:")
     mine = api.call("GET", "/bookings", token=customer_token)
     existing = mine.get("items", mine) if isinstance(mine, dict) else mine
@@ -126,12 +161,18 @@ def main():
     else:
         # Tomorrow 10:30 in India (05:00 UTC).
         when = (datetime.now(timezone.utc) + timedelta(days=1)).replace(hour=5, minute=0, second=0, microsecond=0)
-        booking = api.call(
-            "POST",
-            "/bookings",
-            {"service_id": services["Haircut"]["id"], "scheduled_at": when.isoformat(), "notes": "Demo booking"},
-            token=customer_token,
-        )
+        body = {"service_id": services["Haircut"]["id"], "scheduled_at": when.isoformat(), "notes": "Demo booking"}
+        # booking_service keeps a shop's hours for 30 s, so a just-approved shop takes that long to open.
+        for attempt in range(9):
+            try:
+                booking = api.call("POST", "/bookings", body, token=customer_token)
+                break
+            except ApiError as e:
+                if e.status != 409 or "not taking bookings" not in str(e) or attempt == 8:
+                    raise
+                if attempt == 0:
+                    print("  waiting for the approval to reach booking_service...")
+                time.sleep(5)
         print(f"  created a Haircut booking for {when:%Y-%m-%d %H:%M} UTC ({booking['status']})")
 
     print(f"\nDone. Sign in with any account above and the password {PASSWORD!r}.")

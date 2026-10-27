@@ -320,6 +320,11 @@ services:
           memory: 384M
     <<: *logging
 
+  # The local-development copy of the public site; here Caddy serves it on <DOMAIN>. A profile that is
+  # never enabled keeps it from starting.
+  site:
+    profiles: ["dev-only"]
+
   # ---------------------------------------------------------------------------
   # Reverse proxy: HTTPS for <DOMAIN> and api./shop./admin.<DOMAIN>; serves the site and dashboards
   # ---------------------------------------------------------------------------
@@ -333,6 +338,8 @@ services:
       args:
         # Baked into the dashboards at build time (Vite reads VITE_API_BASE_URL).
         API_BASE_URL: https://api.${DOMAIN:?DOMAIN must be set in .env.production}/api/v1
+        # The shop dashboard links to the legal pages there (VITE_SITE_URL).
+        SITE_URL: https://${DOMAIN:?DOMAIN must be set in .env.production}
     container_name: alakh_caddy
     restart: always
     networks:

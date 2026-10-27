@@ -74,7 +74,7 @@ export default function PermissionsPage() {
           {error}
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Permissions"
         columns={columns}
         rows={rows}

@@ -2,9 +2,12 @@ import apiClient from './apiClient';
 
 // The public legal pages (https://{DOMAIN}/terms, /privacy, /refunds, /grievance, /delete-account) and
 // the terms version an owner accepts when signing up. VITE_SITE_URL is the public site, e.g.
-// https://alakhservice.in; without it the pages are taken to live on the dashboard's own origin.
+// https://alakhservice.in (the production image sets it). Without it, `npm run dev` uses the local
+// site from docker compose and a build takes the pages to live on the dashboard's own origin.
 
-const SITE_URL = ((import.meta.env.VITE_SITE_URL as string | undefined) || '').replace(/\/+$/, '');
+const SITE_URL = (
+  (import.meta.env.VITE_SITE_URL as string | undefined) || (import.meta.env.DEV ? 'http://localhost:8080' : '')
+).replace(/\/+$/, '');
 
 /** The terms version this build shows; auth_service's /legal/current is preferred when it answers. */
 export const TERMS_VERSION = (import.meta.env.VITE_TERMS_VERSION as string | undefined) || '2026-10';

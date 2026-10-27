@@ -22,7 +22,11 @@ const STATUS_CLASS: Record<VerificationStatus, string> = {
   REJECTED: 'bg-red-100 text-red-800',
 };
 
-export function StatusBadge({ status }: { status: VerificationStatus }) {
+/** A shop that has not submitted its documents yet is not in the review queue, so it is not "In review". */
+export function StatusBadge({ status, submitted = true }: { status: VerificationStatus; submitted?: boolean }) {
+  if (status === 'PENDING_REVIEW' && !submitted) {
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">Awaiting documents</span>;
+  }
   return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_CLASS[status]}`}>{STATUS_LABELS[status]}</span>;
 }
 
@@ -120,7 +124,7 @@ export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForRevie
             {shop.city ? ` · ${shop.city}` : ''} · <span title={shop.id} className="font-mono text-xs">{shortId(shop.id)}</span>
           </p>
         </div>
-        <StatusBadge status={shop.status} />
+        <StatusBadge status={shop.status} submitted={!!shop.submittedAt} />
       </header>
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">

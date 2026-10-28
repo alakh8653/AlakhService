@@ -20,7 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, payments, risk
+from app.core import availability, payments, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
@@ -559,11 +559,13 @@ async def cancel_booking(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     queued = await payments.enqueue(db, booking, payments.CANCELLED, cancelled_by(parties))
+    waiting = await waitlist.time_opened(db, booking.shop_id, booking.scheduled_at, except_customer=booking.customer_id)
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
+    background.add_task(waitlist.tell, notifier, waiting)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)
@@ -623,6 +625,9 @@ async def reschedule_booking(
     previous = await booking_service.reschedule_booking(
         db, booking, new_at, current_user.get("sub"), body.reason, by_customer=by_customer
     )
+    waiting = []
+    if waitlist.local_day(previous) != waitlist.local_day(new_at):
+        waiting = await waitlist.time_opened(db, booking.shop_id, previous, except_customer=booking.customer_id)
     await manager.broadcast(
         booking_id, {"booking_id": booking_id, "status": booking.status, "scheduled_at": new_at.isoformat()}
     )
@@ -638,6 +643,7 @@ async def reschedule_booking(
         lookup_owner,
         extra={"previous_scheduled_at": when(previous)},
     )
+    background.add_task(waitlist.tell, notifier, waiting)
     return await present(booking, current_user, lookup_names)
 
 

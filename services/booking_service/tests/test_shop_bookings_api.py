@@ -52,6 +52,9 @@ SESSIONS: dict = {}
 
 class RecordingNotifier:
     async def send(self, event, recipients, data):
+        if event.startswith("waitlist."):  # about a day, not one booking
+            SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))
+            return
         # By the time anyone is told, the change must be committed and visible to other requests.
         async with SESSIONS["factory"]() as db:
             stored = await db.get(Booking, data["booking_id"])

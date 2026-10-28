@@ -19,7 +19,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import payments
+from app.core import payments, waitlist
 from app.core.fsm import BookingStatus
 from app.core.notifier import Notifier, notify_booking, snapshot
 from app.models.booking import Booking
@@ -159,10 +159,12 @@ async def run_once(
         rebook = [snapshot(b) for b in await due_rebook_reminders(db, now)]
         await db.commit()
     async with factory() as db:
-        expired = [
-            (snapshot(b), outbox_id)
-            for b, outbox_id in await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
-        ]
+        expired_rows = await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
+        expired = [(snapshot(b), outbox_id) for b, outbox_id in expired_rows]
+        # An expired request frees its time for anyone waiting for that day.
+        waiting = []
+        for b, _ in expired_rows:
+            waiting += await waitlist.time_opened(db, b.shop_id, b.scheduled_at, except_customer=b.customer_id)
         await db.commit()
     for _snap, outbox_id in expired:
         await payments.deliver_now(factory, client, outbox_id)
@@ -172,6 +174,7 @@ async def run_once(
 
     for snap, label in reminders:
         await notify_booking(notifier, snap, "booking.reminder", None, lookup_owner, extra={"reminder": label})
+    await waitlist.tell(notifier, waiting)
     for snap in rebook:
         await notify_booking(notifier, snap, "booking.rebook", None, lookup_owner, roles=("customer",))
     for snap, _ in expired:

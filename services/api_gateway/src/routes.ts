@@ -47,6 +47,8 @@ export const ROUTES: Route[] = [
   // Includes each booking's chat (/bookings/{id}/messages) and masked call (/bookings/{id}/call); who may
   // take part is checked by booking_service.
   { prefix: '/api/v1/bookings', upstream: 'booking' },
+  // A customer's waitlist for full days.
+  { prefix: '/api/v1/waitlist', upstream: 'booking' },
   // Chat moderation: messages with contact details hidden, and who keeps trying.
   { prefix: '/api/v1/chat-moderation', upstream: 'booking', access: 'admin' },
   // Bookable times of a service: browsing, like the catalogue.

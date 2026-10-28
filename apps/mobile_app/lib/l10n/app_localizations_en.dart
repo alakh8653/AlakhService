@@ -1964,4 +1964,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get packageLine => 'Package visit';
+
+  @override
+  String get waitlistJoin => 'Tell me if a time opens';
+
+  @override
+  String get waitlistJoined =>
+      'We\'ll tell you if a time opens up on this day.';
 }

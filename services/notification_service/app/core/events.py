@@ -74,6 +74,11 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Upcoming booking",
         "Reminder: booking {booking_number} for {service_name} is at {scheduled_at}.",
     ),
+    # A day the customer wanted at a shop that was full: a time there has opened up.
+    ("waitlist.time_opened", "customer"): (
+        "A time just opened up",
+        "A time is free on {date} at the shop you wanted. Book it before someone else does.",
+    ),
     # Some weeks after a completed visit, to the customer, once (unless they have booked it again).
     ("booking.rebook", "customer"): (
         "Time for your next visit?",

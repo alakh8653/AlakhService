@@ -1947,4 +1947,10 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get packageLine => 'पैकेज विज़िट';
+
+  @override
+  String get waitlistJoin => 'कोई समय खाली हो तो बताएँ';
+
+  @override
+  String get waitlistJoined => 'इस दिन कोई समय खाली होने पर हम आपको बताएँगे।';
 }

@@ -1,4 +1,5 @@
-"""The booking worker: reminders, expiring unconfirmed bookings, and retrying payment messages.
+"""The booking worker: reminders, expiring unconfirmed bookings, retrying payment messages, and asking
+customers some weeks after a visit whether they want to book it again.
 
 It runs as an asyncio task inside every booking_service replica (REMINDERS_ENABLED). Replicas never
 do the same work twice: candidate rows are taken with SELECT ... FOR UPDATE SKIP LOCKED, and each
@@ -77,6 +78,45 @@ async def due_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> Li
     return out
 
 
+async def due_rebook_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> List[Booking]:
+    """Completed visits REBOOK_REMINDER_DAYS old whose customer has not booked that service again since;
+    marks each asked, so it is asked once."""
+    days = settings.REBOOK_REMINDER_DAYS
+    if days <= 0:
+        return []
+    newest, oldest = now - timedelta(days=days), now - timedelta(days=days + settings.REBOOK_REMINDER_WINDOW_DAYS)
+    query = _skip_locked(
+        select(Booking)
+        .where(
+            Booking.status == BookingStatus.COMPLETED.value,
+            Booking.rebook_reminder_sent_at.is_(None),
+            Booking.scheduled_at <= newest,
+            Booking.scheduled_at > oldest,
+        )
+        .order_by(Booking.scheduled_at)
+        .limit(limit),
+        db,
+    )
+    due = []
+    for visit in (await db.execute(query)).scalars().all():
+        visit.rebook_reminder_sent_at = now
+        later = await db.execute(
+            select(Booking.id)
+            .where(
+                Booking.customer_id == visit.customer_id,
+                Booking.service_id == visit.service_id,
+                Booking.id != visit.id,
+                Booking.scheduled_at > visit.scheduled_at,
+                Booking.status != BookingStatus.CANCELLED.value,
+            )
+            .limit(1)
+        )
+        if later.first() is None:  # already booked again: marked, not asked
+            due.append(visit)
+    await db.flush()
+    return due
+
+
 async def expire_unconfirmed(
     db: AsyncSession, now: datetime, after_hours: float, limit: int = 100
 ) -> List[Tuple[Booking, str]]:
@@ -116,6 +156,9 @@ async def run_once(
         reminders = [(snapshot(b), label) for b, label in await due_reminders(db, now)]
         await db.commit()
     async with factory() as db:
+        rebook = [snapshot(b) for b in await due_rebook_reminders(db, now)]
+        await db.commit()
+    async with factory() as db:
         expired = [
             (snapshot(b), outbox_id)
             for b, outbox_id in await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
@@ -129,6 +172,8 @@ async def run_once(
 
     for snap, label in reminders:
         await notify_booking(notifier, snap, "booking.reminder", None, lookup_owner, extra={"reminder": label})
+    for snap in rebook:
+        await notify_booking(notifier, snap, "booking.rebook", None, lookup_owner, roles=("customer",))
     for snap, _ in expired:
         await notify_booking(
             notifier,
@@ -139,7 +184,12 @@ async def run_once(
             roles=("customer", "shop"),
             extra={"reason": EXPIRED_REASON},
         )
-    summary = {"reminders": len(reminders), "expired": len(expired), "payment_retries": len(retried)}
+    summary = {
+        "reminders": len(reminders),
+        "rebook_reminders": len(rebook),
+        "expired": len(expired),
+        "payment_retries": len(retried),
+    }
     if any(summary.values()):
         log.info("booking_worker_pass", **summary)
     return summary

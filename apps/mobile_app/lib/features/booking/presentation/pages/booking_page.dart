@@ -11,6 +11,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../loyalty/data/loyalty_api.dart';
 import '../../../profile/data/address_api.dart';
 import '../../../profile/presentation/pages/addresses_page.dart';
 import '../../../push/push_service.dart';
@@ -68,6 +69,7 @@ class BookingPage extends StatefulWidget {
   final CouponApi? couponApi;
   final AddressApi? addressApi;
   final AvailabilityApi? availabilityApi;
+  final LoyaltyApi? loyaltyApi;
 
   /// The ways the service is offered (ServiceMode values) and their extra fees.
   final List<String> serviceModes;
@@ -85,6 +87,7 @@ class BookingPage extends StatefulWidget {
     this.couponApi,
     this.addressApi,
     this.availabilityApi,
+    this.loyaltyApi,
     this.serviceModes = const [ServiceMode.atShop],
     this.homeVisitFee = 0,
     this.pickupFee = 0,
@@ -103,6 +106,9 @@ class _BookingPageState extends State<BookingPage> {
   late final AddressApi _addressApi = widget.addressApi ?? sl<AddressApi>();
   late final AvailabilityApi _availabilityApi = widget.availabilityApi ?? sl<AvailabilityApi>();
   CouponCheck? _coupon;
+  // The customer's points, to offer paying part of the price with them (none until loaded).
+  LoyaltySummary? _loyalty;
+  bool _usePoints = false;
   List<SavedAddress> _saved = const [];
   bool _addressesLoaded = false;
   late String _mode = widget.serviceModes.isEmpty ? ServiceMode.atShop : widget.serviceModes.first;
@@ -131,6 +137,18 @@ class _BookingPageState extends State<BookingPage> {
     super.initState();
     _loadAddresses();
     _loadTimes(_day);
+    _loadPoints();
+  }
+
+  Future<void> _loadPoints() async {
+    final api = widget.loyaltyApi ?? (sl.isRegistered<LoyaltyApi>() ? sl<LoyaltyApi>() : null);
+    if (api == null) return;
+    try {
+      final loyalty = await api.summary();
+      if (mounted) setState(() => _loyalty = loyalty);
+    } catch (_) {
+      // Booking works the same without points.
+    }
   }
 
   Future<void> _loadTimes(DateTime day, {bool refresh = false}) async {
@@ -273,7 +291,12 @@ class _BookingPageState extends State<BookingPage> {
   /// The coupon discounts the service; the visit or pickup fee is added on top (as booking_service prices it).
   double get _discount => _couponApplies ? widget.servicePrice * _coupon!.discountPct / 100 : 0;
 
-  double get _price => widget.servicePrice - _discount + _fee;
+  /// What the points take off: up to a share of the service's price after the coupon (booking_service
+  /// works it out the same way and has the last word).
+  double get _pointsDiscount =>
+      _usePoints && _loyalty != null ? _loyalty!.discountOn(widget.servicePrice - _discount) : 0;
+
+  double get _price => widget.servicePrice - _discount - _pointsDiscount + _fee;
 
   void _onBook() {
     if (context.read<BookingBloc>().state is BookingLoading) return; // already sending
@@ -309,7 +332,7 @@ class _BookingPageState extends State<BookingPage> {
       addressId: _needsAddress ? _address!.id : null,
       itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
     );
-    final details = <Object?>[slot.at, address, notes, couponCode, delivery];
+    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints];
     if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
       _attemptKey = newIdempotencyKey();
       _attemptDetails = details;
@@ -323,6 +346,7 @@ class _BookingPageState extends State<BookingPage> {
             couponCode: couponCode,
             delivery: delivery,
             idempotencyKey: _attemptKey,
+            usePoints: _usePoints && _pointsDiscount > 0,
           ),
         );
   }
@@ -583,6 +607,20 @@ class _BookingPageState extends State<BookingPage> {
                       child: Text(_coupon!.message, style: AppTextStyles.caption.copyWith(color: context.colors.error)),
                     ),
                 ],
+                if ((_loyalty?.points ?? 0) > 0 && _loyalty!.discountOn(widget.servicePrice - _discount) > 0) ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.card_giftcard),
+                    title: Text(l10n.usePoints),
+                    subtitle: Text(l10n.usePointsSaving(
+                      rupees(_loyalty!.discountOn(widget.servicePrice - _discount)),
+                      _loyalty!.points,
+                    )),
+                    value: _usePoints,
+                    onChanged: (v) => setState(() => _usePoints = v),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 _PriceBreakdown(
                   service: widget.servicePrice,
@@ -590,6 +628,7 @@ class _BookingPageState extends State<BookingPage> {
                   fee: _fee,
                   couponCode: _couponApplies ? _coupon!.code : null,
                   discount: _discount,
+                  points: _pointsDiscount,
                   total: _price,
                 ),
               ],
@@ -737,6 +776,7 @@ class _PriceBreakdown extends StatelessWidget {
   final double fee;
   final String? couponCode;
   final double discount;
+  final double points;
   final double total;
 
   const _PriceBreakdown({
@@ -745,6 +785,7 @@ class _PriceBreakdown extends StatelessWidget {
     required this.fee,
     required this.couponCode,
     required this.discount,
+    this.points = 0,
     required this.total,
   });
 
@@ -773,6 +814,8 @@ class _PriceBreakdown extends StatelessWidget {
             _row(context, context.l10n.priceService, rupees(service)),
             if (fee > 0) _row(context, feeLabel, rupees(fee)),
             if (discount > 0) _row(context, context.l10n.priceCoupon(couponCode ?? ''), '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
+            if (points > 0)
+              _row(context, context.l10n.pointsLine, '−${rupees(points)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
             const Divider(height: 16),
             _row(context, context.l10n.total, rupees(total), style: AppTextStyles.subtitle1),
             const SizedBox(height: 4),

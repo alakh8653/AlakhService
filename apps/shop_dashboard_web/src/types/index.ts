@@ -40,6 +40,8 @@ export interface Booking {
   totalAmount: number; // minor units (paise)
   /** How many times the customer has moved it to another time (they may twice). */
   rescheduleCount?: number;
+  /** Paid by the customer's loyalty points (minor units): AlakhService pays it to the shop. */
+  pointsDiscount?: number;
   createdAt: string;
   updatedAt: string;
 }

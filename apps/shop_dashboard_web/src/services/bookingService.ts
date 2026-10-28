@@ -84,6 +84,7 @@ interface BookingResponse {
   notes: string | null;
   total_amount: number;
   reschedule_count?: number;
+  points_discount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +115,7 @@ export function toBooking(data: BookingResponse): Booking {
     notes: data.notes,
     totalAmount: data.total_amount,
     rescheduleCount: data.reschedule_count ?? 0,
+    pointsDiscount: data.points_discount ?? 0,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

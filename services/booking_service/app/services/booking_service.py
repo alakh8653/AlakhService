@@ -55,10 +55,11 @@ class BookingService:
         metadata_json: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         request_hash: Optional[str] = None,
+        booking_id: Optional[str] = None,
     ) -> Booking:
         now = datetime.now(timezone.utc)
         booking = Booking(
-            id=str(uuid.uuid4()),
+            id=booking_id or str(uuid.uuid4()),
             booking_number=await self._generate_booking_number(db),
             customer_id=customer_id,
             service_id=booking_data.service_id,

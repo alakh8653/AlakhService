@@ -8,6 +8,7 @@ from app.config import settings
 from app.core.observability import install_observability
 from app.routers.finance import router as finance_router
 from app.routers.internal import router as internal_router
+from app.routers.loyalty import router as loyalty_router
 from app.routers.money import admin_router as money_admin_router
 from app.routers.money import router as money_router
 from app.routers.payments import router as payments_router
@@ -40,6 +41,7 @@ app.add_middleware(
 app.include_router(money_router, prefix="/api/v1", tags=["earnings"])
 app.include_router(money_admin_router, prefix="/api/v1", tags=["admin-payments"])
 app.include_router(payments_router, prefix="/api/v1", tags=["payments"])
+app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])
 app.include_router(internal_router, tags=["internal"])
 app.include_router(finance_router, prefix="/api/v1", tags=["finance"])
 

@@ -20,6 +20,9 @@ class CreateBookingRequested extends BookingEvent {
   /// Identifies the booking attempt: the page keeps it while the customer retries the same booking.
   final String? idempotencyKey;
 
+  /// Spend the customer's loyalty points on it.
+  final bool usePoints;
+
   const CreateBookingRequested({
     required this.serviceId,
     required this.scheduledAt,
@@ -28,10 +31,11 @@ class CreateBookingRequested extends BookingEvent {
     this.couponCode,
     this.delivery = BookingDelivery.atShop,
     this.idempotencyKey,
+    this.usePoints = false,
   });
 
   @override
-  List<Object?> get props => [serviceId, scheduledAt, address, notes, couponCode, delivery, idempotencyKey];
+  List<Object?> get props => [serviceId, scheduledAt, address, notes, couponCode, delivery, idempotencyKey, usePoints];
 }
 
 class LoadUserBookings extends BookingEvent {

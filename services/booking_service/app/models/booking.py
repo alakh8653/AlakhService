@@ -60,6 +60,11 @@ class Booking(Base):
         return self._meta().get("coupon_code")
 
     @property
+    def points_discount(self) -> int:
+        """What the customer's loyalty points paid (the platform pays it to the shop)."""
+        return self._meta().get("points_discount", 0)
+
+    @property
     def reschedule_count(self) -> int:
         """How many times the customer has moved the booking to another time."""
         return self._meta().get("reschedule_count", 0)

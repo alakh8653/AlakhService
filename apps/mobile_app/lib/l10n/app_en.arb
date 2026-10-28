@@ -1052,5 +1052,96 @@
         "type": "String"
       }
     }
+  },
+  "rewardsTitle": "Rewards",
+  "pointsBalance": "{count} points",
+  "@pointsBalance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsWorth": "Worth {amount} on your next bookings",
+  "@pointsWorth": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pointsRules": "Earn {earn} points for every ₹100 you pay. Points pay up to {percent}% of a booking.",
+  "@pointsRules": {
+    "placeholders": {
+      "earn": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "referralTitle": "Invite friends",
+  "referralBody": "Share your code. When a friend's first booking is done, you both get {bonus} points.",
+  "@referralBody": {
+    "placeholders": {
+      "bonus": {
+        "type": "String"
+      }
+    }
+  },
+  "referralCopy": "Copy code",
+  "referralCopied": "Code copied",
+  "referralShare": "Share on WhatsApp",
+  "referralShareText": "Book salons and services on AlakhService with my code {code}: we both get {bonus} points after your first booking.",
+  "@referralShareText": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "bonus": {
+        "type": "String"
+      }
+    }
+  },
+  "referralFriends": "{rewarded} friends booked · {pending} yet to book",
+  "@referralFriends": {
+    "placeholders": {
+      "rewarded": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
+  "referralEnterTitle": "Got a friend's code?",
+  "referralCodeLabel": "Referral code",
+  "pointsHistory": "Points history",
+  "pointsEarned": "Earned on a booking",
+  "pointsSpent": "Used on a booking",
+  "pointsReturned": "Returned (booking cancelled)",
+  "pointsReferral": "Referral bonus",
+  "pointsTakenBack": "Taken back (booking refunded)",
+  "usePoints": "Use my points",
+  "usePointsSaving": "Save {amount} · {points} points available",
+  "@usePointsSaving": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsLine": "Points",
+  "pointsUsed": "Points used: {amount}",
+  "@pointsUsed": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   }
 }

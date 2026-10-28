@@ -35,6 +35,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         couponCode: event.couponCode,
         delivery: event.delivery,
         idempotencyKey: event.idempotencyKey,
+        usePoints: event.usePoints,
       ),
     );
     result.fold(

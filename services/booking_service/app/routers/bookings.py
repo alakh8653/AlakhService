@@ -1,5 +1,6 @@
 import hashlib
 import json
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
@@ -25,6 +26,7 @@ from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
+from app.core.points import PointsWallet, get_points_wallet
 from app.core.privacy import present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
@@ -137,6 +139,7 @@ async def create_booking(
     # gets the booking already made rather than a second one.
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
     lookup_names: NameLookup = Depends(get_name_lookup),
+    wallet: PointsWallet = Depends(get_points_wallet),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -176,6 +179,11 @@ async def create_booking(
             )
         except CouponRejected as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
+    # Points come off what is left of the service's price, last, so nothing can refuse the booking after
+    # they are spent (except a lost idempotency race, which gives them back).
+    booking_id = str(uuid.uuid4())
+    points_discount = await wallet.redeem(customer_id, booking_id, price) if booking_data.use_points else 0
+    price -= points_discount
     # The coupon applies to the service; the visit or pickup fee is added on top.
     booking_data = booking_data.model_copy(
         update={
@@ -186,21 +194,28 @@ async def create_booking(
         }
     )
     meta = {}
+    if code or points_discount:
+        meta["list_price"] = listing["price_cents"] + fee
     if code:
-        meta.update(coupon_code=code, list_price=listing["price_cents"] + fee)
+        meta["coupon_code"] = code
+    if points_discount:
+        meta["points_discount"] = points_discount
     if fee:
         meta["service_mode_fee"] = fee
     metadata = json.dumps(meta) if meta else None
     try:
         booking = await booking_service.create_booking(
-            db, customer_id, booking_data, metadata, idempotency_key, fingerprint
+            db, customer_id, booking_data, metadata, idempotency_key, fingerprint, booking_id
         )
         # Commit first: the background task delays the session's own commit, and the people notified
         # (and the caller's next request) must already see the change.
         await db.commit()
     except IntegrityError:
-        # Another request with the same key got there first (without the lock): its booking stands.
+        # Another request with the same key got there first (without the lock): its booking stands, and
+        # points spent on this attempt go back.
         await db.rollback()
+        if points_discount:
+            background.add_task(wallet.release, booking_id)
         earlier = idempotency_key and await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
         if not earlier:
             raise

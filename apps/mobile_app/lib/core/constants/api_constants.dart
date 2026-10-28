@@ -65,6 +65,9 @@ class ApiConstants {
   static const String payments = '$apiVersion/payments';
   // A tip for the provider of a completed booking (payment_service).
   static const String tips = '$apiVersion/payments/tips';
+  // Loyalty points and referral codes (payment_service).
+  static const String loyalty = '$apiVersion/loyalty/me';
+  static const String referral = '$apiVersion/loyalty/referral';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
   /// A printable HTML invoice for a completed payment.
   static String paymentInvoice(String paymentId) => '$apiVersion/payments/$paymentId/invoice';

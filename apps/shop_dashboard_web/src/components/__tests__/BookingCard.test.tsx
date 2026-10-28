@@ -40,6 +40,12 @@ describe('BookingCard', () => {
 
   });
 
+  it("says what the customer's points add, paid by the platform", () => {
+    render(<BookingCard booking={{ ...booking, totalAmount: 24000, pointsDiscount: 6000 }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    expect(screen.getByText('₹240')).toBeInTheDocument();
+    expect(screen.getByText('+ ₹60 in points, paid to you by AlakhService')).toBeInTheDocument();
+  });
+
   it('says when the customer has moved the booking', () => {
     const { rerender } = render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
     expect(screen.queryByText('Rescheduled by customer')).not.toBeInTheDocument();

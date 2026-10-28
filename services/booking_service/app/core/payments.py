@@ -35,7 +35,12 @@ def _iso(at: Optional[datetime]) -> Optional[str]:
 
 def payload_for(kind: str, booking: Booking, now: datetime, cancelled_by: Optional[str] = None) -> dict:
     if kind == COMPLETED:
-        return {"shop_id": booking.shop_id, "total_amount": booking.total_amount, "completed_at": _iso(now)}
+        return {
+            "shop_id": booking.shop_id,
+            "customer_id": booking.customer_id,  # earns loyalty points on it
+            "total_amount": booking.total_amount,
+            "completed_at": _iso(now),
+        }
     if kind == CANCELLED:
         return {"cancelled_by": cancelled_by, "scheduled_at": _iso(booking.scheduled_at), "cancelled_at": _iso(now)}
     return {}

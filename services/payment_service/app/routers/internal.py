@@ -19,9 +19,16 @@ from app.core.peers import BookingSync, get_booking_sync
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
 from app.models.payment import ShopEarning
-from app.schemas.money import BookingCancelled, BookingCompleted, DisputeRefund, DisputeRelease
+from app.schemas.money import (
+    BookingCancelled,
+    BookingCompleted,
+    DisputeRefund,
+    DisputeRelease,
+    LoyaltyRedeem,
+    LoyaltyRelease,
+)
 from app.schemas.payment import RefundRequest
-from app.services import earnings_service
+from app.services import earnings_service, loyalty_service
 from app.services.payment_service import payment_service
 
 router = APIRouter(prefix="/internal/payments", dependencies=[Depends(require_internal)])
@@ -65,7 +72,26 @@ async def booking_completed(booking_id: str, body: BookingCompleted, db: AsyncSe
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    return {"created": created, "earning": _earning(earning)}
+    points = 0
+    if body.customer_id and earning.status != "REFUNDED":
+        # Points on what the customer paid themselves, not on what their points paid.
+        points = await loyalty_service.booking_completed(
+            db, booking_id, body.customer_id, earning.gross_cents - earning.platform_discount_cents
+        )
+    return {"created": created, "earning": _earning(earning), "points_earned": points}
+
+
+@router.post("/loyalty/redeem")
+async def redeem_points(body: LoyaltyRedeem, db: AsyncSession = Depends(get_db)):
+    """Spends the customer's points on a booking being made; returns the discount (0 when they have none)."""
+    discount = await loyalty_service.redeem(db, body.customer_id, body.booking_id, body.price_cents)
+    return {"booking_id": body.booking_id, "discount_cents": discount}
+
+
+@router.post("/loyalty/release")
+async def release_points(body: LoyaltyRelease, db: AsyncSession = Depends(get_db)):
+    """A booking the points were spent on was never made after all: they go back."""
+    return {"booking_id": body.booking_id, "points_returned": await loyalty_service.return_points(db, body.booking_id)}
 
 
 @router.post("/booking/{booking_id}/cancelled")

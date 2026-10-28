@@ -97,6 +97,9 @@ class Booking extends Equatable {
   /// How many times the customer has moved it to another time.
   final int rescheduleCount;
 
+  /// What the customer's loyalty points paid towards it (rupees).
+  final double pointsDiscount;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -120,6 +123,7 @@ class Booking extends Equatable {
     this.readyBy,
     this.paymentStatus,
     this.rescheduleCount = 0,
+    this.pointsDiscount = 0,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);

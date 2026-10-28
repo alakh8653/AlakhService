@@ -188,6 +188,9 @@ export default function BookingCard({
       </div>
       <div className="flex flex-col sm:items-end gap-2 sm:min-w-44">
         <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        {(booking.pointsDiscount ?? 0) > 0 && (
+          <p className="text-xs text-emerald-700">+ {formatMoney(booking.pointsDiscount ?? 0)} in points, paid to you by AlakhService</p>
+        )}
         {CASH_STATUSES.has(booking.status) && <CashDue bookingId={booking.id} />}
         {booking.status === 'CONFIRMED' && onAssign && (
           providers.length > 0 ? (

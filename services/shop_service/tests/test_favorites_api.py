@@ -79,3 +79,17 @@ async def test_saving_needs_a_signed_in_user_and_has_a_limit(client, monkeypatch
     assert (await save(client, shop)).status_code == 204
     assert (await save(client, other)).status_code == 409
     assert (await save(client, shop)).status_code == 204  # one already saved is fine
+
+
+@pytest.mark.asyncio
+async def test_clearing_removes_only_the_callers_saved_shops(client):
+    first = await make_shop(client, "owner-1")
+    second = await make_shop(client, "owner-2")
+    await save(client, first)
+    await save(client, second)
+    await save(client, first, auth("cust-2"))
+    assert (await client.delete("/api/v1/shops/favorites", headers=CUSTOMER)).status_code == 204
+    assert await saved(client) == []
+    assert await saved(client, auth("cust-2")) == [first]  # someone else's stay
+    assert (await client.delete("/api/v1/shops/favorites", headers=CUSTOMER)).status_code == 204  # again: fine
+    assert (await client.get(f"/api/v1/shops/{first}")).status_code == 200  # not taken for a shop id

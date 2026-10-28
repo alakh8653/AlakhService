@@ -36,6 +36,14 @@ async def list_favorites(db: AsyncSession = Depends(get_db), caller: Caller = De
     return [for_caller(shop, caller) for shop in result.scalars().all()]
 
 
+@router.delete("/shops/favorites", status_code=204)
+async def clear_favorites(db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+    """Unsaves every shop the caller saved; auth_service calls it, as them, when they delete their account."""
+    await db.execute(delete(FavoriteShop).where(FavoriteShop.user_id == caller.user_id))
+    await db.commit()
+    return Response(status_code=204)
+
+
 @router.put("/shops/{shop_id}/favorite", status_code=204)
 async def add_favorite(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
     """Saves the shop. Saving it again changes nothing."""

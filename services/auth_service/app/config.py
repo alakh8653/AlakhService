@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
     # Profile data erased when someone deletes their account.
     USER_SERVICE_URL: str = "http://user_service:8000"
+    # Their saved shops, likewise.
+    SHOP_SERVICE_URL: str = "http://shop_service:8000"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/auth_db"
     REDIS_URL: str = "redis://redis:6379/0"

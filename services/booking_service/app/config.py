@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # A PENDING booking the shop has not confirmed this long after it was made (or by its start time)
     # is cancelled and refunded.
     EXPIRE_PENDING_AFTER_HOURS: float = 12
+    # This long after a completed visit the customer is asked once whether to book it again (0: never),
+    # unless they already have; visits older than this plus REBOOK_REMINDER_WINDOW_DAYS are left alone.
+    REBOOK_REMINDER_DAYS: int = 28
+    REBOOK_REMINDER_WINDOW_DAYS: int = 14
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"
     # Browsers talk to the gateway, never to a service directly, so no cross-origin access by default.

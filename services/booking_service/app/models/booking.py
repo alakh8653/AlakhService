@@ -45,6 +45,8 @@ class Booking(Base):
     # Set when the reminder worker has sent each reminder, so each goes out once across replicas.
     reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
     reminder_1h_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # When the customer was asked whether they want to book this service again (once per visit).
+    rebook_reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     # Stamped by the app on every update, never left to the database: a server-side value would expire the
     # attribute, and reading it back later (building the response) fails outside the async session.

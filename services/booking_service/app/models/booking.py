@@ -67,6 +67,11 @@ class Booking(Base):
         return self._meta().get("coupon_code")
 
     @property
+    def package_purchase_id(self):
+        """The prepaid package this booking is a visit of, if any."""
+        return self._meta().get("package_purchase_id")
+
+    @property
     def points_discount(self) -> int:
         """What the customer's loyalty points paid (the platform pays it to the shop)."""
         return self._meta().get("points_discount", 0)

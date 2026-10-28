@@ -31,7 +31,7 @@ class PaymentInitiate(BaseModel):
     currency: str = "INR"
     payment_method: str
     idempotency_key: str
-    purpose: Literal["BOOKING", "TIP"] = "BOOKING"
+    purpose: Literal["BOOKING", "TIP", "PACKAGE"] = "BOOKING"
     # Stored with the payment (JSON), e.g. which provider a tip is for.
     metadata_json: Optional[str] = None
 
@@ -57,7 +57,7 @@ class PaymentResponse(BaseModel):
     gateway: Optional[str] = None
     shop_id: Optional[str] = None
     invoice_number: Optional[str] = None
-    # BOOKING, or TIP for a tip added to a completed booking.
+    # BOOKING, TIP for a tip added to a completed booking, or PACKAGE for prepaid visits.
     purpose: str = "BOOKING"
     created_at: datetime
     updated_at: datetime

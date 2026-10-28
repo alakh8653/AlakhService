@@ -546,5 +546,19 @@
   "usePoints": "मेरे पॉइंट इस्तेमाल करें",
   "usePointsSaving": "{amount} बचाएँ · {points} पॉइंट उपलब्ध",
   "pointsLine": "पॉइंट",
-  "pointsUsed": "इस्तेमाल हुए पॉइंट: {amount}"
+  "pointsUsed": "इस्तेमाल हुए पॉइंट: {amount}",
+  "packagesTitle": "पैकेज",
+  "packageTerms": "{visits} विज़िट · {days} दिन तक मान्य",
+  "packageSaving": "{amount} की बचत",
+  "packageBuy": "{amount} में खरीदें",
+  "packageBought": "{name} तैयार है। बुक करते समय इसे चुनें।",
+  "myPackages": "मेरे पैकेज",
+  "noPackages": "अभी कोई पैकेज नहीं है। जिन सेवाओं में पैकेज है, वे उनके पेज पर दिखते हैं।",
+  "packageVisitsLeft": "{total} में से {left} विज़िट बाकी",
+  "packageValidUntil": "{date} तक मान्य",
+  "packageRefunded": "रिफ़ंड हो गया",
+  "packageUsedUp": "इस्तेमाल हो चुका या समय खत्म",
+  "usePackage": "मेरा पैकेज इस्तेमाल करें",
+  "usePackageLeft": "{name} · {left} विज़िट बाकी",
+  "packageLine": "पैकेज विज़िट"
 }

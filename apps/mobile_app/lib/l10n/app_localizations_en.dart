@@ -1907,4 +1907,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String pointsUsed(String amount) {
     return 'Points used: $amount';
   }
+
+  @override
+  String get packagesTitle => 'Packages';
+
+  @override
+  String packageTerms(int visits, int days) {
+    return '$visits visits · valid $days days';
+  }
+
+  @override
+  String packageSaving(String amount) {
+    return 'save $amount';
+  }
+
+  @override
+  String packageBuy(String amount) {
+    return 'Buy $amount';
+  }
+
+  @override
+  String packageBought(String name) {
+    return '$name is ready. Choose it when you book.';
+  }
+
+  @override
+  String get myPackages => 'My packages';
+
+  @override
+  String get noPackages =>
+      'No packages yet. Services that offer one show it on their page.';
+
+  @override
+  String packageVisitsLeft(int left, int total) {
+    return '$left of $total visits left';
+  }
+
+  @override
+  String packageValidUntil(String date) {
+    return 'valid until $date';
+  }
+
+  @override
+  String get packageRefunded => 'Refunded';
+
+  @override
+  String get packageUsedUp => 'Used up or expired';
+
+  @override
+  String get usePackage => 'Use my package';
+
+  @override
+  String usePackageLeft(String name, int left) {
+    return '$name · $left visits left';
+  }
+
+  @override
+  String get packageLine => 'Package visit';
 }

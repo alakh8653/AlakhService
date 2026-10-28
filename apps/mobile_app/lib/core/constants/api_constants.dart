@@ -68,6 +68,10 @@ class ApiConstants {
   // Loyalty points and referral codes (payment_service).
   static const String loyalty = '$apiVersion/loyalty/me';
   static const String referral = '$apiVersion/loyalty/referral';
+  // Prepaid packages of visits (payment_service).
+  static const String packages = '$apiVersion/packages';
+  static const String myPackages = '$apiVersion/packages/mine';
+  static String buyPackage(String id) => '$apiVersion/packages/${Uri.encodeComponent(id)}/buy';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
   /// A printable HTML invoice for a completed payment.
   static String paymentInvoice(String paymentId) => '$apiVersion/payments/$paymentId/invoice';

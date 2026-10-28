@@ -27,16 +27,18 @@ from app.core.escrow import escrow_service
 from app.core.ledger import ledger
 from app.models.payment import (
     BOOKING,
+    PACKAGE,
     TIP,
     Account,
     CommissionRate,
     Escrow,
+    PackagePurchase,
     Payment,
     Payout,
     Refund,
     ShopEarning,
 )
-from app.services import loyalty_service
+from app.services import loyalty_service, package_service
 
 log = structlog.get_logger()
 
@@ -186,6 +188,12 @@ async def settle_booking(
     if existing is not None:
         return existing, False
     payment, collection, gross = await _gross_and_collection(db, booking_id, total_amount)
+    visit = await package_service.redemption_for(db, booking_id) if payment is None else None
+    if visit is not None and visit.status == package_service.USED:
+        # Paid upfront with a package: this visit's share, held by the platform since the purchase.
+        purchase = await db.get(PackagePurchase, visit.purchase_id)
+        payment = await db.get(Payment, purchase.payment_id) if purchase and purchase.payment_id else None
+        collection, gross = ONLINE, visit.visit_value_cents
     shop_id = shop_id or (payment.shop_id if payment else None)
     if not shop_id:
         raise ValueError("The booking has no shop to settle with")
@@ -216,7 +224,10 @@ async def settle_booking(
             raise
         return again, False
     if collection == ONLINE and payment is not None:
-        await _release_escrow(db, payment, earning)
+        if payment.purpose == PACKAGE:
+            await _pay_from_platform(db, earning, f"Package visit for booking {booking_id}")
+        else:
+            await _release_escrow(db, payment, earning)
     log.info(
         "booking_settled",
         booking_id=booking_id,
@@ -255,6 +266,40 @@ async def _release_escrow(db: AsyncSession, payment: Payment, earning: ShopEarni
             )
     except Exception as e:  # the earning stands; finance reconciles the ledger
         log.warning("escrow_release_failed", payment_id=payment.id, error=str(e))
+
+
+async def _pay_from_platform(db: AsyncSession, earning: ShopEarning, description: str) -> None:
+    """Moves the shop's net and the GST out of the platform's account in the ledger (best effort); for
+    money the platform holds for several bookings at once, such as a package's."""
+    try:
+        async with db.begin_nested():
+            platform = await _account(db, settings.PLATFORM_ACCOUNT_ID, "platform", earning.currency)
+            shop = await _account(db, shop_account_owner(earning.shop_id), "shop", earning.currency)
+            gst = await _account(db, GST_ACCOUNT, "platform", earning.currency)
+            if earning.net_cents > 0:
+                await ledger.transfer(
+                    db,
+                    from_account_id=platform.id,
+                    to_account_id=shop.id,
+                    amount_cents=earning.net_cents,
+                    currency=earning.currency,
+                    description=description,
+                    reference_id=earning.id,
+                    reference_type="package_visit",
+                )
+            if earning.gst_cents > 0:
+                await ledger.transfer(
+                    db,
+                    from_account_id=platform.id,
+                    to_account_id=gst.id,
+                    amount_cents=earning.gst_cents,
+                    currency=earning.currency,
+                    description=f"GST on commission: {description}",
+                    reference_id=earning.id,
+                    reference_type="gst_on_commission",
+                )
+    except Exception as e:  # the earning stands; finance reconciles the ledger
+        log.warning("package_ledger_failed", earning_id=earning.id, error=str(e))
 
 
 async def payment_completed(db: AsyncSession, payment: Payment) -> None:
@@ -357,6 +402,8 @@ async def after_refund(db: AsyncSession, payment: Payment) -> None:
     """
     if payment.purpose == TIP:
         return await _after_tip_refund(db, payment)
+    if payment.purpose == PACKAGE:
+        return  # only unused visits are refunded; the visits already earned stay earned
     sale = await sale_for(db, payment.booking_id)
     if sale is None or sale.payment_id not in (None, payment.id):
         return

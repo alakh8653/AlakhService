@@ -32,7 +32,7 @@ PaymentShown? paymentShown(Booking booking, String? fromPayments) {
 
 /// Whether to offer the Pay button: payable, and not already paid by either account.
 bool canStillPay(Booking booking, String? fromPayments) =>
-    booking.canPay && !booking.isPaid && fromPayments != 'paid';
+    booking.canPay && !booking.isPaid && fromPayments != 'paid' && booking.totalAmount > 0;
 
 String paymentShownLabel(AppLocalizations l10n, PaymentShown shown) => switch (shown) {
       PaymentShown.paid => l10n.paid,

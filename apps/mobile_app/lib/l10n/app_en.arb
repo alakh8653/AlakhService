@@ -1143,5 +1143,77 @@
         "type": "String"
       }
     }
-  }
+  },
+  "packagesTitle": "Packages",
+  "packageTerms": "{visits} visits · valid {days} days",
+  "@packageTerms": {
+    "placeholders": {
+      "visits": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "packageSaving": "save {amount}",
+  "@packageSaving": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "packageBuy": "Buy {amount}",
+  "@packageBuy": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "packageBought": "{name} is ready. Choose it when you book.",
+  "@packageBought": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myPackages": "My packages",
+  "noPackages": "No packages yet. Services that offer one show it on their page.",
+  "packageVisitsLeft": "{left} of {total} visits left",
+  "@packageVisitsLeft": {
+    "placeholders": {
+      "left": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "packageValidUntil": "valid until {date}",
+  "@packageValidUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "packageRefunded": "Refunded",
+  "packageUsedUp": "Used up or expired",
+  "usePackage": "Use my package",
+  "usePackageLeft": "{name} · {left} visits left",
+  "@usePackageLeft": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "left": {
+        "type": "int"
+      }
+    }
+  },
+  "packageLine": "Package visit"
 }

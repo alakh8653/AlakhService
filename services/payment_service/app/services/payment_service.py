@@ -13,9 +13,9 @@ from app.core import money
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
 from app.core.razorpay import GatewayError
-from app.models.payment import BOOKING, TIP, Account, LedgerEntry, Payment, Refund
+from app.models.payment import BOOKING, PACKAGE, TIP, Account, LedgerEntry, Payment, Refund
 from app.schemas.payment import PaymentInitiate, RefundRequest
-from app.services import earnings_service, invoice_service, loyalty_service
+from app.services import earnings_service, invoice_service, loyalty_service, package_service
 
 log = structlog.get_logger()
 
@@ -161,6 +161,10 @@ class PaymentService:
         if payment.purpose == TIP:
             # Passed on in full to the provider: no service is sold, so there is no invoice.
             await earnings_service.tip_completed(db, payment)
+        elif payment.purpose == PACKAGE:
+            # Prepaid visits: invoiced now; the shop earns each visit's share as it is completed.
+            await invoice_service.assign_invoice(db, payment)
+            await package_service.payment_completed(db, payment)
         else:
             await invoice_service.assign_invoice(db, payment)
             await earnings_service.payment_completed(db, payment)
@@ -439,8 +443,9 @@ class PaymentService:
         retries.
         """
         now = datetime.now(timezone.utc)
-        # Points spent on it go back, whatever happens to its money.
+        # Points or a package visit spent on it go back, whatever happens to its money.
         await loyalty_service.return_points(db, booking_id)
+        await package_service.return_visit(db, booking_id)
         payments = await self.payments_for_booking(db, booking_id)
         for p in payments:
             if p.status == "PENDING":
@@ -545,6 +550,10 @@ class PaymentService:
 
     async def refunded_cents(self, db: AsyncSession, payment_id: str) -> int:
         return await self._refunded_cents(db, payment_id)
+
+    async def payment_by_key(self, db: AsyncSession, idempotency_key: str) -> Optional[Payment]:
+        result = await db.execute(select(Payment).where(Payment.idempotency_key == idempotency_key))
+        return result.scalar_one_or_none()
 
     async def get_payment(self, db: AsyncSession, payment_id: str) -> Optional[Payment]:
         result = await db.execute(select(Payment).where(Payment.id == payment_id))

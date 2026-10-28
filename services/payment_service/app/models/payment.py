@@ -19,7 +19,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 # What a payment is for: the booking itself, or a tip the customer adds once it is completed.
-BOOKING, TIP = "BOOKING", "TIP"
+BOOKING, TIP, PACKAGE = "BOOKING", "TIP", "PACKAGE"
 
 
 class Account(Base):
@@ -66,7 +66,8 @@ class Payment(Base):
     provider_payment_id = Column(String, nullable=True)
     provider_order_id = Column(String, nullable=True, index=True)
     gateway = Column(String, nullable=True)  # razorpay, cash
-    # BOOKING or TIP: a booking is paid for once, and tipped at most once, each on its own.
+    # BOOKING or TIP: a booking is paid for once, and tipped at most once, each on its own. PACKAGE: a
+    # prepaid package of visits, whose booking_id holds the PackagePurchase id it pays for.
     purpose = Column(String(10), nullable=False, default=BOOKING, server_default=BOOKING)
     idempotency_key = Column(String, unique=True, nullable=False)
     metadata_json = Column("metadata", Text, nullable=True)
@@ -240,3 +241,57 @@ class Referral(Base):
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     rewarded_at = Column(DateTime(timezone=True), nullable=True)
     rewarded_booking_id = Column(String, nullable=True)
+
+
+class ServicePackage(Base):
+    """Visits of one service a shop sells together, paid upfront: e.g. 5 haircuts for the price of 4."""
+
+    __tablename__ = "service_packages"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, nullable=False, index=True)
+    service_id = Column(String, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    visits = Column(Integer, nullable=False)
+    price_cents = Column(Integer, nullable=False)
+    valid_days = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class PackagePurchase(Base):
+    """A customer's package: PENDING until paid, then ACTIVE with visits to book until it expires;
+    REFUNDED once an admin refunds what is unused. Its terms are copied at purchase."""
+
+    __tablename__ = "package_purchases"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    package_id = Column(String, ForeignKey("service_packages.id"), nullable=False, index=True)
+    customer_id = Column(String, nullable=False, index=True)
+    shop_id = Column(String, nullable=False, index=True)
+    service_id = Column(String, nullable=False)
+    name = Column(String(100), nullable=False)
+    visits_total = Column(Integer, nullable=False)
+    visits_left = Column(Integer, nullable=False)
+    price_cents = Column(Integer, nullable=False)
+    valid_days = Column(Integer, nullable=False)
+    status = Column(String(10), nullable=False, default="PENDING")  # PENDING, ACTIVE, REFUNDED
+    payment_id = Column(String, nullable=True)
+    purchased_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class PackageRedemption(Base):
+    """One visit of a package used for a booking (RETURNED if the booking was cancelled). The visit's share
+    of the package price is what the shop earns when the booking is completed."""
+
+    __tablename__ = "package_redemptions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    purchase_id = Column(String, ForeignKey("package_purchases.id"), nullable=False, index=True)
+    booking_id = Column(String, nullable=False, unique=True)
+    visit_value_cents = Column(Integer, nullable=False)
+    status = Column(String(10), nullable=False, default="USED")  # USED, RETURNED
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

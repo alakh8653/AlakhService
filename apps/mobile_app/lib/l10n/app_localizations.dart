@@ -3379,6 +3379,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Points used: {amount}'**
   String pointsUsed(String amount);
+
+  /// No description provided for @packagesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages'**
+  String get packagesTitle;
+
+  /// No description provided for @packageTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'{visits} visits · valid {days} days'**
+  String packageTerms(int visits, int days);
+
+  /// No description provided for @packageSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'save {amount}'**
+  String packageSaving(String amount);
+
+  /// No description provided for @packageBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy {amount}'**
+  String packageBuy(String amount);
+
+  /// No description provided for @packageBought.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is ready. Choose it when you book.'**
+  String packageBought(String name);
+
+  /// No description provided for @myPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'My packages'**
+  String get myPackages;
+
+  /// No description provided for @noPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'No packages yet. Services that offer one show it on their page.'**
+  String get noPackages;
+
+  /// No description provided for @packageVisitsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{left} of {total} visits left'**
+  String packageVisitsLeft(int left, int total);
+
+  /// No description provided for @packageValidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'valid until {date}'**
+  String packageValidUntil(String date);
+
+  /// No description provided for @packageRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get packageRefunded;
+
+  /// No description provided for @packageUsedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Used up or expired'**
+  String get packageUsedUp;
+
+  /// No description provided for @usePackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my package'**
+  String get usePackage;
+
+  /// No description provided for @usePackageLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} · {left} visits left'**
+  String usePackageLeft(String name, int left);
+
+  /// No description provided for @packageLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Package visit'**
+  String get packageLine;
 }
 
 class _AppLocalizationsDelegate

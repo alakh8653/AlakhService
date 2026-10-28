@@ -106,6 +106,9 @@ async def initiate_payment(
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.get("status") not in PAYABLE_STATUSES:
         raise HTTPException(status_code=409, detail="This booking cannot be paid for yet")
+    if not booking.get("total_amount"):
+        # Covered in full, e.g. a visit of a prepaid package.
+        raise HTTPException(status_code=409, detail="There is nothing to pay for this booking")
     # One booking is paid for once; a retry with the same key still returns its payment below.
     for earlier in await payment_service.payments_for_booking(db, checkout.booking_id):
         if earlier.status in PAID_STATUSES and earlier.idempotency_key != checkout.idempotency_key:

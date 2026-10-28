@@ -46,12 +46,14 @@ async def notify_payment(notifier: Notifier, event: str, payment: dict) -> None:
     A completed tip is payment.tip: the customer is thanked, and the shop and the provider are told.
     """
     recipients = [{"user_id": payment["payer_id"], "role": "customer"}]
+    if event == "payment.completed" and payment.get("purpose") == "PACKAGE":
+        event = "payment.package"
     if event == "payment.completed" and payment.get("purpose") == "TIP":
         event = "payment.tip"
         provider = payment.get("provider_id")
         if provider and provider not in (payment["payer_id"], payment["payee_id"]):
             recipients.append({"user_id": provider, "role": "provider"})
-    if event in ("payment.completed", "payment.tip") and payment["payee_id"] != payment["payer_id"]:
+    if event in ("payment.completed", "payment.tip", "payment.package") and payment["payee_id"] != payment["payer_id"]:
         recipients.append({"user_id": payment["payee_id"], "role": "shop"})
     await notifier.send(
         event,

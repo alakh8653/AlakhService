@@ -1215,5 +1215,7 @@
       }
     }
   },
-  "packageLine": "Package visit"
+  "packageLine": "Package visit",
+  "waitlistJoin": "Tell me if a time opens",
+  "waitlistJoined": "We'll tell you if a time opens up on this day."
 }

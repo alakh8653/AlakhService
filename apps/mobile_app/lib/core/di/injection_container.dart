@@ -13,6 +13,7 @@ import '../../features/auth/domain/usecases/verify_otp_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/booking/data/availability_api.dart';
+import '../../features/booking/data/waitlist_api.dart';
 import '../../features/booking/data/datasources/booking_remote_datasource.dart';
 import '../../features/booking/data/coupon_api.dart';
 import '../../features/booking/data/dispute_api.dart';
@@ -135,6 +136,7 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   sl.registerLazySingleton(() => DisputeApi(sl()));
   sl.registerLazySingleton(() => CouponApi(sl()));
   sl.registerLazySingleton(() => AvailabilityApi(sl()));
+  sl.registerLazySingleton(() => WaitlistApi(sl()));
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
   sl.registerLazySingleton(() => SavedShopsApi(sl()));
   sl.registerLazySingleton(() => LoyaltyApi(sl()));

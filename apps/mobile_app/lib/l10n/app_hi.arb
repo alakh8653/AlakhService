@@ -560,5 +560,7 @@
   "packageUsedUp": "इस्तेमाल हो चुका या समय खत्म",
   "usePackage": "मेरा पैकेज इस्तेमाल करें",
   "usePackageLeft": "{name} · {left} विज़िट बाकी",
-  "packageLine": "पैकेज विज़िट"
+  "packageLine": "पैकेज विज़िट",
+  "waitlistJoin": "कोई समय खाली हो तो बताएँ",
+  "waitlistJoined": "इस दिन कोई समय खाली होने पर हम आपको बताएँगे।"
 }

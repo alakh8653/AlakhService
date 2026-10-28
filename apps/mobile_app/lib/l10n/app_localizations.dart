@@ -3463,6 +3463,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Package visit'**
   String get packageLine;
+
+  /// No description provided for @waitlistJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell me if a time opens'**
+  String get waitlistJoin;
+
+  /// No description provided for @waitlistJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll tell you if a time opens up on this day.'**
+  String get waitlistJoined;
 }
 
 class _AppLocalizationsDelegate

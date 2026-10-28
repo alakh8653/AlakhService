@@ -70,6 +70,8 @@ class ApiConstants {
   static const String referral = '$apiVersion/loyalty/referral';
   // Prepaid packages of visits (payment_service).
   static const String packages = '$apiVersion/packages';
+  // The waitlist for full days (booking_service).
+  static const String waitlist = '$apiVersion/waitlist';
   static const String myPackages = '$apiVersion/packages/mine';
   static String buyPackage(String id) => '$apiVersion/packages/${Uri.encodeComponent(id)}/buy';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';

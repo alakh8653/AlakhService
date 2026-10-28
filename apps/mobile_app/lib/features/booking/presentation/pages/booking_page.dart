@@ -20,6 +20,7 @@ import '../../../services/domain/entities/service_entity.dart';
 import '../../domain/entities/booking.dart';
 import '../../data/availability_api.dart';
 import '../../data/coupon_api.dart';
+import '../../data/waitlist_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
@@ -72,6 +73,7 @@ class BookingPage extends StatefulWidget {
   final AvailabilityApi? availabilityApi;
   final LoyaltyApi? loyaltyApi;
   final PackagesApi? packagesApi;
+  final WaitlistApi? waitlistApi;
 
   /// The ways the service is offered (ServiceMode values) and their extra fees.
   final List<String> serviceModes;
@@ -91,6 +93,7 @@ class BookingPage extends StatefulWidget {
     this.availabilityApi,
     this.loyaltyApi,
     this.packagesApi,
+    this.waitlistApi,
     this.serviceModes = const [ServiceMode.atShop],
     this.homeVisitFee = 0,
     this.pickupFee = 0,
@@ -114,6 +117,9 @@ class _BookingPageState extends State<BookingPage> {
   bool _usePoints = false;
   // A package of this service the customer can book with, and whether this booking uses it.
   OwnedPackage? _package;
+  // Full days the customer asked to hear about, and the one being sent.
+  final Set<DateTime> _waitingDays = {};
+  DateTime? _joiningDay;
   bool _usePackage = false;
   List<SavedAddress> _saved = const [];
   bool _addressesLoaded = false;
@@ -202,6 +208,25 @@ class _BookingPageState extends State<BookingPage> {
       return [for (final t in BookingSlots.on(day, now: widget.clock())) _Slot(t, t)];
     }
     return [for (final s in times.slots) _Slot(DateTime(day.year, day.month, day.day, s.hour, s.minute), s.at)];
+  }
+
+  /// A day with no free times left, which a cancellation could open up again.
+  bool _isFull(DateTime day) =>
+      const {DayStatus.fullyBooked, DayStatus.noMoreToday}.contains(_availability[day]?.status);
+
+  Future<void> _joinWaitlist(DateTime day) async {
+    final api = widget.waitlistApi ?? (sl.isRegistered<WaitlistApi>() ? sl<WaitlistApi>() : null);
+    if (api == null || _joiningDay != null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _joiningDay = day);
+    try {
+      await api.join(widget.serviceId, day);
+      if (mounted) setState(() => _waitingDays.add(day));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
+    } finally {
+      if (mounted) setState(() => _joiningDay = null);
+    }
   }
 
   /// Why [day] has no times, in the customer's words.
@@ -498,7 +523,21 @@ class _BookingPageState extends State<BookingPage> {
                     ),
                   )
                 else if (slots.isEmpty)
-                  _TimesProblem(text: _noTimesMessage(_day)),
+                  _TimesProblem(
+                    text: _noTimesMessage(_day),
+                    action: !_isFull(_day)
+                        ? null
+                        : _waitingDays.contains(_day)
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(l10n.waitlistJoined, style: AppTextStyles.caption.copyWith(color: context.palette.success)),
+                              )
+                            : TextButton.icon(
+                                onPressed: _joiningDay == null ? () => _joinWaitlist(_day) : null,
+                                icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                                label: Text(l10n.waitlistJoin),
+                              ),
+                  ),
                 // Grouped by part of the day so 20-odd times are quick to scan.
                 for (final (part, times) in [
                   (l10n.partMorning, (slots ?? const <_Slot>[]).where((t) => t.shown.hour < 12)),

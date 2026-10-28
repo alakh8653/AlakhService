@@ -159,6 +159,11 @@ export default function BookingCard({
             <MessageCircle size={12} aria-hidden /> {chatOpen ? 'Hide messages' : 'Messages'}
           </button>
         </p>
+        {booking.preferredStaffName && (
+          <p className="text-sm text-indigo-700">
+            <span className="text-gray-500">Asked for:</span> {booking.preferredStaffName}
+          </p>
+        )}
         {booking.itemDescription && (
           <p className="text-sm text-gray-700">
             <span className="text-gray-500">Item:</span> {booking.itemDescription}

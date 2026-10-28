@@ -1953,4 +1953,19 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get waitlistJoined => 'इस दिन कोई समय खाली होने पर हम आपको बताएँगे।';
+
+  @override
+  String get whoQuestion => 'आप किससे करवाना चाहेंगे?';
+
+  @override
+  String get anyProfessional => 'कोई भी';
+
+  @override
+  String get professionalNote =>
+      'दुकान आपकी चुनी हुई व्यक्ति देने की पूरी कोशिश करती है।';
+
+  @override
+  String askedFor(String name) {
+    return 'आपने $name को चुना';
+  }
 }

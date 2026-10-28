@@ -120,6 +120,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           create: (_) => sl<BookingBloc>(),
           child: BookingPage(
             serviceId: service.id,
+            shopId: service.shopId,
             serviceName: service.name,
             servicePrice: service.basePrice,
             serviceModes: service.serviceModes,

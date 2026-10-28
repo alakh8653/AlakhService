@@ -1971,4 +1971,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get waitlistJoined =>
       'We\'ll tell you if a time opens up on this day.';
+
+  @override
+  String get whoQuestion => 'Who would you like?';
+
+  @override
+  String get anyProfessional => 'Anyone';
+
+  @override
+  String get professionalNote =>
+      'The shop does its best to give you the person you choose.';
+
+  @override
+  String askedFor(String name) {
+    return 'You asked for $name';
+  }
 }

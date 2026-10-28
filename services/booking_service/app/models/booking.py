@@ -69,6 +69,15 @@ class Booking(Base):
         return self._meta().get("coupon_code")
 
     @property
+    def preferred_staff_id(self):
+        """The staff member the customer asked for, if anyone."""
+        return self._meta().get("preferred_staff_id")
+
+    @property
+    def preferred_staff_name(self):
+        return self._meta().get("preferred_staff_name")
+
+    @property
     def package_purchase_id(self):
         """The prepaid package this booking is a visit of, if any."""
         return self._meta().get("package_purchase_id")

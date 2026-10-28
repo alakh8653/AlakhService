@@ -42,6 +42,9 @@ export interface Booking {
   rescheduleCount?: number;
   /** Paid by the customer's loyalty points (minor units): AlakhService pays it to the shop. */
   pointsDiscount?: number;
+  /** The staff member the customer asked for (shop staff id and display name), if anyone. */
+  preferredStaffId?: string | null;
+  preferredStaffName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

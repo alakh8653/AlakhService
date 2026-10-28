@@ -1,16 +1,48 @@
+import json
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ShopNotFoundError, StaffNotFoundError
 from app.database import get_db
-from app.dependencies import Caller, ensure_owner, require_caller
+from app.dependencies import Caller, ensure_owner, public_name, require_caller
 from app.schemas.shop import StaffCreate, StaffResponse, StaffUpdate
 from app.services import staff_service
-from app.services.shop_service import shop_service
+from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
+
+
+class TeamMember(BaseModel):
+    """A staff member as customers see them, to ask for when booking: never their contact details."""
+
+    id: str
+    name: str
+    role: str
+    # The services they do; empty means all of the shop's.
+    service_ids: List[str]
+
+
+@router.get("/shops/{shop_id}/team", response_model=List[TeamMember])
+async def shop_team(shop_id: str, db: AsyncSession = Depends(get_db)):
+    """A listed shop's active staff (public), by first name and last initial."""
+    try:
+        shop = await shop_service.get_shop(db, shop_id)
+    except ShopNotFoundError as e:
+        raise HTTPException(status_code=404, detail="Shop not found") from e
+    if not is_public(shop):
+        raise HTTPException(status_code=404, detail="Shop not found")
+    return [
+        TeamMember(
+            id=m.id,
+            name=public_name(m.name) or "Team member",
+            role=m.role,
+            service_ids=json.loads(m.service_ids or "[]"),
+        )
+        for m in await staff_service.list_staff(db, shop_id)
+    ]
 
 
 async def _owned_shop(db: AsyncSession, shop_id: str, caller: Caller):

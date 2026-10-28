@@ -72,6 +72,8 @@ class ApiConstants {
   static const String packages = '$apiVersion/packages';
   // The waitlist for full days (booking_service).
   static const String waitlist = '$apiVersion/waitlist';
+  // A shop's team as customers see it, to ask for someone (shop_service).
+  static String shopTeam(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/team';
   static const String myPackages = '$apiVersion/packages/mine';
   static String buyPackage(String id) => '$apiVersion/packages/${Uri.encodeComponent(id)}/buy';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';

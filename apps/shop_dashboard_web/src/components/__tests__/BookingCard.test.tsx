@@ -46,6 +46,12 @@ describe('BookingCard', () => {
     expect(screen.getByText('+ ₹60 in points, paid to you by AlakhService')).toBeInTheDocument();
   });
 
+  it('says who the customer asked for', () => {
+    render(<BookingCard booking={{ ...booking, preferredStaffId: 'st1', preferredStaffName: 'Meena R.' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    expect(screen.getByText('Meena R.')).toBeInTheDocument();
+    expect(screen.getByText('Asked for:')).toBeInTheDocument();
+  });
+
   it('says when the customer has moved the booking', () => {
     const { rerender } = render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
     expect(screen.queryByText('Rescheduled by customer')).not.toBeInTheDocument();

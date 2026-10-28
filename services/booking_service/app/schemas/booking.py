@@ -34,6 +34,8 @@ class BookingCreate(BaseModel):
     item_description: Optional[str] = Field(default=None, max_length=500)
     # Spend the customer's loyalty points on it (up to a share of the price; the platform pays for them).
     use_points: bool = False
+    # Book it as one visit of the customer's prepaid package (at the shop only): it then costs nothing more.
+    package_purchase_id: Optional[str] = Field(default=None, max_length=128)
 
     @field_validator("scheduled_at")
     @classmethod
@@ -111,6 +113,8 @@ class BookingResponse(BaseModel):
     coupon_code: Optional[str] = None
     # Paid by the customer's loyalty points (included in list_price, not in total_amount).
     points_discount: int = 0
+    # The prepaid package one of whose visits this booking uses.
+    package_purchase_id: Optional[str] = None
     # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).

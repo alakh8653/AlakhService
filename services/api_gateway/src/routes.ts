@@ -59,6 +59,8 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/finance', upstream: 'payment', access: 'admin' },
   // A customer's loyalty points and referral code.
   { prefix: '/api/v1/loyalty', upstream: 'payment' },
+  // Prepaid packages: anyone may see what a shop offers; buying and managing them needs a sign-in.
+  { prefix: '/api/v1/packages', upstream: 'payment', access: 'public', publicMethods: READ_ONLY },
 
   { prefix: '/api/v1/notifications', upstream: 'notification' },
   { prefix: '/api/v1/locations', upstream: 'tracking' },

@@ -14,6 +14,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../help/presentation/help_support_page.dart';
 import '../../../loyalty/presentation/rewards_page.dart';
+import '../../../packages/presentation/packages_widgets.dart';
 import '../../../shops/presentation/saved_shops_page.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
@@ -109,6 +110,11 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.card_giftcard,
               label: l10n.rewardsTitle,
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsPage())),
+            ),
+            _ProfileMenuItem(
+              icon: Icons.local_offer_outlined,
+              label: l10n.myPackages,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPackagesPage())),
             ),
             _ProfileMenuItem(
               icon: Icons.favorite_border,

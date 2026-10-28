@@ -61,6 +61,18 @@ async def fetch_booking(booking_id: str, token: str) -> Optional[dict]:
     return await _get_json(settings.BOOKING_SERVICE_URL, f"/api/v1/bookings/{booking_id}", token)
 
 
+async def fetch_service(service_id: str) -> Optional[dict]:
+    """A service as the catalogue lists it (shop_id, name, price_cents, is_active), or None."""
+    return await _get_json(settings.SERVICE_CATALOG_URL, f"/api/v1/services/{service_id}")
+
+
+ServiceLookup = Callable[[str], Awaitable[Optional[dict]]]
+
+
+def get_service_lookup() -> ServiceLookup:
+    return fetch_service
+
+
 async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     shop = await _get_json(settings.SHOP_SERVICE_URL, f"/api/v1/shops/{shop_id}")
     return shop.get("owner_id") if shop else None

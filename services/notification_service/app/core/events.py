@@ -99,6 +99,15 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Your payment of ₹{amount} did not go through. You can try again.",
     ),
     ("payment.refunded", "customer"): ("Refund issued", "₹{amount} has been refunded to you."),
+    # A prepaid package of visits, bought online.
+    ("payment.package", "customer"): (
+        "Package bought",
+        "Your ₹{amount} package is ready. Choose it when you book to use a visit.",
+    ),
+    ("payment.package", "shop"): (
+        "Package sold",
+        "A customer bought a ₹{amount} package. You earn each visit's share when it is completed.",
+    ),
     # A tip on a completed booking: passed on in full, with the shop's next payout.
     ("payment.tip", "customer"): (
         "Thank you for the tip",

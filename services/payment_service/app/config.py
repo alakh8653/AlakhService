@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     PLATFORM_ACCOUNT_ID: str = "platform_account"
     BOOKING_SERVICE_URL: str = "http://booking_service:8000"
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    # A package's service must belong to its shop.
+    SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
     # Refunds are recorded in admin_service's audit log.

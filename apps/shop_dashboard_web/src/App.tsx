@@ -29,6 +29,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const EarningsPage = lazy(() => import('./pages/EarningsPage'));
+const PackagesPage = lazy(() => import('./pages/PackagesPage'));
 
 function PageFallback() {
   return (
@@ -87,6 +88,7 @@ function ProtectedLayout() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/services" element={<ServicesPage />} />
+              <Route path="/packages" element={<PackagesPage />} />
               <Route path="/queues" element={<QueuesPage />} />
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/hours" element={<OpeningHoursPage />} />

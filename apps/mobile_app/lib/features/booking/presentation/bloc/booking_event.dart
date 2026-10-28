@@ -23,6 +23,9 @@ class CreateBookingRequested extends BookingEvent {
   /// Spend the customer's loyalty points on it.
   final bool usePoints;
 
+  /// Book it as a visit of this prepaid package of the customer's.
+  final String? packagePurchaseId;
+
   const CreateBookingRequested({
     required this.serviceId,
     required this.scheduledAt,
@@ -32,10 +35,12 @@ class CreateBookingRequested extends BookingEvent {
     this.delivery = BookingDelivery.atShop,
     this.idempotencyKey,
     this.usePoints = false,
+    this.packagePurchaseId,
   });
 
   @override
-  List<Object?> get props => [serviceId, scheduledAt, address, notes, couponCode, delivery, idempotencyKey, usePoints];
+  List<Object?> get props =>
+      [serviceId, scheduledAt, address, notes, couponCode, delivery, idempotencyKey, usePoints, packagePurchaseId];
 }
 
 class LoadUserBookings extends BookingEvent {

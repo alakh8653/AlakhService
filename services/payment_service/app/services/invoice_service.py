@@ -105,7 +105,7 @@ td, th {{ padding: 8px; border-bottom: 1px solid #eee; text-align: left; }}
 <button class="noprint" onclick="window.print()">Print / Save as PDF</button>
 <h1>Invoice</h1>
 <div class="muted">No. <strong>{e(payment.invoice_number or "")}</strong> &middot; Date {e(issued_text)}</div>
-<div class="muted">Booking {e(payment.booking_id)} &middot; Payment {e(payment.id)} &middot; {e(payment.payment_method)}</div>
+<div class="muted">{"Package" if getattr(payment, "purpose", None) == "PACKAGE" else "Booking"} {e(payment.booking_id)} &middot; Payment {e(payment.id)} &middot; {e(payment.payment_method)}</div>
 <div class="parties">
   <div><strong>Platform</strong><br>{e(settings.PLATFORM_LEGAL_NAME)}<br>{e(settings.PLATFORM_ADDRESS)}<br>
   GSTIN: {e(settings.PLATFORM_GSTIN)}</div>

@@ -15,6 +15,8 @@ import '../../../booking/presentation/pages/booking_page.dart';
 import '../../../directions/data/shop_location_api.dart';
 import '../../../directions/data/travel_options.dart';
 import '../../../directions/presentation/how_to_get_there_sheet.dart';
+import '../../../packages/data/packages_api.dart';
+import '../../../packages/presentation/packages_widgets.dart';
 import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../../reviews/data/reviews_api.dart';
@@ -31,6 +33,7 @@ class ServiceDetailPage extends StatefulWidget {
   final ReviewsApi? reviewsApi;
   final ShopHoursApi? hoursApi;
   final SavedShopsApi? savedShopsApi;
+  final PackagesApi? packagesApi;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -43,6 +46,7 @@ class ServiceDetailPage extends StatefulWidget {
     this.reviewsApi,
     this.hoursApi,
     this.savedShopsApi,
+    this.packagesApi,
     this.clock = DateTime.now,
   });
 
@@ -323,6 +327,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                           .toList(),
                     ),
                   ],
+                  if (atShop) PackageOffers(serviceId: service.id, servicePrice: service.basePrice, api: widget.packagesApi),
                   if (_reviewsApi != null && _summary != null) ...[
                     const SizedBox(height: 24),
                     ReviewsSection(shopId: service.shopId!, api: _reviewsApi!, summary: _summary, shopName: shop?.name),

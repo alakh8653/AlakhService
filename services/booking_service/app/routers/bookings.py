@@ -25,6 +25,7 @@ from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, 
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
+from app.core.packages import PackageUnusable, PackageWallet, get_package_wallet
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.core.points import PointsWallet, get_points_wallet
 from app.core.privacy import present, present_history, present_page
@@ -140,6 +141,7 @@ async def create_booking(
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
     lookup_names: NameLookup = Depends(get_name_lookup),
     wallet: PointsWallet = Depends(get_points_wallet),
+    packages: PackageWallet = Depends(get_package_wallet),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -170,8 +172,20 @@ async def create_booking(
     )
     # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
     await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
+    booking_id = str(uuid.uuid4())
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
+    package_id = booking_data.package_purchase_id
+    if package_id:
+        if mode != AT_SHOP:
+            raise HTTPException(status_code=422, detail="Packages are for visits at the shop")
+        if code or booking_data.use_points:
+            raise HTTPException(status_code=422, detail="The package covers this visit: no coupon or points are needed")
+        try:
+            await packages.redeem(customer_id, package_id, booking_data.service_id, booking_id)
+        except PackageUnusable as e:
+            raise HTTPException(status_code=e.status, detail=e.detail) from e
+        price = 0
     if code:
         try:
             price = await price_with_coupon(
@@ -181,8 +195,7 @@ async def create_booking(
             raise HTTPException(status_code=422, detail=str(e)) from e
     # Points come off what is left of the service's price, last, so nothing can refuse the booking after
     # they are spent (except a lost idempotency race, which gives them back).
-    booking_id = str(uuid.uuid4())
-    points_discount = await wallet.redeem(customer_id, booking_id, price) if booking_data.use_points else 0
+    points_discount = await wallet.redeem(customer_id, booking_id, price) if booking_data.use_points and price else 0
     price -= points_discount
     # The coupon applies to the service; the visit or pickup fee is added on top.
     booking_data = booking_data.model_copy(
@@ -194,8 +207,10 @@ async def create_booking(
         }
     )
     meta = {}
-    if code or points_discount:
+    if code or points_discount or package_id:
         meta["list_price"] = listing["price_cents"] + fee
+    if package_id:
+        meta["package_purchase_id"] = package_id
     if code:
         meta["coupon_code"] = code
     if points_discount:
@@ -212,15 +227,17 @@ async def create_booking(
         await db.commit()
     except IntegrityError:
         # Another request with the same key got there first (without the lock): its booking stands, and
-        # points spent on this attempt go back.
+        # points or a package visit spent on this attempt go back.
         await db.rollback()
-        if points_discount:
-            background.add_task(wallet.release, booking_id)
+        await _give_back(wallet, packages, booking_id, points_discount, package_id)
         earlier = idempotency_key and await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
         if not earlier:
             raise
         log.info("booking_idempotency_race_lost", booking_id=earlier.id)
         return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
+    except Exception:
+        await _give_back(wallet, packages, booking_id, points_discount, package_id)
+        raise
     background.add_task(
         notify_booking,
         notifier,
@@ -231,6 +248,15 @@ async def create_booking(
         roles=("shop",),
     )
     return await present(booking, current_user, lookup_names)
+
+
+async def _give_back(wallet, packages, booking_id: str, points_discount: int, package_id) -> None:
+    """Returns the points or package visit spent on a booking that was not made after all (awaited: a
+    background task would not run once the request fails)."""
+    if points_discount:
+        await wallet.release(booking_id)
+    if package_id:
+        await packages.release(booking_id)
 
 
 async def _ensure_bookable(

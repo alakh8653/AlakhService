@@ -1890,4 +1890,61 @@ class AppLocalizationsHi extends AppLocalizations {
   String pointsUsed(String amount) {
     return 'इस्तेमाल हुए पॉइंट: $amount';
   }
+
+  @override
+  String get packagesTitle => 'पैकेज';
+
+  @override
+  String packageTerms(int visits, int days) {
+    return '$visits विज़िट · $days दिन तक मान्य';
+  }
+
+  @override
+  String packageSaving(String amount) {
+    return '$amount की बचत';
+  }
+
+  @override
+  String packageBuy(String amount) {
+    return '$amount में खरीदें';
+  }
+
+  @override
+  String packageBought(String name) {
+    return '$name तैयार है। बुक करते समय इसे चुनें।';
+  }
+
+  @override
+  String get myPackages => 'मेरे पैकेज';
+
+  @override
+  String get noPackages =>
+      'अभी कोई पैकेज नहीं है। जिन सेवाओं में पैकेज है, वे उनके पेज पर दिखते हैं।';
+
+  @override
+  String packageVisitsLeft(int left, int total) {
+    return '$total में से $left विज़िट बाकी';
+  }
+
+  @override
+  String packageValidUntil(String date) {
+    return '$date तक मान्य';
+  }
+
+  @override
+  String get packageRefunded => 'रिफ़ंड हो गया';
+
+  @override
+  String get packageUsedUp => 'इस्तेमाल हो चुका या समय खत्म';
+
+  @override
+  String get usePackage => 'मेरा पैकेज इस्तेमाल करें';
+
+  @override
+  String usePackageLeft(String name, int left) {
+    return '$name · $left विज़िट बाकी';
+  }
+
+  @override
+  String get packageLine => 'पैकेज विज़िट';
 }

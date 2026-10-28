@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     # Commission the platform keeps from each completed booking, and GST charged on that commission
     # (percent). Admins can set a different rate per shop.
     PLATFORM_COMMISSION_PERCENT: Decimal = Decimal("10")
+    # Loyalty points (the platform pays for them): earned per Rs 100 paid for a completed booking, worth
+    # LOYALTY_POINT_VALUE_CENTS each, spent on up to LOYALTY_REDEEM_MAX_PERCENT of a booking's price.
+    LOYALTY_POINTS_PER_100_RUPEES: int = 2
+    LOYALTY_POINT_VALUE_CENTS: int = 100
+    LOYALTY_REDEEM_MAX_PERCENT: int = 20
+    # A friend's code gives both of them this many points once the new customer's first booking completes;
+    # one customer is rewarded for at most REFERRALS_MAX_REWARDED friends.
+    REFERRAL_BONUS_POINTS: int = 100
+    REFERRALS_MAX_REWARDED: int = 25
     # Tips customers may add to a completed booking, in paise (Rs 10 to Rs 2,000); paid online only.
     TIP_MIN_CENTS: int = 1000
     TIP_MAX_CENTS: int = 200000

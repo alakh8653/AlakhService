@@ -24,6 +24,7 @@ class BookingRepositoryImpl implements BookingRepository {
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
     String? idempotencyKey,
+    bool usePoints = false,
   }) async {
     if (!await networkInfo.isConnected) return const Left(NetworkFailure());
     try {
@@ -35,6 +36,7 @@ class BookingRepositoryImpl implements BookingRepository {
         couponCode: couponCode,
         delivery: delivery,
         idempotencyKey: idempotencyKey,
+        usePoints: usePoints,
       );
       return Right(booking);
     } on ServerException catch (e) {

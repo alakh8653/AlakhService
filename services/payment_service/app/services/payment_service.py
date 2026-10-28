@@ -15,7 +15,7 @@ from app.core.ledger import ledger
 from app.core.razorpay import GatewayError
 from app.models.payment import BOOKING, TIP, Account, LedgerEntry, Payment, Refund
 from app.schemas.payment import PaymentInitiate, RefundRequest
-from app.services import earnings_service, invoice_service
+from app.services import earnings_service, invoice_service, loyalty_service
 
 log = structlog.get_logger()
 
@@ -439,6 +439,8 @@ class PaymentService:
         retries.
         """
         now = datetime.now(timezone.utc)
+        # Points spent on it go back, whatever happens to its money.
+        await loyalty_service.return_points(db, booking_id)
         payments = await self.payments_for_booking(db, booking_id)
         for p in payments:
             if p.status == "PENDING":

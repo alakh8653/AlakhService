@@ -1822,4 +1822,89 @@ class AppLocalizationsEn extends AppLocalizations {
   String tipThanks(String amount) {
     return 'You tipped $amount. Thank you!';
   }
+
+  @override
+  String get rewardsTitle => 'Rewards';
+
+  @override
+  String pointsBalance(int count) {
+    return '$count points';
+  }
+
+  @override
+  String pointsWorth(String amount) {
+    return 'Worth $amount on your next bookings';
+  }
+
+  @override
+  String pointsRules(String earn, String percent) {
+    return 'Earn $earn points for every ₹100 you pay. Points pay up to $percent% of a booking.';
+  }
+
+  @override
+  String get referralTitle => 'Invite friends';
+
+  @override
+  String referralBody(String bonus) {
+    return 'Share your code. When a friend\'s first booking is done, you both get $bonus points.';
+  }
+
+  @override
+  String get referralCopy => 'Copy code';
+
+  @override
+  String get referralCopied => 'Code copied';
+
+  @override
+  String get referralShare => 'Share on WhatsApp';
+
+  @override
+  String referralShareText(String code, String bonus) {
+    return 'Book salons and services on AlakhService with my code $code: we both get $bonus points after your first booking.';
+  }
+
+  @override
+  String referralFriends(int rewarded, int pending) {
+    return '$rewarded friends booked · $pending yet to book';
+  }
+
+  @override
+  String get referralEnterTitle => 'Got a friend\'s code?';
+
+  @override
+  String get referralCodeLabel => 'Referral code';
+
+  @override
+  String get pointsHistory => 'Points history';
+
+  @override
+  String get pointsEarned => 'Earned on a booking';
+
+  @override
+  String get pointsSpent => 'Used on a booking';
+
+  @override
+  String get pointsReturned => 'Returned (booking cancelled)';
+
+  @override
+  String get pointsReferral => 'Referral bonus';
+
+  @override
+  String get pointsTakenBack => 'Taken back (booking refunded)';
+
+  @override
+  String get usePoints => 'Use my points';
+
+  @override
+  String usePointsSaving(String amount, int points) {
+    return 'Save $amount · $points points available';
+  }
+
+  @override
+  String get pointsLine => 'Points';
+
+  @override
+  String pointsUsed(String amount) {
+    return 'Points used: $amount';
+  }
 }

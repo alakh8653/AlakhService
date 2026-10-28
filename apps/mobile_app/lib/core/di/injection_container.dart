@@ -35,6 +35,7 @@ import '../../features/directions/data/shop_location_api.dart';
 import '../../features/queue/data/queue_api.dart';
 import '../../features/reviews/data/reviews_api.dart';
 import '../../features/services/data/datasources/service_remote_datasource.dart';
+import '../../features/loyalty/data/loyalty_api.dart';
 import '../../features/shops/data/saved_shops_api.dart';
 import '../../features/shops/data/shop_hours_api.dart';
 import '../../features/services/data/repositories/service_repository_impl.dart';
@@ -135,6 +136,7 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   sl.registerLazySingleton(() => AvailabilityApi(sl()));
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
   sl.registerLazySingleton(() => SavedShopsApi(sl()));
+  sl.registerLazySingleton(() => LoyaltyApi(sl()));
   sl.registerLazySingleton(() => ChatApi(sl()));
   sl.registerLazySingleton(() => LegalApi(sl()));
   sl.registerLazySingleton(() => DataExportApi(sl()));

@@ -3241,6 +3241,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You tipped {amount}. Thank you!'**
   String tipThanks(String amount);
+
+  /// No description provided for @rewardsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewards'**
+  String get rewardsTitle;
+
+  /// No description provided for @pointsBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String pointsBalance(int count);
+
+  /// No description provided for @pointsWorth.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth {amount} on your next bookings'**
+  String pointsWorth(String amount);
+
+  /// No description provided for @pointsRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {earn} points for every ₹100 you pay. Points pay up to {percent}% of a booking.'**
+  String pointsRules(String earn, String percent);
+
+  /// No description provided for @referralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get referralTitle;
+
+  /// No description provided for @referralBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code. When a friend\'s first booking is done, you both get {bonus} points.'**
+  String referralBody(String bonus);
+
+  /// No description provided for @referralCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get referralCopy;
+
+  /// No description provided for @referralCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied'**
+  String get referralCopied;
+
+  /// No description provided for @referralShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share on WhatsApp'**
+  String get referralShare;
+
+  /// No description provided for @referralShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Book salons and services on AlakhService with my code {code}: we both get {bonus} points after your first booking.'**
+  String referralShareText(String code, String bonus);
+
+  /// No description provided for @referralFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'{rewarded} friends booked · {pending} yet to book'**
+  String referralFriends(int rewarded, int pending);
+
+  /// No description provided for @referralEnterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Got a friend\'s code?'**
+  String get referralEnterTitle;
+
+  /// No description provided for @referralCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral code'**
+  String get referralCodeLabel;
+
+  /// No description provided for @pointsHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Points history'**
+  String get pointsHistory;
+
+  /// No description provided for @pointsEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Earned on a booking'**
+  String get pointsEarned;
+
+  /// No description provided for @pointsSpent.
+  ///
+  /// In en, this message translates to:
+  /// **'Used on a booking'**
+  String get pointsSpent;
+
+  /// No description provided for @pointsReturned.
+  ///
+  /// In en, this message translates to:
+  /// **'Returned (booking cancelled)'**
+  String get pointsReturned;
+
+  /// No description provided for @pointsReferral.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral bonus'**
+  String get pointsReferral;
+
+  /// No description provided for @pointsTakenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken back (booking refunded)'**
+  String get pointsTakenBack;
+
+  /// No description provided for @usePoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my points'**
+  String get usePoints;
+
+  /// No description provided for @usePointsSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Save {amount} · {points} points available'**
+  String usePointsSaving(String amount, int points);
+
+  /// No description provided for @pointsLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Points'**
+  String get pointsLine;
+
+  /// No description provided for @pointsUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Points used: {amount}'**
+  String pointsUsed(String amount);
 }
 
 class _AppLocalizationsDelegate

@@ -32,6 +32,8 @@ class BookingCreate(BaseModel):
     service_mode: Literal["AT_SHOP", "AT_HOME", "PICKUP_DROP"] = "AT_SHOP"
     # What is being collected and what is wrong with it (pickup & drop).
     item_description: Optional[str] = Field(default=None, max_length=500)
+    # Spend the customer's loyalty points on it (up to a share of the price; the platform pays for them).
+    use_points: bool = False
 
     @field_validator("scheduled_at")
     @classmethod
@@ -107,6 +109,8 @@ class BookingResponse(BaseModel):
     # Home visit or pickup fee included in total_amount.
     service_mode_fee: int = 0
     coupon_code: Optional[str] = None
+    # Paid by the customer's loyalty points (included in list_price, not in total_amount).
+    points_discount: int = 0
     # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).

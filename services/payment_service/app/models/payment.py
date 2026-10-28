@@ -170,6 +170,8 @@ class ShopEarning(Base):
     status = Column(String(10), nullable=False)  # HELD, READY, PAID, REFUNDED
     # TIP: the staff member who did the job; the shop passes the tip on to them in full.
     provider_id = Column(String, nullable=True)
+    # Paid by the platform for the customer's points: the shop earns as if the customer paid it.
+    platform_discount_cents = Column(Integer, nullable=False, default=0, server_default="0")
     payout_id = Column(String, ForeignKey("payouts.id"), nullable=True, index=True)
     completed_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
@@ -195,3 +197,46 @@ class Payout(Base):
     reference = Column(String, nullable=True)
     created_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class LoyaltyEntry(Base):
+    """One change to a customer's points: earned on a completed booking, spent on (or returned from) a
+    booking, a referral bonus, or taken back after a refund. The balance is their sum.
+
+    The platform pays for points: a booking paid partly with points earns its shop the full price.
+    """
+
+    __tablename__ = "loyalty_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False, index=True)
+    kind = Column(String(20), nullable=False)  # EARN, REDEEM, REDEEM_RETURN, REFERRAL_BONUS, CLAWBACK
+    points = Column(Integer, nullable=False)  # positive adds, negative spends
+    booking_id = Column(String, nullable=True, index=True)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    # Each event happens once per booking and person, however often it is reported.
+    __table_args__ = (UniqueConstraint("user_id", "kind", "booking_id", name="uq_loyalty_user_kind_booking"),)
+
+
+class ReferralCode(Base):
+    """A customer's own code to invite friends."""
+
+    __tablename__ = "referral_codes"
+
+    user_id = Column(String, primary_key=True)
+    code = Column(String(12), nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class Referral(Base):
+    """Who invited a new customer; both get a bonus once that customer's first booking is completed."""
+
+    __tablename__ = "referrals"
+
+    referee_id = Column(String, primary_key=True)
+    referrer_id = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    rewarded_at = Column(DateTime(timezone=True), nullable=True)
+    rewarded_booking_id = Column(String, nullable=True)

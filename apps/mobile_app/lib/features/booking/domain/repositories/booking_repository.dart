@@ -11,6 +11,7 @@ abstract class BookingRepository {
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
     String? idempotencyKey,
+    bool usePoints = false,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

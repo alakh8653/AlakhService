@@ -13,6 +13,7 @@ import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../help/presentation/help_support_page.dart';
+import '../../../loyalty/presentation/rewards_page.dart';
 import '../../../shops/presentation/saved_shops_page.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
@@ -104,6 +105,11 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 24),
             _ProfileMenuItem(icon: Icons.edit_outlined, label: l10n.editProfile, onTap: _editProfile),
             _ProfileMenuItem(icon: Icons.history, label: l10n.myBookings, onTap: widget.onOpenBookings),
+            _ProfileMenuItem(
+              icon: Icons.card_giftcard,
+              label: l10n.rewardsTitle,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardsPage())),
+            ),
             _ProfileMenuItem(
               icon: Icons.favorite_border,
               label: l10n.savedShops,

@@ -17,6 +17,7 @@ class CreateBookingUseCase {
       couponCode: params.couponCode,
       delivery: params.delivery,
       idempotencyKey: params.idempotencyKey,
+      usePoints: params.usePoints,
     );
   }
 }
@@ -31,6 +32,7 @@ class CreateBookingParams {
 
   /// The same for every try of one booking, so a retry never books twice.
   final String? idempotencyKey;
+  final bool usePoints;
 
   const CreateBookingParams({
     required this.serviceId,
@@ -40,5 +42,6 @@ class CreateBookingParams {
     this.couponCode,
     this.delivery = BookingDelivery.atShop,
     this.idempotencyKey,
+    this.usePoints = false,
   });
 }

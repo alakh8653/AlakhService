@@ -13,7 +13,7 @@ from app.core import money
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
 from app.core.razorpay import GatewayError
-from app.models.payment import Account, LedgerEntry, Payment, Refund
+from app.models.payment import BOOKING, TIP, Account, LedgerEntry, Payment, Refund
 from app.schemas.payment import PaymentInitiate, RefundRequest
 from app.services import earnings_service, invoice_service
 
@@ -91,6 +91,8 @@ class PaymentService:
             status="PENDING",
             payment_method=payment_data.payment_method,
             idempotency_key=payment_data.idempotency_key,
+            purpose=payment_data.purpose,
+            metadata_json=payment_data.metadata_json,
             created_at=now,
             updated_at=now,
         )
@@ -142,18 +144,26 @@ class PaymentService:
                 )
             except Exception as e:
                 log.warning("escrow_hold_failed", payment_id=payment.id, error=str(e))
-        # Other attempts at paying this booking (e.g. a cash choice, then UPI) are now moot.
+        # Other attempts at paying this booking (e.g. a cash choice, then UPI) are now moot; a tip's
+        # checkout and the booking's own are separate.
         others = await db.execute(
             select(Payment).where(
-                Payment.booking_id == payment.booking_id, Payment.id != payment.id, Payment.status == "PENDING"
+                Payment.booking_id == payment.booking_id,
+                Payment.purpose == payment.purpose,
+                Payment.id != payment.id,
+                Payment.status == "PENDING",
             )
         )
         for other in others.scalars().all():
             other.status = "CANCELLED"
             other.updated_at = payment.updated_at
         await db.flush()
-        await invoice_service.assign_invoice(db, payment)
-        await earnings_service.payment_completed(db, payment)
+        if payment.purpose == TIP:
+            # Passed on in full to the provider: no service is sold, so there is no invoice.
+            await earnings_service.tip_completed(db, payment)
+        else:
+            await invoice_service.assign_invoice(db, payment)
+            await earnings_service.payment_completed(db, payment)
         log.info("payment_completed", payment_id=payment.id, gateway=gateway, invoice=payment.invoice_number)
         return payment
 
@@ -166,10 +176,10 @@ class PaymentService:
         (a second checkout was paid too) is not kept: it is refunded through Razorpay, or marked DUPLICATE
         for an admin to refund when that is not possible.
         """
-        # Lock the booking's payments so two checkouts confirmed at once cannot both complete.
+        # Lock the booking's payments (or tips) so two checkouts confirmed at once cannot both complete.
         result = await db.execute(
             select(Payment)
-            .where(Payment.booking_id == payment.booking_id)
+            .where(Payment.booking_id == payment.booking_id, Payment.purpose == payment.purpose)
             .with_for_update()
             .execution_options(populate_existing=True)
         )
@@ -233,6 +243,7 @@ class PaymentService:
         result = await db.execute(
             select(Payment.id).where(
                 Payment.booking_id == payment.booking_id,
+                Payment.purpose == payment.purpose,
                 Payment.id != payment.id,
                 Payment.status.in_(PAID_STATUSES),
             )
@@ -491,7 +502,9 @@ class PaymentService:
 
         Only the payment the booking kept counts; a duplicate paid and refunded leaves the booking PAID.
         """
-        result = await db.execute(select(Payment.status).where(Payment.booking_id == booking_id))
+        result = await db.execute(
+            select(Payment.status).where(Payment.booking_id == booking_id, Payment.purpose == BOOKING)
+        )
         statuses = set(result.scalars().all())
         for status, shown in (
             ("COMPLETED", "PAID"),
@@ -502,14 +515,24 @@ class PaymentService:
                 return shown
         return "UNPAID"
 
-    async def payments_by_payer(self, db: AsyncSession, payer_id: str, limit: int = 100) -> List[Payment]:
+    async def payments_by_payer(
+        self, db: AsyncSession, payer_id: str, limit: int = 100, purpose: str = BOOKING
+    ) -> List[Payment]:
         result = await db.execute(
-            select(Payment).where(Payment.payer_id == payer_id).order_by(Payment.created_at.desc()).limit(limit)
+            select(Payment)
+            .where(Payment.payer_id == payer_id, Payment.purpose == purpose)
+            .order_by(Payment.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
-    async def payments_for_booking(self, db: AsyncSession, booking_id: str) -> List[Payment]:
-        result = await db.execute(select(Payment).where(Payment.booking_id == booking_id).order_by(Payment.created_at))
+    async def payments_for_booking(self, db: AsyncSession, booking_id: str, purpose: str = BOOKING) -> List[Payment]:
+        """The booking's own payments (by default), or with purpose TIP its tips."""
+        result = await db.execute(
+            select(Payment)
+            .where(Payment.booking_id == booking_id, Payment.purpose == purpose)
+            .order_by(Payment.created_at)
+        )
         return list(result.scalars().all())
 
     async def get_refund(self, db: AsyncSession, refund_id: str) -> Optional[Refund]:

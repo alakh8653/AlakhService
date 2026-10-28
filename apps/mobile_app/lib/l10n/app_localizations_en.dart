@@ -1796,4 +1796,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shopNoServices => 'This shop has no services to book right now.';
+
+  @override
+  String get tipAdd => 'Add a tip';
+
+  @override
+  String get tipTitle => 'Tip your professional';
+
+  @override
+  String get tipBody =>
+      '100% of your tip goes to the professional who served you, paid online.';
+
+  @override
+  String get tipOther => 'Other amount (₹)';
+
+  @override
+  String get tipRange => 'Enter ₹10 to ₹2,000';
+
+  @override
+  String tipPay(String amount) {
+    return 'Tip $amount';
+  }
+
+  @override
+  String tipThanks(String amount) {
+    return 'You tipped $amount. Thank you!';
+  }
 }

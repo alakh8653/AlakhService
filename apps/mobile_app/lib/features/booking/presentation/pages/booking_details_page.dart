@@ -11,6 +11,8 @@ import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../chat/data/chat_api.dart';
 import '../../../chat/presentation/booking_chat_page.dart';
 import '../../../payment/data/payment_api.dart';
+import '../../../payment/data/razorpay_checkout.dart';
+import '../../../payment/presentation/tip_sheet.dart';
 import '../../../payment/presentation/pages/invoice_page.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
@@ -33,6 +35,7 @@ class BookingDetailsPage extends StatefulWidget {
   final ChatApi? chatApi;
   final AvailabilityApi? availabilityApi;
   final ServiceRepository? serviceRepository;
+  final CheckoutLauncher? checkoutLauncher;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -49,6 +52,7 @@ class BookingDetailsPage extends StatefulWidget {
     this.chatApi,
     this.availabilityApi,
     this.serviceRepository,
+    this.checkoutLauncher,
     this.clock = DateTime.now,
     this.invoiceViewer,
   });
@@ -66,6 +70,8 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   int _unread = 0;
   bool _cancelling = false;
   bool _openingService = false;
+  // The tip paid for a completed booking (rupees); null when none, or not known yet.
+  double? _tip;
 
   BookingRepository get _repository => widget.repository ?? sl<BookingRepository>();
   PaymentApi get _paymentApi => widget.paymentApi ?? sl<PaymentApi>();
@@ -87,6 +93,28 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
     );
     _loadPayment();
     _loadUnread();
+    _loadTip();
+  }
+
+  Future<void> _loadTip() async {
+    if (_booking?.status != BookingStatus.completed) return;
+    try {
+      final tip = await _paymentApi.tipPaid(widget.bookingId);
+      if (mounted) setState(() => _tip = tip);
+    } catch (_) {
+      // Without it the Add a tip button shows; payment_service refuses a second tip anyway.
+    }
+  }
+
+  Future<void> _addTip(Booking booking) async {
+    final paid = await showTipSheet(
+      context,
+      bookingId: booking.id,
+      bookingNumber: booking.bookingNumber,
+      paymentApi: widget.paymentApi,
+      checkoutLauncher: widget.checkoutLauncher,
+    );
+    if (paid != null && mounted) setState(() => _tip = paid);
   }
 
   Future<void> _loadPayment() async {
@@ -251,6 +279,20 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               label: Text(l10n.rescheduleBooking),
             ),
           ),
+        ],
+        if (booking.status == BookingStatus.completed && booking.shopId != null) ...[
+          const SizedBox(height: 8),
+          if (_tip != null)
+            _row(context, Icons.volunteer_activism, l10n.tipThanks(rupees(_tip!)), color: context.palette.success)
+          else
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _addTip(booking),
+                icon: const Icon(Icons.volunteer_activism_outlined),
+                label: Text(l10n.tipAdd),
+              ),
+            ),
         ],
         if (booking.canBookAgain) ...[
           const SizedBox(height: 8),

@@ -1779,4 +1779,30 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get shopNoServices =>
       'इस दुकान में अभी बुक करने के लिए कोई सेवा नहीं है।';
+
+  @override
+  String get tipAdd => 'टिप दें';
+
+  @override
+  String get tipTitle => 'अपने प्रोफ़ेशनल को टिप दें';
+
+  @override
+  String get tipBody =>
+      'आपकी पूरी टिप उस प्रोफ़ेशनल को जाती है जिसने आपकी सेवा की। भुगतान ऑनलाइन होता है।';
+
+  @override
+  String get tipOther => 'दूसरी रकम (₹)';
+
+  @override
+  String get tipRange => '₹10 से ₹2,000 तक डालें';
+
+  @override
+  String tipPay(String amount) {
+    return '$amount टिप दें';
+  }
+
+  @override
+  String tipThanks(String amount) {
+    return 'आपने $amount की टिप दी। धन्यवाद!';
+  }
 }

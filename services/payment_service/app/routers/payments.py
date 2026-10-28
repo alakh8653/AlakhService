@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core import risk
 from app.core.audit import AuditReporter, Origin, get_audit_reporter, request_origin
 from app.core.notifier import Notifier, get_notifier, notify_payment, payment_snapshot
@@ -24,7 +25,7 @@ from app.dependencies import (
     require_admin,
     security,
 )
-from app.models.payment import Payment
+from app.models.payment import BOOKING, TIP, Payment
 from app.schemas.payment import (
     PaymentCheckout,
     PaymentCheckoutResponse,
@@ -34,6 +35,7 @@ from app.schemas.payment import (
     RazorpayVerification,
     RefundRequest,
     RefundResponse,
+    TipCheckout,
     TransactionHistoryResponse,
 )
 from app.services.payment_service import PAID_STATUSES, payment_service
@@ -125,7 +127,7 @@ async def initiate_payment(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     # An idempotency key belongs to whoever used it first; it never reveals someone else's payment.
-    if payment.payer_id != payer_id:
+    if payment.payer_id != payer_id or payment.purpose != BOOKING:
         raise HTTPException(status_code=409, detail="Idempotency key already used")
     if payment.payment_method != "cash" and payment.status == "PENDING" and not payment.provider_order_id:
         try:
@@ -134,6 +136,76 @@ async def initiate_payment(
                 payment.currency,
                 receipt=payment.id,
                 notes={"payment_id": payment.id, "booking_id": payment.booking_id},
+            )
+        except GatewayError as e:
+            log.warning("razorpay_order_failed", payment_id=payment.id, error=str(e))
+            raise HTTPException(status_code=502, detail="Could not start the payment. Please try again.") from e
+        payment.updated_at = datetime.now(timezone.utc)
+        await db.flush()
+    return _with_checkout(payment, gateway)
+
+
+@router.post("/payments/tips", response_model=PaymentCheckoutResponse, status_code=201)
+async def tip_provider(
+    checkout: TipCheckout,
+    db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+    current_user: dict = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    lookup_booking: BookingLookup = Depends(get_booking_lookup),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    gateway: RazorpayGateway = Depends(get_razorpay),
+):
+    """Tip the provider of one of your completed bookings, once. It is paid online and passed on in full:
+    no commission or GST is taken, and it reaches the shop with its next payout, marked for the provider.
+
+    Completes like any online payment (``/payments/{id}/verify`` or the webhook).
+    """
+    payer_id = current_user["sub"]
+    if not gateway.configured:
+        raise HTTPException(status_code=503, detail="Tips can only be paid online, which is not available yet")
+    if not settings.TIP_MIN_CENTS <= checkout.amount_cents <= settings.TIP_MAX_CENTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"A tip can be Rs {settings.TIP_MIN_CENTS // 100} to Rs {settings.TIP_MAX_CENTS // 100}",
+        )
+    booking = await lookup_booking(checkout.booking_id, credentials.credentials)
+    if booking is None or booking.get("customer_id") != payer_id:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.get("status") != "COMPLETED":
+        raise HTTPException(status_code=409, detail="You can add a tip once the booking is completed")
+    if not booking.get("shop_id"):
+        raise HTTPException(status_code=409, detail="This booking has no shop to pass a tip on")
+    for earlier in await payment_service.payments_for_booking(db, checkout.booking_id, TIP):
+        if earlier.status in PAID_STATUSES and earlier.idempotency_key != checkout.idempotency_key:
+            raise HTTPException(status_code=409, detail="You have already tipped for this booking")
+    payee_id = await lookup_owner(booking["shop_id"])
+    if not payee_id:
+        raise HTTPException(status_code=409, detail="This booking has no one to pay yet")
+    payment = await payment_service.initiate_payment(
+        db,
+        redis,
+        PaymentInitiate(
+            booking_id=checkout.booking_id,
+            payer_id=payer_id,
+            payee_id=payee_id,
+            shop_id=booking["shop_id"],
+            amount_cents=checkout.amount_cents,
+            payment_method=checkout.payment_method,
+            idempotency_key=checkout.idempotency_key,
+            purpose=TIP,
+            metadata_json=json.dumps({"provider_id": booking.get("provider_id")}),
+        ),
+    )
+    if payment.payer_id != payer_id or payment.purpose != TIP:
+        raise HTTPException(status_code=409, detail="Idempotency key already used")
+    if payment.status == "PENDING" and not payment.provider_order_id:
+        try:
+            payment.provider_order_id = await gateway.create_order(
+                payment.amount_cents,
+                payment.currency,
+                receipt=payment.id,
+                notes={"payment_id": payment.id, "booking_id": payment.booking_id, "purpose": TIP},
             )
         except GatewayError as e:
             log.warning("razorpay_order_failed", payment_id=payment.id, error=str(e))
@@ -183,14 +255,15 @@ def _ensure_party(payment, current_user: dict) -> None:
 @router.get("/payments", response_model=List[PaymentResponse])
 async def list_payments(
     booking_id: Optional[str] = None,
+    purpose: str = Query(BOOKING, pattern="^(BOOKING|TIP)$"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     """Payments for a booking (all of them for admins, otherwise those the caller paid or received),
-    or without a booking id the caller's own recent payments."""
+    or without a booking id the caller's own recent payments. Tips are listed separately (purpose=TIP)."""
     if booking_id is None:
-        return await payment_service.payments_by_payer(db, current_user["sub"])
-    payments = await payment_service.payments_for_booking(db, booking_id)
+        return await payment_service.payments_by_payer(db, current_user["sub"], purpose=purpose)
+    payments = await payment_service.payments_for_booking(db, booking_id, purpose)
     if current_user.get("role") != "admin":
         payments = [p for p in payments if current_user["sub"] in (p.payer_id, p.payee_id)]
     return payments

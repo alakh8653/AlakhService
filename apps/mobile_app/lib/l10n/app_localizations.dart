@@ -3199,6 +3199,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This shop has no services to book right now.'**
   String get shopNoServices;
+
+  /// No description provided for @tipAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a tip'**
+  String get tipAdd;
+
+  /// No description provided for @tipTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip your professional'**
+  String get tipTitle;
+
+  /// No description provided for @tipBody.
+  ///
+  /// In en, this message translates to:
+  /// **'100% of your tip goes to the professional who served you, paid online.'**
+  String get tipBody;
+
+  /// No description provided for @tipOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other amount (₹)'**
+  String get tipOther;
+
+  /// No description provided for @tipRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter ₹10 to ₹2,000'**
+  String get tipRange;
+
+  /// No description provided for @tipPay.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip {amount}'**
+  String tipPay(String amount);
+
+  /// No description provided for @tipThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'You tipped {amount}. Thank you!'**
+  String tipThanks(String amount);
 }
 
 class _AppLocalizationsDelegate

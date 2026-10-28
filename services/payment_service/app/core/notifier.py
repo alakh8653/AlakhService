@@ -41,9 +41,17 @@ def get_notifier() -> Notifier:
 
 
 async def notify_payment(notifier: Notifier, event: str, payment: dict) -> None:
-    """payment.completed reaches the payer and the payee; payment.failed and payment.refunded only the payer."""
+    """payment.completed reaches the payer and the payee; payment.failed and payment.refunded only the payer.
+
+    A completed tip is payment.tip: the customer is thanked, and the shop and the provider are told.
+    """
     recipients = [{"user_id": payment["payer_id"], "role": "customer"}]
-    if event == "payment.completed" and payment["payee_id"] != payment["payer_id"]:
+    if event == "payment.completed" and payment.get("purpose") == "TIP":
+        event = "payment.tip"
+        provider = payment.get("provider_id")
+        if provider and provider not in (payment["payer_id"], payment["payee_id"]):
+            recipients.append({"user_id": provider, "role": "provider"})
+    if event in ("payment.completed", "payment.tip") and payment["payee_id"] != payment["payer_id"]:
         recipients.append({"user_id": payment["payee_id"], "role": "shop"})
     await notifier.send(
         event,
@@ -57,4 +65,10 @@ async def notify_payment(notifier: Notifier, event: str, payment: dict) -> None:
 
 
 def payment_snapshot(payment) -> dict:
-    return {k: getattr(payment, k) for k in ("id", "booking_id", "payer_id", "payee_id", "amount_cents")}
+    from app.services.earnings_service import tip_provider  # avoid an import cycle
+
+    snap = {k: getattr(payment, k) for k in ("id", "booking_id", "payer_id", "payee_id", "amount_cents")}
+    snap["purpose"] = getattr(payment, "purpose", None) or "BOOKING"
+    if snap["purpose"] == "TIP":
+        snap["provider_id"] = tip_provider(payment)
+    return snap

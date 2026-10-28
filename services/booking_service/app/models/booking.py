@@ -1,10 +1,15 @@
 import json
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database import Base
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Booking(Base):
@@ -41,7 +46,9 @@ class Booking(Base):
     reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
     reminder_1h_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+    # Stamped by the app on every update, never left to the database: a server-side value would expire the
+    # attribute, and reading it back later (building the response) fails outside the async session.
+    updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=_now, nullable=False)
 
     __table_args__ = (UniqueConstraint("customer_id", "idempotency_key", name="uq_bookings_customer_idempotency_key"),)
 

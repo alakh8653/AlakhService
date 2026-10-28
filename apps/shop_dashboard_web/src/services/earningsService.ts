@@ -14,6 +14,16 @@ export interface EarningItem {
   gstOnCommission: number;
   net: number;
   payoutStatus: PayoutItemStatus;
+  /** SALE (a booking), ADJUSTMENT (a later refund), or TIP / TIP_ADJUSTMENT (a customer's tip). */
+  kind?: string;
+  /** For a tip: the staff app account of the provider it is for. */
+  providerId?: string | null;
+}
+
+/** Tips customers left for one provider: no commission is taken, and the shop passes them on. */
+export interface ProviderTips {
+  providerId: string | null;
+  amount: number;
 }
 
 export interface Earnings {
@@ -24,6 +34,9 @@ export interface Earnings {
   net: number;
   pendingPayout: number;
   paidOut: number;
+  /** Tips in these dates (already in the totals above), and who they are for. */
+  tips?: number;
+  tipsByProvider?: ProviderTips[];
   items: EarningItem[];
 }
 
@@ -45,6 +58,8 @@ interface EarningsRecord {
   net: number;
   pending_payout: number;
   paid_out: number;
+  tips?: number;
+  tips_by_provider?: { provider_id: string | null; amount: number }[];
   items?: {
     booking_id: string;
     payment_id: string;
@@ -54,6 +69,8 @@ interface EarningsRecord {
     gst_on_commission: number;
     net: number;
     payout_status: PayoutItemStatus;
+    kind?: string;
+    provider_id?: string | null;
   }[];
 }
 
@@ -81,6 +98,8 @@ export async function getEarnings(shopId: string, from: string, to: string): Pro
     net: num(data.net),
     pendingPayout: num(data.pending_payout),
     paidOut: num(data.paid_out),
+    tips: num(data.tips),
+    tipsByProvider: (data.tips_by_provider ?? []).map((t) => ({ providerId: t.provider_id, amount: num(t.amount) })),
     items: (data.items ?? []).map((i) => ({
       bookingId: i.booking_id,
       paymentId: i.payment_id,
@@ -90,6 +109,8 @@ export async function getEarnings(shopId: string, from: string, to: string): Pro
       gstOnCommission: num(i.gst_on_commission),
       net: num(i.net),
       payoutStatus: i.payout_status,
+      kind: i.kind ?? 'SALE',
+      providerId: i.provider_id ?? null,
     })),
   };
 }

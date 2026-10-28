@@ -8,6 +8,7 @@ import { ToastProvider } from '../../components/Toast';
 import EarningsPage, { thisMonth } from '../EarningsPage';
 import * as earnings from '../../services/earningsService';
 import * as kyc from '../../services/kycService';
+import * as shops from '../../services/shopService';
 import type { Shop } from '../../types';
 
 const shop = { id: 's1', ownerId: 'u1', name: 'Asha Salon', isVerified: true } as Shop;
@@ -55,6 +56,33 @@ describe('EarningsPage', () => {
 
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-09-01' } });
     await waitFor(() => expect(get).toHaveBeenLastCalledWith('s1', '2026-09-01', expect.any(String)));
+  });
+
+  it('lists tips to pass on to each staff member by name', async () => {
+    vi.spyOn(earnings, 'getEarnings').mockResolvedValue({
+      ...summary,
+      tips: 75,
+      tipsByProvider: [{ providerId: 'staff-user-1', amount: 50 }, { providerId: 'gone', amount: 25 }],
+      items: [...summary.items, { ...summary.items[0], paymentId: 't1', gross: 50, net: 50, commission: 0, gstOnCommission: 0, kind: 'TIP', providerId: 'staff-user-1' }],
+    });
+    vi.spyOn(earnings, 'getPayouts').mockResolvedValue([]);
+    vi.spyOn(shops, 'getStaff').mockResolvedValue([{ id: 'st1', shopId: 's1', userId: 'staff-user-1', name: 'Meena', email: null, phone: null, role: 'stylist', serviceIds: [], isActive: true, createdAt: '' }]);
+    renderPage();
+    const tips = await screen.findByRole('region', { name: 'Tips to pass on' });
+    expect(within(tips).getByText(/Customers tipped ₹75.00/)).toBeInTheDocument();
+    expect(await within(tips).findByText('Meena')).toBeInTheDocument();
+    expect(within(tips).getByText('A staff member')).toBeInTheDocument();
+    expect(within(screen.getByRole('table', { name: 'Earnings by booking' })).getByText('Tip')).toBeInTheDocument();
+  });
+
+  it('shows no tips card when there were no tips', async () => {
+    vi.spyOn(earnings, 'getEarnings').mockResolvedValue(summary);
+    vi.spyOn(earnings, 'getPayouts').mockResolvedValue([]);
+    const staff = vi.spyOn(shops, 'getStaff');
+    renderPage();
+    expect(await screen.findByText('Your earnings')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Tips to pass on' })).not.toBeInTheDocument();
+    expect(staff).not.toHaveBeenCalled();
   });
 
   it('says earnings are not available yet when payment_service does not have them', async () => {

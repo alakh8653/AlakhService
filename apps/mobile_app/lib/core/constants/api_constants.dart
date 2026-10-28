@@ -63,6 +63,8 @@ class ApiConstants {
   // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';
   static const String payments = '$apiVersion/payments';
+  // A tip for the provider of a completed booking (payment_service).
+  static const String tips = '$apiVersion/payments/tips';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
   /// A printable HTML invoice for a completed payment.
   static String paymentInvoice(String paymentId) => '$apiVersion/payments/$paymentId/invoice';

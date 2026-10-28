@@ -13,6 +13,15 @@ class PaymentCheckout(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
+class TipCheckout(BaseModel):
+    """A tip for the provider of one of your completed bookings, paid online."""
+
+    booking_id: str
+    amount_cents: int
+    payment_method: Literal["upi", "card", "netbanking", "wallet"]
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
 class PaymentInitiate(BaseModel):
     booking_id: str
     payer_id: str
@@ -22,6 +31,9 @@ class PaymentInitiate(BaseModel):
     currency: str = "INR"
     payment_method: str
     idempotency_key: str
+    purpose: Literal["BOOKING", "TIP"] = "BOOKING"
+    # Stored with the payment (JSON), e.g. which provider a tip is for.
+    metadata_json: Optional[str] = None
 
     @field_validator("amount_cents")
     @classmethod
@@ -45,6 +57,8 @@ class PaymentResponse(BaseModel):
     gateway: Optional[str] = None
     shop_id: Optional[str] = None
     invoice_number: Optional[str] = None
+    # BOOKING, or TIP for a tip added to a completed booking.
+    purpose: str = "BOOKING"
     created_at: datetime
     updated_at: datetime
 

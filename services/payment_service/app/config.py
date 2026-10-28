@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Commission the platform keeps from each completed booking, and GST charged on that commission
     # (percent). Admins can set a different rate per shop.
     PLATFORM_COMMISSION_PERCENT: Decimal = Decimal("10")
+    # Tips customers may add to a completed booking, in paise (Rs 10 to Rs 2,000); paid online only.
+    TIP_MIN_CENTS: int = 1000
+    TIP_MAX_CENTS: int = 200000
     GST_ON_COMMISSION_PERCENT: Decimal = Decimal("18")
     # Cancelling: a customer who cancels at least CANCEL_FREE_HOURS before the booking gets everything
     # back; later, CANCEL_FEE_PERCENT is kept (for the shop, less commission). Shops and admins

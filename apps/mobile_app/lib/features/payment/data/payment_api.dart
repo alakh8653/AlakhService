@@ -67,6 +67,41 @@ class PaymentApi {
     }
   }
 
+  /// Starts a tip of [amountCents] for the provider of a completed booking; always paid online.
+  Future<PaymentResult> tip({
+    required String bookingId,
+    required int amountCents,
+    required String idempotencyKey,
+    String method = 'upi',
+  }) async {
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        ApiConstants.tips,
+        data: {'booking_id': bookingId, 'amount_cents': amountCents, 'payment_method': method, 'idempotency_key': idempotencyKey},
+      );
+      return PaymentResult.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
+  /// The tip already paid for the booking, in rupees, or null when there is none.
+  Future<double?> tipPaid(String bookingId) async {
+    try {
+      final response = await apiClient.get<List<dynamic>>(
+        ApiConstants.payments,
+        queryParameters: {'booking_id': bookingId, 'purpose': 'TIP'},
+      );
+      for (final p in response.data ?? const []) {
+        final m = p as Map<String, dynamic>;
+        if (m['status'] == 'COMPLETED') return ((m['amount_cents'] as num?) ?? 0) / 100;
+      }
+      return null;
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   /// How each of the signed-in customer's bookings is being paid: booking id → 'paid' (settled)
   /// or 'cash' (chose to pay in person, not yet handed over).
   Future<Map<String, String>> paymentStateByBooking() async {

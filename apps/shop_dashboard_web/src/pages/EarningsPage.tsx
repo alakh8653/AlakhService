@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../state/store';
 import { formatRupees, getEarnings, getPayouts, type Earnings, type PayoutItemStatus, type Payout } from '../services/earningsService';
 import { apiErrorMessage } from '../services/format';
+import { getStaff } from '../services/shopService';
 import PayoutDetailsForm from '../components/PayoutDetailsForm';
 
 const IST_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }); // yyyy-MM-dd
@@ -40,7 +41,10 @@ export default function EarningsPage() {
   const [loading, setLoading] = useState(true);
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
   const [payoutsError, setPayoutsError] = useState<string | null>(null);
+  // Names of the shop's staff by their app account, to say whom each tip is for.
+  const [staffNames, setStaffNames] = useState<Record<string, string>>({});
   const shopId = shop?.id;
+  const hasTips = (earnings?.tipsByProvider?.length ?? 0) > 0;
   const rangeInvalid = !range.from || !range.to || range.from > range.to;
 
   useEffect(() => {
@@ -71,6 +75,17 @@ export default function EarningsPage() {
       live = false;
     };
   }, [shopId]);
+
+  useEffect(() => {
+    if (!shopId || !hasTips) return;
+    let live = true;
+    getStaff(shopId)
+      .then((staff) => live && setStaffNames(Object.fromEntries(staff.filter((s) => s.userId).map((s) => [s.userId as string, s.name]))))
+      .catch(() => undefined); // the tips still show, as "a staff member"
+    return () => {
+      live = false;
+    };
+  }, [shopId, hasTips]);
 
   if (!shop) return null;
 
@@ -129,6 +144,24 @@ export default function EarningsPage() {
                 </div>
               ))}
             </dl>
+            {hasTips && (
+              <div className={`${card} space-y-2`} aria-labelledby="tips-heading" role="region">
+                <h3 id="tips-heading" className="font-semibold text-gray-900">
+                  Tips to pass on
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Customers tipped {formatRupees(earnings.tips ?? 0)}. No commission is taken: it comes with your payout, for the staff who did the job.
+                </p>
+                <ul className="divide-y divide-gray-100 text-sm">
+                  {earnings.tipsByProvider?.map((t) => (
+                    <li key={t.providerId ?? 'none'} className="flex justify-between py-2">
+                      <span>{(t.providerId && staffNames[t.providerId]) || (t.providerId ? 'A staff member' : 'No staff assigned')}</span>
+                      <span className="font-medium">{formatRupees(t.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className={`${card} !p-0 overflow-x-auto`}>
               <table className="min-w-full text-sm" aria-label="Earnings by booking">
                 <thead className="bg-gray-50 text-left text-gray-600">
@@ -150,10 +183,11 @@ export default function EarningsPage() {
                     </tr>
                   ) : (
                     earnings.items.map((i) => (
-                      <tr key={`${i.bookingId}-${i.paymentId}`}>
+                      <tr key={`${i.bookingId}-${i.paymentId}-${i.kind ?? 'SALE'}`}>
                         <td className="px-4 py-3 whitespace-nowrap">{showDate(i.completedAt)}</td>
                         <td className="px-4 py-3 font-mono text-xs" title={i.bookingId}>
                           {i.bookingId.slice(0, 8)}
+                          {i.kind?.startsWith('TIP') && <span className="ml-2 font-sans text-xs font-semibold text-emerald-700">Tip</span>}
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">{formatRupees(i.gross)}</td>
                         <td className="px-4 py-3 text-right whitespace-nowrap hidden sm:table-cell">{formatRupees(i.commission + i.gstOnCommission)}</td>

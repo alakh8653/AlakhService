@@ -18,6 +18,9 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
+# What a payment is for: the booking itself, or a tip the customer adds once it is completed.
+BOOKING, TIP = "BOOKING", "TIP"
+
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -63,6 +66,8 @@ class Payment(Base):
     provider_payment_id = Column(String, nullable=True)
     provider_order_id = Column(String, nullable=True, index=True)
     gateway = Column(String, nullable=True)  # razorpay, cash
+    # BOOKING or TIP: a booking is paid for once, and tipped at most once, each on its own.
+    purpose = Column(String(10), nullable=False, default=BOOKING, server_default=BOOKING)
     idempotency_key = Column(String, unique=True, nullable=False)
     metadata_json = Column("metadata", Text, nullable=True)
     # Numbered when the payment completes, gap-free per financial year: ALK/2026-27/000123.
@@ -71,11 +76,12 @@ class Payment(Base):
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
 
-    # A booking is paid for once, even if two checkouts are confirmed at the same moment.
+    # A booking is paid for (and tipped) once, even if two checkouts are confirmed at the same moment.
     __table_args__ = (
         Index(
-            "uq_payments_booking_completed",
+            "uq_payments_booking_purpose_completed",
             "booking_id",
+            "purpose",
             unique=True,
             sqlite_where=text("status = 'COMPLETED'"),
             postgresql_where=text("status = 'COMPLETED'"),
@@ -137,7 +143,9 @@ class ShopEarning(Base):
     """What one booking earned its shop, after the platform's commission and GST on that commission.
 
     SALE is the booking itself (one per booking); ADJUSTMENT corrects a SALE already paid out (a later
-    refund), so the difference is netted against the shop's next payout.
+    refund), so the difference is netted against the shop's next payout. TIP is a tip the customer paid
+    online for its provider: no commission or GST, all of it paid out (TIP_ADJUSTMENT corrects one already
+    paid out).
 
     ONLINE: the platform collected the money and owes the shop ``net`` (payout_cents = net).
     CASH: the shop collected it and owes the platform commission + GST (payout_cents is negative).
@@ -160,6 +168,8 @@ class ShopEarning(Base):
     net_cents = Column(Integer, nullable=False)
     payout_cents = Column(Integer, nullable=False)
     status = Column(String(10), nullable=False)  # HELD, READY, PAID, REFUNDED
+    # TIP: the staff member who did the job; the shop passes the tip on to them in full.
+    provider_id = Column(String, nullable=True)
     payout_id = Column(String, ForeignKey("payouts.id"), nullable=True, index=True)
     completed_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

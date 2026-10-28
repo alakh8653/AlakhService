@@ -9,6 +9,7 @@ Statuses: HELD (under dispute), READY (owed, waiting for a payout), PAID (in a p
 REFUNDED (refunded in full, nothing owed either way).
 """
 
+import json
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
@@ -24,12 +25,23 @@ from app.config import settings
 from app.core import money
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
-from app.models.payment import Account, CommissionRate, Escrow, Payment, Payout, Refund, ShopEarning
+from app.models.payment import (
+    BOOKING,
+    TIP,
+    Account,
+    CommissionRate,
+    Escrow,
+    Payment,
+    Payout,
+    Refund,
+    ShopEarning,
+)
 
 log = structlog.get_logger()
 
 DEFAULT_RATE_KEY = "*"
 SALE, ADJUSTMENT = "SALE", "ADJUSTMENT"
+TIP_KIND, TIP_ADJUSTMENT = "TIP", "TIP_ADJUSTMENT"
 ONLINE, CASH = "ONLINE", "CASH"
 HELD, READY, PAID, REFUNDED = "HELD", "READY", "PAID", "REFUNDED"
 GST_ACCOUNT = "gst_payable"
@@ -106,7 +118,11 @@ async def settled_payment(db: AsyncSession, booking_id: str) -> Optional[Payment
     """The payment the booking kept (never a duplicate), if it was paid."""
     result = await db.execute(
         select(Payment)
-        .where(Payment.booking_id == booking_id, Payment.status.in_(SETTLED_PAYMENT_STATUSES))
+        .where(
+            Payment.booking_id == booking_id,
+            Payment.purpose == BOOKING,
+            Payment.status.in_(SETTLED_PAYMENT_STATUSES),
+        )
         .order_by(Payment.created_at)
     )
     payments = list(result.scalars().all())
@@ -250,12 +266,83 @@ async def payment_completed(db: AsyncSession, payment: Payment) -> None:
         await _release_escrow(db, payment, sale)
 
 
+def tip_provider(payment: Payment) -> Optional[str]:
+    """The provider a tip is for, as recorded when the customer started it."""
+    try:
+        return (json.loads(payment.metadata_json) if payment.metadata_json else {}).get("provider_id")
+    except ValueError:
+        return None
+
+
+async def tip_completed(db: AsyncSession, payment: Payment) -> ShopEarning:
+    """A tip paid online: all of it is owed to the shop for the provider (no commission, no GST), in the
+    next payout. Recorded once per booking, like the booking's own sale."""
+    existing = await sale_for(db, payment.booking_id, TIP_KIND)
+    if existing is not None:
+        return existing
+    earning = ShopEarning(
+        id=str(uuid.uuid4()),
+        booking_id=payment.booking_id,
+        kind=TIP_KIND,
+        payment_id=payment.id,
+        shop_id=payment.shop_id,
+        provider_id=tip_provider(payment),
+        collection=ONLINE,
+        currency=payment.currency,
+        status=READY,
+        completed_at=_now(),
+        created_at=_now(),
+    )
+    _apply_split(earning, payment.amount_cents, Decimal(0), Decimal(0))
+    db.add(earning)
+    await db.flush()
+    await _release_escrow(db, payment, earning)
+    log.info("tip_recorded", booking_id=payment.booking_id, shop_id=payment.shop_id, amount_cents=payment.amount_cents)
+    return earning
+
+
+async def _after_tip_refund(db: AsyncSession, payment: Payment) -> None:
+    """A tip refunded: what is owed shrinks, or a tip already paid out is taken back from the next payout."""
+    tip = await sale_for(db, payment.booking_id, TIP_KIND)
+    if tip is None or tip.payment_id != payment.id:
+        return
+    left = payment.amount_cents - await _refunded_cents(db, payment.id)
+    if tip.status != PAID and tip.payout_id is None:
+        _apply_split(tip, left, Decimal(0), Decimal(0))
+        tip.status = REFUNDED if left <= 0 else READY
+        await db.flush()
+        return
+    adjustment = await sale_for(db, payment.booking_id, TIP_ADJUSTMENT)
+    if adjustment is not None and (adjustment.status == PAID or adjustment.payout_id is not None):
+        log.error("tip_refund_after_adjustment_paid_out", booking_id=payment.booking_id)
+        return
+    if adjustment is None:
+        adjustment = ShopEarning(
+            id=str(uuid.uuid4()),
+            booking_id=payment.booking_id,
+            kind=TIP_ADJUSTMENT,
+            payment_id=payment.id,
+            shop_id=tip.shop_id,
+            provider_id=tip.provider_id,
+            collection=ONLINE,
+            currency=tip.currency,
+            status=READY,
+            completed_at=_now(),
+            created_at=_now(),
+        )
+        db.add(adjustment)
+    _apply_split(adjustment, left - tip.gross_cents, Decimal(0), Decimal(0))
+    await db.flush()
+
+
 async def after_refund(db: AsyncSession, payment: Payment) -> None:
     """Brings the booking's earning in line with what is left of its payment after a refund.
 
     Not paid out yet: the earning itself shrinks (REFUNDED when nothing is left). Already paid out: an
-    ADJUSTMENT takes the difference off the shop's next payout.
+    ADJUSTMENT takes the difference off the shop's next payout. A tip's refund changes only the tip.
     """
+    if payment.purpose == TIP:
+        return await _after_tip_refund(db, payment)
     sale = await sale_for(db, payment.booking_id)
     if sale is None or sale.payment_id not in (None, payment.id):
         return
@@ -368,6 +455,10 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
         )
     ).scalar()
     r = money.rupees
+    tips = [e for e in rows if e.kind in (TIP_KIND, TIP_ADJUSTMENT)]
+    by_provider: Dict[Optional[str], int] = defaultdict(int)
+    for e in tips:
+        by_provider[e.provider_id] += e.gross_cents
     return {
         "shop_id": shop_id,
         "currency": "INR",
@@ -380,6 +471,13 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
         "pending_payout": r(sum(e.payout_cents for e in rows if e.status in (HELD, READY))),
         "paid_out": r(sum(e.payout_cents for e in rows if e.status == PAID)),
         "outstanding": r(int(outstanding or 0)),
+        # Tips are in the totals above too (no commission); the shop passes each on to its provider.
+        "tips": r(sum(e.gross_cents for e in tips)),
+        "tips_by_provider": [
+            {"provider_id": p, "amount": r(cents)}
+            for p, cents in sorted(by_provider.items(), key=lambda kv: -kv[1])
+            if cents
+        ],
         "items": [
             {
                 "booking_id": e.booking_id,
@@ -394,6 +492,7 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
                 "payout_amount": r(e.payout_cents),
                 "commission_percent": float(e.commission_percent),
                 "payout_status": e.status,
+                "provider_id": e.provider_id,
             }
             for e in rows
         ],

@@ -1031,5 +1031,26 @@
   "shopUnsaved": "Removed from saved shops",
   "savedShops": "Saved shops",
   "noSavedShops": "No saved shops yet. Tap the heart on a service to save its shop.",
-  "shopNoServices": "This shop has no services to book right now."
+  "shopNoServices": "This shop has no services to book right now.",
+  "tipAdd": "Add a tip",
+  "tipTitle": "Tip your professional",
+  "tipBody": "100% of your tip goes to the professional who served you, paid online.",
+  "tipOther": "Other amount (₹)",
+  "tipRange": "Enter ₹10 to ₹2,000",
+  "tipPay": "Tip {amount}",
+  "@tipPay": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tipThanks": "You tipped {amount}. Thank you!",
+  "@tipThanks": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  }
 }

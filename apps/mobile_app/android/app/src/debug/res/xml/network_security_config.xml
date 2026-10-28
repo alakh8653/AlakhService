@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug builds only: plain HTTP to a gateway on this machine, reached from a phone over USB with
-     `adb reverse tcp:3000 tcp:3000` and --dart-define=API_BASE_URL=http://localhost:3000.
+     adb reverse (tcp:3000 to tcp:3000) and the dart-define API_BASE_URL=http://localhost:3000.
      Release builds keep Android's default (HTTPS only). -->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">

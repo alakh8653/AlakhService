@@ -138,6 +138,11 @@ export default function BookingCard({
           <Clock size={14} className="flex-shrink-0" aria-hidden />
           {formatWhen(booking.scheduledAt)}
           <span className="font-normal text-gray-500">· {booking.durationMinutes} min</span>
+          {(booking.rescheduleCount ?? 0) > 0 && (
+            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+              Rescheduled by customer
+            </span>
+          )}
         </p>
         <p className="font-semibold text-gray-900 flex items-center gap-1.5">
           <Scissors size={14} className="text-gray-400 flex-shrink-0" aria-hidden />

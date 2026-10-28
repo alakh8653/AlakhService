@@ -50,6 +50,15 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ),
     ("booking.completed", None): ("Booking completed", "Booking {booking_number} is complete."),
     ("booking.cancelled", None): ("Booking cancelled", "Booking {booking_number} for {scheduled_at} was cancelled."),
+    # Moved to another time by the customer, the shop or an admin (the one who moved it is not told).
+    ("booking.rescheduled", "customer"): (
+        "Booking moved",
+        "Your booking {booking_number} has been moved to {scheduled_at}.",
+    ),
+    ("booking.rescheduled", None): (
+        "Booking rescheduled",
+        "Booking {booking_number} has moved from {previous_scheduled_at} to {scheduled_at}.",
+    ),
     ("booking.disputed", None): ("Booking disputed", "Booking {booking_number} is under dispute."),
     ("booking.refunded", None): ("Booking refunded", "Booking {booking_number} has been refunded."),
     ("booking.refunded", "customer"): (
@@ -102,7 +111,7 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
 }
 
 # Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
-SHOP_EMAIL_EVENTS = frozenset({"booking.created", "shop.approved", "shop.rejected"})
+SHOP_EMAIL_EVENTS = frozenset({"booking.created", "booking.rescheduled", "shop.approved", "shop.rejected"})
 
 
 # Events important enough to text or email someone who has no app installed (no push token).

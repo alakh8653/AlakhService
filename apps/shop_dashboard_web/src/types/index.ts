@@ -38,6 +38,8 @@ export interface Booking {
   addressId: string | null;
   notes: string | null;
   totalAmount: number; // minor units (paise)
+  /** How many times the customer has moved it to another time (they may twice). */
+  rescheduleCount?: number;
   createdAt: string;
   updatedAt: string;
 }

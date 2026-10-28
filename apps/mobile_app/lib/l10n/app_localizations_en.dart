@@ -1320,7 +1320,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqRescheduleA =>
-      'Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.';
+      'Yes. Open the booking and tap Change time. You can do it twice per booking, up to 2 hours before it starts, until a professional has been assigned. After that, message the shop from the booking\'s chat.';
 
   @override
   String get faqPayQ => 'When and how do I pay?';
@@ -1744,4 +1744,56 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get travelNoAddress =>
       'This shop hasn\'t added its address yet. Contact them for directions.';
+
+  @override
+  String get rescheduleBooking => 'Change time';
+
+  @override
+  String get rescheduleTitle => 'Change booking time';
+
+  @override
+  String rescheduleCurrent(String when) {
+    return 'Now booked for $when';
+  }
+
+  @override
+  String rescheduleRule(int count) {
+    return 'You can change the time up to 2 hours before the booking starts. Changes left: $count.';
+  }
+
+  @override
+  String get rescheduleConfirm => 'Confirm new time';
+
+  @override
+  String get rescheduling => 'Changing time…';
+
+  @override
+  String bookingRescheduled(String when) {
+    return 'Booking moved to $when';
+  }
+
+  @override
+  String get bookAgain => 'Book again';
+
+  @override
+  String get saveShop => 'Save shop';
+
+  @override
+  String get unsaveShop => 'Remove from saved shops';
+
+  @override
+  String get shopSaved => 'Shop saved';
+
+  @override
+  String get shopUnsaved => 'Removed from saved shops';
+
+  @override
+  String get savedShops => 'Saved shops';
+
+  @override
+  String get noSavedShops =>
+      'No saved shops yet. Tap the heart on a service to save its shop.';
+
+  @override
+  String get shopNoServices => 'This shop has no services to book right now.';
 }

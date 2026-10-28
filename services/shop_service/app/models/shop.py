@@ -138,3 +138,16 @@ class ReviewReport(Base):
     reporter_id = Column(String, nullable=False)
     reason = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FavoriteShop(Base):
+    """A shop a customer has saved, to find it again and book it quickly."""
+
+    __tablename__ = "favorite_shops"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False, index=True)
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "shop_id", name="uq_favorite_shops_user_shop"),)

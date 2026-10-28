@@ -76,4 +76,14 @@ class BookingRepositoryImpl implements BookingRepository {
       return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
     }
   }
+
+  @override
+  Future<Either<Failure, Booking>> rescheduleBooking(String bookingId, DateTime scheduledAt) async {
+    if (!await networkInfo.isConnected) return const Left(NetworkFailure());
+    try {
+      return Right(await remoteDataSource.rescheduleBooking(bookingId, scheduledAt));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    }
+  }
 }

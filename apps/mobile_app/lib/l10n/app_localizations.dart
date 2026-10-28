@@ -2387,7 +2387,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqRescheduleA.
   ///
   /// In en, this message translates to:
-  /// **'Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.'**
+  /// **'Yes. Open the booking and tap Change time. You can do it twice per booking, up to 2 hours before it starts, until a professional has been assigned. After that, message the shop from the booking\'s chat.'**
   String get faqRescheduleA;
 
   /// No description provided for @faqPayQ.
@@ -3109,6 +3109,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This shop hasn\'t added its address yet. Contact them for directions.'**
   String get travelNoAddress;
+
+  /// No description provided for @rescheduleBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Change time'**
+  String get rescheduleBooking;
+
+  /// No description provided for @rescheduleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change booking time'**
+  String get rescheduleTitle;
+
+  /// No description provided for @rescheduleCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Now booked for {when}'**
+  String rescheduleCurrent(String when);
+
+  /// No description provided for @rescheduleRule.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change the time up to 2 hours before the booking starts. Changes left: {count}.'**
+  String rescheduleRule(int count);
+
+  /// No description provided for @rescheduleConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new time'**
+  String get rescheduleConfirm;
+
+  /// No description provided for @rescheduling.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing time…'**
+  String get rescheduling;
+
+  /// No description provided for @bookingRescheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking moved to {when}'**
+  String bookingRescheduled(String when);
+
+  /// No description provided for @bookAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Book again'**
+  String get bookAgain;
+
+  /// No description provided for @saveShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Save shop'**
+  String get saveShop;
+
+  /// No description provided for @unsaveShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from saved shops'**
+  String get unsaveShop;
+
+  /// No description provided for @shopSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop saved'**
+  String get shopSaved;
+
+  /// No description provided for @shopUnsaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from saved shops'**
+  String get shopUnsaved;
+
+  /// No description provided for @savedShops.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved shops'**
+  String get savedShops;
+
+  /// No description provided for @noSavedShops.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved shops yet. Tap the heart on a service to save its shop.'**
+  String get noSavedShops;
+
+  /// No description provided for @shopNoServices.
+  ///
+  /// In en, this message translates to:
+  /// **'This shop has no services to book right now.'**
+  String get shopNoServices;
 }
 
 class _AppLocalizationsDelegate

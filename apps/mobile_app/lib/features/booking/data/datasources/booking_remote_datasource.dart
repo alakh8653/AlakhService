@@ -23,6 +23,8 @@ abstract class BookingRemoteDataSource {
   Future<BookingModel> getBookingById(String id);
 
   Future<bool> cancelBooking(String bookingId, {String reason});
+
+  Future<BookingModel> rescheduleBooking(String bookingId, DateTime scheduledAt);
 }
 
 /// The signed-in customer's bookings in booking_service. The price, shop and duration of a new
@@ -109,6 +111,19 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     try {
       await apiClient.post<dynamic>(ApiConstants.cancelBooking(bookingId), data: {'reason': reason});
       return true;
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
+  @override
+  Future<BookingModel> rescheduleBooking(String bookingId, DateTime scheduledAt) async {
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        ApiConstants.rescheduleBooking(bookingId),
+        data: {'scheduled_at': scheduledAt.toUtc().toIso8601String()},
+      );
+      return await _model(response.data!);
     } on DioException catch (e) {
       throw toServerException(e);
     }

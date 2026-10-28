@@ -16,6 +16,12 @@ class BookingStatus {
   static const disputed = 'DISPUTED';
   static const refunded = 'REFUNDED';
 
+  /// Customers may move a booking to another time until a provider has it (booking_service).
+  static const reschedulable = {pending, confirmed};
+
+  /// Over: the customer can book the same service again.
+  static const finished = {completed, cancelled, refunded};
+
   /// Customers may cancel until a provider is on the way.
   static const cancellable = {pending, confirmed, assigned};
 
@@ -88,6 +94,9 @@ class Booking extends Equatable {
   /// don't report it (the app then works it out from the payments list).
   final String? paymentStatus;
 
+  /// How many times the customer has moved it to another time.
+  final int rescheduleCount;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -110,9 +119,22 @@ class Booking extends Equatable {
     this.addressId,
     this.readyBy,
     this.paymentStatus,
+    this.rescheduleCount = 0,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);
+
+  /// The customer can still move it: not yet with a provider, more than [freeCancellationBefore]
+  /// ahead, and moved fewer than [maxReschedules] times (booking_service enforces the same).
+  bool canReschedule(DateTime now) =>
+      BookingStatus.reschedulable.contains(status) &&
+      !inCancellationFeeWindow(now) &&
+      rescheduleCount < maxReschedules;
+
+  /// A customer may move a booking this many times.
+  static const maxReschedules = 2;
+
+  bool get canBookAgain => BookingStatus.finished.contains(status);
   bool get canTrack => providerId != null && BookingStatus.trackable.contains(status);
   bool get canPay => BookingStatus.payable.contains(status);
   bool get canRate => status == BookingStatus.completed && shopId != null;
@@ -142,5 +164,5 @@ class Booking extends Equatable {
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override
-  List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId, paymentStatus];
+  List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId, paymentStatus, rescheduleCount];
 }

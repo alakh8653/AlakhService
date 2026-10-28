@@ -19,6 +19,7 @@ import '../../../queue/data/queue_api.dart';
 import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../../reviews/data/reviews_api.dart';
 import '../../../reviews/presentation/reviews_widgets.dart';
+import '../../../shops/data/saved_shops_api.dart';
 import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
 import '../../../../l10n/l10n.dart';
@@ -29,6 +30,7 @@ class ServiceDetailPage extends StatefulWidget {
   final QueueApi? queueApi;
   final ReviewsApi? reviewsApi;
   final ShopHoursApi? hoursApi;
+  final SavedShopsApi? savedShopsApi;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -40,6 +42,7 @@ class ServiceDetailPage extends StatefulWidget {
     this.queueApi,
     this.reviewsApi,
     this.hoursApi,
+    this.savedShopsApi,
     this.clock = DateTime.now,
   });
 
@@ -58,6 +61,10 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   RatingSummary? _summary;
   // "Open now · closes 8 PM", once the shop's hours are in (none for a shop that hasn't published them).
   ShopHours? _hours;
+  // Whether the customer has saved the shop: null until known (no heart until then).
+  late final SavedShopsApi? _savedShopsApi =
+      widget.savedShopsApi ?? (sl.isRegistered<SavedShopsApi>() ? sl<SavedShopsApi>() : null);
+  bool? _saved;
 
   ServiceEntity get service => widget.service;
 
@@ -80,6 +87,24 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       Future(() => (widget.hoursApi ?? sl<ShopHoursApi>()).forShop(shopId)).then((hours) {
         if (mounted) setState(() => _hours = hours);
       }).catchError((Object _) {});
+      _savedShopsApi?.isSaved(shopId).then((saved) {
+        if (mounted) setState(() => _saved = saved);
+      }).catchError((Object _) {});
+    }
+  }
+
+  Future<void> _toggleSaved() async {
+    final api = _savedShopsApi, shopId = service.shopId, saved = _saved;
+    if (api == null || shopId == null || saved == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    setState(() => _saved = !saved); // at once; put back if it fails
+    try {
+      saved ? await api.unsave(shopId) : await api.save(shopId);
+      messenger.showSnackBar(SnackBar(content: Text(saved ? l10n.shopUnsaved : l10n.shopSaved)));
+    } catch (e) {
+      if (mounted) setState(() => _saved = saved);
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
     }
   }
 
@@ -182,6 +207,14 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
+            actions: [
+              if (_saved != null)
+                IconButton(
+                  icon: Icon(_saved! ? Icons.favorite : Icons.favorite_border, color: _saved! ? context.colors.error : null),
+                  tooltip: _saved! ? l10n.unsaveShop : l10n.saveShop,
+                  onPressed: _toggleSaved,
+                ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: service.imageUrl != null
                   ? Image.network(service.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder())

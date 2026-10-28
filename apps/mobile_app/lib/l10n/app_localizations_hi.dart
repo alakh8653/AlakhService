@@ -1302,7 +1302,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get faqRescheduleA =>
-      'अभी ऐप में यह सुविधा नहीं है। जब तक हो सके बुकिंग रद्द करें और नया समय बुक करें। अगर प्रोफ़ेशनल रास्ते में है, तो Alakh सपोर्ट से संपर्क करें।';
+      'हाँ। बुकिंग खोलें और \'समय बदलें\' दबाएँ। हर बुकिंग का समय दो बार तक, शुरू होने से 2 घंटे पहले तक बदला जा सकता है, जब तक कोई प्रोफ़ेशनल तय नहीं हुआ है। उसके बाद बुकिंग की चैट से दुकान को मैसेज करें।';
 
   @override
   String get faqPayQ => 'भुगतान कब और कैसे करें?';
@@ -1726,4 +1726,57 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get travelNoAddress =>
       'इस दुकान ने अभी अपना पता नहीं जोड़ा है। रास्ते के लिए उनसे संपर्क करें।';
+
+  @override
+  String get rescheduleBooking => 'समय बदलें';
+
+  @override
+  String get rescheduleTitle => 'बुकिंग का समय बदलें';
+
+  @override
+  String rescheduleCurrent(String when) {
+    return 'अभी $when के लिए बुक है';
+  }
+
+  @override
+  String rescheduleRule(int count) {
+    return 'बुकिंग शुरू होने से 2 घंटे पहले तक आप समय बदल सकते हैं। बचे हुए बदलाव: $count।';
+  }
+
+  @override
+  String get rescheduleConfirm => 'नया समय पक्का करें';
+
+  @override
+  String get rescheduling => 'समय बदला जा रहा है…';
+
+  @override
+  String bookingRescheduled(String when) {
+    return 'बुकिंग $when पर कर दी गई';
+  }
+
+  @override
+  String get bookAgain => 'फिर से बुक करें';
+
+  @override
+  String get saveShop => 'दुकान सेव करें';
+
+  @override
+  String get unsaveShop => 'सेव की गई दुकानों से हटाएँ';
+
+  @override
+  String get shopSaved => 'दुकान सेव हो गई';
+
+  @override
+  String get shopUnsaved => 'सेव की गई दुकानों से हटाई गई';
+
+  @override
+  String get savedShops => 'सेव की गई दुकानें';
+
+  @override
+  String get noSavedShops =>
+      'अभी कोई दुकान सेव नहीं है। किसी सेवा पर दिल वाले बटन को दबाकर उसकी दुकान सेव करें।';
+
+  @override
+  String get shopNoServices =>
+      'इस दुकान में अभी बुक करने के लिए कोई सेवा नहीं है।';
 }

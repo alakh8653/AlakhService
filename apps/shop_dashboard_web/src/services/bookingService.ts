@@ -83,6 +83,7 @@ interface BookingResponse {
   address_id?: string | null;
   notes: string | null;
   total_amount: number;
+  reschedule_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +113,7 @@ export function toBooking(data: BookingResponse): Booking {
     addressId: data.address_id ?? null,
     notes: data.notes,
     totalAmount: data.total_amount,
+    rescheduleCount: data.reschedule_count ?? 0,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

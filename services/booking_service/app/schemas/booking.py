@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 SCHEDULE_CLOCK_SKEW = timedelta(minutes=5)
 
 
+def _not_in_past(v: datetime) -> datetime:
+    at = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+    if at < datetime.now(timezone.utc) - SCHEDULE_CLOCK_SKEW:
+        raise ValueError("scheduled_at must not be in the past")
+    return v
+
+
 class BookingCreate(BaseModel):
     # Ignored by the API: the customer is the caller.
     customer_id: Optional[str] = None
@@ -29,10 +36,7 @@ class BookingCreate(BaseModel):
     @field_validator("scheduled_at")
     @classmethod
     def validate_scheduled_at(cls, v: datetime) -> datetime:
-        at = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
-        if at < datetime.now(timezone.utc) - SCHEDULE_CLOCK_SKEW:
-            raise ValueError("scheduled_at must not be in the past")
-        return v
+        return _not_in_past(v)
 
     @field_validator("duration_minutes")
     @classmethod
@@ -67,6 +71,17 @@ class BookingCancelRequest(BaseModel):
     reason: str
 
 
+class BookingRescheduleRequest(BaseModel):
+    # The new start; the service, price and duration stay as booked.
+    scheduled_at: datetime
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def validate_scheduled_at(cls, v: datetime) -> datetime:
+        return _not_in_past(v)
+
+
 class BookingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -92,6 +107,8 @@ class BookingResponse(BaseModel):
     # Home visit or pickup fee included in total_amount.
     service_mode_fee: int = 0
     coupon_code: Optional[str] = None
+    # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
+    reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
     created_at: datetime

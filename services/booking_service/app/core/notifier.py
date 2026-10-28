@@ -44,7 +44,7 @@ def get_notifier() -> Notifier:
     return Notifier(settings.NOTIFICATION_SERVICE_URL, settings.INTERNAL_API_KEY)
 
 
-def _when(at: datetime) -> str:
+def when(at: datetime) -> str:
     return at.astimezone(ZoneInfo(settings.DISPLAY_TIMEZONE)).strftime("%d %b, %I:%M %p")
 
 
@@ -57,8 +57,8 @@ def snapshot(booking, service_name: Optional[str] = None) -> dict:
         "customer_id": booking.customer_id,
         "provider_id": booking.provider_id,
         "shop_id": booking.shop_id,
-        "scheduled_at": _when(booking.scheduled_at),
-        "ready_by": _when(booking.ready_by) if getattr(booking, "ready_by", None) else None,
+        "scheduled_at": when(booking.scheduled_at),
+        "ready_by": when(booking.ready_by) if getattr(booking, "ready_by", None) else None,
         "service_name": service_name,
     }
 

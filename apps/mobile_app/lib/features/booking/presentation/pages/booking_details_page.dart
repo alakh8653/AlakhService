@@ -12,13 +12,17 @@ import '../../../chat/data/chat_api.dart';
 import '../../../chat/presentation/booking_chat_page.dart';
 import '../../../payment/data/payment_api.dart';
 import '../../../payment/presentation/pages/invoice_page.dart';
+import '../../../services/domain/repositories/service_repository.dart';
+import '../../../services/presentation/pages/service_detail_page.dart';
+import '../../data/availability_api.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_payment.dart';
 import 'booking_history_page.dart' show bookingStatusLabel;
+import 'reschedule_page.dart';
 
-/// One booking: when and where, its payment (with the invoice), the chat with the shop, and
-/// cancelling. Opened from My Bookings, an app link (/b/{id}) or a push notification.
+/// One booking: when and where, its payment (with the invoice), the chat with the shop, moving it to
+/// another time, cancelling, and booking the same service again once it is over. Opened from My Bookings, an app link (/b/{id}) or a push notification.
 class BookingDetailsPage extends StatefulWidget {
   final String bookingId;
 
@@ -27,6 +31,11 @@ class BookingDetailsPage extends StatefulWidget {
   final BookingRepository? repository;
   final PaymentApi? paymentApi;
   final ChatApi? chatApi;
+  final AvailabilityApi? availabilityApi;
+  final ServiceRepository? serviceRepository;
+
+  /// The current time (replaceable in tests).
+  final DateTime Function() clock;
 
   /// Shows the invoice's HTML (a web view by default).
   final HtmlViewBuilder? invoiceViewer;
@@ -38,6 +47,9 @@ class BookingDetailsPage extends StatefulWidget {
     this.repository,
     this.paymentApi,
     this.chatApi,
+    this.availabilityApi,
+    this.serviceRepository,
+    this.clock = DateTime.now,
     this.invoiceViewer,
   });
 
@@ -53,6 +65,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   String? _paymentId;
   int _unread = 0;
   bool _cancelling = false;
+  bool _openingService = false;
 
   BookingRepository get _repository => widget.repository ?? sl<BookingRepository>();
   PaymentApi get _paymentApi => widget.paymentApi ?? sl<PaymentApi>();
@@ -124,6 +137,34 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
         messenger.showSnackBar(SnackBar(content: Text(l10n.bookingCancelled), backgroundColor: AppColors.success));
         _load();
       },
+    );
+  }
+
+  Future<void> _reschedule(Booking booking) async {
+    final moved = await Navigator.push<Booking>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReschedulePage(
+          booking: booking,
+          repository: widget.repository,
+          availabilityApi: widget.availabilityApi,
+          clock: widget.clock,
+        ),
+      ),
+    );
+    if (moved != null && mounted) _load();
+  }
+
+  /// Opens the service as it is offered now (price, shop, reviews), to book it again.
+  Future<void> _bookAgain(Booking booking) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _openingService = true);
+    final result = await (widget.serviceRepository ?? sl<ServiceRepository>()).getServiceById(booking.serviceId);
+    if (!mounted) return;
+    setState(() => _openingService = false);
+    result.fold(
+      (failure) => messenger.showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: AppColors.error)),
+      (service) => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => ServiceDetailPage(service: service))),
     );
   }
 
@@ -200,6 +241,28 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ),
+        if (booking.canReschedule(widget.clock())) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _reschedule(booking),
+              icon: const Icon(Icons.edit_calendar_outlined),
+              label: Text(l10n.rescheduleBooking),
+            ),
+          ),
+        ],
+        if (booking.canBookAgain) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _openingService ? null : () => _bookAgain(booking),
+              icon: const Icon(Icons.replay),
+              label: Text(l10n.bookAgain),
+            ),
+          ),
+        ],
         if (booking.canCancel) ...[
           const SizedBox(height: 8),
           Text(l10n.cancelPolicy, style: AppTextStyles.caption.copyWith(color: context.palette.muted)),

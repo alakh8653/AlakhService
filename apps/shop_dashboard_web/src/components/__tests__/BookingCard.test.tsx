@@ -40,6 +40,13 @@ describe('BookingCard', () => {
 
   });
 
+  it('says when the customer has moved the booking', () => {
+    const { rerender } = render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    expect(screen.queryByText('Rescheduled by customer')).not.toBeInTheDocument();
+    rerender(<BookingCard booking={{ ...booking, rescheduleCount: 1 }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText('Rescheduled by customer')).toBeInTheDocument();
+  });
+
   it('asks for a reason in a dialog before cancelling', async () => {
     const onCancel = vi.fn().mockResolvedValue(true);
     render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={onCancel} />, { wrapper: MemoryRouter });

@@ -30,6 +30,7 @@ class ApiConstants {
   static const String bookings = '$apiVersion/bookings';
   static String booking(String id) => '$bookings/$id';
   static String cancelBooking(String id) => '$bookings/$id/cancel';
+  static String rescheduleBooking(String id) => '$bookings/$id/reschedule';
   static String bookingStatus(String id) => '$bookings/$id/status';
   // A booking's chat with the shop, and the masked call (booking_service).
   static String bookingMessages(String id) => '$bookings/$id/messages';
@@ -44,6 +45,9 @@ class ApiConstants {
   // Shops (shop_service)
   static String shop(String shopId) => '$apiVersion/shops/$shopId';
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
+  // Shops the customer has saved (shop_service).
+  static const String favoriteShops = '$apiVersion/shops/favorites';
+  static String favoriteShop(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/favorite';
   // Reviews (public): ratings for several shops at once, and one shop's summary and reviews.
   static const String shopRatings = '$apiVersion/shops/ratings';
   static String shopReviews(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/reviews';

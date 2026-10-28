@@ -420,7 +420,7 @@ class _BookingPageState extends State<BookingPage> {
                     itemBuilder: (context, i) {
                       final day = _days[i];
                       final selected = day == _day;
-                      return _DayChip(
+                      return DayChip(
                         day: day,
                         now: widget.clock(),
                         selected: selected,
@@ -646,13 +646,14 @@ class _Heading extends StatelessWidget {
       );
 }
 
-class _DayChip extends StatelessWidget {
+/// One day in the row of days to book (also used when moving a booking).
+class DayChip extends StatelessWidget {
   final DateTime day;
   final DateTime now;
   final bool selected;
   final VoidCallback onTap;
 
-  const _DayChip({required this.day, required this.now, required this.selected, required this.onTap});
+  const DayChip({super.key, required this.day, required this.now, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

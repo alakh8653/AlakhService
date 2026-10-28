@@ -19,7 +19,7 @@ from sqlalchemy.pool import NullPool, StaticPool
 
 from app import dependencies
 from app.config import settings
-from app.core.notifier import get_notifier
+from app.core.notifier import get_notifier, when
 from app.database import Base, get_db
 from app.dependencies import (
     CouponRejected,
@@ -58,6 +58,9 @@ class RecordingNotifier:
         assert stored is not None
         if event == "booking.ready_by":
             assert stored.ready_by is not None
+        elif event == "booking.rescheduled":
+            # SQLite hands back naive datetimes; they are stored as UTC.
+            assert when(stored.scheduled_at.replace(tzinfo=timezone.utc)) == data["scheduled_at"]
         else:
             assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
         SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))

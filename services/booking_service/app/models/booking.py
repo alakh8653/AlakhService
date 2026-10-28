@@ -60,6 +60,11 @@ class Booking(Base):
         return self._meta().get("coupon_code")
 
     @property
+    def reschedule_count(self) -> int:
+        """How many times the customer has moved the booking to another time."""
+        return self._meta().get("reschedule_count", 0)
+
+    @property
     def list_price(self) -> int:
         """The catalogue price before any coupon (total_amount is what the customer pays)."""
         return self._meta().get("list_price", self.total_amount)

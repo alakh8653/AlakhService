@@ -20,10 +20,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import availability, payments, risk
-from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
+from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
-from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.core.privacy import present, present_history, present_page
 from app.database import get_db
@@ -48,6 +48,7 @@ from app.schemas.booking import (
     BookingCreate,
     BookingListResponse,
     BookingReadyByUpdate,
+    BookingRescheduleRequest,
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
@@ -217,10 +218,13 @@ async def create_booking(
     return await present(booking, current_user, lookup_names)
 
 
-async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime) -> None:
+async def _ensure_bookable(
+    db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime, exclude_id: Optional[str] = None
+) -> None:
     """409 unless the shop is open for the whole booking, it is far enough ahead, and a place is free.
 
     A shop that has not published opening hours takes any future time, as before hours existed.
+    [exclude_id] is a booking being moved, which does not take a place from itself.
     """
     schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
     if not schedule.accepting_bookings:
@@ -230,7 +234,7 @@ async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_s
     await booking_service.hold_shop_capacity(db, shop_id)
     start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
     end = start + timedelta(minutes=duration)
-    booked = await booking_service.shop_spans(db, shop_id, start, end)
+    booked = await booking_service.shop_spans(db, shop_id, start, end, exclude_id)
     # The customer picked the time a little while ago; a slot that has just slipped inside the lead time
     # is still taken.
     problem = availability.booking_problem(schedule, start, duration, now, booked, grace=timedelta(minutes=5))
@@ -521,6 +525,78 @@ async def cancel_booking(
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
+    return await present(booking, current_user, lookup_names)
+
+
+# A customer may move a booking this many times; after that they cancel (by the refund policy) and rebook.
+MAX_CUSTOMER_RESCHEDULES = 2
+
+
+@router.post("/bookings/{booking_id}/reschedule", response_model=BookingResponse)
+async def reschedule_booking(
+    booking_id: str,
+    body: BookingRescheduleRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """Moves a pending or confirmed booking to another free time. The customer, the shop or an admin.
+
+    The customer can do it up to the late-cancellation window before the start and a few times per
+    booking, so a slot cannot be held and released at the last minute without the cancellation policy.
+    """
+    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    if not parties & {ADMIN, CUSTOMER, SHOP_OWNER}:
+        raise HTTPException(status_code=403, detail="Only the customer or the shop can move this booking")
+    if booking.status not in booking_service.RESCHEDULABLE_STATUSES:
+        raise HTTPException(
+            status_code=409, detail="This booking can no longer be moved. Contact the shop from the booking's chat."
+        )
+    now = clock()
+    new_at = body.scheduled_at if body.scheduled_at.tzinfo else body.scheduled_at.replace(tzinfo=timezone.utc)
+    current = booking.scheduled_at if booking.scheduled_at.tzinfo else booking.scheduled_at.replace(tzinfo=timezone.utc)
+    if new_at == current:
+        raise HTTPException(status_code=422, detail="The booking is already at this time")
+    by_customer = not parties & {ADMIN, SHOP_OWNER}
+    if by_customer:
+        if now > current - risk.LATE_CANCELLATION_WINDOW:
+            hours = int(risk.LATE_CANCELLATION_WINDOW.total_seconds() // 3600)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Bookings can be moved up to {hours} hours before they start. Contact the shop instead.",
+            )
+        if booking.reschedule_count >= MAX_CUSTOMER_RESCHEDULES:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This booking has already been moved {MAX_CUSTOMER_RESCHEDULES} times. "
+                "Cancel it and book a new time instead.",
+            )
+    await _ensure_bookable(
+        db, booking.shop_id, new_at, booking.duration_minutes, lookup_schedule, now, exclude_id=booking.id
+    )
+    previous = await booking_service.reschedule_booking(
+        db, booking, new_at, current_user.get("sub"), body.reason, by_customer=by_customer
+    )
+    await manager.broadcast(
+        booking_id, {"booking_id": booking_id, "status": booking.status, "scheduled_at": new_at.isoformat()}
+    )
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    background.add_task(
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        "booking.rescheduled",
+        current_user.get("sub"),
+        lookup_owner,
+        extra={"previous_scheduled_at": when(previous)},
+    )
     return await present(booking, current_user, lookup_names)
 
 

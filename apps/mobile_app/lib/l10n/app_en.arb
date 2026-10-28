@@ -770,7 +770,7 @@
   "faqCancelQ": "How do I cancel a booking?",
   "faqCancelA": "Open Bookings and tap Cancel booking on it. You can cancel until the provider is on the way.",
   "faqRescheduleQ": "Can I change the time of a booking?",
-  "faqRescheduleA": "Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.",
+  "faqRescheduleA": "Yes. Open the booking and tap Change time. You can do it twice per booking, up to 2 hours before it starts, until a professional has been assigned. After that, message the shop from the booking's chat.",
   "faqPayQ": "When and how do I pay?",
   "faqPayA": "Nothing is paid when you book. Once the shop confirms, tap Pay on the booking to pay online by UPI, card or net banking (through Razorpay), or choose to pay in cash when the job is done.",
   "faqRefundQ": "How do refunds work?",
@@ -995,5 +995,41 @@
       }
     }
   },
-  "travelNoAddress": "This shop hasn't added its address yet. Contact them for directions."
+  "travelNoAddress": "This shop hasn't added its address yet. Contact them for directions.",
+  "rescheduleBooking": "Change time",
+  "rescheduleTitle": "Change booking time",
+  "rescheduleCurrent": "Now booked for {when}",
+  "@rescheduleCurrent": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "rescheduleRule": "You can change the time up to 2 hours before the booking starts. Changes left: {count}.",
+  "@rescheduleRule": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rescheduleConfirm": "Confirm new time",
+  "rescheduling": "Changing time…",
+  "bookingRescheduled": "Booking moved to {when}",
+  "@bookingRescheduled": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "bookAgain": "Book again",
+  "saveShop": "Save shop",
+  "unsaveShop": "Remove from saved shops",
+  "shopSaved": "Shop saved",
+  "shopUnsaved": "Removed from saved shops",
+  "savedShops": "Saved shops",
+  "noSavedShops": "No saved shops yet. Tap the heart on a service to save its shop.",
+  "shopNoServices": "This shop has no services to book right now."
 }

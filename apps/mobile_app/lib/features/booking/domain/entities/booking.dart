@@ -100,6 +100,9 @@ class Booking extends Equatable {
   /// What the customer's loyalty points paid towards it (rupees).
   final double pointsDiscount;
 
+  /// The professional the customer asked for, if anyone.
+  final String? preferredStaffName;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -124,6 +127,7 @@ class Booking extends Equatable {
     this.paymentStatus,
     this.rescheduleCount = 0,
     this.pointsDiscount = 0,
+    this.preferredStaffName,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);

@@ -18,6 +18,7 @@ abstract class BookingRemoteDataSource {
     String? idempotencyKey,
     bool usePoints = false,
     String? packagePurchaseId,
+    String? preferredStaffId,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -63,6 +64,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     String? idempotencyKey,
     bool usePoints = false,
     String? packagePurchaseId,
+    String? preferredStaffId,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
@@ -80,6 +82,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
             'item_description': delivery.itemDescription!.trim(),
           if (usePoints) 'use_points': true,
           if (packagePurchaseId != null) 'package_purchase_id': packagePurchaseId,
+          if (preferredStaffId != null) 'preferred_staff_id': preferredStaffId,
         },
       );
       return await _model(response.data!);

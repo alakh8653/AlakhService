@@ -36,6 +36,8 @@ class BookingCreate(BaseModel):
     use_points: bool = False
     # Book it as one visit of the customer's prepaid package (at the shop only): it then costs nothing more.
     package_purchase_id: Optional[str] = Field(default=None, max_length=128)
+    # The staff member the customer would like (shop_service's team id); the shop still assigns the job.
+    preferred_staff_id: Optional[str] = Field(default=None, max_length=128)
 
     @field_validator("scheduled_at")
     @classmethod
@@ -115,6 +117,9 @@ class BookingResponse(BaseModel):
     points_discount: int = 0
     # The prepaid package one of whose visits this booking uses.
     package_purchase_id: Optional[str] = None
+    # Who the customer asked for, if anyone (first name and last initial).
+    preferred_staff_id: Optional[str] = None
+    preferred_staff_name: Optional[str] = None
     # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).

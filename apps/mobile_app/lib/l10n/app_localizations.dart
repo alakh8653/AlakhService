@@ -3475,6 +3475,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'We\'ll tell you if a time opens up on this day.'**
   String get waitlistJoined;
+
+  /// No description provided for @whoQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Who would you like?'**
+  String get whoQuestion;
+
+  /// No description provided for @anyProfessional.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone'**
+  String get anyProfessional;
+
+  /// No description provided for @professionalNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop does its best to give you the person you choose.'**
+  String get professionalNote;
+
+  /// No description provided for @askedFor.
+  ///
+  /// In en, this message translates to:
+  /// **'You asked for {name}'**
+  String askedFor(String name);
 }
 
 class _AppLocalizationsDelegate

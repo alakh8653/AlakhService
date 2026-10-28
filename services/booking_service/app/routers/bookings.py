@@ -41,6 +41,7 @@ from app.dependencies import (
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
+    get_team_lookup,
     require_shop_access,
     security,
     verify_access_token,
@@ -142,6 +143,7 @@ async def create_booking(
     lookup_names: NameLookup = Depends(get_name_lookup),
     wallet: PointsWallet = Depends(get_points_wallet),
     packages: PackageWallet = Depends(get_package_wallet),
+    lookup_team=Depends(get_team_lookup),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -170,6 +172,15 @@ async def create_booking(
     fee = {AT_HOME: listing.get("home_visit_fee_cents") or 0, PICKUP_DROP: listing.get("pickup_fee_cents") or 0}.get(
         mode, 0
     )
+    preferred = None
+    if booking_data.preferred_staff_id:
+        # Someone on the shop's team who does this service (an empty list means all of them).
+        team = {m["id"]: m for m in await lookup_team(listing["shop_id"])}
+        preferred = team.get(booking_data.preferred_staff_id)
+        if preferred is None or (
+            preferred.get("service_ids") and booking_data.service_id not in preferred["service_ids"]
+        ):
+            raise HTTPException(status_code=422, detail="That professional does not do this service here")
     # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
     await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
     booking_id = str(uuid.uuid4())
@@ -211,6 +222,8 @@ async def create_booking(
         meta["list_price"] = listing["price_cents"] + fee
     if package_id:
         meta["package_purchase_id"] = package_id
+    if preferred:
+        meta.update(preferred_staff_id=preferred["id"], preferred_staff_name=preferred.get("name"))
     if code:
         meta["coupon_code"] = code
     if points_discount:

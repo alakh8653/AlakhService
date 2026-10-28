@@ -26,6 +26,9 @@ class CreateBookingRequested extends BookingEvent {
   /// Book it as a visit of this prepaid package of the customer's.
   final String? packagePurchaseId;
 
+  /// The professional the customer would like (a team member id); the shop still assigns the job.
+  final String? preferredStaffId;
+
   const CreateBookingRequested({
     required this.serviceId,
     required this.scheduledAt,
@@ -36,11 +39,22 @@ class CreateBookingRequested extends BookingEvent {
     this.idempotencyKey,
     this.usePoints = false,
     this.packagePurchaseId,
+    this.preferredStaffId,
   });
 
   @override
-  List<Object?> get props =>
-      [serviceId, scheduledAt, address, notes, couponCode, delivery, idempotencyKey, usePoints, packagePurchaseId];
+  List<Object?> get props => [
+        serviceId,
+        scheduledAt,
+        address,
+        notes,
+        couponCode,
+        delivery,
+        idempotencyKey,
+        usePoints,
+        packagePurchaseId,
+        preferredStaffId,
+      ];
 }
 
 class LoadUserBookings extends BookingEvent {

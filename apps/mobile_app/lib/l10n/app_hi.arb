@@ -562,5 +562,9 @@
   "usePackageLeft": "{name} · {left} विज़िट बाकी",
   "packageLine": "पैकेज विज़िट",
   "waitlistJoin": "कोई समय खाली हो तो बताएँ",
-  "waitlistJoined": "इस दिन कोई समय खाली होने पर हम आपको बताएँगे।"
+  "waitlistJoined": "इस दिन कोई समय खाली होने पर हम आपको बताएँगे।",
+  "whoQuestion": "आप किससे करवाना चाहेंगे?",
+  "anyProfessional": "कोई भी",
+  "professionalNote": "दुकान आपकी चुनी हुई व्यक्ति देने की पूरी कोशिश करती है।",
+  "askedFor": "आपने {name} को चुना"
 }

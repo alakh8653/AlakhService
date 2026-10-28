@@ -13,6 +13,7 @@ abstract class BookingRepository {
     String? idempotencyKey,
     bool usePoints = false,
     String? packagePurchaseId,
+    String? preferredStaffId,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

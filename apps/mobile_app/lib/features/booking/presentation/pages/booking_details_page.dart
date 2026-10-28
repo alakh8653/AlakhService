@@ -241,6 +241,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               [pickup ? l10n.modePickupDrop : l10n.modeHomeVisit, if (booking.itemDescription != null) booking.itemDescription!].join(' · ')),
         if (booking.address.isNotEmpty) _row(context, Icons.location_on, booking.address),
         _row(context, Icons.currency_rupee, rupees(booking.totalAmount)),
+        if (booking.preferredStaffName != null) _row(context, Icons.person_outline, l10n.askedFor(booking.preferredStaffName!)),
         if (booking.pointsDiscount > 0) _row(context, Icons.card_giftcard, l10n.pointsUsed(rupees(booking.pointsDiscount))),
         if (shown != null)
           _row(context, Icons.receipt_long_outlined, paymentShownLabel(l10n, shown), color: paymentShownColor(context, shown)),

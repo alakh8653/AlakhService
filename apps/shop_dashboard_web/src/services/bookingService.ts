@@ -85,6 +85,8 @@ interface BookingResponse {
   total_amount: number;
   reschedule_count?: number;
   points_discount?: number;
+  preferred_staff_id?: string | null;
+  preferred_staff_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -116,6 +118,8 @@ export function toBooking(data: BookingResponse): Booking {
     totalAmount: data.total_amount,
     rescheduleCount: data.reschedule_count ?? 0,
     pointsDiscount: data.points_discount ?? 0,
+    preferredStaffId: data.preferred_staff_id ?? null,
+    preferredStaffName: data.preferred_staff_name ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

@@ -14,6 +14,7 @@ import '../../../../shared/widgets/custom_text_field.dart';
 import '../../../loyalty/data/loyalty_api.dart';
 import '../../../packages/data/packages_api.dart';
 import '../../../profile/data/address_api.dart';
+import '../../../shops/data/team_api.dart';
 import '../../../profile/presentation/pages/addresses_page.dart';
 import '../../../push/push_service.dart';
 import '../../../services/domain/entities/service_entity.dart';
@@ -66,6 +67,10 @@ class _Slot {
 
 class BookingPage extends StatefulWidget {
   final String serviceId;
+
+  /// The service's shop, to offer its team (no choice of professional without it).
+  final String? shopId;
+  final TeamApi? teamApi;
   final String serviceName;
   final double servicePrice;
   final CouponApi? couponApi;
@@ -86,6 +91,8 @@ class BookingPage extends StatefulWidget {
   const BookingPage({
     super.key,
     required this.serviceId,
+    this.shopId,
+    this.teamApi,
     required this.serviceName,
     required this.servicePrice,
     this.couponApi,
@@ -119,6 +126,9 @@ class _BookingPageState extends State<BookingPage> {
   OwnedPackage? _package;
   // Full days the customer asked to hear about, and the one being sent.
   final Set<DateTime> _waitingDays = {};
+  // The shop's people who do this service, and who the customer would like (null: anyone).
+  List<TeamMember> _team = const [];
+  String? _preferred;
   DateTime? _joiningDay;
   bool _usePackage = false;
   List<SavedAddress> _saved = const [];
@@ -151,6 +161,19 @@ class _BookingPageState extends State<BookingPage> {
     _loadTimes(_day);
     _loadPoints();
     _loadPackage();
+    _loadTeam();
+  }
+
+  Future<void> _loadTeam() async {
+    final shopId = widget.shopId;
+    final api = widget.teamApi ?? (sl.isRegistered<TeamApi>() ? sl<TeamApi>() : null);
+    if (shopId == null || api == null) return;
+    try {
+      final team = await api.forShop(shopId);
+      if (mounted) setState(() => _team = team.where((m) => m.does(widget.serviceId)).toList());
+    } catch (_) {
+      // Then anyone at the shop does it, as before.
+    }
   }
 
   Future<void> _loadPackage() async {
@@ -379,7 +402,7 @@ class _BookingPageState extends State<BookingPage> {
       addressId: _needsAddress ? _address!.id : null,
       itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
     );
-    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints, _packageCovers];
+    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints, _packageCovers, _preferred];
     if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
       _attemptKey = newIdempotencyKey();
       _attemptDetails = details;
@@ -395,6 +418,7 @@ class _BookingPageState extends State<BookingPage> {
             idempotencyKey: _attemptKey,
             usePoints: _usePoints && _pointsDiscount > 0,
             packagePurchaseId: _packageCovers ? _package!.id : null,
+            preferredStaffId: _preferred,
           ),
         );
   }
@@ -480,6 +504,32 @@ class _BookingPageState extends State<BookingPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(modeExplanation(_mode, l10n: l10n), style: AppTextStyles.caption.themed(context)),
+                  const SizedBox(height: 24),
+                ],
+                if (_team.isNotEmpty) ...[
+                  _Heading(l10n.whoQuestion),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(l10n.anyProfessional),
+                        showCheckmark: false,
+                        selected: _preferred == null,
+                        onSelected: (_) => setState(() => _preferred = null),
+                      ),
+                      for (final m in _team)
+                        ChoiceChip(
+                          avatar: const Icon(Icons.person_outline, size: 18),
+                          label: Text(m.name),
+                          showCheckmark: false,
+                          selected: _preferred == m.id,
+                          onSelected: (_) => setState(() => _preferred = m.id),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(l10n.professionalNote, style: AppTextStyles.caption.themed(context)),
                   const SizedBox(height: 24),
                 ],
                 _Heading(l10n.whenQuestion, key: _whenKey),

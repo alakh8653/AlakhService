@@ -19,6 +19,7 @@ class CreateBookingUseCase {
       idempotencyKey: params.idempotencyKey,
       usePoints: params.usePoints,
       packagePurchaseId: params.packagePurchaseId,
+      preferredStaffId: params.preferredStaffId,
     );
   }
 }
@@ -35,6 +36,7 @@ class CreateBookingParams {
   final String? idempotencyKey;
   final bool usePoints;
   final String? packagePurchaseId;
+  final String? preferredStaffId;
 
   const CreateBookingParams({
     required this.serviceId,
@@ -46,5 +48,6 @@ class CreateBookingParams {
     this.idempotencyKey,
     this.usePoints = false,
     this.packagePurchaseId,
+    this.preferredStaffId,
   });
 }

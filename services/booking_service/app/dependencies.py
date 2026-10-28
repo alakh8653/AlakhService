@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, Dict, Optional, Tuple
+from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote
 
 import httpx
@@ -112,6 +112,27 @@ async def fetch_shop_provider_ids(shop_id: str, token: str) -> set:
 
 def get_staff_lookup() -> Callable[[str, str], Awaitable[set]]:
     return fetch_shop_provider_ids
+
+
+async def fetch_shop_team(shop_id: str) -> List[dict]:
+    """The shop's active staff as customers see them (id, name, role, service_ids), from shop_service."""
+    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/team")
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
+    if resp.status_code == 404:
+        return []
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Shop service unavailable")
+    return resp.json()
+
+
+TeamLookup = Callable[[str], Awaitable[List[dict]]]
+
+
+def get_team_lookup() -> TeamLookup:
+    return fetch_shop_team
 
 
 # Opening hours change rarely and every availability check and booking reads them: a short cache spares

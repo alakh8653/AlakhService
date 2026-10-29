@@ -20,7 +20,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, live_queue, payments, queue_hub, queue_ops, risk, waitlist
+from app.config import settings
+from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
@@ -37,6 +38,7 @@ from app.dependencies import (
     get_clock,
     get_coupon_pricer,
     get_current_user,
+    get_location_lookup,
     get_schedule_lookup,
     get_service_lookup,
     get_shop_owner_lookup,
@@ -449,6 +451,7 @@ async def update_status(
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
     clock: Callable[[], datetime] = Depends(get_clock),
+    lookup_location=Depends(get_location_lookup),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
@@ -488,11 +491,35 @@ async def update_status(
     queue_hub.hub.poke(booking.shop_id)
     if queued is not None:
         background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
+    extra = None
+    if booking.status == BookingStatus.PROVIDER_EN_ROUTE.value and booking.service_mode == AT_HOME:
+        extra = await _arrival_line(db, booking, now, lookup_location)
     background.add_task(
-        notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        f"booking.{booking.status.lower()}",
+        user_id,
+        lookup_owner,
+        extra=extra,
     )
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)
+
+
+async def _arrival_line(db, booking, now: datetime, lookup_location) -> Optional[dict]:
+    """ "Arriving around 10:40." for the customer of a home visit the professional has set off for."""
+    try:
+        day = home_visits.day_window(now, settings.DISPLAY_TIMEZONE)
+        _, route = await home_visits.route_for(db, booking.provider_id, day, now, lookup_location)
+    except Exception as e:  # the message goes out without the time
+        log.warning("arrival_estimate_failed", booking_id=booking.id, error=str(e))
+        return None
+    arrival = route.get(booking.id)
+    if arrival is None:
+        return None
+    eta = home_visits.eta_text(arrival.arrive_at, settings.DISPLAY_TIMEZONE)
+    return {"eta": eta, "arrival_line": f"Arriving around {eta}."}
 
 
 @router.post("/bookings/{booking_id}/assign", response_model=BookingResponse)

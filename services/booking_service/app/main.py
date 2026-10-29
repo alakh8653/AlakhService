@@ -10,6 +10,7 @@ from app.core.observability import install_observability
 from app.routers.availability import router as availability_router
 from app.routers.bookings import router as bookings_router
 from app.routers.chat import router as chat_router
+from app.routers.home_visits import router as home_visits_router
 from app.routers.internal import router as internal_router
 from app.routers.queue import router as queue_router
 from app.routers.waitlist import router as waitlist_router
@@ -62,6 +63,7 @@ app.add_middleware(
 
 app.include_router(bookings_router, prefix="/api/v1", tags=["bookings"])
 app.include_router(queue_router, prefix="/api/v1", tags=["queue"])
+app.include_router(home_visits_router, prefix="/api/v1", tags=["home visits"])
 app.include_router(availability_router, prefix="/api/v1", tags=["availability"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 app.include_router(waitlist_router, prefix="/api/v1", tags=["waitlist"])

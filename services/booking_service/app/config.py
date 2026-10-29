@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # refreshes on its own changes and every few seconds.
     QUEUE_PUBSUB: bool = False
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    USER_SERVICE_URL: str = "http://user_service:8000"
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     PRICING_ENGINE_URL: str = "http://pricing_engine:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"

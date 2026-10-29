@@ -24,7 +24,7 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ),
     ("booking.provider_en_route", None): (
         "Provider on the way",
-        "Your provider is on the way for booking {booking_number}.",
+        "Your provider is on the way for booking {booking_number}. {arrival_line}",
     ),
     ("booking.picked_up", "customer"): (
         "Item picked up",

@@ -185,6 +185,38 @@ def get_schedule_lookup() -> ScheduleLookup:
     return fetch_shop_schedule
 
 
+# Where an address or a shop is, for planning home visits: places rarely move, so kept for a while.
+LOCATION_CACHE_SECONDS = 600.0
+_location_cache: Dict[Tuple[str, str], Tuple[float, Optional[Tuple[float, float]]]] = {}
+
+
+async def fetch_location(kind: str, ref: str) -> Optional[Tuple[float, float]]:
+    """(latitude, longitude) of a saved address (user_service) or a shop (shop_service), or None."""
+    key = (kind, ref)
+    cached = _location_cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    if kind == "address":
+        base, path = settings.USER_SERVICE_URL, f"/internal/addresses/{path_segment(ref)}/location"
+    else:
+        base, path = settings.SHOP_SERVICE_URL, f"/api/v1/shops/{path_segment(ref)}"
+    async with httpx.AsyncClient(base_url=base, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
+        resp = await client.get(path, headers=internal_headers())
+    point = None
+    if resp.status_code == 200:
+        data = resp.json()
+        if data.get("latitude") is not None and data.get("longitude") is not None:
+            point = (float(data["latitude"]), float(data["longitude"]))
+    if len(_location_cache) >= _SCHEDULE_CACHE_MAX:
+        _location_cache.clear()
+    _location_cache[key] = (time.monotonic() + LOCATION_CACHE_SECONDS, point)
+    return point
+
+
+def get_location_lookup() -> Callable[[str, str], Awaitable[Optional[Tuple[float, float]]]]:
+    return fetch_location
+
+
 def get_clock() -> Callable[[], datetime]:
     """The current time (replaced in tests)."""
     return lambda: datetime.now(timezone.utc)

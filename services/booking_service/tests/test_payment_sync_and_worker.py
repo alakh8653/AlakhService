@@ -230,7 +230,8 @@ async def test_reminders_go_out_24h_and_1h_before_each_once(http):
     assert first["reminders"] == 2
     got = sorted((b, d["reminder"]) for e, b, _, d in notes.sent if e == "booking.reminder")
     assert got == [("w-1", "1h"), ("w-2", "24h")]
-    assert all(roles == ("customer", "shop") for e, _, roles, _ in notes.sent)
+    # Only the reminders: the same pass may also send rebook reminders for the seed data's older visits.
+    assert all(roles == ("customer", "shop") for e, _, roles, _ in notes.sent if e == "booking.reminder")
 
     notes.sent.clear()
     assert (await worker.run_once(SESSIONS["factory"], notes, fake_owner, PAY, now=NOW))["reminders"] == 0

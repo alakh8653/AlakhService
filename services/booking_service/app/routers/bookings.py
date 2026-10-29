@@ -20,7 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, live_queue, payments, queue_ops, risk, waitlist
+from app.core import availability, live_queue, payments, queue_hub, queue_ops, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
@@ -238,6 +238,7 @@ async def create_booking(
         # Commit first: the background task delays the session's own commit, and the people notified
         # (and the caller's next request) must already see the change.
         await db.commit()
+        queue_hub.hub.poke(booking.shop_id)
     except IntegrityError:
         # Another request with the same key got there first (without the lock): its booking stands, and
         # points or a package visit spent on this attempt go back.
@@ -484,6 +485,7 @@ async def update_status(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     if queued is not None:
         background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(
@@ -524,6 +526,7 @@ async def assign_provider(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     background.add_task(
         notify_booking,
         notifier,
@@ -598,6 +601,7 @@ async def cancel_booking(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(waitlist.tell, notifier, waiting)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
@@ -668,6 +672,7 @@ async def reschedule_booking(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     background.add_task(
         notify_booking,
         notifier,

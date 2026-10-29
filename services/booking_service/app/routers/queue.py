@@ -7,13 +7,13 @@ reorder, VIP, no-show, team status (breaks, off today) and queue settings. Every
 Anyone: GET /bookings/shop/{shop_id}/queue/board, a masked board for a screen at the shop (ETag/304).
 """
 
-import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response, WebSocket
+from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from app.core.fsm import AT_SHOP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
+from app.core.queue_hub import hub, version_of
 from app.database import get_db
 from app.dependencies import (
     ScheduleLookup,
@@ -35,9 +36,16 @@ from app.dependencies import (
     get_shop_owner_lookup,
     get_team_lookup,
     require_shop_access,
+    verify_access_token,
 )
 from app.models.booking import Booking
-from app.routers.bookings import _visible_booking, manager
+from app.routers.bookings import (
+    WS_FORBIDDEN,
+    WS_TRY_AGAIN_LATER,
+    WS_UNAUTHENTICATED,
+    _visible_booking,
+    manager,
+)
 from app.schemas.booking import BookingCreate, QueueStatus, ShopQueueEntry
 from app.services.booking_service import booking_service
 
@@ -203,6 +211,7 @@ def _mask(name: str) -> str:
 async def _created(db, notifier, booking: Booking, lookup_owner, background, service_name: Optional[str]):
     await manager.broadcast(booking.id, {"booking_id": booking.id, "status": booking.status})
     await db.commit()
+    hub.poke(booking.shop_id)
     background.add_task(
         notify_booking, notifier, snapshot(booking, service_name), "booking.created", booking.customer_id,
         lookup_owner, roles=("shop",),
@@ -340,6 +349,7 @@ async def check_in(
             db, booking.shop_id, booking.id, "check_in", current_user.get("sub"), {"late": late}, at=now
         )
         await db.commit()
+        hub.poke(booking.shop_id)
     team = await queue_ops.team_of(lookup_team, booking.shop_id)
     spot = await live_queue.spot_for(db, booking, schedule, now, team)
     return queue_status(booking, spot, schedule, team, now)
@@ -442,20 +452,7 @@ async def shop_queue(
     return entries
 
 
-@router.get("/bookings/shop/{shop_id}/queue/board", response_model=Board)
-async def board(
-    shop_id: str,
-    response: Response,
-    if_none_match: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db),
-    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
-    lookup_team=Depends(get_team_lookup),
-    lookup_names: NameLookup = Depends(get_name_lookup),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """A screen at the shop: who is being served and who is next, by ticket and a masked name. Public;
-    the version (also the ETag) changes only when something on it does, so a screen polls cheaply."""
-    now = live_queue._utc(clock())
+async def board_content(db, shop_id, lookup_schedule, lookup_team, lookup_names, now) -> Board:
     _, team, spots = await _line(db, shop_id, lookup_schedule, lookup_team, now)
     bookings = {b.id: b for b in await booking_service.get_bookings(db, list(spots))} if spots else {}
     names = await lookup_names([b.customer_id for b in bookings.values() if not b.walk_in_name]) if bookings else {}
@@ -474,16 +471,105 @@ async def board(
     serving = [row(s) for s in ordered if s.state == live_queue.IN_PROGRESS]
     waiting = [s for s in ordered if s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)]
     content = {"now_serving": serving, "next": [row(s) for s in waiting[:BOARD_NEXT]], "waiting": len(waiting)}
-    version = hashlib.sha1(
-        json.dumps({k: [r.model_dump() if isinstance(r, BaseModel) else r for r in v] if isinstance(v, list) else v
-                    for k, v in content.items()}, sort_keys=True).encode()
-    ).hexdigest()[:16]  # fmt: skip
-    etag = f'"{version}"'
+    version = version_of({k: [r.model_dump() for r in v] if isinstance(v, list) else v for k, v in content.items()})
+    return Board(version=version, **content)
+
+
+@router.get("/bookings/shop/{shop_id}/queue/board", response_model=Board)
+async def board(
+    shop_id: str,
+    response: Response,
+    if_none_match: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_db),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """A screen at the shop: who is being served and who is next, by ticket and a masked name. Public;
+    the version (also the ETag) changes only when something on it does, so a screen polls cheaply (or
+    listens on /ws/shops/{shop_id}/board)."""
+    content = await board_content(db, shop_id, lookup_schedule, lookup_team, lookup_names, live_queue._utc(clock()))
+    etag = f'"{content.version}"'
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = "no-cache"
     if if_none_match == etag:
         return Response(status_code=304, headers={"ETag": etag})
-    return Board(version=version, **content)
+    return content
+
+
+async def _live(websocket: WebSocket, shop_id: str, view: str, build) -> None:
+    await websocket.accept()
+    if not await hub.join(shop_id, view, websocket, build):
+        return
+    try:
+        while True:
+            if await websocket.receive_text() == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    finally:
+        hub.leave(shop_id, view, websocket)
+
+
+@router.websocket("/ws/shops/{shop_id}/queue")
+async def shop_queue_socket(
+    shop_id: str,
+    websocket: WebSocket,
+    token: Optional[str] = Query(None),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+    session_factory=Depends(get_session_factory),
+):
+    """The shop's whole line, live: {"type": "queue", "version", "entries"} on joining and on every change."""
+    # Browsers cannot set headers on a WebSocket handshake, so the access token comes as ?token=.
+    try:
+        user = verify_access_token(token or "")
+    except HTTPException:
+        await websocket.close(code=WS_UNAUTHENTICATED)
+        return
+    try:
+        allowed = user.get("role") == ADMIN or await lookup_owner(shop_id) == user.get("sub")
+    except HTTPException:
+        await websocket.close(code=WS_TRY_AGAIN_LATER)
+        return
+    if not allowed:
+        await websocket.close(code=WS_FORBIDDEN)
+        return
+
+    async def build():
+        async with session_factory() as db:
+            entries = await shop_queue(shop_id, db, lookup_schedule, lookup_team, lookup_names, clock)
+        rows = [e.model_dump(mode="json") for e in entries]
+        version = version_of(rows)
+        return version, {"type": "queue", "shop_id": shop_id, "version": version, "entries": rows}
+
+    await _live(websocket, shop_id, "shop", build)
+
+
+@router.websocket("/ws/shops/{shop_id}/board")
+async def board_socket(
+    shop_id: str,
+    websocket: WebSocket,
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+    session_factory=Depends(get_session_factory),
+):
+    """The public board, live: {"type": "board", ...the board} on joining and on every change."""
+
+    async def build():
+        async with session_factory() as db:
+            content = await board_content(
+                db, shop_id, lookup_schedule, lookup_team, lookup_names, live_queue._utc(clock())
+            )
+        return content.version, {"type": "board", "shop_id": shop_id, **content.model_dump(mode="json")}
+
+    await _live(websocket, shop_id, "board", build)
 
 
 @router.post("/bookings/shop/{shop_id}/walk-ins", response_model=ShopQueueEntry, status_code=201)
@@ -521,6 +607,7 @@ async def add_walk_in(
         await live_queue.audit(db, shop_id, booking.id, "vip", actor, {"vip": True}, at=now)
     booking_id = booking.id
     await db.commit()
+    hub.poke(shop_id)
     entries = await shop_queue(shop_id, db, lookup_schedule, lookup_team, lookup_names, clock)
     return next(e for e in entries if e.booking_id == booking_id)
 
@@ -569,6 +656,7 @@ async def call_next(
     booking_id = booking.id
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     await db.commit()
+    hub.poke(shop_id)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.in_progress", user_id, lookup_owner)
     entries = await shop_queue(shop_id, db, lookup_schedule, lookup_team, lookup_names, clock)
     return next(e for e in entries if e.booking_id == booking_id)
@@ -597,6 +685,7 @@ async def reorder(
         b.queue_rank = rank.get(b.id)
     await live_queue.audit(db, shop_id, None, "reorder", current_user.get("sub"), {"order": body.booking_ids}, at=now)
     await db.commit()
+    hub.poke(shop_id)
     return await shop_queue(shop_id, db, lookup_schedule, lookup_team, lookup_names, clock)
 
 
@@ -629,6 +718,7 @@ async def set_priority(
         db, booking.shop_id, booking.id, "vip" if body.vip else "regular", current_user.get("sub"), at=now
     )
     await db.commit()
+    hub.poke(booking.shop_id)
     team = await queue_ops.team_of(lookup_team, booking.shop_id)
     spot = await live_queue.spot_for(db, booking, schedule, now, team)
     return queue_status(booking, spot, schedule, team, now)
@@ -661,6 +751,7 @@ async def mark_no_show(
     await live_queue.audit(db, booking.shop_id, booking.id, "no_show", user_id, at=now)
     await manager.broadcast(booking.id, {"booking_id": booking.id, "status": booking.status})
     await db.commit()
+    hub.poke(booking.shop_id)
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(
         notify_booking, notifier, snapshot(booking), "booking.no_show", user_id, lookup_owner, roles=("customer",)
@@ -741,6 +832,7 @@ async def set_team_status(
     until = now + timedelta(minutes=body.minutes) if body.status == qe.ON_BREAK else None
     await live_queue.set_status(db, shop_id, staff_id, body.status, until, current_user.get("sub"), at=now)
     await db.commit()
+    hub.poke(shop_id)
     return await team_state(shop_id, db, lookup_schedule, lookup_team, lookup_names, clock)
 
 
@@ -759,4 +851,5 @@ async def put_settings(
     saved = await live_queue.save_settings(db, shop_id, body.model_dump())
     await live_queue.audit(db, shop_id, None, "settings", current_user.get("sub"), body.model_dump())
     await db.commit()
+    hub.poke(shop_id)
     return QueueSettingsBody(**saved.__dict__)

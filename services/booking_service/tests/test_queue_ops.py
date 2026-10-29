@@ -12,7 +12,7 @@ from app.models.booking import Booking
 from app.models.queue import DurationStat, QueueAudit
 from tests import test_availability
 from tests.test_availability import CLOCK, MON, book, ist, utc_iso
-from tests.test_shop_bookings_api import SENT, SESSIONS, auth
+from tests.test_shop_bookings_api import SENT, SESSIONS, auth, ws_client  # noqa: F401
 
 TEAM = [
     {"id": "st-a", "name": "Asha", "service_ids": ["svc-a"]},
@@ -253,3 +253,47 @@ async def test_the_queue_still_works_when_the_team_cannot_be_fetched(client):
     a = await walk_in(client, "A")
     assert a["position"] == 1 and a["staff_name"] is None  # the shop's two places instead
     assert (await client.get(f"{Q}/team", headers=OWNER)).json() == []
+
+
+def test_the_shops_screen_gets_the_line_live_and_strangers_are_refused(ws_client):  # noqa: F811
+    from fastapi.websockets import WebSocketDisconnect
+
+    from app.core.payments import get_session_factory
+    from app.dependencies import get_clock
+    from tests.test_availability import HOURS
+    from tests.test_shop_bookings_api import SCHEDULES
+
+    async def lookup(shop_id):
+        return TEAM
+
+    SCHEDULES["shop-1"] = HOURS
+    CLOCK["now"] = ist(MON, "10:30")
+    app.dependency_overrides[get_clock] = lambda: lambda: CLOCK["now"]
+    app.dependency_overrides[get_session_factory] = lambda: SESSIONS["factory"]
+    app.dependency_overrides[get_team_lookup] = lambda: lookup
+    token = OWNER["Authorization"].split()[1]
+    with ws_client.websocket_connect(f"/api/v1/ws/shops/shop-1/queue?token={token}") as ws:
+        first = ws.receive_json()
+        assert (first["type"], first["entries"]) == ("queue", [])
+        walked = ws_client.post(
+            "/api/v1/bookings/shop/shop-1/walk-ins", json={"service_id": "svc-a", "name": "Live"}, headers=OWNER
+        )
+        assert walked.status_code == 201, walked.text
+        update = ws.receive_json()  # straight away, not at the next refresh
+        assert [e["customer_display_name"] for e in update["entries"]] == ["Live"]
+        assert update["version"] != first["version"]
+        ws.send_text("ping")
+        assert ws.receive_json() == {"type": "pong"}
+        with ws_client.websocket_connect("/api/v1/ws/shops/shop-1/board") as board:
+            frame = board.receive_json()
+            assert frame["type"] == "board" and [r["name"] for r in frame["next"]] == ["L•••"]
+
+    for query, code in (
+        ("", 4401),
+        ("?token=bad", 4401),
+        (f"?token={auth('owner-2')['Authorization'].split()[1]}", 4403),
+    ):
+        with pytest.raises(WebSocketDisconnect) as refused:
+            with ws_client.websocket_connect(f"/api/v1/ws/shops/shop-1/queue{query}") as ws:
+                ws.receive_json()
+        assert refused.value.code == code

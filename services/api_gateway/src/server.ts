@@ -2,6 +2,7 @@ import { createClient } from 'redis';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import type { SendCommand } from './revocation.js';
+import { attachWebSockets } from './websocket.js';
 
 const config = loadConfig();
 
@@ -22,6 +23,8 @@ const redis = config.redisUrl ? connectRedis(config.redisUrl) : undefined;
 const server = createApp(config, { redis, processMetrics: true }).listen(config.port, () => {
   console.log(JSON.stringify({ msg: 'api_gateway listening', port: config.port, sharedLimits: Boolean(redis) }));
 });
+// Live sockets (a booking's status, a shop's queue) go straight to booking_service.
+attachWebSockets(server, config);
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {

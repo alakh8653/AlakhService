@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
     # Told when a shop starts or stops being public, so its services show or hide in browsing.
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
+    # How often each shop's listing is sent to service_catalog again, in case a change was missed (0: never).
+    LISTING_RESYNC_SECONDS: float = 600
     # Shared with the other services for /internal/... calls (payment_service reads payout details).
     INTERNAL_API_KEY: str = ""
     # KYC files uploaded through the API are kept here (mount a volume in production); empty turns

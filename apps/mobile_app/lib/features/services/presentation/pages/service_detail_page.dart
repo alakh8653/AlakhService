@@ -10,6 +10,8 @@ import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../../app/shell_navigation.dart';
+import '../../../booking/data/booking_queue_api.dart';
 import '../../../booking/presentation/bloc/booking_bloc.dart';
 import '../../../booking/presentation/pages/booking_page.dart';
 import '../../../directions/data/shop_location_api.dart';
@@ -34,6 +36,7 @@ class ServiceDetailPage extends StatefulWidget {
   final ShopHoursApi? hoursApi;
   final SavedShopsApi? savedShopsApi;
   final PackagesApi? packagesApi;
+  final BookingQueueApi? lineApi;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -47,6 +50,7 @@ class ServiceDetailPage extends StatefulWidget {
     this.hoursApi,
     this.savedShopsApi,
     this.packagesApi,
+    this.lineApi,
     this.clock = DateTime.now,
   });
 
@@ -58,6 +62,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   late final QueueApi _queueApi = widget.queueApi ?? sl<QueueApi>();
   String? _openQueueId;
   bool _joining = false;
+  bool _joiningLine = false;
   // Who provides it: the shop's name and area, so the customer knows where they are booking.
   Destination? _shop;
   // What customers say about the shop, for choosing it.
@@ -154,6 +159,43 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
       }
     } finally {
       if (mounted) setState(() => _joining = false);
+    }
+  }
+
+  /// Joins the shop's live line now (no booked time): the customer sees their place and expected time.
+  Future<void> _joinLine() async {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! Authenticated || _joiningLine) return;
+    final l10n = context.l10n;
+    setState(() => _joiningLine = true);
+    try {
+      final queue = await (widget.lineApi ?? sl<BookingQueueApi>()).joinLine(service.id);
+      if (!mounted) return;
+      final at = queue.estimatedStart;
+      await showDialog<void>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(l10n.joinLineDone),
+          content: Text(at == null ? l10n.liveQueueTitle : l10n.joinLineDoneBody(queue.position ?? 1, clockTime(at))),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialog);
+                ShellNavigation.show(context, ShellTab.bookings);
+              },
+              child: Text(l10n.joinLineSeeBookings),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _joiningLine = false);
     }
   }
 
@@ -347,6 +389,24 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       l10n.joinQueueNote,
                       style: AppTextStyles.caption.themed(context),
                     ),
+                    const SizedBox(height: 12),
+                  ],
+                  // No token queue here, the shop is open now: join its live line instead of booking a time.
+                  if (_openQueueId == null &&
+                      atShop &&
+                      service.isAvailable &&
+                      service.shopId != null &&
+                      _hours != null &&
+                      openingSummary(_hours!, widget.clock(), l10n: l10n)?.open == true) ...[
+                    CustomButton(
+                      label: l10n.joinLineNow,
+                      variant: ButtonVariant.outlined,
+                      leadingIcon: Icons.people_outline,
+                      isLoading: _joiningLine,
+                      onPressed: _joiningLine ? null : _joinLine,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(l10n.joinLineNote, style: AppTextStyles.caption.themed(context)),
                     const SizedBox(height: 12),
                   ],
                   if (service.shopId != null && atShop)

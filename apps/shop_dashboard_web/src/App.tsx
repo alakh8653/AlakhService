@@ -30,6 +30,8 @@ const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const EarningsPage = lazy(() => import('./pages/EarningsPage'));
 const PackagesPage = lazy(() => import('./pages/PackagesPage'));
+const LiveLinePage = lazy(() => import('./pages/LiveLinePage'));
+const BoardPage = lazy(() => import('./pages/BoardPage'));
 
 function PageFallback() {
   return (
@@ -89,6 +91,7 @@ function ProtectedLayout() {
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/packages" element={<PackagesPage />} />
+              <Route path="/line" element={<LiveLinePage />} />
               <Route path="/queues" element={<QueuesPage />} />
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/hours" element={<OpeningHoursPage />} />
@@ -163,6 +166,15 @@ export default function App() {
         {!isAuthenticated && <Route path="/register" element={<RegisterPage />} />}
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* The screen in the shop: public, no account. */}
+        <Route
+          path="/board/:shopId"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <BoardPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/*"
           element={

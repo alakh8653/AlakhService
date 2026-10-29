@@ -99,7 +99,7 @@ async def test_another_day_has_no_queue_yet(client):
 
 
 @pytest.mark.asyncio
-async def test_customers_hear_once_that_their_turn_is_near_or_the_shop_runs_late(client):
+async def test_customers_hear_once_that_it_is_their_turn_or_the_shop_runs_late(client):
     first, second, third = await three_waiting(client)
 
     async def schedule(shop_id):
@@ -107,13 +107,14 @@ async def test_customers_hear_once_that_their_turn_is_near_or_the_shop_runs_late
 
     notes = Notes()
     out = await worker.run_once(SESSIONS["factory"], notes, fake_owner, PAY, now=CLOCK["now"], lookup_schedule=schedule)
-    sent = sorted((e, b) for e, b, _, _ in notes.sent if e in ("booking.turn_soon", "booking.running_late"))
+    sent = sorted((e, b) for e, b, _, _ in notes.sent if e.startswith(("booking.your_turn", "booking.queue")))
     assert sent == sorted(
-        [("booking.turn_soon", first), ("booking.turn_soon", second), ("booking.running_late", third)]
+        [("booking.your_turn", first), ("booking.your_turn", second), ("booking.queue_update", third)]
     )
     assert out["queue_notices"] == 3
-    late = next(d for e, b, _, d in notes.sent if e == "booking.running_late")
-    assert (late["late_minutes"], late["position"]) == (50, 3)
+    late = next(d for e, b, _, d in notes.sent if e == "booking.queue_update")
+    assert (late["late_minutes"], late["position"], late["people_ahead"]) == (50, 3, 2)
+    assert late["why"] == "about 50 min after your booked time"
 
     notes.sent.clear()
     again = await worker.run_once(

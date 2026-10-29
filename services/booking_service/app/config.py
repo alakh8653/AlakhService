@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/booking_db"
     REDIS_URL: str = "redis://redis:6379/2"
+    # Live queue screens on every replica refresh when the line changes on any (Redis pub/sub); off, each
+    # refreshes on its own changes and every few seconds.
+    QUEUE_PUBSUB: bool = False
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     PRICING_ENGINE_URL: str = "http://pricing_engine:8000"

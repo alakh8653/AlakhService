@@ -45,7 +45,7 @@ def upgrade() -> None:
         'queue_settings',
         sa.Column('shop_id', sa.String(), primary_key=True),
         sa.Column('buffer_pct', sa.Float(), server_default='0', nullable=False),
-        sa.Column('alpha', sa.Float(), server_default='0.3', nullable=False),
+        sa.Column('alpha', sa.Float(), server_default='0.2', nullable=False),
         sa.Column('grace_minutes', sa.Integer(), server_default='10', nullable=False),
         sa.Column('aging_minutes', sa.Integer(), server_default='20', nullable=False),
         sa.Column('check_in_required', sa.Boolean(), server_default=sa.false(), nullable=False),

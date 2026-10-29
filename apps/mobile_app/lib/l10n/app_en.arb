@@ -1368,5 +1368,50 @@
         "type": "int"
       }
     }
+  },
+  "homeArrivalTitle": "Your home visit",
+  "homeArrivalAround": "Your professional arrives around {time}",
+  "@homeArrivalAround": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalBetween": "Between {from} and {to}",
+  "@homeArrivalBetween": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalOnTheWay": "On the way, arriving around {time}",
+  "@homeArrivalOnTheWay": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalHere": "Your professional is with you",
+  "homeArrivalBefore": "{count, plural, =0{You're their first visit} =1{1 visit before yours} other{{count} visits before yours}}",
+  "@homeArrivalBefore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeArrivalLate": "Running about {minutes} min behind your booked time",
+  "@homeArrivalLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   }
 }

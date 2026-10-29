@@ -2135,4 +2135,42 @@ class AppLocalizationsHi extends AppLocalizations {
   String shopLineLate(int minutes) {
     return '$minutes मिनट देर';
   }
+
+  @override
+  String get homeArrivalTitle => 'आपकी होम विज़िट';
+
+  @override
+  String homeArrivalAround(String time) {
+    return 'आपके प्रोफ़ेशनल लगभग $time बजे पहुँचेंगे';
+  }
+
+  @override
+  String homeArrivalBetween(String from, String to) {
+    return '$from से $to के बीच';
+  }
+
+  @override
+  String homeArrivalOnTheWay(String time) {
+    return 'रास्ते में हैं, लगभग $time बजे पहुँचेंगे';
+  }
+
+  @override
+  String get homeArrivalHere => 'आपके प्रोफ़ेशनल आपके पास हैं';
+
+  @override
+  String homeArrivalBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'आपसे पहले $count विज़िट',
+      one: 'आपसे पहले 1 विज़िट',
+      zero: 'आप उनकी पहली विज़िट हैं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String homeArrivalLate(int minutes) {
+    return 'आपके बुक किए समय से लगभग $minutes मिनट देर';
+  }
 }

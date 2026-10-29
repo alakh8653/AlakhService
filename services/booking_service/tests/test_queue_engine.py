@@ -93,6 +93,20 @@ def test_vip_before_appointment_before_walk_in_and_aging_lifts_walk_ins():
     assert starts(p, "appt", "walk") == [0, 30]
 
 
+def test_aging_never_lets_an_appointment_jump_a_walk_in_who_waited_longer():
+    # Found by the simulator: a walk-in waiting since 10:10 must not lose to a 11:15 appointment that
+    # has waited 20 minutes itself (aging only brings walk-ins up to the appointments).
+    aging = Config(buffer_pct=0.0, no_show_rate=0.0, aging_minutes=20)
+    jobs = [
+        entry("busy", -40, state=SERVING, worker_id="w", started_at=T - 20 * MIN),
+        entry("walk", -80, WALK_IN),
+        entry("late-appt", -25),
+        entry("vip", -5, VIP),
+    ]
+    p = predict(T, [worker("w")], jobs, aging, durations())
+    assert starts(p, "vip", "walk", "late-appt") == [10, 40, 70]
+
+
 def test_a_manual_reorder_comes_first():
     p = predict(T, [worker("w")], [entry("a"), entry("b", rank=1.0)], CFG, durations())
     assert starts(p, "b", "a") == [0, 30]

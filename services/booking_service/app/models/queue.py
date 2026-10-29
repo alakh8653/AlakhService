@@ -21,7 +21,7 @@ class QueueSettings(Base):
     # Added to every planned service length (0.1 = 10%).
     buffer_pct = Column(Float, default=0.0, server_default="0", nullable=False)
     # Weight of the newest actual duration in the learnt average.
-    alpha = Column(Float, default=0.3, server_default="0.3", nullable=False)
+    alpha = Column(Float, default=0.2, server_default="0.2", nullable=False)
     # How long after their time a customer may arrive before they can be marked a no-show.
     grace_minutes = Column(Integer, default=10, server_default="10", nullable=False)
     # Waiting this long moves a customer up one tier (walk-ins are then served like appointments).

@@ -58,7 +58,7 @@ FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
 
 class QueueSettingsBody(BaseModel):
     buffer_pct: float = Field(0.0, ge=0, le=1)
-    alpha: float = Field(0.3, gt=0, le=1)
+    alpha: float = Field(0.2, gt=0, le=1)
     grace_minutes: int = Field(10, ge=0, le=120)
     aging_minutes: int = Field(20, ge=1, le=480)
     check_in_required: bool = False

@@ -13,8 +13,8 @@ ready. Shifts and breaks are respected: a job is not started if it would run int
 shift's end; the worker continues after the break, or is done for the day.
 
 Priority, at time t, compares (manual rank, tier, ready time, booked time, customer key, id):
-- tier: 0 VIP, 1 appointment, 2 walk-in. A customer who has waited more than AGING_MINUTES since they were
-  ready moves up one tier (a walk-in is then served like an appointment), so nobody starves;
+- tier: 0 VIP, 1 appointment, 2 walk-in. A walk-in who has waited aging_minutes since they were ready is
+  served like an appointment (then by who was ready first), so nobody starves; aging never makes a VIP;
 - a shop owner's manual reorder sets ranks, which come first, in the owner's order;
 - every remaining tie is broken by booking time, then customer, then id: the order is deterministic.
 
@@ -55,7 +55,7 @@ Span = Tuple[datetime, datetime]
 class Config:
     buffer_pct: float = 0.10  # added to every planned duration
     z: float = 1.28  # ETA range covers about 80% of outcomes (one-sided 90%)
-    aging_minutes: int = 20  # waiting this long since ready moves a customer up one tier
+    aging_minutes: int = 20  # a walk-in waiting this long since ready is served like an appointment
     no_show_rate: float = 0.05  # share of booked customers who do not come
     your_turn_within: int = 2  # minutes: within this of their start, it is the customer's turn
     overrun_threshold_minutes: int = 5  # a job this far past its planned end is overrunning
@@ -288,8 +288,8 @@ class QueueEngine:
 
     def _key(self, e: Entry, t: datetime) -> Tuple:
         tier = e.tier
-        if tier > VIP and (t - e.ready_at) >= timedelta(minutes=self.cfg.aging_minutes):
-            tier -= 1  # aging: waited long enough to move up
+        if tier == WALK_IN and (t - e.ready_at) >= timedelta(minutes=self.cfg.aging_minutes):
+            tier = APPOINTMENT  # aging: waited long enough to go with the appointments (never ahead of VIPs)
         rank = e.rank if e.rank is not None else math.inf
         return (rank, tier, e.ready_at, e.booked_at, e.customer_key, e.id)
 

@@ -222,7 +222,7 @@ async def test_with_check_in_required_a_late_customer_is_out_of_line_until_they_
 async def test_settings_are_the_shops_and_checked(client):
     got = await client.get(f"{Q}/settings", headers=OWNER)
     assert got.json() == {
-        "buffer_pct": 0.0, "alpha": 0.3, "grace_minutes": 10, "aging_minutes": 20, "check_in_required": False,
+        "buffer_pct": 0.0, "alpha": 0.2, "grace_minutes": 10, "aging_minutes": 20, "check_in_required": False,
         "vip_per_day": 5,
     }  # fmt: skip
     assert (await client.put(f"{Q}/settings", json={"buffer_pct": 2}, headers=OWNER)).status_code == 422

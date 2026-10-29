@@ -115,7 +115,7 @@ class _Visit:
 @dataclass
 class Settings:
     buffer_pct: float = 0.0
-    alpha: float = 0.3
+    alpha: float = 0.2  # tuned with tools/queue_sim.py (0.1-0.2 beat 0.3 and 0.5)
     grace_minutes: int = 10
     aging_minutes: int = 20
     check_in_required: bool = False

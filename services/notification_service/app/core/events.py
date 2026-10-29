@@ -74,6 +74,15 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Upcoming booking",
         "Reminder: booking {booking_number} for {service_name} is at {scheduled_at}.",
     ),
+    # On the day of a visit at the shop, from the live queue (booking_service's worker), once each.
+    ("booking.turn_soon", "customer"): (
+        "Almost your turn",
+        "Booking {booking_number}: you're #{position} in line, about {wait_minutes} min to go. Please head to the shop.",
+    ),
+    ("booking.running_late", "customer"): (
+        "The shop is running late",
+        "Booking {booking_number} will start about {late_minutes} min after {scheduled_at}. Come a little later; we'll tell you when it's nearly your turn.",
+    ),
     # A day the customer wanted at a shop that was full: a time there has opened up.
     ("waitlist.time_opened", "customer"): (
         "A time just opened up",

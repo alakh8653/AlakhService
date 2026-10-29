@@ -24,10 +24,12 @@ async def lifespan(app: FastAPI):
         from app.core.notifier import get_notifier
         from app.core.payments import get_payment_client, get_session_factory
         from app.core.worker import run_forever
-        from app.dependencies import fetch_shop_owner
+        from app.dependencies import fetch_shop_owner, fetch_shop_schedule
 
         worker = asyncio.create_task(
-            run_forever(get_session_factory(), get_notifier(), fetch_shop_owner, get_payment_client())
+            run_forever(
+                get_session_factory(), get_notifier(), fetch_shop_owner, get_payment_client(), fetch_shop_schedule
+            )
         )
     yield
     if worker is not None:

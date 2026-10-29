@@ -46,6 +46,14 @@ describe('BookingCard', () => {
     expect(screen.getByText('+ ₹60 in points, paid to you by AlakhService')).toBeInTheDocument();
   });
 
+  it("shows the booking's place in today's queue", () => {
+    const queue = { bookingId: 'b1', state: 'WAITING', position: 2, estimatedStart: '2026-10-10T11:05:00', runningLateMinutes: 20 };
+    const { rerender } = render(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} queue={queue} />, { wrapper: MemoryRouter });
+    expect(screen.getByTestId('queue-line')).toHaveTextContent('#2 in line · starts about 11:05 AM· 20 min late');
+    rerender(<BookingCard booking={booking} onChangeStatus={vi.fn()} onCancel={vi.fn()} queue={{ ...queue, state: 'IN_PROGRESS', position: null }} />);
+    expect(screen.getByTestId('queue-line')).toHaveTextContent('Being served now');
+  });
+
   it('says who the customer asked for', () => {
     render(<BookingCard booking={{ ...booking, preferredStaffId: 'st1', preferredStaffName: 'Meena R.' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
     expect(screen.getByText('Meena R.')).toBeInTheDocument();

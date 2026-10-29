@@ -47,6 +47,9 @@ class Booking(Base):
     reminder_1h_sent_at = Column(DateTime(timezone=True), nullable=True)
     # When the customer was asked whether they want to book this service again (once per visit).
     rebook_reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # On the day: when the customer was told their turn is near, and that the shop is running late (once each).
+    turn_soon_sent_at = Column(DateTime(timezone=True), nullable=True)
+    running_late_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     # Stamped by the app on every update, never left to the database: a server-side value would expire the
     # attribute, and reading it back later (building the response) fails outside the async session.

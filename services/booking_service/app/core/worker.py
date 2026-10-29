@@ -19,7 +19,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import payments, waitlist
+from app.core import availability, live_queue, payments, waitlist
 from app.core.fsm import BookingStatus
 from app.core.notifier import Notifier, notify_booking, snapshot
 from app.models.booking import Booking
@@ -117,6 +117,71 @@ async def due_rebook_reminders(db: AsyncSession, now: datetime, limit: int = 200
     return due
 
 
+async def due_queue_notices(db: AsyncSession, now: datetime, lookup_schedule) -> List[Tuple[Booking, str, dict]]:
+    """Today's visits at the shop whose customer should hear that their turn is near ("turn_soon") or that
+    the shop is running late ("running_late"); each is marked so it is sent once. Returns (booking, kind, data)."""
+    if settings.TURN_SOON_MINUTES <= 0 and settings.RUNNING_LATE_MINUTES <= 0:
+        return []
+    window = (now - timedelta(hours=12), now + timedelta(hours=14))  # covers "today" in any shop's zone
+    rows = (
+        (
+            await db.execute(
+                select(Booking.shop_id)
+                .where(
+                    Booking.status.in_(live_queue.WAITING),
+                    Booking.service_mode == live_queue.AT_SHOP,
+                    Booking.scheduled_at >= window[0],
+                    Booking.scheduled_at < window[1],
+                    or_(Booking.turn_soon_sent_at.is_(None), Booking.running_late_sent_at.is_(None)),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    out: List[Tuple[Booking, str, dict]] = []
+    for shop_id in [s for s in rows if s]:
+        try:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
+        except Exception as e:  # shop_service down: try again next pass
+            log.warning("queue_notice_schedule_failed", shop_id=shop_id, error=str(e))
+            continue
+        spots = await live_queue.shop_queue(db, shop_id, schedule, now)
+        waiting = [s for s in spots.values() if s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)]
+        if not waiting:
+            continue
+        for b in await booking_service_get(db, [s.booking_id for s in waiting]):
+            spot = spots[b.id]
+            data = {
+                "wait_minutes": spot.wait_minutes,
+                "late_minutes": spot.running_late_minutes,
+                "position": spot.position,
+            }
+            if (
+                settings.TURN_SOON_MINUTES > 0
+                and b.turn_soon_sent_at is None
+                and spot.wait_minutes <= settings.TURN_SOON_MINUTES
+            ):
+                b.turn_soon_sent_at = now
+                # Nearly their turn: a later "running late" would only confuse.
+                b.running_late_sent_at = b.running_late_sent_at or now
+                out.append((b, "turn_soon", data))
+            elif (
+                settings.RUNNING_LATE_MINUTES > 0
+                and b.running_late_sent_at is None
+                and spot.running_late_minutes >= settings.RUNNING_LATE_MINUTES
+            ):
+                b.running_late_sent_at = now
+                out.append((b, "running_late", data))
+    await db.flush()
+    return out
+
+
+async def booking_service_get(db: AsyncSession, ids: List[str]) -> List[Booking]:
+    return await booking_service.get_bookings(db, ids)
+
+
 async def expire_unconfirmed(
     db: AsyncSession, now: datetime, after_hours: float, limit: int = 100
 ) -> List[Tuple[Booking, str]]:
@@ -149,6 +214,7 @@ async def run_once(
     lookup_owner: OwnerLookup,
     client: payments.PaymentClient,
     now: Optional[datetime] = None,
+    lookup_schedule=None,
 ) -> dict:
     """One pass of the worker; returns what it did."""
     now = now or datetime.now(timezone.utc)
@@ -158,6 +224,13 @@ async def run_once(
     async with factory() as db:
         rebook = [snapshot(b) for b in await due_rebook_reminders(db, now)]
         await db.commit()
+    queue_notices = []
+    if lookup_schedule is not None:
+        async with factory() as db:
+            queue_notices = [
+                (snapshot(b), kind, data) for b, kind, data in await due_queue_notices(db, now, lookup_schedule)
+            ]
+            await db.commit()
     async with factory() as db:
         expired_rows = await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
         expired = [(snapshot(b), outbox_id) for b, outbox_id in expired_rows]
@@ -175,6 +248,8 @@ async def run_once(
     for snap, label in reminders:
         await notify_booking(notifier, snap, "booking.reminder", None, lookup_owner, extra={"reminder": label})
     await waitlist.tell(notifier, waiting)
+    for snap, kind, data in queue_notices:
+        await notify_booking(notifier, snap, f"booking.{kind}", None, lookup_owner, roles=("customer",), extra=data)
     for snap in rebook:
         await notify_booking(notifier, snap, "booking.rebook", None, lookup_owner, roles=("customer",))
     for snap, _ in expired:
@@ -190,6 +265,7 @@ async def run_once(
     summary = {
         "reminders": len(reminders),
         "rebook_reminders": len(rebook),
+        "queue_notices": len(queue_notices),
         "expired": len(expired),
         "payment_retries": len(retried),
     }
@@ -198,11 +274,13 @@ async def run_once(
     return summary
 
 
-async def run_forever(factory, notifier: Notifier, lookup_owner: OwnerLookup, client: payments.PaymentClient) -> None:
+async def run_forever(
+    factory, notifier: Notifier, lookup_owner: OwnerLookup, client: payments.PaymentClient, lookup_schedule=None
+) -> None:
     log.info("booking_worker_started", interval=settings.WORKER_INTERVAL_SECONDS)
     while True:
         try:
-            await run_once(factory, notifier, lookup_owner, client)
+            await run_once(factory, notifier, lookup_owner, client, lookup_schedule=lookup_schedule)
         except asyncio.CancelledError:
             raise
         except Exception as e:  # a bad pass never stops the next one

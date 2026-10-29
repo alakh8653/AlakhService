@@ -126,12 +126,16 @@ class NextBookingCard extends StatelessWidget {
   final String status;
   final VoidCallback onTap;
 
+  /// Today's live queue, e.g. "#3 in line · about 45 min", when the visit is at the shop today.
+  final String? queueLine;
+
   const NextBookingCard({
     super.key,
     required this.serviceName,
     required this.when,
     required this.status,
     required this.onTap,
+    this.queueLine,
   });
 
   @override
@@ -164,6 +168,10 @@ class NextBookingCard extends StatelessWidget {
                           Text(serviceName, style: AppTextStyles.heading3.copyWith(color: AppColors.textLight)),
                           const SizedBox(height: 2),
                           Text(when, style: AppTextStyles.body2.copyWith(color: AppColors.textLight)),
+                          if (queueLine != null) ...[
+                            const SizedBox(height: 4),
+                            Text(queueLine!, style: AppTextStyles.subtitle2.copyWith(color: AppColors.textLight)),
+                          ],
                           const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

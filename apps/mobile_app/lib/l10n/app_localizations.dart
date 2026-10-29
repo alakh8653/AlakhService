@@ -3499,6 +3499,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You asked for {name}'**
   String askedFor(String name);
+
+  /// No description provided for @liveQueueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live queue at the shop'**
+  String get liveQueueTitle;
+
+  /// No description provided for @liveQueueWait.
+  ///
+  /// In en, this message translates to:
+  /// **'About {time} to wait'**
+  String liveQueueWait(String time);
+
+  /// No description provided for @liveQueueBeingServed.
+  ///
+  /// In en, this message translates to:
+  /// **'Being served now: {count}'**
+  String liveQueueBeingServed(int count);
+
+  /// No description provided for @liveQueueRunningLate.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop is running about {minutes} min late'**
+  String liveQueueRunningLate(int minutes);
+
+  /// No description provided for @liveQueueGoIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Please go to the shop\'s counter now.'**
+  String get liveQueueGoIn;
+
+  /// No description provided for @liveQueueInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Your service is in progress'**
+  String get liveQueueInProgress;
+
+  /// No description provided for @liveQueueShort.
+  ///
+  /// In en, this message translates to:
+  /// **'#{position} in line · {wait}'**
+  String liveQueueShort(int position, String wait);
 }
 
 class _AppLocalizationsDelegate

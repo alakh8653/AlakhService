@@ -566,5 +566,12 @@
   "whoQuestion": "आप किससे करवाना चाहेंगे?",
   "anyProfessional": "कोई भी",
   "professionalNote": "दुकान आपकी चुनी हुई व्यक्ति देने की पूरी कोशिश करती है।",
-  "askedFor": "आपने {name} को चुना"
+  "askedFor": "आपने {name} को चुना",
+  "liveQueueTitle": "दुकान पर लाइव कतार",
+  "liveQueueWait": "लगभग {time} इंतज़ार",
+  "liveQueueBeingServed": "अभी सेवा में: {count}",
+  "liveQueueRunningLate": "दुकान लगभग {minutes} मिनट देरी से चल रही है",
+  "liveQueueGoIn": "कृपया अभी दुकान के काउंटर पर जाएँ।",
+  "liveQueueInProgress": "आपकी सेवा चल रही है",
+  "liveQueueShort": "कतार में #{position} · {wait}"
 }

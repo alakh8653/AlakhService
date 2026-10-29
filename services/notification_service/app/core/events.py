@@ -83,6 +83,24 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "The shop is running late",
         "Booking {booking_number} will start about {late_minutes} min after {scheduled_at}. Come a little later; we'll tell you when it's nearly your turn.",
     ),
+    # The live queue's updates, when something the customer would notice changes (booking_service's
+    # queue_notify): moving up the line, a new expected time, their turn, and a no-show.
+    ("booking.queue_ahead", "customer"): (
+        "You're moving up the line",
+        "Booking {booking_number}: {people_ahead} ahead of you (#{position}), expected around {eta}.",
+    ),
+    ("booking.queue_update", "customer"): (
+        "New expected time",
+        "Booking {booking_number}: now expected around {eta}, {why}.",
+    ),
+    ("booking.your_turn", "customer"): (
+        "It's your turn",
+        "Booking {booking_number}: please go to the counter now. {staff_line}",
+    ),
+    ("booking.no_show", "customer"): (
+        "Marked as a no-show",
+        "You did not arrive for booking {booking_number} at {scheduled_at}, so it was cancelled. Book again any time.",
+    ),
     # A day the customer wanted at a shop that was full: a time there has opened up.
     ("waitlist.time_opened", "customer"): (
         "A time just opened up",
@@ -151,6 +169,11 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
 # Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
 SHOP_EMAIL_EVENTS = frozenset({"booking.created", "booking.rescheduled", "shop.approved", "shop.rejected"})
 
+
+# Updates that can wait: during the recipient's quiet hours they are kept in the app but not pushed.
+QUIET_HOURS_HELD = frozenset(
+    {"booking.queue_ahead", "booking.queue_update", "booking.turn_soon", "booking.running_late", "booking.rebook"}
+)
 
 # Events important enough to text or email someone who has no app installed (no push token).
 CRITICAL_EVENTS = frozenset(

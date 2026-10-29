@@ -172,6 +172,37 @@ export async function getAllShopBookings(
   return all.slice(0, max);
 }
 
+/** A booking's place in today's queue at the shop (booking_service's live queue). */
+export interface QueueEntry {
+  bookingId: string;
+  /** WAITING, YOUR_TURN (next, a place is free) or IN_PROGRESS. */
+  state: string;
+  /** 1 for the first customer waiting; null while being served. */
+  position: number | null;
+  estimatedStart: string;
+  runningLateMinutes: number;
+}
+
+interface QueueEntryRecord {
+  booking_id: string;
+  state: string;
+  position: number | null;
+  estimated_start: string;
+  running_late_minutes: number;
+}
+
+/** Today's queue at the shop, in order. */
+export async function getShopQueue(shopId: string): Promise<QueueEntry[]> {
+  const { data } = await apiClient.get<QueueEntryRecord[]>(`/bookings/shop/${encodeURIComponent(shopId)}/queue`);
+  return data.map((e) => ({
+    bookingId: e.booking_id,
+    state: e.state,
+    position: e.position,
+    estimatedStart: e.estimated_start,
+    runningLateMinutes: e.running_late_minutes,
+  }));
+}
+
 export async function updateBookingStatus(
   id: string,
   status: BookingStatus,

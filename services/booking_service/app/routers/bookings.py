@@ -20,7 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, payments, risk, waitlist
+from app.core import availability, live_queue, payments, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
@@ -56,7 +56,9 @@ from app.schemas.booking import (
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
+    QueueStatus,
     ShopBookingSummary,
+    ShopQueueEntry,
 )
 from app.services.booking_service import ProviderUnavailable, booking_service
 
@@ -358,6 +360,38 @@ async def shop_booking_summary(
     return await booking_service.shop_summary(db, shop_id, date_from, date_to)
 
 
+@router.get("/bookings/shop/{shop_id}/queue", response_model=list[ShopQueueEntry])
+async def shop_queue(
+    shop_id: str = Depends(require_shop_access),
+    db: AsyncSession = Depends(get_db),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """Today's queue at the shop, in order: who is being served, who is next, and how late it runs."""
+    schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
+    now = clock()
+    spots = await live_queue.shop_queue(db, shop_id, schedule, now)
+    if not spots:
+        return []
+    bookings = {b.id: b for b in await booking_service.get_bookings(db, list(spots))}
+    names = await lookup_names([b.customer_id for b in bookings.values()])
+    order = sorted(spots.values(), key=lambda s: (s.position is not None, s.position or 0, s.estimated_start))
+    return [
+        ShopQueueEntry(
+            booking_id=s.booking_id,
+            booking_number=bookings[s.booking_id].booking_number,
+            customer_display_name=names.get(bookings[s.booking_id].customer_id) or "Customer",
+            state=s.state,
+            position=s.position,
+            scheduled_at=bookings[s.booking_id].scheduled_at,
+            estimated_start=s.estimated_start,
+            running_late_minutes=s.running_late_minutes,
+        )
+        for s in order
+    ]
+
+
 @router.get("/bookings/tracking/{provider_id}")
 async def can_track_provider(
     provider_id: str,
@@ -392,6 +426,43 @@ async def get_booking(
 ):
     booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     return await present(booking, current_user, lookup_names)
+
+
+@router.get("/bookings/{booking_id}/queue", response_model=QueueStatus)
+async def booking_queue(
+    booking_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """Where the booking stands in today's queue at its shop: place in line, people ahead, expected start."""
+    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    schedule = availability.Schedule.from_shop_service(
+        await lookup_schedule(booking.shop_id) if booking.shop_id else None
+    )
+    now = clock()
+    spot = await live_queue.spot_for(db, booking, schedule, now)
+    if spot is None:
+        today = schedule.local(now).date()
+        is_today = schedule.local(booking.scheduled_at).date() == today
+        state = (
+            live_queue.NOT_QUEUED if is_today or booking.service_mode != live_queue.AT_SHOP else live_queue.NOT_TODAY
+        )
+        return QueueStatus(booking_id=booking.id, state=state, scheduled_at=booking.scheduled_at)
+    return QueueStatus(
+        booking_id=booking.id,
+        state=spot.state,
+        scheduled_at=booking.scheduled_at,
+        position=spot.position,
+        people_ahead=spot.people_ahead,
+        being_served=spot.being_served,
+        estimated_start=spot.estimated_start,
+        wait_minutes=spot.wait_minutes,
+        running_late_minutes=spot.running_late_minutes,
+        capacity=schedule.capacity,
+    )
 
 
 async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):

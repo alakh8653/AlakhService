@@ -1986,4 +1986,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String askedFor(String name) {
     return 'You asked for $name';
   }
+
+  @override
+  String get liveQueueTitle => 'Live queue at the shop';
+
+  @override
+  String liveQueueWait(String time) {
+    return 'About $time to wait';
+  }
+
+  @override
+  String liveQueueBeingServed(int count) {
+    return 'Being served now: $count';
+  }
+
+  @override
+  String liveQueueRunningLate(int minutes) {
+    return 'The shop is running about $minutes min late';
+  }
+
+  @override
+  String get liveQueueGoIn => 'Please go to the shop\'s counter now.';
+
+  @override
+  String get liveQueueInProgress => 'Your service is in progress';
+
+  @override
+  String liveQueueShort(int position, String wait) {
+    return '#$position in line · $wait';
+  }
 }

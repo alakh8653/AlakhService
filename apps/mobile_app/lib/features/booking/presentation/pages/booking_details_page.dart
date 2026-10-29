@@ -17,9 +17,11 @@ import '../../../payment/presentation/pages/invoice_page.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
 import '../../data/availability_api.dart';
+import '../../data/booking_queue_api.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_payment.dart';
+import '../widgets/live_queue_card.dart';
 import 'booking_history_page.dart' show bookingStatusLabel;
 import 'reschedule_page.dart';
 
@@ -36,6 +38,7 @@ class BookingDetailsPage extends StatefulWidget {
   final AvailabilityApi? availabilityApi;
   final ServiceRepository? serviceRepository;
   final CheckoutLauncher? checkoutLauncher;
+  final BookingQueueApi? queueApi;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -53,6 +56,7 @@ class BookingDetailsPage extends StatefulWidget {
     this.availabilityApi,
     this.serviceRepository,
     this.checkoutLauncher,
+    this.queueApi,
     this.clock = DateTime.now,
     this.invoiceViewer,
   });
@@ -234,6 +238,11 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
           bookingStatusLabel(l10n, booking.status),
           style: AppTextStyles.subtitle2.copyWith(color: context.colors.primary),
         ),
+        // Today, at the shop: place in line and the expected wait (shows nothing otherwise).
+        if (booking.serviceMode == 'AT_SHOP' &&
+            const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.inProgress}
+                .contains(booking.status))
+          LiveQueueCard(key: ValueKey('queue-${booking.id}-${booking.status}'), bookingId: booking.id, api: widget.queueApi),
         const Divider(height: 24),
         _row(context, Icons.calendar_today, friendlyDateTime(booking.scheduledAt, l10n: l10n)),
         if (booking.serviceMode != 'AT_SHOP')

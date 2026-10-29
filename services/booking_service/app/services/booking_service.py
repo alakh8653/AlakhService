@@ -142,6 +142,11 @@ class BookingService:
                 spans.append((at, at + timedelta(minutes=minutes)))
         return spans
 
+    async def get_bookings(self, db: AsyncSession, ids: List[str]) -> List[Booking]:
+        if not ids:
+            return []
+        return list((await db.execute(select(Booking).where(Booking.id.in_(ids)))).scalars().all())
+
     async def get_by_idempotency_key(self, db: AsyncSession, customer_id: str, key: str) -> Optional[Booking]:
         result = await db.execute(
             select(Booking).where(Booking.customer_id == customer_id, Booking.idempotency_key == key)
@@ -398,9 +403,11 @@ class BookingService:
         previous = _utc(booking.scheduled_at)
         now = datetime.now(timezone.utc)
         booking.scheduled_at = scheduled_at
-        # The reminders were for the old time.
+        # The reminders and queue notices were for the old time.
         booking.reminder_24h_sent_at = None
         booking.reminder_1h_sent_at = None
+        booking.turn_soon_sent_at = None
+        booking.running_late_sent_at = None
         if by_customer:
             meta = booking._meta()
             meta["reschedule_count"] = meta.get("reschedule_count", 0) + 1

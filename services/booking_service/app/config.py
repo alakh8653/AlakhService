@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     # unless they already have; visits older than this plus REBOOK_REMINDER_WINDOW_DAYS are left alone.
     REBOOK_REMINDER_DAYS: int = 28
     REBOOK_REMINDER_WINDOW_DAYS: int = 14
+    # On the day of a visit at the shop: tell the customer when their estimated wait is this short, and
+    # when the shop is running this many minutes behind their booked time (0: never), once each.
+    TURN_SOON_MINUTES: int = 15
+    RUNNING_LATE_MINUTES: int = 15
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"
     # Browsers talk to the gateway, never to a service directly, so no cross-origin access by default.

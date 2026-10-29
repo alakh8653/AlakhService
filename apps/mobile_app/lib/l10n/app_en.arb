@@ -1228,5 +1228,43 @@
         "type": "String"
       }
     }
+  },
+  "liveQueueTitle": "Live queue at the shop",
+  "liveQueueWait": "About {time} to wait",
+  "@liveQueueWait": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueBeingServed": "Being served now: {count}",
+  "@liveQueueBeingServed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "liveQueueRunningLate": "The shop is running about {minutes} min late",
+  "@liveQueueRunningLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "liveQueueGoIn": "Please go to the shop's counter now.",
+  "liveQueueInProgress": "Your service is in progress",
+  "liveQueueShort": "#{position} in line · {wait}",
+  "@liveQueueShort": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "wait": {
+        "type": "String"
+      }
+    }
   }
 }

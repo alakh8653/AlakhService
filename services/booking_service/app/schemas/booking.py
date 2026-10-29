@@ -140,6 +140,34 @@ class BookingStatusHistoryResponse(BaseModel):
     created_at: datetime
 
 
+class QueueStatus(BaseModel):
+    """Where a booking stands in today's queue at its shop (see app.core.live_queue)."""
+
+    booking_id: str
+    # WAITING, YOUR_TURN, IN_PROGRESS, or NOT_TODAY / NOT_QUEUED (another day, finished, not at the shop).
+    state: str
+    scheduled_at: datetime
+    position: Optional[int] = None
+    people_ahead: Optional[int] = None
+    being_served: Optional[int] = None
+    estimated_start: Optional[datetime] = None
+    wait_minutes: Optional[int] = None
+    running_late_minutes: Optional[int] = None
+    # How many customers the shop serves at once.
+    capacity: Optional[int] = None
+
+
+class ShopQueueEntry(BaseModel):
+    booking_id: str
+    booking_number: str
+    customer_display_name: str = "Customer"
+    state: str
+    position: Optional[int] = None
+    scheduled_at: datetime
+    estimated_start: datetime
+    running_late_minutes: int
+
+
 class BookingListResponse(BaseModel):
     items: List[BookingResponse]
     total: int

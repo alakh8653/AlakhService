@@ -30,6 +30,8 @@ class ApiConstants {
   static const String bookings = '$apiVersion/bookings';
   static String booking(String id) => '$bookings/$id';
   static String cancelBooking(String id) => '$bookings/$id/cancel';
+  // Today's live queue at the shop for one booking.
+  static String bookingQueue(String id) => '$bookings/$id/queue';
   static String rescheduleBooking(String id) => '$bookings/$id/reschedule';
   static String bookingStatus(String id) => '$bookings/$id/status';
   // A booking's chat with the shop, and the masked call (booking_service).

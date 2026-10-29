@@ -82,7 +82,8 @@ async def notify_booking(
     recipients, seen = [], {actor_id}
     for role in roles:
         user_id = people.get(role)
-        if user_id and user_id not in seen:
+        # A walk-in without an account (live_queue.WALK_IN_PREFIX) has nobody to tell.
+        if user_id and user_id not in seen and not user_id.startswith("walk-in:"):
             seen.add(user_id)
             recipients.append({"user_id": user_id, "role": role})
     data = {k: booking[k] for k in ("booking_id", "booking_number", "scheduled_at", "service_name")}

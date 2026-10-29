@@ -62,6 +62,8 @@ class BookingCreate(BaseModel):
 class BookingStatusUpdate(BaseModel):
     status: str
     reason: Optional[str] = None
+    # Starting a service at the shop: the team member doing it (else the one the queue planned, if free).
+    staff_id: Optional[str] = None
 
 
 class BookingAssignRequest(BaseModel):
@@ -155,6 +157,18 @@ class QueueStatus(BaseModel):
     running_late_minutes: Optional[int] = None
     # How many customers the shop serves at once.
     capacity: Optional[int] = None
+    # The likely range of the start and how sure it is (HIGH, MEDIUM, LOW).
+    eta_min: Optional[datetime] = None
+    eta_max: Optional[datetime] = None
+    confidence: Optional[str] = None
+    # Who is expected to serve them (by name), and how many are before them with that person.
+    staff_name: Optional[str] = None
+    ahead_with_staff: Optional[int] = None
+    # UNSERVABLE: NO_ELIGIBLE_WORKER or BEYOND_SHIFT; or PREFERRED_UNAVAILABLE (their pick is away today).
+    reason: Optional[str] = None
+    checked_in: bool = False
+    # They can tell the shop they have arrived (today, still waiting, not yet checked in).
+    can_check_in: bool = False
 
 
 class ShopQueueEntry(BaseModel):
@@ -164,8 +178,25 @@ class ShopQueueEntry(BaseModel):
     state: str
     position: Optional[int] = None
     scheduled_at: datetime
-    estimated_start: datetime
+    estimated_start: Optional[datetime] = None
     running_late_minutes: int
+    service_id: Optional[str] = None
+    # BOOKED or WALK_IN; VIP, APPOINTMENT or WALK_IN.
+    source: str = "BOOKED"
+    priority: str = "APPOINTMENT"
+    checked_in: bool = False
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
+    eta_min: Optional[datetime] = None
+    eta_max: Optional[datetime] = None
+    estimated_end: Optional[datetime] = None
+    confidence: Optional[str] = None
+    reason: Optional[str] = None
+    overrun: bool = False
+    # Moved in the line by hand.
+    moved: bool = False
+    # Late past the grace period and not checked in: the shop may mark them a no-show.
+    can_mark_no_show: bool = False
 
 
 class BookingListResponse(BaseModel):

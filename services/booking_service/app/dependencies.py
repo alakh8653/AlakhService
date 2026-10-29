@@ -114,8 +114,24 @@ def get_staff_lookup() -> Callable[[str, str], Awaitable[set]]:
     return fetch_shop_provider_ids
 
 
+# The live queue reads the team on every look: kept this long (a change to the team shows within it).
+TEAM_CACHE_SECONDS = 30.0
+_team_cache: Dict[str, Tuple[float, List[dict]]] = {}
+
+
 async def fetch_shop_team(shop_id: str) -> List[dict]:
     """The shop's active staff as customers see them (id, name, role, service_ids), from shop_service."""
+    cached = _team_cache.get(shop_id)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    team = await _fetch_shop_team(shop_id)
+    if len(_team_cache) >= _SCHEDULE_CACHE_MAX:
+        _team_cache.clear()
+    _team_cache[shop_id] = (time.monotonic() + TEAM_CACHE_SECONDS, team)
+    return team
+
+
+async def _fetch_shop_team(shop_id: str) -> List[dict]:
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/team")

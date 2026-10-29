@@ -20,7 +20,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, live_queue, payments, risk, waitlist
+from app.core import availability, live_queue, payments, queue_ops, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
@@ -56,9 +56,7 @@ from app.schemas.booking import (
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
-    QueueStatus,
     ShopBookingSummary,
-    ShopQueueEntry,
 )
 from app.services.booking_service import ProviderUnavailable, booking_service
 
@@ -360,38 +358,6 @@ async def shop_booking_summary(
     return await booking_service.shop_summary(db, shop_id, date_from, date_to)
 
 
-@router.get("/bookings/shop/{shop_id}/queue", response_model=list[ShopQueueEntry])
-async def shop_queue(
-    shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
-    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
-    lookup_names: NameLookup = Depends(get_name_lookup),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """Today's queue at the shop, in order: who is being served, who is next, and how late it runs."""
-    schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
-    now = clock()
-    spots = await live_queue.shop_queue(db, shop_id, schedule, now)
-    if not spots:
-        return []
-    bookings = {b.id: b for b in await booking_service.get_bookings(db, list(spots))}
-    names = await lookup_names([b.customer_id for b in bookings.values()])
-    order = sorted(spots.values(), key=lambda s: (s.position is not None, s.position or 0, s.estimated_start))
-    return [
-        ShopQueueEntry(
-            booking_id=s.booking_id,
-            booking_number=bookings[s.booking_id].booking_number,
-            customer_display_name=names.get(bookings[s.booking_id].customer_id) or "Customer",
-            state=s.state,
-            position=s.position,
-            scheduled_at=bookings[s.booking_id].scheduled_at,
-            estimated_start=s.estimated_start,
-            running_late_minutes=s.running_late_minutes,
-        )
-        for s in order
-    ]
-
-
 @router.get("/bookings/tracking/{provider_id}")
 async def can_track_provider(
     provider_id: str,
@@ -426,43 +392,6 @@ async def get_booking(
 ):
     booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     return await present(booking, current_user, lookup_names)
-
-
-@router.get("/bookings/{booking_id}/queue", response_model=QueueStatus)
-async def booking_queue(
-    booking_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
-    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """Where the booking stands in today's queue at its shop: place in line, people ahead, expected start."""
-    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
-    schedule = availability.Schedule.from_shop_service(
-        await lookup_schedule(booking.shop_id) if booking.shop_id else None
-    )
-    now = clock()
-    spot = await live_queue.spot_for(db, booking, schedule, now)
-    if spot is None:
-        today = schedule.local(now).date()
-        is_today = schedule.local(booking.scheduled_at).date() == today
-        state = (
-            live_queue.NOT_QUEUED if is_today or booking.service_mode != live_queue.AT_SHOP else live_queue.NOT_TODAY
-        )
-        return QueueStatus(booking_id=booking.id, state=state, scheduled_at=booking.scheduled_at)
-    return QueueStatus(
-        booking_id=booking.id,
-        state=spot.state,
-        scheduled_at=booking.scheduled_at,
-        position=spot.position,
-        people_ahead=spot.people_ahead,
-        being_served=spot.being_served,
-        estimated_start=spot.estimated_start,
-        wait_minutes=spot.wait_minutes,
-        running_late_minutes=spot.running_late_minutes,
-        capacity=schedule.capacity,
-    )
 
 
 async def _visible_booking(db, booking_id: str, user: dict, lookup_owner):
@@ -516,17 +445,38 @@ async def update_status(
     lookup_names: NameLookup = Depends(get_name_lookup),
     payment_client: PaymentClient = Depends(get_payment_client),
     session_factory=Depends(get_session_factory),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
         raise HTTPException(status_code=400, detail="Use POST /bookings/{id}/assign to assign a provider")
     previous_status = await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
+    now = live_queue._utc(clock())
+    current = await booking_service.get_booking(db, booking_id)
+    at_shop = current.service_mode == AT_SHOP and bool(current.shop_id)
+    starting = at_shop and update_data.status == BookingStatus.IN_PROGRESS.value
+    team, spots = [], {}
+    if starting:  # who the queue planned for them, before they leave the line
+        team = await queue_ops.team_of(lookup_team, current.shop_id)
+        if team:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(current.shop_id))
+            spots = await live_queue.shop_queue(db, current.shop_id, schedule, now, team)
     try:
         booking = await booking_service.transition_status(
             db, booking_id, update_data.status, user_id, update_data.reason
         )
+        if starting:
+            await queue_ops.begin_service(db, booking, update_data.staff_id, team, spots, now)
+            await db.flush()
+        elif at_shop and booking.status == BookingStatus.COMPLETED.value:
+            await queue_ops.finish_service(db, booking, now)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="That team member is already serving someone") from e
     queued = None
     if booking.status in PAYMENT_EVENTS:
         queued = await payments.enqueue(db, booking, PAYMENT_EVENTS[booking.status])

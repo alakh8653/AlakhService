@@ -18,6 +18,8 @@ export interface Route {
   access?: Access;
   /** Methods allowed without a token when access is 'public' (default: all). */
   publicMethods?: string[];
+  /** Matches only paths of this shape under the prefix (checked before plain prefixes). */
+  pattern?: RegExp;
 }
 
 const READ_ONLY = ['GET', 'HEAD'];
@@ -47,6 +49,14 @@ export const ROUTES: Route[] = [
   // Includes each booking's chat (/bookings/{id}/messages) and masked call (/bookings/{id}/call); who may
   // take part is checked by booking_service.
   { prefix: '/api/v1/bookings', upstream: 'booking' },
+  // A shop's live queue board for a screen in the shop: names masked, no account needed.
+  {
+    prefix: '/api/v1/bookings/shop',
+    pattern: /^\/api\/v1\/bookings\/shop\/[^/]+\/queue\/board$/,
+    upstream: 'booking',
+    access: 'public',
+    publicMethods: READ_ONLY,
+  },
   // A customer's waitlist for full days.
   { prefix: '/api/v1/waitlist', upstream: 'booking' },
   // Chat moderation: messages with contact details hidden, and who keeps trying.
@@ -115,10 +125,14 @@ export function matchesPrefix(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);
 }
 
-const BY_LONGEST_PREFIX = [...ROUTES].sort((a, b) => b.prefix.length - a.prefix.length);
+const PATTERNED = ROUTES.filter((route) => route.pattern);
+const BY_LONGEST_PREFIX = ROUTES.filter((route) => !route.pattern).sort((a, b) => b.prefix.length - a.prefix.length);
 
 export function findRoute(path: string): Route | undefined {
-  return BY_LONGEST_PREFIX.find((route) => matchesPrefix(path, route.prefix));
+  return (
+    PATTERNED.find((route) => route.pattern!.test(path)) ??
+    BY_LONGEST_PREFIX.find((route) => matchesPrefix(path, route.prefix))
+  );
 }
 
 /** Path to request on the upstream service. */

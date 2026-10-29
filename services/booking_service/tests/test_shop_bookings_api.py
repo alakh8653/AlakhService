@@ -28,6 +28,7 @@ from app.dependencies import (
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
+    get_team_lookup,
 )
 from app.main import app
 from app.models.booking import Booking
@@ -64,6 +65,8 @@ class RecordingNotifier:
         elif event == "booking.rescheduled":
             # SQLite hands back naive datetimes; they are stored as UTC.
             assert when(stored.scheduled_at.replace(tzinfo=timezone.utc)) == data["scheduled_at"]
+        elif event == "booking.no_show":
+            assert stored.status == "CANCELLED" and stored.cancellation_reason == "No-show"
         else:
             assert event == "booking.created" or f"booking.{stored.status.lower()}" == event
         SENT.append((event, [(r["user_id"], r["role"]) for r in recipients], data))
@@ -172,6 +175,12 @@ async def open_service():
         return STAFF.get(shop_id, set())
 
     app.dependency_overrides[get_staff_lookup] = lambda: fake_staff
+
+    async def no_team(shop_id):
+        return []
+
+    # A test that needs a team sets its own (possibly before this runs).
+    app.dependency_overrides.setdefault(get_team_lookup, lambda: no_team)
     app.dependency_overrides[get_notifier] = RecordingNotifier
     app.dependency_overrides[get_coupon_pricer] = lambda: fake_pricer
 

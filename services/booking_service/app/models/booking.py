@@ -2,7 +2,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -50,12 +50,37 @@ class Booking(Base):
     # On the day: when the customer was told their turn is near, and that the shop is running late (once each).
     turn_soon_sent_at = Column(DateTime(timezone=True), nullable=True)
     running_late_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # The live queue (app/core/live_queue.py). BOOKED ahead, or a WALK_IN who joined the line on the day.
+    source = Column(String(10), default="BOOKED", server_default="BOOKED", nullable=False)
+    # 0 VIP, 1 appointment, 2 walk-in: who goes first when several are ready.
+    priority = Column(Integer, default=1, server_default="1", nullable=False)
+    checked_in_at = Column(DateTime(timezone=True), nullable=True)
+    # Set when the shop moves people in the line by hand; lower goes first.
+    queue_rank = Column(Float, nullable=True)
+    # Who serves them (a team member's id) and when it began, set when the service starts.
+    served_by_staff_id = Column(String, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    # A walk-in without an account: the name the shop calls out.
+    walk_in_name = Column(String(80), nullable=True)
+    # What the customer was last told about their place (app/core/queue_notify.py), as JSON.
+    queue_notice_state = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     # Stamped by the app on every update, never left to the database: a server-side value would expire the
     # attribute, and reading it back later (building the response) fails outside the async session.
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("customer_id", "idempotency_key", name="uq_bookings_customer_idempotency_key"),)
+    __table_args__ = (
+        UniqueConstraint("customer_id", "idempotency_key", name="uq_bookings_customer_idempotency_key"),
+        # A team member serves one customer at a time: a second start for them fails (no double booking).
+        Index(
+            "uq_bookings_one_in_service_per_staff",
+            "shop_id",
+            "served_by_staff_id",
+            unique=True,
+            postgresql_where=text("status = 'IN_PROGRESS' AND served_by_staff_id IS NOT NULL"),
+            sqlite_where=text("status = 'IN_PROGRESS' AND served_by_staff_id IS NOT NULL"),
+        ),
+    )
 
     def _meta(self) -> dict:
         try:

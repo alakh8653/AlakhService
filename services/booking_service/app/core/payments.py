@@ -37,7 +37,8 @@ def payload_for(kind: str, booking: Booking, now: datetime, cancelled_by: Option
     if kind == COMPLETED:
         return {
             "shop_id": booking.shop_id,
-            "customer_id": booking.customer_id,  # earns loyalty points on it
+            # Earns loyalty points on it (a walk-in without an account earns none).
+            "customer_id": None if booking.customer_id.startswith("walk-in:") else booking.customer_id,
             "total_amount": booking.total_amount,
             "completed_at": _iso(now),
         }

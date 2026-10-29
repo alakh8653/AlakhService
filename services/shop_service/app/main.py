@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 from fastapi import FastAPI
@@ -20,7 +21,18 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("service_starting", service=settings.APP_NAME)
+    resync = None
+    if settings.LISTING_RESYNC_SECONDS > 0:
+        from app.core.listing_sync import run_forever
+        from app.core.reporting import get_reporter
+        from app.database import AsyncSessionLocal
+
+        resync = asyncio.create_task(run_forever(AsyncSessionLocal, get_reporter()))
     yield
+    if resync is not None:
+        resync.cancel()
+        with suppress(asyncio.CancelledError):
+            await resync
     logger.info("service_stopping", service=settings.APP_NAME)
 
 

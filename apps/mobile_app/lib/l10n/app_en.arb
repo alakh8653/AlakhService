@@ -1266,5 +1266,107 @@
         "type": "String"
       }
     }
+  },
+  "liveQueueBetween": "Expected between {from} and {to}",
+  "@liveQueueBetween": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueWith": "With {name}",
+  "@liveQueueWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueCheckIn": "I'm here",
+  "liveQueueCheckedIn": "You're checked in",
+  "liveQueueCheckInNeeded": "You're past your time. Check in when you arrive to rejoin the line.",
+  "liveQueueUnservable": "The shop can't fit this in today. Please contact the shop or book another day.",
+  "liveQueueStaffAway": "Your chosen professional is away today, so someone else will serve you.",
+  "joinLineNow": "Join today's line now",
+  "joinLineNote": "No booked time needed: you get a place and a wait straight away.",
+  "joinLineDone": "You're in line",
+  "joinLineDoneBody": "#{position} in line, expected around {time}.",
+  "@joinLineDoneBody": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "joinLineSeeBookings": "See my bookings",
+  "navShopLine": "My shop",
+  "shopLineTitle": "Today's line",
+  "shopLineEmpty": "Nobody is in line right now.",
+  "shopLineWaiting": "{count, plural, =0{Nobody waiting} =1{1 waiting} other{{count} waiting}}",
+  "@shopLineWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shopLineTeam": "Team today",
+  "shopLineFree": "Free",
+  "shopLineServing": "Serving {name}",
+  "@shopLineServing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shopLineOnBreak": "On a break until {time}",
+  "@shopLineOnBreak": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "shopLineOffToday": "Off today",
+  "shopLineNext": "Next customer",
+  "shopLineDone": "Done",
+  "shopLineBreak": "Break 15 min",
+  "shopLineOff": "Off today",
+  "shopLineBack": "Back",
+  "shopLineStart": "Start",
+  "shopLineNoShow": "No-show",
+  "shopLineCheckIn": "Check in",
+  "shopLineNow": "Now",
+  "shopLineWalkIn": "Walk-in",
+  "shopLineAddWalkIn": "Add a walk-in",
+  "shopLineWalkInName": "Name to call out",
+  "shopLineService": "Service",
+  "shopLineAdd": "Add",
+  "shopLineAdded": "{name} is #{position} in line",
+  "@shopLineAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "shopLineLate": "{minutes} min late",
+  "@shopLineLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   }
 }

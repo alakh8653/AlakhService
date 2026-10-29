@@ -1997,4 +1997,142 @@ class AppLocalizationsHi extends AppLocalizations {
   String liveQueueShort(int position, String wait) {
     return 'कतार में #$position · $wait';
   }
+
+  @override
+  String liveQueueBetween(String from, String to) {
+    return '$from से $to के बीच अपेक्षित';
+  }
+
+  @override
+  String liveQueueWith(String name) {
+    return '$name के साथ';
+  }
+
+  @override
+  String get liveQueueCheckIn => 'मैं आ गया/गई हूँ';
+
+  @override
+  String get liveQueueCheckedIn => 'आपका चेक-इन हो गया है';
+
+  @override
+  String get liveQueueCheckInNeeded =>
+      'आपका समय निकल गया है। पहुँचने पर चेक-इन करें, आप फिर से कतार में आ जाएँगे।';
+
+  @override
+  String get liveQueueUnservable =>
+      'दुकान आज इसे नहीं कर पाएगी। कृपया दुकान से संपर्क करें या किसी और दिन बुक करें।';
+
+  @override
+  String get liveQueueStaffAway =>
+      'आपके चुने हुए प्रोफ़ेशनल आज उपलब्ध नहीं हैं, इसलिए कोई और आपकी सेवा करेगा।';
+
+  @override
+  String get joinLineNow => 'अभी आज की कतार में जुड़ें';
+
+  @override
+  String get joinLineNote =>
+      'बुकिंग समय की ज़रूरत नहीं: आपको तुरंत जगह और इंतज़ार का समय मिलेगा।';
+
+  @override
+  String get joinLineDone => 'आप कतार में हैं';
+
+  @override
+  String joinLineDoneBody(int position, String time) {
+    return 'कतार में #$position, लगभग $time बजे अपेक्षित।';
+  }
+
+  @override
+  String get joinLineSeeBookings => 'मेरी बुकिंग देखें';
+
+  @override
+  String get navShopLine => 'मेरी दुकान';
+
+  @override
+  String get shopLineTitle => 'आज की कतार';
+
+  @override
+  String get shopLineEmpty => 'अभी कतार में कोई नहीं है।';
+
+  @override
+  String shopLineWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count इंतज़ार में',
+      one: '1 इंतज़ार में',
+      zero: 'कोई इंतज़ार में नहीं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shopLineTeam => 'आज की टीम';
+
+  @override
+  String get shopLineFree => 'खाली';
+
+  @override
+  String shopLineServing(String name) {
+    return '$name की सेवा';
+  }
+
+  @override
+  String shopLineOnBreak(String time) {
+    return '$time तक ब्रेक पर';
+  }
+
+  @override
+  String get shopLineOffToday => 'आज छुट्टी';
+
+  @override
+  String get shopLineNext => 'अगला ग्राहक';
+
+  @override
+  String get shopLineDone => 'हो गया';
+
+  @override
+  String get shopLineBreak => '15 मिनट ब्रेक';
+
+  @override
+  String get shopLineOff => 'आज छुट्टी';
+
+  @override
+  String get shopLineBack => 'वापस';
+
+  @override
+  String get shopLineStart => 'शुरू करें';
+
+  @override
+  String get shopLineNoShow => 'नहीं आए';
+
+  @override
+  String get shopLineCheckIn => 'चेक-इन';
+
+  @override
+  String get shopLineNow => 'अभी';
+
+  @override
+  String get shopLineWalkIn => 'बिना बुकिंग';
+
+  @override
+  String get shopLineAddWalkIn => 'बिना बुकिंग ग्राहक जोड़ें';
+
+  @override
+  String get shopLineWalkInName => 'बुलाने के लिए नाम';
+
+  @override
+  String get shopLineService => 'सेवा';
+
+  @override
+  String get shopLineAdd => 'जोड़ें';
+
+  @override
+  String shopLineAdded(String name, int position) {
+    return '$name कतार में #$position पर हैं';
+  }
+
+  @override
+  String shopLineLate(int minutes) {
+    return '$minutes मिनट देर';
+  }
 }

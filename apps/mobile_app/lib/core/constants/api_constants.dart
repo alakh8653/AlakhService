@@ -32,6 +32,13 @@ class ApiConstants {
   static String cancelBooking(String id) => '$bookings/$id/cancel';
   // Today's live queue at the shop for one booking.
   static String bookingQueue(String id) => '$bookings/$id/queue';
+  static String bookingCheckIn(String id) => '$bookings/$id/check-in';
+  // Joining a shop's line on the day, without a booked time.
+  static const String joinLine = '$bookings/walk-in';
+  // The shop's own line (its owner): /bookings/shop/{id}/queue and its actions.
+  static String shopLine(String shopId) => '$bookings/shop/$shopId/queue';
+  static String shopWalkIns(String shopId) => '$bookings/shop/$shopId/walk-ins';
+  static String bookingNoShow(String id) => '$bookings/$id/no-show';
   static String rescheduleBooking(String id) => '$bookings/$id/reschedule';
   static String bookingStatus(String id) => '$bookings/$id/status';
   // A booking's chat with the shop, and the masked call (booking_service).
@@ -45,6 +52,8 @@ class ApiConstants {
   static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
+  // Shops, filtered (owner_id: the shops someone owns).
+  static const String shopsList = '$apiVersion/shops';
   static String shop(String shopId) => '$apiVersion/shops/$shopId';
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
   // Shops the customer has saved (shop_service).

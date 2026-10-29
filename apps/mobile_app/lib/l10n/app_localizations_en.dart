@@ -2015,4 +2015,142 @@ class AppLocalizationsEn extends AppLocalizations {
   String liveQueueShort(int position, String wait) {
     return '#$position in line · $wait';
   }
+
+  @override
+  String liveQueueBetween(String from, String to) {
+    return 'Expected between $from and $to';
+  }
+
+  @override
+  String liveQueueWith(String name) {
+    return 'With $name';
+  }
+
+  @override
+  String get liveQueueCheckIn => 'I\'m here';
+
+  @override
+  String get liveQueueCheckedIn => 'You\'re checked in';
+
+  @override
+  String get liveQueueCheckInNeeded =>
+      'You\'re past your time. Check in when you arrive to rejoin the line.';
+
+  @override
+  String get liveQueueUnservable =>
+      'The shop can\'t fit this in today. Please contact the shop or book another day.';
+
+  @override
+  String get liveQueueStaffAway =>
+      'Your chosen professional is away today, so someone else will serve you.';
+
+  @override
+  String get joinLineNow => 'Join today\'s line now';
+
+  @override
+  String get joinLineNote =>
+      'No booked time needed: you get a place and a wait straight away.';
+
+  @override
+  String get joinLineDone => 'You\'re in line';
+
+  @override
+  String joinLineDoneBody(int position, String time) {
+    return '#$position in line, expected around $time.';
+  }
+
+  @override
+  String get joinLineSeeBookings => 'See my bookings';
+
+  @override
+  String get navShopLine => 'My shop';
+
+  @override
+  String get shopLineTitle => 'Today\'s line';
+
+  @override
+  String get shopLineEmpty => 'Nobody is in line right now.';
+
+  @override
+  String shopLineWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count waiting',
+      one: '1 waiting',
+      zero: 'Nobody waiting',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shopLineTeam => 'Team today';
+
+  @override
+  String get shopLineFree => 'Free';
+
+  @override
+  String shopLineServing(String name) {
+    return 'Serving $name';
+  }
+
+  @override
+  String shopLineOnBreak(String time) {
+    return 'On a break until $time';
+  }
+
+  @override
+  String get shopLineOffToday => 'Off today';
+
+  @override
+  String get shopLineNext => 'Next customer';
+
+  @override
+  String get shopLineDone => 'Done';
+
+  @override
+  String get shopLineBreak => 'Break 15 min';
+
+  @override
+  String get shopLineOff => 'Off today';
+
+  @override
+  String get shopLineBack => 'Back';
+
+  @override
+  String get shopLineStart => 'Start';
+
+  @override
+  String get shopLineNoShow => 'No-show';
+
+  @override
+  String get shopLineCheckIn => 'Check in';
+
+  @override
+  String get shopLineNow => 'Now';
+
+  @override
+  String get shopLineWalkIn => 'Walk-in';
+
+  @override
+  String get shopLineAddWalkIn => 'Add a walk-in';
+
+  @override
+  String get shopLineWalkInName => 'Name to call out';
+
+  @override
+  String get shopLineService => 'Service';
+
+  @override
+  String get shopLineAdd => 'Add';
+
+  @override
+  String shopLineAdded(String name, int position) {
+    return '$name is #$position in line';
+  }
+
+  @override
+  String shopLineLate(int minutes) {
+    return '$minutes min late';
+  }
 }

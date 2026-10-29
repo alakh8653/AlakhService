@@ -3541,6 +3541,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'#{position} in line · {wait}'**
   String liveQueueShort(int position, String wait);
+
+  /// No description provided for @liveQueueBetween.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected between {from} and {to}'**
+  String liveQueueBetween(String from, String to);
+
+  /// No description provided for @liveQueueWith.
+  ///
+  /// In en, this message translates to:
+  /// **'With {name}'**
+  String liveQueueWith(String name);
+
+  /// No description provided for @liveQueueCheckIn.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here'**
+  String get liveQueueCheckIn;
+
+  /// No description provided for @liveQueueCheckedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re checked in'**
+  String get liveQueueCheckedIn;
+
+  /// No description provided for @liveQueueCheckInNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re past your time. Check in when you arrive to rejoin the line.'**
+  String get liveQueueCheckInNeeded;
+
+  /// No description provided for @liveQueueUnservable.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop can\'t fit this in today. Please contact the shop or book another day.'**
+  String get liveQueueUnservable;
+
+  /// No description provided for @liveQueueStaffAway.
+  ///
+  /// In en, this message translates to:
+  /// **'Your chosen professional is away today, so someone else will serve you.'**
+  String get liveQueueStaffAway;
+
+  /// No description provided for @joinLineNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Join today\'s line now'**
+  String get joinLineNow;
+
+  /// No description provided for @joinLineNote.
+  ///
+  /// In en, this message translates to:
+  /// **'No booked time needed: you get a place and a wait straight away.'**
+  String get joinLineNote;
+
+  /// No description provided for @joinLineDone.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in line'**
+  String get joinLineDone;
+
+  /// No description provided for @joinLineDoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'#{position} in line, expected around {time}.'**
+  String joinLineDoneBody(int position, String time);
+
+  /// No description provided for @joinLineSeeBookings.
+  ///
+  /// In en, this message translates to:
+  /// **'See my bookings'**
+  String get joinLineSeeBookings;
+
+  /// No description provided for @navShopLine.
+  ///
+  /// In en, this message translates to:
+  /// **'My shop'**
+  String get navShopLine;
+
+  /// No description provided for @shopLineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s line'**
+  String get shopLineTitle;
+
+  /// No description provided for @shopLineEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody is in line right now.'**
+  String get shopLineEmpty;
+
+  /// No description provided for @shopLineWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Nobody waiting} =1{1 waiting} other{{count} waiting}}'**
+  String shopLineWaiting(int count);
+
+  /// No description provided for @shopLineTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team today'**
+  String get shopLineTeam;
+
+  /// No description provided for @shopLineFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get shopLineFree;
+
+  /// No description provided for @shopLineServing.
+  ///
+  /// In en, this message translates to:
+  /// **'Serving {name}'**
+  String shopLineServing(String name);
+
+  /// No description provided for @shopLineOnBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'On a break until {time}'**
+  String shopLineOnBreak(String time);
+
+  /// No description provided for @shopLineOffToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get shopLineOffToday;
+
+  /// No description provided for @shopLineNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next customer'**
+  String get shopLineNext;
+
+  /// No description provided for @shopLineDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get shopLineDone;
+
+  /// No description provided for @shopLineBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Break 15 min'**
+  String get shopLineBreak;
+
+  /// No description provided for @shopLineOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get shopLineOff;
+
+  /// No description provided for @shopLineBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get shopLineBack;
+
+  /// No description provided for @shopLineStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get shopLineStart;
+
+  /// No description provided for @shopLineNoShow.
+  ///
+  /// In en, this message translates to:
+  /// **'No-show'**
+  String get shopLineNoShow;
+
+  /// No description provided for @shopLineCheckIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Check in'**
+  String get shopLineCheckIn;
+
+  /// No description provided for @shopLineNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get shopLineNow;
+
+  /// No description provided for @shopLineWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in'**
+  String get shopLineWalkIn;
+
+  /// No description provided for @shopLineAddWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a walk-in'**
+  String get shopLineAddWalkIn;
+
+  /// No description provided for @shopLineWalkInName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name to call out'**
+  String get shopLineWalkInName;
+
+  /// No description provided for @shopLineService.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get shopLineService;
+
+  /// No description provided for @shopLineAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get shopLineAdd;
+
+  /// No description provided for @shopLineAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is #{position} in line'**
+  String shopLineAdded(String name, int position);
+
+  /// No description provided for @shopLineLate.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min late'**
+  String shopLineLate(int minutes);
 }
 
 class _AppLocalizationsDelegate

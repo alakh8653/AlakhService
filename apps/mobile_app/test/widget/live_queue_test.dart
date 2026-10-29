@@ -53,6 +53,31 @@ void main() {
     expect(find.textContaining('running'), findsNothing);
   });
 
+  testWidgets('shows the range of the start, who serves them, and checks them in', (tester) async {
+    final adapter = FakeAdapter((r) => r.method == 'POST'
+        ? (status: 200, body: {...waiting, 'eta_min': '2026-10-29T10:55:00Z', 'eta_max': '2026-10-29T11:20:00Z', 'staff_name': 'Asha', 'checked_in': true, 'can_check_in': false})
+        : (status: 200, body: {...waiting, 'eta_min': '2026-10-29T10:55:00Z', 'eta_max': '2026-10-29T11:20:00Z', 'staff_name': 'Asha', 'can_check_in': true, 'reason': 'PREFERRED_UNAVAILABLE'}));
+    final api = BookingQueueApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: LiveQueueCard(bookingId: 'b1', api: api)))));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Expected between'), findsOneWidget);
+    expect(find.text('With Asha'), findsOneWidget);
+    expect(find.textContaining('chosen professional is away'), findsOneWidget);
+
+    await tester.tap(find.text("I'm here"));
+    await tester.pumpAndSettle();
+    expect(adapter.requests.last.method, 'POST');
+    expect(adapter.requests.last.path, endsWith('/bookings/b1/check-in'));
+    expect(find.text("I'm here"), findsNothing);
+    expect(find.text("You're checked in"), findsOneWidget);
+  });
+
+  testWidgets('late without checking in, or not possible today, says so', (tester) async {
+    await pump(tester, [{'state': 'CHECK_IN_NEEDED', 'can_check_in': true}]);
+    expect(find.textContaining('Check in when you arrive'), findsOneWidget);
+    expect(find.text("I'm here"), findsOneWidget);
+  });
+
   testWidgets('another day shows nothing and stops asking', (tester) async {
     final adapter = await pump(tester, [{'state': 'NOT_TODAY'}]);
     expect(find.text('Live queue at the shop'), findsNothing);

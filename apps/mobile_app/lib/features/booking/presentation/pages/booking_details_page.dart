@@ -18,10 +18,12 @@ import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
 import '../../data/availability_api.dart';
 import '../../data/booking_queue_api.dart';
+import '../../data/home_arrival_api.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_payment.dart';
 import '../widgets/live_queue_card.dart';
+import '../widgets/home_arrival_card.dart';
 import 'booking_history_page.dart' show bookingStatusLabel;
 import 'reschedule_page.dart';
 
@@ -39,6 +41,7 @@ class BookingDetailsPage extends StatefulWidget {
   final ServiceRepository? serviceRepository;
   final CheckoutLauncher? checkoutLauncher;
   final BookingQueueApi? queueApi;
+  final HomeArrivalApi? arrivalApi;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -57,6 +60,7 @@ class BookingDetailsPage extends StatefulWidget {
     this.serviceRepository,
     this.checkoutLauncher,
     this.queueApi,
+    this.arrivalApi,
     this.clock = DateTime.now,
     this.invoiceViewer,
   });
@@ -243,6 +247,10 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.inProgress}
                 .contains(booking.status))
           LiveQueueCard(key: ValueKey('queue-${booking.id}-${booking.status}'), bookingId: booking.id, api: widget.queueApi),
+        // Today, at home: when the professional arrives (shows nothing otherwise).
+        if (booking.serviceMode == 'AT_HOME' &&
+            const {BookingStatus.assigned, BookingStatus.enRoute, BookingStatus.inProgress}.contains(booking.status))
+          HomeArrivalCard(key: ValueKey('arrival-${booking.id}-${booking.status}'), bookingId: booking.id, api: widget.arrivalApi),
         const Divider(height: 24),
         _row(context, Icons.calendar_today, friendlyDateTime(booking.scheduledAt, l10n: l10n)),
         if (booking.serviceMode != 'AT_SHOP')

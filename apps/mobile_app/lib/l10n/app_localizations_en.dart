@@ -2153,4 +2153,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String shopLineLate(int minutes) {
     return '$minutes min late';
   }
+
+  @override
+  String get homeArrivalTitle => 'Your home visit';
+
+  @override
+  String homeArrivalAround(String time) {
+    return 'Your professional arrives around $time';
+  }
+
+  @override
+  String homeArrivalBetween(String from, String to) {
+    return 'Between $from and $to';
+  }
+
+  @override
+  String homeArrivalOnTheWay(String time) {
+    return 'On the way, arriving around $time';
+  }
+
+  @override
+  String get homeArrivalHere => 'Your professional is with you';
+
+  @override
+  String homeArrivalBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count visits before yours',
+      one: '1 visit before yours',
+      zero: 'You\'re their first visit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String homeArrivalLate(int minutes) {
+    return 'Running about $minutes min behind your booked time';
+  }
 }

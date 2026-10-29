@@ -610,5 +610,12 @@
   "shopLineService": "सेवा",
   "shopLineAdd": "जोड़ें",
   "shopLineAdded": "{name} कतार में #{position} पर हैं",
-  "shopLineLate": "{minutes} मिनट देर"
+  "shopLineLate": "{minutes} मिनट देर",
+  "homeArrivalTitle": "आपकी होम विज़िट",
+  "homeArrivalAround": "आपके प्रोफ़ेशनल लगभग {time} बजे पहुँचेंगे",
+  "homeArrivalBetween": "{from} से {to} के बीच",
+  "homeArrivalOnTheWay": "रास्ते में हैं, लगभग {time} बजे पहुँचेंगे",
+  "homeArrivalHere": "आपके प्रोफ़ेशनल आपके पास हैं",
+  "homeArrivalBefore": "{count, plural, =0{आप उनकी पहली विज़िट हैं} =1{आपसे पहले 1 विज़िट} other{आपसे पहले {count} विज़िट}}",
+  "homeArrivalLate": "आपके बुक किए समय से लगभग {minutes} मिनट देर"
 }

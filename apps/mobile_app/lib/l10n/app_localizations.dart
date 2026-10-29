@@ -3763,6 +3763,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{minutes} min late'**
   String shopLineLate(int minutes);
+
+  /// No description provided for @homeArrivalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your home visit'**
+  String get homeArrivalTitle;
+
+  /// No description provided for @homeArrivalAround.
+  ///
+  /// In en, this message translates to:
+  /// **'Your professional arrives around {time}'**
+  String homeArrivalAround(String time);
+
+  /// No description provided for @homeArrivalBetween.
+  ///
+  /// In en, this message translates to:
+  /// **'Between {from} and {to}'**
+  String homeArrivalBetween(String from, String to);
+
+  /// No description provided for @homeArrivalOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way, arriving around {time}'**
+  String homeArrivalOnTheWay(String time);
+
+  /// No description provided for @homeArrivalHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your professional is with you'**
+  String get homeArrivalHere;
+
+  /// No description provided for @homeArrivalBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{You\'re their first visit} =1{1 visit before yours} other{{count} visits before yours}}'**
+  String homeArrivalBefore(int count);
+
+  /// No description provided for @homeArrivalLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Running about {minutes} min behind your booked time'**
+  String homeArrivalLate(int minutes);
 }
 
 class _AppLocalizationsDelegate

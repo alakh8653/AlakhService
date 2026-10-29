@@ -33,6 +33,9 @@ class ApiConstants {
   // Today's live queue at the shop for one booking.
   static String bookingQueue(String id) => '$bookings/$id/queue';
   static String bookingCheckIn(String id) => '$bookings/$id/check-in';
+  // Home visits: when the professional arrives, and a professional's route for today.
+  static String bookingArrival(String id) => '$bookings/$id/arrival';
+  static const String myRoute = '$bookings/assigned/route';
   // Joining a shop's line on the day, without a booked time.
   static const String joinLine = '$bookings/walk-in';
   // The shop's own line (its owner): /bookings/shop/{id}/queue and its actions.

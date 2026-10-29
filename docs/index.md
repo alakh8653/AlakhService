@@ -18,3 +18,7 @@ The project contains the application services and web/mobile apps for AlakhServi
 - [Backups and disaster recovery](DISASTER_RECOVERY.md)
 - [Privacy and contact between customers and shops](PRIVACY_AND_CONTACT.md)
 - [Legal pages, consent at sign-up and account deletion](LEGAL_PAGES.md)
+
+## Features
+
+- [Live queue, waiting times and home visits](LIVE_QUEUE.md)

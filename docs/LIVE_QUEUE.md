@@ -175,6 +175,8 @@ one indexed query (`ix_bookings_shop_scheduled`) plus the engine.
 - Bookings keep their Idempotency-Key handling; a customer may hold one active walk-in per shop and join
   at most 3 times a day (429), against cancel-and-rejoin games.
 - Walk-ins get strictly increasing join times per shop (ticket order even within a microsecond).
+- The minute worker works out each shop's messages in its own transaction, so it holds one shop's waiting
+  bookings at a time, never the whole pass.
 
 ## 7. Real-time
 
@@ -275,9 +277,24 @@ places), all workers off (unservable), split shifts, late arrivals, no-shows, em
 - Shop dashboard `LiveLinePage.test.tsx` (live frames, every action, settings, board).
 - Mobile `live_queue_test.dart`, `shop_line_test.dart`, `home_visit_test.dart`.
 - Simulator: `python tools/queue_sim.py --days 1000 --edge`, `--sweep` to retune α and the buffer.
-- Not yet run: a k6 load test (suggested: 200 virtual users polling `GET /bookings/{id}/queue` every
-  30 s and 20 shops with open sockets, P95 < 200 ms) and chaos tests (kill shop_service: the line falls
-  back to capacity places; kill Redis with QUEUE_PUBSUB on: screens fall back to 15 s refreshes).
+- Load (`scripts/load/queue_load.py`, through the gateway on the local stack, one 7.7 GB laptop running
+  everything): 20 shops, 200 customers in their lines each looking at their place every 30 s for 5 minutes,
+  20 shop sockets open. 1,995 requests, none failed; P50 60 ms, **P95 180 ms** (target 200), P99 512 ms;
+  every socket got every change (400 frames). Then all 200 customers leave within seconds: every cancel
+  answered, P95 0.9 s, slowest 1.2 s.
+- Failures (`scripts/load/failure_checks.py`): with shop_service stopped past the 30 s caches, the
+  customer's place, the shop's line, the board and the shop's socket keep working on the last hours, team
+  and owner booking_service saw (for up to an hour, logged as `shop_service_unavailable_using_last_answer`);
+  with Redis stopped the same four keep working and so does signing in (the gateway's limits and sign-out
+  checks fail open; auth_service counts failed sign-ins from the database for the lockout, and sends no
+  one-time codes until Redis is back).
+- What the runs found and fixed: shop_service down made every queue page fail after 30 s; Redis down made
+  signing in fail (500); and the minute worker held every shop's waiting bookings in one transaction, so
+  cancels during a busy pass waited up to 15 s (now one shop per transaction).
+- To run them again: `pip install httpx websockets`, run the gateway with `TRUST_PROXY=1` (as production
+  does behind Caddy, so each simulated customer counts as their own client), then
+  `python scripts/load/queue_load.py --make-admin-cmd "docker exec -i alakh_auth_service python -m app.cli make-admin {}"`
+  and the same for `failure_checks.py`. Both clean up the bookings they make.
 
 ## 12. Observability
 

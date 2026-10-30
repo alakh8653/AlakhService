@@ -12,6 +12,7 @@ import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
+from redis.exceptions import RedisError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -129,9 +130,12 @@ async def delete_account_with_code(
     (https://<DOMAIN>/delete-account): first POST /auth/send-otp with purpose "delete_account",
     then send the code here. Limited per email/phone, and each code allows 5 guesses."""
     key = f"auth:delete_account_attempts:{body.phone_or_email}"
-    attempts = await redis.incr(key)
-    if attempts == 1:
-        await redis.expire(key, settings.DELETE_ACCOUNT_WINDOW_SECONDS)
+    try:
+        attempts = await redis.incr(key)
+        if attempts == 1:
+            await redis.expire(key, settings.DELETE_ACCOUNT_WINDOW_SECONDS)
+    except RedisError as e:  # the guesses cannot be limited: take none
+        raise OTPRateLimitedError("This cannot be done right now; please try again in a few minutes") from e
     if attempts > settings.DELETE_ACCOUNT_ATTEMPTS_PER_WINDOW:
         raise OTPRateLimitedError("Too many attempts. Please try again later.")
     user = await auth_service.verify_otp(db, body)

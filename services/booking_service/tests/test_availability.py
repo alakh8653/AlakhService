@@ -403,3 +403,49 @@ async def test_a_shop_awaiting_approval_offers_no_times_and_takes_no_bookings(cl
     # Without hours too: a pending shop is not "any time".
     SCHEDULES["shop-1"] = {"configured": False, "accepting_bookings": False}
     assert (await book(client, MON, "10:00")).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_while_shop_service_is_down_the_last_answers_stand_in_for_an_hour(monkeypatch):
+    replies = {"status": 200}
+
+    def shop_service(request):
+        if replies["status"] == "down":
+            raise httpx.ConnectError("refused")
+        path = request.url.path
+        body = (
+            {"configured": True}
+            if path.endswith("/hours")
+            else [{"id": "st-1"}]
+            if path.endswith("/team")
+            else {"owner_id": "o-1"}
+        )
+        return httpx.Response(200, json=body)
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        dependencies.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(shop_service), **kw)
+    )
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(dependencies.time, "monotonic", lambda: clock["now"])
+    for cache in (dependencies._schedule_cache, dependencies._team_cache, dependencies._owner_cache):
+        cache.clear()
+    assert await dependencies.fetch_shop_schedule("s") == {"configured": True}
+    assert await dependencies.fetch_shop_team("s") == [{"id": "st-1"}]
+    assert await dependencies.fetch_shop_owner("s") == "o-1"
+
+    replies["status"] = "down"
+    clock["now"] += 600  # past the 30 s caches, within the hour
+    assert await dependencies.fetch_shop_schedule("s") == {"configured": True}
+    assert await dependencies.fetch_shop_team("s") == [{"id": "st-1"}]
+    assert await dependencies.fetch_shop_owner("s") == "o-1"
+    with pytest.raises(dependencies.HTTPException):  # never seen: nothing to stand in
+        await dependencies.fetch_shop_owner("other")
+
+    clock["now"] += dependencies.STALE_IF_ERROR_SECONDS
+    for fetch in (dependencies.fetch_shop_schedule, dependencies.fetch_shop_team, dependencies.fetch_shop_owner):
+        with pytest.raises(dependencies.HTTPException) as down:
+            await fetch("s")
+        assert down.value.status_code == 503
+    for cache in (dependencies._schedule_cache, dependencies._team_cache, dependencies._owner_cache):
+        cache.clear()

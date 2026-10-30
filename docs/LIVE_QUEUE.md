@@ -25,6 +25,8 @@ are planned so customers know when someone will be at their door. It works for a
   mark no-shows after a grace period (default 10 minutes; the customer is told, and the usual
   late-cancellation rule decides any refund).
 - A breaks or day off button: that person's customers move to whoever else can serve them.
+- Each person's own working hours (dashboard **Staff**, the clock button): split shifts and days off; the
+  line gives them customers only then, and the team view says "works 12:00 PM – 2:00 PM" today.
 - A **screen for the shop** (TV or spare tablet): now serving and next, by ticket and masked name
   ("R•••"), live, no account needed.
 - Settings: grace period, when walk-ins catch up with appointments (20 min), VIPs per day, extra time
@@ -109,8 +111,11 @@ CREATE INDEX ix_queue_audit_shop_id ON queue_audit (shop_id);
 ```
 
 Workers are the shop's team (shop_service: each member's `service_ids` are their skills; none means all)
-working the shop's opening hours (+90 minutes overtime for those already in line at closing). A shop with
-no team uses its capacity as that many places that do everything.
+working the shop's opening hours (+90 minutes overtime for those already in line at closing), or their own
+week when the owner sets one (`staff_members.working_hours`, the same JSON shape as the shop's week: split
+shifts, days off; clipped to the shop's open hours and holidays, and the overtime applies to whoever works
+until closing). A customer who asks for someone with their own hours can book them only while they work
+(409 otherwise). A shop with no team uses its capacity as that many places that do everything.
 
 ## 4. Algorithms
 
@@ -311,5 +316,5 @@ as a target of the `booking` job.
 - Walk-ins as bookings: one model for payments, refunds and history, at the cost of a few extra columns.
 - No-show rate only pulls the low end of the range (the planned start stays honest): customers are told
   they *may* be seen sooner rather than being late for their turn.
-- Team members work the shop's opening hours; per-person shifts beyond breaks and days off are a natural
-  next step (`Worker.shifts` already supports split shifts).
+- Per-person hours are a weekly pattern; a one-off change (a late start today) is still a break or
+  "off today" on the Live line rather than an edit to their week.

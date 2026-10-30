@@ -183,6 +183,15 @@ async def create_booking(
             preferred.get("service_ids") and booking_data.service_id not in preferred["service_ids"]
         ):
             raise HTTPException(status_code=422, detail="That professional does not do this service here")
+        if preferred.get("working_hours") is not None and mode == AT_SHOP:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(listing["shop_id"]))
+            start = live_queue._utc(booking_data.scheduled_at)
+            end = start + timedelta(minutes=duration)
+            if schedule.configured and not live_queue.works_through(schedule, preferred, start, end):
+                name = preferred.get("name") or "That professional"
+                raise HTTPException(
+                    status_code=409, detail=f"{name} is not working then; choose another time or anyone"
+                )
     # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
     await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
     booking_id = str(uuid.uuid4())

@@ -88,11 +88,15 @@ async def test_preferences_and_addresses_cannot_be_set_to_nothing(client):
 @pytest.mark.asyncio
 async def test_other_services_get_an_address_location_with_the_key_only(client, monkeypatch):
     monkeypatch.setattr(settings, "INTERNAL_API_KEY", "k" * 40)
-    made = await client.post("/api/v1/users/me/addresses", json={**ADDRESS, "latitude": 12.97, "longitude": 77.59}, headers=ME)
+    made = await client.post(
+        "/api/v1/users/me/addresses", json={**ADDRESS, "latitude": 12.97, "longitude": 77.59}, headers=ME
+    )
     assert made.status_code == 201, made.text
     url = f"/internal/addresses/{made.json()['id']}/location"
     got = await client.get(url, headers={"X-Internal-Key": "k" * 40})
     assert got.json() == {"latitude": 12.97, "longitude": 77.59, "city": "Bengaluru"}  # no street, no owner
     assert (await client.get(url, headers={"X-Internal-Key": "guess"})).status_code == 401
     assert (await client.get(url, headers=ME)).status_code == 401
-    assert (await client.get("/internal/addresses/nope/location", headers={"X-Internal-Key": "k" * 40})).status_code == 404
+    assert (
+        await client.get("/internal/addresses/nope/location", headers={"X-Internal-Key": "k" * 40})
+    ).status_code == 404

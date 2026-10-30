@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({
   getStaff: vi.fn(),
   createStaffMember: vi.fn(),
   updateStaffMember: vi.fn(),
+  getShopHours: vi.fn(),
   getQueues: vi.fn(),
   getWaiting: vi.fn(),
   callNext: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('../../services/shopService', async (importOriginal) => ({
   getStaff: api.getStaff,
   createStaffMember: api.createStaffMember,
   updateStaffMember: api.updateStaffMember,
+  getShopHours: api.getShopHours,
 }));
 vi.mock('../../services/queueService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/queueService')>()),
@@ -45,7 +47,7 @@ const haircut: Service = {
 };
 const ravi: StaffMember = {
   id: 'st1', shopId: 's1', userId: null, name: 'Ravi', email: null, phone: '9876543210', role: 'stylist', serviceIds: [],
-  isActive: true, createdAt: '',
+  workingHours: null, isActive: true, createdAt: '',
 };
 
 const renderPage = (page: React.ReactNode) =>
@@ -124,6 +126,45 @@ describe('StaffPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Add staff member' }));
     expect(within(dialog).getByText('10-digit mobile, e.g. 98765 43210')).toBeInTheDocument();
     expect(api.createStaffMember).not.toHaveBeenCalled();
+  });
+
+  it("gives someone their own working hours, starting from the shop's week", async () => {
+    const shopWeek = [[{ start: '10:00', end: '20:00' }], [], [], [], [], [], []];
+    api.getShopHours.mockResolvedValue({ configured: true, weekly: shopWeek });
+    const own = [[{ start: '10:00', end: '14:00' }], [], [], [], [], [], []];
+    api.updateStaffMember.mockResolvedValue({ ...ravi, workingHours: own });
+    renderPage(<StaffPage />);
+    expect(await screen.findByText("Shop's hours")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: "Ravi's working hours" }));
+    const dialog = await screen.findByRole('dialog', { name: "Ravi's working hours" });
+    fireEvent.click(within(dialog).getByLabelText('Their own hours'));
+    expect(within(dialog).getByLabelText('Monday starts')).toHaveValue('10:00');
+    expect(within(dialog).getByRole('switch', { name: 'Works on Tuesday' })).not.toBeChecked();
+
+    // A finish before the start is caught before saving.
+    fireEvent.change(within(dialog).getByLabelText('Monday finishes'), { target: { value: '09:00' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save hours' }));
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Monday:');
+    expect(api.updateStaffMember).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText('Monday finishes'), { target: { value: '14:00' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save hours' }));
+    expect(await screen.findByText("Ravi's own hours saved.")).toBeInTheDocument();
+    expect(api.updateStaffMember).toHaveBeenCalledWith('st1', { workingHours: own });
+    expect(screen.getByText('Own hours')).toBeInTheDocument();
+  });
+
+  it("puts someone back on the shop's hours", async () => {
+    api.getStaff.mockResolvedValue([{ ...ravi, workingHours: [[{ start: '10:00', end: '14:00' }], [], [], [], [], [], []] }]);
+    api.getShopHours.mockResolvedValue({ configured: false, weekly: [] });
+    api.updateStaffMember.mockResolvedValue(ravi);
+    renderPage(<StaffPage />);
+    fireEvent.click(await screen.findByRole('button', { name: "Ravi's working hours" }));
+    const dialog = await screen.findByRole('dialog', { name: "Ravi's working hours" });
+    fireEvent.click(within(dialog).getByLabelText('Whenever the shop is open'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save hours' }));
+    expect(await screen.findByText('Ravi works whenever the shop is open.')).toBeInTheDocument();
+    expect(api.updateStaffMember).toHaveBeenCalledWith('st1', { workingHours: null });
   });
 });
 

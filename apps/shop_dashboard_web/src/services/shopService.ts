@@ -269,9 +269,20 @@ interface StaffResponse {
   phone: string | null;
   role: string;
   service_ids: string[];
+  working_hours?: { day: number; intervals: OpenInterval[] }[] | null;
   is_active: boolean;
   created_at: string;
 }
+
+/** shop_service's list of days (left-out days are off) as seven days, Monday first. */
+function weekFromServer(days: { day: number; intervals: OpenInterval[] }[]): OpenInterval[][] {
+  const week: OpenInterval[][] = Array.from({ length: 7 }, () => []);
+  for (const d of days) week[d.day] = d.intervals.map(({ start, end }) => ({ start, end }));
+  return week;
+}
+
+const weekToServer = (week: OpenInterval[][]) =>
+  week.flatMap((intervals, day) => (intervals.length ? [{ day, intervals }] : []));
 
 export function toStaffMember(data: StaffResponse): StaffMember {
   return {
@@ -283,6 +294,7 @@ export function toStaffMember(data: StaffResponse): StaffMember {
     phone: data.phone,
     role: data.role,
     serviceIds: data.service_ids,
+    workingHours: data.working_hours ? weekFromServer(data.working_hours) : null,
     isActive: data.is_active,
     createdAt: data.created_at,
   };
@@ -319,7 +331,7 @@ export async function createStaffMember(shopId: string, input: StaffInput): Prom
 
 export async function updateStaffMember(
   id: string,
-  update: Partial<StaffInput> & { isActive?: boolean },
+  update: Partial<StaffInput> & { isActive?: boolean; workingHours?: OpenInterval[][] | null },
 ): Promise<StaffMember> {
   const body: Record<string, unknown> = {};
   if (update.name !== undefined) body.name = update.name;
@@ -329,6 +341,9 @@ export async function updateStaffMember(
   if (update.userId !== undefined) body.user_id = update.userId || null;
   if (update.serviceIds !== undefined) body.service_ids = update.serviceIds;
   if (update.isActive !== undefined) body.is_active = update.isActive;
+  if (update.workingHours !== undefined) {
+    body.working_hours = update.workingHours === null ? null : weekToServer(update.workingHours);
+  }
   const { data } = await apiClient.put<StaffResponse>(`/staff/${id}`, body);
   return toStaffMember(data);
 }

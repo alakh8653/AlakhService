@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.core import worker
+from app.core import live_queue, worker
+from app.core.availability import Schedule
 from app.core.live_queue import IN_PROGRESS, WAITING_STATE, YOUR_TURN, _Visit, compute
 from tests import test_availability
 from tests.test_availability import CLOCK, HOURS, MON, book, ist
@@ -121,3 +122,54 @@ async def test_customers_hear_once_that_it_is_their_turn_or_the_shop_runs_late(c
         SESSIONS["factory"], notes, fake_owner, PAY, now=CLOCK["now"], lookup_schedule=schedule
     )
     assert again["queue_notices"] == 0
+
+
+def _own_week(*intervals, day=0):
+    return [{"day": day, "intervals": [{"start": s, "end": e} for s, e in intervals]}]
+
+
+def test_team_members_with_their_own_hours_work_only_then():
+    schedule = Schedule.from_shop_service(HOURS)  # Monday 10-14 and 16-20
+    team = [
+        {"id": "all-day"},
+        {"id": "afternoons", "working_hours": _own_week(("13:00", "20:00"))},
+        {"id": "early", "working_hours": _own_week(("08:00", "11:00"))},  # before opening: clipped
+        {"id": "not-mondays", "working_hours": _own_week(("10:00", "20:00"), day=1)},
+    ]
+    shifts = live_queue.member_shifts(schedule, T, team)
+    assert "all-day" not in shifts  # the shop's hours
+    assert shifts["afternoons"] == [
+        (ist(MON, "13:00"), ist(MON, "14:00")),
+        (ist(MON, "16:00"), ist(MON, "20:00") + live_queue.OVERTIME),  # works till closing: the same overtime
+    ]
+    assert shifts["early"] == [(ist(MON, "10:00"), ist(MON, "11:00"))]
+    assert shifts["not-mondays"] == []
+
+    assert live_queue.works_through(schedule, team[1], ist(MON, "13:00"), ist(MON, "14:00"))
+    assert not live_queue.works_through(schedule, team[1], ist(MON, "12:30"), ist(MON, "13:30"))
+    assert live_queue.works_through(schedule, team[0], ist(MON, "03:00"), ist(MON, "04:00"))
+
+
+def test_the_line_goes_to_whoever_is_working():
+    schedule = Schedule.from_shop_service(HOURS)
+    team = [
+        {"id": "later", "working_hours": _own_week(("12:00", "14:00"))},
+        {"id": "now", "working_hours": _own_week(("10:00", "11:00"))},
+    ]
+    day = live_queue.Day(
+        visits=[visit("a", "CONFIRMED", T), visit("b", "CONFIRMED", T), visit("c", "CONFIRMED", T)],
+        capacity=2,
+        team=team,
+        statuses={},
+        settings=live_queue.Settings(),
+        stats={},
+        shifts=live_queue._shifts(schedule, MON, T),
+        member_shifts=live_queue.member_shifts(schedule, T, team),
+    )
+    spots = live_queue.predict_day(day, T)
+    # "now" takes the first two (10:00, 10:30); "later" starts the third at noon, not before.
+    assert [(spots[x].worker_id, spots[x].estimated_start) for x in "ab"] == [
+        ("now", ist(MON, "10:00")),
+        ("now", ist(MON, "10:30")),
+    ]
+    assert (spots["c"].worker_id, spots["c"].estimated_start) == ("later", ist(MON, "12:00"))

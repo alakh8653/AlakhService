@@ -66,7 +66,7 @@ describe('EarningsPage', () => {
       items: [...summary.items, { ...summary.items[0], paymentId: 't1', gross: 50, net: 50, commission: 0, gstOnCommission: 0, kind: 'TIP', providerId: 'staff-user-1' }],
     });
     vi.spyOn(earnings, 'getPayouts').mockResolvedValue([]);
-    vi.spyOn(shops, 'getStaff').mockResolvedValue([{ id: 'st1', shopId: 's1', userId: 'staff-user-1', name: 'Meena', email: null, phone: null, role: 'stylist', serviceIds: [], isActive: true, createdAt: '' }]);
+    vi.spyOn(shops, 'getStaff').mockResolvedValue([{ id: 'st1', shopId: 's1', userId: 'staff-user-1', name: 'Meena', email: null, phone: null, role: 'stylist', serviceIds: [], workingHours: null, isActive: true, createdAt: '' }]);
     renderPage();
     const tips = await screen.findByRole('region', { name: 'Tips to pass on' });
     expect(within(tips).getByText(/Customers tipped ₹75.00/)).toBeInTheDocument();

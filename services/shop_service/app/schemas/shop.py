@@ -10,6 +10,7 @@ from app.core.kyc import (
     normalise_ifsc,
     normalise_upi,
 )
+from app.schemas.hours import DayHours, WeeklyHoursUpdate
 
 DOCUMENT_TYPES = ("PAN", "GST", "AADHAAR", "UDYAM", "BANK_PROOF", "SHOP_PHOTO")
 DocumentType = Literal["PAN", "GST", "AADHAAR", "UDYAM", "BANK_PROOF", "SHOP_PHOTO"]
@@ -257,6 +258,13 @@ class ShopRatingCreate(BaseModel):
         return (value or "").strip() or None
 
 
+def one_week(days: Optional[List[DayHours]]) -> Optional[List[DayHours]]:
+    """A staff member's week: each day once, Monday first."""
+    if days is None:
+        return None
+    return sorted(WeeklyHoursUpdate(weekly=days).weekly, key=lambda d: d.day)
+
+
 class StaffCreate(BaseModel):
     shop_id: str
     name: str = Field(min_length=1, max_length=120)
@@ -265,6 +273,10 @@ class StaffCreate(BaseModel):
     role: str = "staff"
     user_id: Optional[str] = None
     service_ids: List[str] = []
+    # Their week (days left out are off); null means whenever the shop is open.
+    working_hours: Optional[List[DayHours]] = None
+
+    _one_entry_per_day = field_validator("working_hours")(lambda v: one_week(v))
 
 
 class StaffUpdate(BaseModel):
@@ -275,6 +287,10 @@ class StaffUpdate(BaseModel):
     user_id: Optional[str] = None
     service_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    # null puts them back on the shop's hours.
+    working_hours: Optional[List[DayHours]] = None
+
+    _one_entry_per_day = field_validator("working_hours")(lambda v: one_week(v))
 
     # null service_ids means none; the other fields always have a value.
     _required = field_validator("name", "role", "is_active")(not_null)
@@ -289,5 +305,6 @@ class StaffResponse(BaseModel):
     phone: Optional[str] = None
     role: str
     service_ids: List[str]
+    working_hours: Optional[List[DayHours]] = None
     is_active: bool
     created_at: datetime

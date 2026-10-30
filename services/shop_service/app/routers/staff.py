@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ShopNotFoundError, StaffNotFoundError
 from app.database import get_db
 from app.dependencies import Caller, ensure_owner, public_name, require_caller
+from app.schemas.hours import DayHours
 from app.schemas.shop import StaffCreate, StaffResponse, StaffUpdate
 from app.services import staff_service
 from app.services.shop_service import is_public, shop_service
@@ -23,6 +24,8 @@ class TeamMember(BaseModel):
     role: str
     # The services they do; empty means all of the shop's.
     service_ids: List[str]
+    # When they work (shop-local); null means whenever the shop is open.
+    working_hours: Optional[List[DayHours]] = None
 
 
 @router.get("/shops/{shop_id}/team", response_model=List[TeamMember])
@@ -40,6 +43,7 @@ async def shop_team(shop_id: str, db: AsyncSession = Depends(get_db)):
             name=public_name(m.name) or "Team member",
             role=m.role,
             service_ids=json.loads(m.service_ids or "[]"),
+            working_hours=staff_service.working_hours(m),
         )
         for m in await staff_service.list_staff(db, shop_id)
     ]

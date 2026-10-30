@@ -71,6 +71,11 @@ class TeamStatusBody(BaseModel):
     minutes: Optional[int] = Field(None, ge=1, le=240)
 
 
+class Shift(BaseModel):
+    start: datetime
+    end: datetime
+
+
 class TeamMemberState(BaseModel):
     staff_id: str
     name: Optional[str] = None
@@ -84,6 +89,9 @@ class TeamMemberState(BaseModel):
     overrun: bool = False
     # Customers the queue has planned for them today.
     waiting: int = 0
+    # When they work today, for a member with their own hours ([] means not today); null means the
+    # shop's hours.
+    works_today: Optional[List[Shift]] = None
 
 
 class WalkInBody(BaseModel):
@@ -775,6 +783,7 @@ async def team_state(
     now = live_queue._utc(clock())
     schedule, team, spots = await _line(db, shop_id, lookup_schedule, lookup_team, now)
     statuses = await live_queue.statuses_for(db, shop_id, schedule, now)
+    own_hours = live_queue.member_shifts(schedule, now, team)
     serving = [s for s in spots.values() if s.state == live_queue.IN_PROGRESS]
     bookings = (
         {b.id: b for b in await booking_service.get_bookings(db, [s.booking_id for s in serving])} if serving else {}
@@ -804,6 +813,7 @@ async def team_state(
                     for s in spots.values()
                     if s.worker_id == m["id"] and s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)
                 ),
+                works_today=([Shift(start=a, end=b) for a, b in own_hours[m["id"]]] if m["id"] in own_hours else None),
             )  # fmt: skip
         )
     return out

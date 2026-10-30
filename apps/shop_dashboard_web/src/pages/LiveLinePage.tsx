@@ -56,6 +56,12 @@ function statusText(m: TeamMember): string {
   return m.servingBookingId ? 'Serving' : 'Free';
 }
 
+/** "works 12:00 PM – 2:00 PM" for someone with their own hours today; "not working today" when none. */
+function worksTodayText(shifts: { start: string; end: string }[]): string {
+  if (shifts.length === 0) return 'not working today';
+  return `works ${shifts.map((s) => `${formatClock(s.start)} – ${formatClock(s.end)}`).join(', ')}`;
+}
+
 /**
  * Today's line at the shop, live: the team (who is free, serving, on a break), every customer waiting in
  * order with their expected time, and what the shop does to it (walk-ins, next customer, move up, VIP,
@@ -171,7 +177,10 @@ export default function LiveLinePage() {
                     {m.overrun && <span className="ml-1 text-red-700">· running over</span>}
                   </p>
                 )}
-                <p className="text-xs text-gray-500">{m.waiting === 1 ? '1 customer planned' : `${m.waiting} customers planned`}</p>
+                <p className="text-xs text-gray-500">
+                  {m.waiting === 1 ? '1 customer planned' : `${m.waiting} customers planned`}
+                  {m.worksToday && ` · ${worksTodayText(m.worksToday)}`}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {m.servingBookingId ? (
                     <button type="button" className={primary} disabled={busy} onClick={() => run(() => finish(m.servingBookingId!), `${m.servingName} done.`)}>

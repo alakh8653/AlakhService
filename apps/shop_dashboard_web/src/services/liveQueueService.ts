@@ -42,6 +42,8 @@ export interface TeamMember {
   servingUntil: string | null;
   overrun: boolean;
   waiting: number;
+  /** When they work today, for someone with their own hours ([] means not today); null means the shop's hours. */
+  worksToday: { start: string; end: string }[] | null;
 }
 
 export interface QueueSettings {
@@ -109,6 +111,7 @@ function toMember(m: Raw): TeamMember {
     servingUntil: m.serving_until ?? null,
     overrun: !!m.overrun,
     waiting: m.waiting ?? 0,
+    worksToday: m.works_today ? m.works_today.map((s: Raw) => ({ start: s.start, end: s.end })) : null,
   };
 }
 

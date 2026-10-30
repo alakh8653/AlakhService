@@ -5,6 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import authReducer, { setShop } from '../../state/authSlice';
 import bookingReducer from '../../state/bookingSlice';
+import { formatClock } from '../../services/format';
 import { ToastProvider } from '../../components/Toast';
 import LiveLinePage from '../LiveLinePage';
 import BoardPage from '../BoardPage';
@@ -27,7 +28,7 @@ function entry(over: Partial<live.LineEntry>): live.LineEntry {
 
 const asha: live.TeamMember = {
   staffId: 'st-a', name: 'Asha', serviceIds: ['svc1'], status: 'AVAILABLE', until: null, servingBookingId: null,
-  servingName: null, servingSince: null, servingUntil: null, overrun: false, waiting: 2,
+  servingName: null, servingSince: null, servingUntil: null, overrun: false, waiting: 2, worksToday: null,
 };
 
 /** Stands in for the browser's WebSocket so a test can push frames. */
@@ -148,6 +149,22 @@ describe('LiveLinePage', () => {
     fireEvent.click(within(kiran).getByRole('button', { name: 'No-show' }));
     await waitFor(() => expect(noShow).toHaveBeenCalledWith('b2'));
     expect(within(screen.getByRole('listitem', { name: 'Ravi' })).queryByRole('button', { name: 'No-show' })).toBeNull();
+  });
+
+  it('says when someone with their own hours works today', async () => {
+    vi.spyOn(live, 'getLine').mockResolvedValue([]);
+    vi.spyOn(live, 'getTeam').mockResolvedValue([
+      { ...asha, worksToday: [{ start: '2030-11-04T06:30:00Z', end: '2030-11-04T08:30:00Z' }] },
+      { ...asha, staffId: 'st-b', name: 'Bilal', worksToday: [] },
+      { ...asha, staffId: 'st-c', name: 'Chitra', worksToday: null },
+    ]);
+    renderAt('/line');
+    const team = await screen.findByRole('region', { name: 'Team' });
+    const card = await within(team).findByRole('listitem', { name: 'Asha' });
+    const shift = `works ${formatClock('2030-11-04T06:30:00Z')} – ${formatClock('2030-11-04T08:30:00Z')}`;
+    expect(within(card).getByText((text) => text.includes(shift))).toBeInTheDocument();
+    expect(within(within(team).getByRole('listitem', { name: 'Bilal' })).getByText(/not working today/)).toBeInTheDocument();
+    expect(within(within(team).getByRole('listitem', { name: 'Chitra' })).queryByText(/works|not working/)).toBeNull();
   });
 
   it('saves the line settings', async () => {

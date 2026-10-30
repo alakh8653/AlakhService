@@ -24,7 +24,7 @@ It is an estimate: the shop may take someone early or late. It is recomputed on 
 
 import json
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -134,6 +134,8 @@ class Day:
     stats: Dict[Tuple[str, str], qe.DurationModel]
     shifts: List[qe.Span]
     no_show_rate: float = 0.0
+    # Team members with their own hours: when they work today (others work the shop's shifts).
+    member_shifts: Dict[str, List[qe.Span]] = field(default_factory=dict)
 
 
 def _shifts(schedule: Optional[Schedule], day: Optional[date], now: datetime) -> List[qe.Span]:
@@ -143,6 +145,53 @@ def _shifts(schedule: Optional[Schedule], day: Optional[date], now: datetime) ->
     if spans:
         spans[-1] = (spans[-1][0], spans[-1][1] + OVERTIME)
     return spans
+
+
+def _clip(spans: List[qe.Span], within: List[qe.Span]) -> List[qe.Span]:
+    out = []
+    for start, end in spans:
+        for w_start, w_end in within:
+            lo, hi = max(start, w_start), min(end, w_end)
+            if lo < hi:
+                out.append((lo, hi))
+    return sorted(out)
+
+
+def member_shifts(schedule: Optional[Schedule], now: datetime, team: Sequence[dict]) -> Dict[str, List[qe.Span]]:
+    """When each team member with their own week (shop_service's working_hours) works today, within the
+    shop's open hours (holidays included). Members without one are left out: they work the shop's hours."""
+    if schedule is None:
+        return {}
+    today = schedule.local(now).date()
+    shop = _shifts(schedule, today, now)
+    out = {}
+    for m in team:
+        week = m.get("working_hours")
+        if week is None or not m.get("id"):
+            continue
+        day = next((d for d in week if int(d.get("day", -1)) == today.weekday()), None)
+        spans = [
+            (schedule.at(today, _hhmm(i["start"])), schedule.at(today, _hhmm(i["end"])))
+            for i in (day or {}).get("intervals") or []
+        ]
+        # The overtime allowed after the shop closes applies to whoever works until closing too.
+        if spans and shop and spans[-1][1] >= shop[-1][1] - OVERTIME:
+            spans[-1] = (spans[-1][0], shop[-1][1])
+        out[m["id"]] = _clip(spans, shop)
+    return out
+
+
+def works_through(schedule: Schedule, member: dict, start: datetime, end: datetime) -> bool:
+    """Whether a team member works for the whole of [start, end): always, for one on the shop's hours."""
+    if member.get("working_hours") is None:
+        return True
+    spans = member_shifts(schedule, start, [member]).get(member["id"], [])
+    return any(lo <= start and end <= hi for lo, hi in spans)
+
+
+def _hhmm(value: str) -> int:
+    hours, minutes = value.split(":")
+    return int(hours) * 60 + int(minutes)
 
 
 def _durations(visits: Sequence[_Visit], stats: Dict[Tuple[str, str], qe.DurationModel], per_visit: bool):
@@ -179,7 +228,8 @@ def predict_day(day: Day, now: datetime, per_visit: bool = False) -> Dict[str, Q
             if status == qe.ON_BREAK and until is not None and until <= now:
                 status, until = qe.AVAILABLE, None
             skills = frozenset(m.get("service_ids") or []) or None
-            workers.append(qe.Worker(m["id"], skills, status, until, list(day.shifts)))
+            shifts = day.member_shifts.get(m["id"], day.shifts)
+            workers.append(qe.Worker(m["id"], skills, status, until, list(shifts)))
     else:
         workers = [qe.Worker(f"place-{i + 1}", None, shifts=list(day.shifts)) for i in range(max(1, day.capacity))]
     ids = {w.id for w in workers}
@@ -465,6 +515,7 @@ async def load_day(
         stats=await stats_for(db, shop_id),
         shifts=_shifts(schedule, today, now),
         no_show_rate=await no_show_rate(db, shop_id, now),
+        member_shifts=member_shifts(schedule, now, team or []),
     )
 
 

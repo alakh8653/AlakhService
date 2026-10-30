@@ -297,3 +297,15 @@ def test_the_shops_screen_gets_the_line_live_and_strangers_are_refused(ws_client
             with ws_client.websocket_connect(f"/api/v1/ws/shops/shop-1/queue{query}") as ws:
                 ws.receive_json()
         assert refused.value.code == code
+
+
+@pytest.mark.asyncio
+async def test_the_team_view_says_when_someone_with_their_own_hours_works_today(client, monkeypatch):
+    week = [{"day": 0, "intervals": [{"start": "12:00", "end": "14:00"}]}]
+    monkeypatch.setitem(TEAM[1], "working_hours", week)
+    CLOCK["now"] = ist(MON, "10:30")
+    team = {m["staff_id"]: m for m in (await client.get(f"{Q}/team", headers=OWNER)).json()}
+    assert team["st-a"]["works_today"] is None  # the shop's hours
+    assert [
+        (datetime.fromisoformat(s["start"]), datetime.fromisoformat(s["end"])) for s in team["st-b"]["works_today"]
+    ] == [(ist(MON, "12:00"), ist(MON, "14:00"))]

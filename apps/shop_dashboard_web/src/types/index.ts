@@ -73,6 +73,8 @@ export interface StaffMember {
   phone: string | null;
   role: string;
   serviceIds: string[];
+  /** Their own week (Monday first, an empty day is off); null means they work the shop's opening hours. */
+  workingHours: OpenInterval[][] | null;
   isActive: boolean;
   createdAt: string;
 }

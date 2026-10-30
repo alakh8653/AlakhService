@@ -69,3 +69,114 @@ tests:
             exp_annotations:
               summary: "No verified database backup for 2d 4h 0m 0s"
               description: "The backup service is failing or stopped. Check: make prod-logs S=backup, then make prod-backup"
+
+  # Live queue (booking_service /metrics).
+  - interval: 1m
+    input_series:
+      # Every customer page takes between 300 and 500 ms.
+      - series: 'alakh_queue_request_seconds_bucket{job="booking",endpoint="customer",le="0.3"}'
+        values: "0x30"
+      - series: 'alakh_queue_request_seconds_bucket{job="booking",endpoint="customer",le="0.5"}'
+        values: "0+60x30"
+      - series: 'alakh_queue_request_seconds_bucket{job="booking",endpoint="customer",le="+Inf"}'
+        values: "0+60x30"
+      - series: 'alakh_queue_request_seconds_count{job="booking",endpoint="customer"}'
+        values: "0+60x30"
+      # 1 in 10 queue messages fails to reach notification_service; reminders are not counted.
+      - series: 'alakh_booking_notifications_total{job="booking",event="booking.queue_update",outcome="sent"}'
+        values: "0+54x30"
+      - series: 'alakh_booking_notifications_total{job="booking",event="booking.queue_update",outcome="failed"}'
+        values: "0+6x30"
+      - series: 'alakh_booking_notifications_total{job="booking",event="booking.reminder",outcome="failed"}'
+        values: "0+600x30"
+      # Every worker pass takes over 20 s.
+      - series: 'alakh_booking_worker_pass_seconds_count{job="booking",instance="booking_service:8000"}'
+        values: "0+1x30"
+      - series: 'alakh_booking_worker_pass_seconds_bucket{job="booking",instance="booking_service:8000",le="20"}'
+        values: "0x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: QueueSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              endpoint: customer
+            exp_annotations:
+              summary: "Live queue (customer): 95% of requests take up to 490ms"
+              description: >-
+                Each look recomputes the shop's day; above 300 ms for 10 minutes a shop's line is very
+                long or the database is slow. Check: make prod-logs S=booking_service, and the database
+                load.
+      - eval_time: 25m
+        alertname: QueueNotificationsFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "10% of queue messages do not reach notification_service"
+              description: >-
+                Customers are not told their turn is coming. Check: make prod-logs
+                S=notification_service, then make prod-logs S=booking_service (notify_failed,
+                notify_rejected).
+      - eval_time: 25m
+        alertname: BookingWorkerSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: booking
+              instance: booking_service:8000
+            exp_annotations:
+              summary: "Booking worker passes take longer than 20 s"
+              description: >-
+                The every-minute pass (queue notices, reminders, expiries) is falling behind, so queue
+                messages arrive late. Look at how many shops have a line today and the database load.
+
+  - interval: 1m
+    input_series:
+      # The last good pass was at t=60 s; every pass since has failed.
+      - series: 'alakh_booking_worker_last_pass_timestamp_seconds{job="booking",instance="booking_service:8000"}'
+        values: "60x40"
+      # Never ran (the worker is off on this instance): no alert.
+      - series: 'alakh_booking_worker_last_pass_timestamp_seconds{job="booking",instance="booking_service:8001"}'
+        values: "0x40"
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BookingWorkerStopped
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: BookingWorkerStopped
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: booking
+              instance: booking_service:8000
+            exp_annotations:
+              summary: "No good booking worker pass for 19m 0s"
+              description: >-
+                No queue notices, reminders or expiries are going out; every pass is failing. Check:
+                make prod-logs S=booking_service (booking_worker_failed).
+
+  - interval: 1m
+    input_series:
+      # shop-a: every start is 20 min from what the customer was told. shop-b: as far off, but only 5 starts.
+      - series: 'alakh_queue_start_error_minutes_total{job="booking",shop_id="shop-a"}'
+        values: "0+20x200"
+      - series: 'alakh_queue_starts_measured_total{job="booking",shop_id="shop-a"}'
+        values: "0+1x200"
+      - series: 'alakh_queue_start_error_minutes_total{job="booking",shop_id="shop-b"}'
+        values: "0+20x4 80x195"
+      - series: 'alakh_queue_starts_measured_total{job="booking",shop_id="shop-b"}'
+        values: "0+1x4 4x195"
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: QueueWaitsOff
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              shop_id: shop-a
+            exp_annotations:
+              summary: "Shop shop-a: starts are 20 min from what customers were told"
+              description: >-
+                Over the last day this shop's customers started on average more than 15 minutes from
+                the time they were last given. Its service lengths or team are probably out of date;
+                ask the shop to check them (the queue learns lengths, but slowly from a far-off start).

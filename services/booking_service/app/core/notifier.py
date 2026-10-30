@@ -12,6 +12,7 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.core import metrics
 
 log = structlog.get_logger()
 
@@ -35,8 +36,12 @@ class Notifier:
                     headers={"X-Internal-Key": self.key},
                 )
             if resp.status_code >= 400:
+                metrics.NOTIFICATIONS.labels(event, "rejected").inc()
                 log.warning("notify_rejected", notify_event=event, status=resp.status_code)
+            else:
+                metrics.NOTIFICATIONS.labels(event, "sent").inc()
         except httpx.HTTPError as e:
+            metrics.NOTIFICATIONS.labels(event, "failed").inc()
             log.warning("notify_failed", notify_event=event, error=str(e))
 
 

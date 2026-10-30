@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.core.metrics import install_metrics
 from app.core.observability import install_observability
 from app.routers.availability import router as availability_router
 from app.routers.bookings import router as bookings_router
@@ -52,6 +53,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 install_observability(app, service="booking_service")
+install_metrics(app)
 
 app.add_middleware(
     CORSMiddleware,

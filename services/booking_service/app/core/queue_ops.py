@@ -11,7 +11,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import live_queue
+from app.core import live_queue, metrics, queue_notify
 from app.core.availability import Schedule
 from app.models.booking import Booking
 from app.models.queue import QueueAudit
@@ -74,6 +74,10 @@ async def begin_service(
         )
     booking.started_at = now
     booking.served_by_staff_id = staff_id
+    told = queue_notify.load(booking.queue_notice_state).get("eta")
+    error = metrics.record_start(booking.shop_id, datetime.fromisoformat(told) if told else None, now)
+    if error is not None:
+        log.info("queue_start_error", shop_id=booking.shop_id, booking_id=booking.id, minutes=round(error, 1))
 
 
 async def finish_service(db: AsyncSession, booking: Booking, now: datetime) -> Optional[float]:

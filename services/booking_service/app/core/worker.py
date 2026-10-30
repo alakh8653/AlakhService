@@ -20,7 +20,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import availability, live_queue, payments, queue_notify, queue_ops, waitlist
+from app.core import availability, live_queue, metrics, payments, queue_notify, queue_ops, waitlist
 from app.core.fsm import BookingStatus
 from app.core.notifier import Notifier, notify_booking, snapshot
 from app.models.booking import Booking
@@ -292,9 +292,11 @@ async def run_forever(
     log.info("booking_worker_started", interval=settings.WORKER_INTERVAL_SECONDS)
     while True:
         try:
-            await run_once(
-                factory, notifier, lookup_owner, client, lookup_schedule=lookup_schedule, lookup_team=lookup_team
-            )
+            with metrics.WORKER_PASS_SECONDS.time():
+                await run_once(
+                    factory, notifier, lookup_owner, client, lookup_schedule=lookup_schedule, lookup_team=lookup_team
+                )
+            metrics.WORKER_LAST_PASS.set_to_current_time()
         except asyncio.CancelledError:
             raise
         except Exception as e:  # a bad pass never stops the next one

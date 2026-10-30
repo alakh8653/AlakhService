@@ -263,7 +263,8 @@ places), all workers off (unservable), split shifts, late arrivals, no-shows, em
 - `test_queue_ops.py` (11): walk-ins, self-join limits, breaks moving customers, call-next with the
   unique index, learnt durations, reorder, VIP cap, no-show rules, check-in-required, settings, team
   lookup down, the live WebSocket and the board.
-- `test_queue_notify.py` (5), `test_live_queue.py`, `test_home_visits.py` (5), `test_queue_sim.py` (3).
+- `test_queue_notify.py` (5), `test_live_queue.py`, `test_home_visits.py` (5), `test_queue_sim.py` (3),
+  `test_metrics.py` (7: the `/metrics` page, which routes are timed, start error, notification outcomes, worker passes).
 - notification_service `test_queue_messages.py` (quiet hours hold updates, never "your turn").
 - Gateway `websocket.test.ts` (forwarding, refusals, 502), `routes.test.ts` (public board only).
 - Shop dashboard `LiveLinePage.test.tsx` (live frames, every action, settings, board).
@@ -273,12 +274,25 @@ places), all workers off (unservable), split shifts, late arrivals, no-shows, em
   30 s and 20 shops with open sockets, P95 < 200 ms) and chaos tests (kill shop_service: the line falls
   back to capacity places; kill Redis with QUEUE_PUBSUB on: screens fall back to 15 s refreshes).
 
-## 12. Observability (recommended alerts)
+## 12. Observability
 
-Already exported per service by `install_observability` (request rate, latency, errors). Worth adding as
-the line is used: P95 of `GET …/queue` > 300 ms; notification failures > 5% in 10 min; a worker pass
-taking > 20 s (the minute loop falling behind); prediction error (actual − predicted start, logged at
-each start) MAE > 15 min over a day for a shop — the signal that its listed lengths are far off.
+The gateway measures traffic, errors and latency per service. booking_service also serves `/metrics`
+(`app/core/metrics.py`, Prometheus job `booking`, internal network only) for what the gateway cannot see:
+
+| Metric | What it is |
+|---|---|
+| `alakh_queue_request_seconds{endpoint}` | time to answer `customer` (`GET /bookings/{id}/queue`), `shop_line` and `board` |
+| `alakh_booking_worker_pass_seconds`, `…_last_pass_timestamp_seconds` | each worker pass, and the last one that did not fail |
+| `alakh_booking_notifications_total{event,outcome}` | messages handed to notification_service: `sent`, `rejected`, `failed` |
+| `alakh_queue_start_error_minutes_total{shop_id}`, `alakh_queue_starts_measured_total{shop_id}` | at each start, \|actual − the time the customer was last told\| (also logged as `queue_start_error`) |
+
+Alerts (`deploy/monitoring/prometheus/alerts.yml`, group `live_queue`, tested in `alerts.test.yml`):
+**QueueSlow** p95 > 300 ms for 10 min; **QueueNotificationsFailing** > 5% of queue messages not handed
+over in 10 min; **BookingWorkerSlow** passes over 20 s; **BookingWorkerStopped** no good pass for 5 min;
+**QueueWaitsOff** a shop's mean error > 15 min over a day (at least 10 starts), the signal that its
+listed lengths or team are far off. Delivery after the handover (push, SMS) is notification_service's
+and shows as its failed notifications, not here. With several booking_service replicas, list each one
+as a target of the `booking` job.
 
 ## 13. Deployment
 

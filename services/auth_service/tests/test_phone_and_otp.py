@@ -149,3 +149,35 @@ async def test_verifying_a_new_account_marks_it_verified_and_signs_in(db, reques
     assert verified.access_token and verified.refresh_token
     user = await service._find_user(db, PHONE)
     assert user.is_verified is True
+
+
+class DownRedis:
+    """Redis unreachable: every command fails as redis-py does."""
+
+    def __getattr__(self, name):
+        async def fail(*args, **kwargs):
+            from redis.exceptions import ConnectionError as RedisConnectionError
+
+            raise RedisConnectionError("Error -2 connecting to redis:6379. Name or service not known.")
+
+        return fail
+
+
+@pytest.mark.asyncio
+async def test_without_redis_sign_in_works_and_the_lockout_still_holds(db, request_):
+    from app.core.exceptions import AccountLockedError
+
+    tokens = await service.login(db, DownRedis(), UserLogin(phone=PHONE, password="Password1"), request_)
+    assert tokens.access_token
+    for _ in range(settings.MAX_LOGIN_ATTEMPTS):
+        with pytest.raises(InvalidCredentialsError):
+            await service.login(db, DownRedis(), UserLogin(phone=PHONE, password="Wrong1234"), request_)
+    # The failures were kept in the database, so even the right password waits out the lockout.
+    with pytest.raises(AccountLockedError):
+        await service.login(db, DownRedis(), UserLogin(phone=PHONE, password="Password1"), request_)
+
+
+@pytest.mark.asyncio
+async def test_without_redis_no_codes_are_sent(db):
+    with pytest.raises(OTPRateLimitedError):
+        await request_code(db, DownRedis(), PHONE)

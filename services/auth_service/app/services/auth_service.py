@@ -4,6 +4,7 @@ from typing import Optional
 
 import redis.asyncio as aioredis
 import structlog
+from redis.exceptions import RedisError
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,7 +85,7 @@ class AuthService:
         identifier = login_data.identifier
         ip = client_ip(request)
 
-        await self._check_brute_force(redis, identifier, ip)
+        await self._check_brute_force(redis, identifier, ip, db)
 
         user = await self._find_user(db, identifier)
 
@@ -98,7 +99,10 @@ class AuthService:
         if not user.is_active:
             raise InvalidCredentialsError("Account is disabled")
 
-        await redis.delete(f"auth:attempts:{identifier}:{ip}")
+        try:
+            await redis.delete(f"auth:attempts:{identifier}:{ip}")
+        except RedisError as e:
+            log.warning("login_attempts_not_reset", error=str(e))
         await self._record_login_attempt(db, identifier, ip, True)
         return await self.issue_tokens(db, user, request)
 
@@ -275,9 +279,14 @@ class AuthService:
         """
         identifier = otp_request.phone_or_email
         window_key = f"auth:otp_requests:{identifier}"
-        count = await redis.incr(window_key)
-        if count == 1:
-            await redis.expire(window_key, settings.OTP_REQUEST_WINDOW_SECONDS)
+        try:
+            count = await redis.incr(window_key)
+            if count == 1:
+                await redis.expire(window_key, settings.OTP_REQUEST_WINDOW_SECONDS)
+        except RedisError as e:
+            # The limit on codes cannot be checked: send none rather than any number of them.
+            log.warning("otp_limit_unavailable", error=str(e))
+            raise OTPRateLimitedError("Codes cannot be sent right now; please try again in a few minutes") from e
         if count > settings.OTP_REQUESTS_PER_WINDOW:
             raise OTPRateLimitedError()
 
@@ -394,14 +403,37 @@ class AuthService:
     ACCOUNT_WIDE_FAILURES = 20
     ACCOUNT_WIDE_LOCKOUT_SECONDS = 900
 
-    async def _check_brute_force(self, redis: aioredis.Redis, identifier: str, ip: str):
-        for key in (f"auth:locked:{identifier}:{ip}", f"auth:locked:{identifier}"):
-            if await redis.get(key):
-                ttl = await redis.ttl(key)
-                raise AccountLockedError(lockout_seconds=int(ttl if ttl > 0 else settings.LOCKOUT_DURATION_SECONDS))
+    async def _check_brute_force(self, redis: aioredis.Redis, identifier: str, ip: str, db: AsyncSession):
+        try:
+            for key in (f"auth:locked:{identifier}:{ip}", f"auth:locked:{identifier}"):
+                if await redis.get(key):
+                    ttl = await redis.ttl(key)
+                    raise AccountLockedError(lockout_seconds=int(ttl if ttl > 0 else settings.LOCKOUT_DURATION_SECONDS))
+        except RedisError as e:
+            # Without Redis the lockout still holds, counted from the attempts kept in the database.
+            log.warning("login_lockout_from_database", error=str(e))
+            await self._check_brute_force_in_db(db, identifier, ip)
+
+    async def _check_brute_force_in_db(self, db: AsyncSession, identifier: str, ip: str):
+        since = datetime.now(timezone.utc) - timedelta(seconds=self.ACCOUNT_WIDE_LOCKOUT_SECONDS)
+        failed = and_(
+            LoginAttempt.identifier == identifier, LoginAttempt.success.is_(False), LoginAttempt.created_at >= since
+        )
+        here = (await db.execute(select(func.count()).where(failed, LoginAttempt.ip_address == ip))).scalar_one()
+        total = (await db.execute(select(func.count()).where(failed))).scalar_one()
+        if here >= settings.MAX_LOGIN_ATTEMPTS or total >= self.ACCOUNT_WIDE_FAILURES:
+            raise AccountLockedError(lockout_seconds=self.ACCOUNT_WIDE_LOCKOUT_SECONDS)
 
     async def _count_failure(self, redis: aioredis.Redis, identifier: str, ip: str) -> bool:
-        """Counts a failed sign-in; True when it triggered a lockout."""
+        """Counts a failed sign-in; True when it triggered a lockout. Without Redis the attempt is still in the
+        database, which the next check counts."""
+        try:
+            return await self._count_failure_in_redis(redis, identifier, ip)
+        except RedisError as e:
+            log.warning("login_failure_not_counted_in_redis", error=str(e))
+            return False
+
+    async def _count_failure_in_redis(self, redis: aioredis.Redis, identifier: str, ip: str) -> bool:
         locked = False
         here = f"auth:attempts:{identifier}:{ip}"
         failures = await redis.incr(here)

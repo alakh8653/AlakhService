@@ -120,13 +120,9 @@ async def due_rebook_reminders(db: AsyncSession, now: datetime, limit: int = 200
     return due
 
 
-async def due_queue_notices(
-    db: AsyncSession, now: datetime, lookup_schedule, lookup_team=None
-) -> List[Tuple[Booking, str, dict]]:
-    """What each customer waiting in a shop's line today should hear now, from what changed since they were
-    last told (app/core/queue_notify.py). Returns (booking, event kind, data); the state is kept on the
-    booking so each message goes once, across replicas."""
-    window = (now - timedelta(hours=12), now + timedelta(hours=14))  # covers "today" in any shop's zone
+async def shops_with_a_line(db: AsyncSession, now: datetime) -> List[str]:
+    """Shops with someone waiting at the shop today (in any shop's zone)."""
+    window = (now - timedelta(hours=12), now + timedelta(hours=14))
     rows = (
         (
             await db.execute(
@@ -143,18 +139,36 @@ async def due_queue_notices(
         .scalars()
         .all()
     )
+    return [s for s in rows if s]
+
+
+async def due_queue_notices(
+    db: AsyncSession, now: datetime, lookup_schedule, lookup_team=None
+) -> List[Tuple[Booking, str, dict]]:
+    """What each customer waiting in a shop's line today should hear now, from what changed since they were
+    last told (app/core/queue_notify.py). Returns (booking, event kind, data); the state is kept on the
+    booking so each message goes once, across replicas. The worker runs one shop per transaction
+    (shop_notices) so a pass never holds many shops' bookings while it works."""
     out: List[Tuple[Booking, str, dict]] = []
-    for shop_id in [s for s in rows if s]:
-        try:
-            schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
-        except Exception as e:  # shop_service down: try again next pass
-            log.warning("queue_notice_schedule_failed", shop_id=shop_id, error=str(e))
-            continue
-        team = await queue_ops.team_of(lookup_team, shop_id) if lookup_team else []
-        spots = await live_queue.shop_queue(db, shop_id, schedule, now, team)
-        waiting = [s for s in spots.values() if s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)]
-        if not waiting:
-            continue
+    for shop_id in await shops_with_a_line(db, now):
+        out += await shop_notices(db, shop_id, now, lookup_schedule, lookup_team)
+    return out
+
+
+async def shop_notices(
+    db: AsyncSession, shop_id: str, now: datetime, lookup_schedule, lookup_team=None
+) -> List[Tuple[Booking, str, dict]]:
+    """One shop's due queue messages (see due_queue_notices)."""
+    out: List[Tuple[Booking, str, dict]] = []
+    try:
+        schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
+    except Exception as e:  # shop_service down: try again next pass
+        log.warning("queue_notice_schedule_failed", shop_id=shop_id, error=str(e))
+        return out
+    team = await queue_ops.team_of(lookup_team, shop_id) if lookup_team else []
+    spots = await live_queue.shop_queue(db, shop_id, schedule, now, team)
+    waiting = [s for s in spots.values() if s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)]
+    if waiting:
         names = {m["id"]: m.get("name") for m in team}
         statuses = await live_queue.statuses_for(db, shop_id, schedule, now) if team else {}
         for b in await booking_service_get(db, [s.booking_id for s in waiting]):
@@ -233,11 +247,16 @@ async def run_once(
     queue_notices = []
     if lookup_schedule is not None:
         async with factory() as db:
-            queue_notices = [
-                (snapshot(b), kind, data)
-                for b, kind, data in await due_queue_notices(db, now, lookup_schedule, lookup_team)
-            ]
-            await db.commit()
+            shops = await shops_with_a_line(db, now)
+        # One shop per transaction: its bookings are held only while its own line is worked out, so a
+        # customer cancelling elsewhere never waits for the whole pass.
+        for shop_id in shops:
+            async with factory() as db:
+                queue_notices += [
+                    (snapshot(b), kind, data)
+                    for b, kind, data in await shop_notices(db, shop_id, now, lookup_schedule, lookup_team)
+                ]
+                await db.commit()
     async with factory() as db:
         expired_rows = await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
         expired = [(snapshot(b), outbox_id) for b, outbox_id in expired_rows]

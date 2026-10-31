@@ -50,7 +50,17 @@ function etaText(e: LineEntry): string | null {
   return `about ${formatClock(e.estimatedStart)}`;
 }
 
+/** For someone with their own hours who is not working right now: when they start, or that they are done. */
+function offShift(m: TeamMember, now: Date = new Date()): string | null {
+  if (!m.worksToday || m.servingBookingId) return null;
+  if (m.worksToday.some((s) => new Date(s.start) <= now && now < new Date(s.end))) return null;
+  const next = m.worksToday.find((s) => new Date(s.start) > now);
+  if (next) return `Starts ${formatClock(next.start)}`;
+  return m.worksToday.length ? 'Finished for today' : 'Not working today';
+}
+
 function statusText(m: TeamMember): string {
+  if (m.status === 'AVAILABLE' && offShift(m)) return offShift(m)!;
   if (m.status === 'BREAK') return m.until ? `On a break until ${formatClock(m.until)}` : 'On a break';
   if (m.status === 'OFF') return 'Off today';
   return m.servingBookingId ? 'Serving' : 'Free';
@@ -168,7 +178,7 @@ export default function LiveLinePage() {
               <li key={m.staffId} aria-label={m.name ?? 'Team member'} className="rounded-lg border border-gray-200 p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-900">{m.name}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${m.status === 'AVAILABLE' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{statusText(m)}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${m.status === 'AVAILABLE' && !offShift(m) ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>{statusText(m)}</span>
                 </div>
                 {m.servingBookingId && (
                   <p className="text-sm text-gray-700">
@@ -187,7 +197,7 @@ export default function LiveLinePage() {
                       Done
                     </button>
                   ) : (
-                    m.status === 'AVAILABLE' && (
+                    m.status === 'AVAILABLE' && !offShift(m) && (
                       <button type="button" className={primary} disabled={busy} onClick={() => run(() => callNext(shopId, m.staffId), `${m.name} has their next customer.`)}>
                         Next customer
                       </button>

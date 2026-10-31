@@ -167,6 +167,26 @@ describe('LiveLinePage', () => {
     expect(within(within(team).getByRole('listitem', { name: 'Chitra' })).queryByText(/works|not working/)).toBeNull();
   });
 
+  it('only offers the next customer to someone working now', async () => {
+    const at = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+    vi.spyOn(live, 'getLine').mockResolvedValue([]);
+    vi.spyOn(live, 'getTeam').mockResolvedValue([
+      { ...asha, worksToday: [{ start: at(-60), end: at(60) }] },
+      { ...asha, staffId: 'st-b', name: 'Bilal', worksToday: [{ start: at(90), end: at(180) }] },
+      { ...asha, staffId: 'st-c', name: 'Chitra', worksToday: [{ start: at(-180), end: at(-60) }] },
+    ]);
+    renderAt('/line');
+    const team = await screen.findByRole('region', { name: 'Team' });
+    const card = (name: string) => within(team).getByRole('listitem', { name });
+    await within(team).findByRole('listitem', { name: 'Asha' });
+    expect(within(card('Asha')).getByText('Free')).toBeInTheDocument();
+    expect(within(card('Asha')).getByRole('button', { name: 'Next customer' })).toBeInTheDocument();
+    expect(within(card('Bilal')).getByText(`Starts ${formatClock(at(90))}`)).toBeInTheDocument();
+    expect(within(card('Bilal')).queryByRole('button', { name: 'Next customer' })).toBeNull();
+    expect(within(card('Chitra')).getByText('Finished for today')).toBeInTheDocument();
+    expect(within(card('Chitra')).queryByRole('button', { name: 'Next customer' })).toBeNull();
+  });
+
   it('saves the line settings', async () => {
     vi.spyOn(live, 'getLine').mockResolvedValue([]);
     const save = vi.spyOn(live, 'saveSettings').mockImplementation(async (_s, v) => v);

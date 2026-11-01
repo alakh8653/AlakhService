@@ -363,7 +363,11 @@ services:
       - "${API_GATEWAY_PORT:-3000}:3000"
     environment:
       SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+      # The image sets NODE_ENV=production; this keeps a laptop stack in development mode unless asked.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      # Shared rate limits and sign-out checks (the same Redis database auth_service writes them to).
+      REDIS_URL: redis://redis:6379/0
       AUTH_SERVICE_URL: http://auth_service:8000
       USER_SERVICE_URL: http://user_service:8000
       SHOP_SERVICE_URL: http://shop_service:8000
@@ -380,6 +384,8 @@ services:
       PRICING_ENGINE_URL: http://pricing_engine:8000
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
     depends_on:
+      redis:
+        condition: service_healthy
       auth_service:
         condition: service_healthy
       user_service:

@@ -173,11 +173,16 @@ async def get_avatar(folder: str, filename: str, storage: LocalAvatarStorage = D
         raise HTTPException(status_code=404, detail="Not found") from None
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
-    # A new upload gets a new key, so a stored photo never changes.
+    # A new upload gets a new key, so a stored photo never changes. The dashboards (shop./admin.<domain>)
+    # show it from api.<domain>, so it must be loadable cross-origin (the gateway's default is same-origin).
     return FileResponse(
         path,
         media_type=CONTENT_TYPE_BY_EXT[ext],
-        headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"},
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+        },
     )
 
 

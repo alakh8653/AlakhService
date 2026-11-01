@@ -65,6 +65,7 @@ async def test_an_uploaded_photo_is_stored_and_served_back(client, tmp_path):
     assert served.content == PNG
     assert served.headers["content-type"] == "image/png"
     assert "immutable" in served.headers["cache-control"]
+    assert served.headers["cross-origin-resource-policy"] == "cross-origin"
 
     profile = (await client.get("/api/v1/users/me/profile", headers=ME)).json()
     assert profile["avatar_url"] == url

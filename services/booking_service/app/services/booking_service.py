@@ -1,3 +1,4 @@
+import json
 import random
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
@@ -54,10 +55,11 @@ class BookingService:
         metadata_json: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         request_hash: Optional[str] = None,
+        booking_id: Optional[str] = None,
     ) -> Booking:
         now = datetime.now(timezone.utc)
         booking = Booking(
-            id=str(uuid.uuid4()),
+            id=booking_id or str(uuid.uuid4()),
             booking_number=await self._generate_booking_number(db),
             customer_id=customer_id,
             service_id=booking_data.service_id,
@@ -116,23 +118,34 @@ class BookingService:
                 text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"booking-capacity:{shop_id}"}
             )
 
-    async def shop_spans(self, db: AsyncSession, shop_id: str, start: datetime, end: datetime) -> List[Span]:
-        """Start and end of the shop's bookings that hold a place at some time within [start, end)."""
+    async def shop_spans(
+        self, db: AsyncSession, shop_id: str, start: datetime, end: datetime, exclude_id: Optional[str] = None
+    ) -> List[Span]:
+        """Start and end of the shop's bookings that hold a place at some time within [start, end).
+
+        [exclude_id] leaves one booking out: one being moved does not compete with its own old time.
+        """
         # No booking runs longer than a day, so one that started more than a day before cannot reach [start].
-        result = await db.execute(
-            select(Booking.scheduled_at, Booking.duration_minutes).where(
-                Booking.shop_id == shop_id,
-                Booking.status.in_(CAPACITY_STATUSES),
-                Booking.scheduled_at >= start - timedelta(days=1),
-                Booking.scheduled_at < end,
-            )
+        query = select(Booking.scheduled_at, Booking.duration_minutes).where(
+            Booking.shop_id == shop_id,
+            Booking.status.in_(CAPACITY_STATUSES),
+            Booking.scheduled_at >= start - timedelta(days=1),
+            Booking.scheduled_at < end,
         )
+        if exclude_id:
+            query = query.where(Booking.id != exclude_id)
+        result = await db.execute(query)
         spans = []
         for at, minutes in result.all():
             at = _utc(at)
             if at + timedelta(minutes=minutes) > start:
                 spans.append((at, at + timedelta(minutes=minutes)))
         return spans
+
+    async def get_bookings(self, db: AsyncSession, ids: List[str]) -> List[Booking]:
+        if not ids:
+            return []
+        return list((await db.execute(select(Booking).where(Booking.id.in_(ids)))).scalars().all())
 
     async def get_by_idempotency_key(self, db: AsyncSession, customer_id: str, key: str) -> Optional[Booking]:
         result = await db.execute(
@@ -373,6 +386,49 @@ class BookingService:
         booking.updated_at = datetime.now(timezone.utc)
         await db.flush()
         return booking
+
+    # A booking can be moved until a provider has it: after that their day is planned around it.
+    RESCHEDULABLE_STATUSES = {BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value}
+
+    async def reschedule_booking(
+        self,
+        db: AsyncSession,
+        booking: Booking,
+        scheduled_at: datetime,
+        user_id: str,
+        reason: Optional[str] = None,
+        by_customer: bool = False,
+    ) -> datetime:
+        """Moves the booking to [scheduled_at]; returns its previous start. The caller checks the slot."""
+        previous = _utc(booking.scheduled_at)
+        now = datetime.now(timezone.utc)
+        booking.scheduled_at = scheduled_at
+        # The reminders and queue notices were for the old time.
+        booking.reminder_24h_sent_at = None
+        booking.reminder_1h_sent_at = None
+        booking.turn_soon_sent_at = None
+        booking.running_late_sent_at = None
+        if by_customer:
+            meta = booking._meta()
+            meta["reschedule_count"] = meta.get("reschedule_count", 0) + 1
+            booking.metadata_json = json.dumps(meta)
+        # Set explicitly so the column's server-side onupdate does not expire it after the flush.
+        booking.updated_at = now
+        note = f"Rescheduled from {previous:%Y-%m-%d %H:%M} UTC to {_utc(scheduled_at):%Y-%m-%d %H:%M} UTC"
+        db.add(
+            BookingStatusHistory(
+                id=str(uuid.uuid4()),
+                booking_id=booking.id,
+                from_status=booking.status,
+                to_status=booking.status,
+                changed_by=user_id,
+                reason=f"{note}: {reason}" if reason else note,
+                created_at=now,
+            )
+        )
+        await db.flush()
+        log.info("booking_rescheduled", booking_id=booking.id, previous=previous.isoformat())
+        return previous
 
     async def complete_booking(self, db: AsyncSession, booking_id: str, user_id: str) -> Booking:
         return await self.transition_status(db, booking_id, BookingStatus.COMPLETED.value, user_id, "Service completed")

@@ -1,4 +1,4 @@
-import { Readable, Transform } from 'node:stream';
+import { Readable } from 'node:stream';
 import type { Request, Response } from 'express';
 import type { CircuitBreaker } from './circuitBreaker.js';
 import type { Upstream } from './config.js';
@@ -60,6 +60,18 @@ function hasBody(req: Request): boolean {
   return req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length'] ?? 0) > 0;
 }
 
+/** The whole body, or null once it passes `max` bytes. */
+async function readBody(req: Request, max: number): Promise<Buffer | null> {
+  const chunks: Buffer[] = [];
+  let seen = 0;
+  for await (const chunk of req as AsyncIterable<Buffer>) {
+    seen += chunk.length;
+    if (seen > max) return null;
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 function retriable(req: Request, err: unknown, sentBody: boolean): boolean {
   if (sentBody || !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return false;
   if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) return false;
@@ -76,6 +88,22 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
     return;
   }
 
+  // Read up front rather than streamed: when a service answers 401 to a streamed body, fetch tries
+  // to replay it for authentication, cannot, and fails the whole request as a network error. Bodies
+  // are capped by `max`, so holding one in memory is bounded.
+  let body: Buffer | undefined;
+  if (hasBody(req)) {
+    try {
+      body = (await readBody(req, max)) ?? undefined;
+    } catch {
+      return; // client disconnected mid-body; nothing to answer
+    }
+    if (!body) {
+      tooLarge(res, max);
+      return;
+    }
+  }
+
   if (!breaker.tryAcquire()) {
     metrics?.record(0, true);
     res.setHeader('Retry-After', Math.ceil(breaker.retryAfterMs() / 1000).toString());
@@ -90,32 +118,15 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
   });
 
   let upstreamResponse: globalThis.Response;
-  let bodyTooLarge = false;
   const started = performance.now();
   try {
-    const init: RequestInit & { duplex?: 'half' } = {
+    const init: RequestInit = {
       method: req.method,
       headers: requestHeaders(req, opts.requestId),
       redirect: 'manual',
       signal: AbortSignal.any([AbortSignal.timeout(opts.timeoutMs), clientGone.signal]),
+      body,
     };
-    if (hasBody(req)) {
-      // A chunked body has no length up front: count it as it streams and stop at the limit.
-      let seen = 0;
-      const counted = req.pipe(
-        new Transform({
-          transform(chunk: Buffer, _encoding, done) {
-            seen += chunk.length;
-            if (seen > max) {
-              bodyTooLarge = true;
-              done(new Error('body too large'));
-            } else done(null, chunk);
-          },
-        }),
-      );
-      init.body = Readable.toWeb(counted) as ReadableStream;
-      init.duplex = 'half';
-    }
     const url = upstream.url + opts.path + query;
     try {
       upstreamResponse = await fetch(url, init);
@@ -127,11 +138,6 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
     }
   } catch (err) {
     if (clientGone.signal.aborted) return; // client disconnected; nothing to answer
-    if (bodyTooLarge) {
-      breaker.onSuccess(); // the service is fine; the client sent too much
-      tooLarge(res, max);
-      return;
-    }
     breaker.onFailure();
     metrics?.record(performance.now() - started, true);
     const timedOut = err instanceof Error && err.name === 'TimeoutError';
@@ -161,7 +167,7 @@ export async function proxyRequest(req: Request, res: Response, opts: ProxyOptio
     res.end();
     return;
   }
-  const body = Readable.fromWeb(upstreamResponse.body as import('node:stream/web').ReadableStream);
-  body.on('error', () => res.destroy());
-  body.pipe(res);
+  const responseBody = Readable.fromWeb(upstreamResponse.body as import('node:stream/web').ReadableStream);
+  responseBody.on('error', () => res.destroy());
+  responseBody.pipe(res);
 }

@@ -33,9 +33,9 @@ token is rejected the app returns to the sign-in screen.
 Live tracking needs a Google Maps key: set `GOOGLE_MAPS_API_KEY` in `android/local.properties` or the
 environment.
 
-For local development, start auth_service with `LOG_OTP_CODES=true` to read sign-up and password-reset
-codes from its log instead of configuring Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
-`TWILIO_FROM_NUMBER`).
+For local development, `make dev` starts auth_service with `LOG_OTP_CODES=true`, so sign-up and
+password-reset codes appear in `docker compose logs auth_service` instead of needing an SMS provider
+(MSG91 or Twilio).
 
 ## Architecture
 

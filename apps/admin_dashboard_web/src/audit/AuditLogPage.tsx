@@ -212,7 +212,7 @@ export default function AuditLogPage() {
           </button>
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Audit log entries"
         columns={columns}
         rows={logs}

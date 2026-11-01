@@ -770,7 +770,7 @@
   "faqCancelQ": "How do I cancel a booking?",
   "faqCancelA": "Open Bookings and tap Cancel booking on it. You can cancel until the provider is on the way.",
   "faqRescheduleQ": "Can I change the time of a booking?",
-  "faqRescheduleA": "Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.",
+  "faqRescheduleA": "Yes. Open the booking and tap Change time. You can do it twice per booking, up to 2 hours before it starts, until a professional has been assigned. After that, message the shop from the booking's chat.",
   "faqPayQ": "When and how do I pay?",
   "faqPayA": "Nothing is paid when you book. Once the shop confirms, tap Pay on the booking to pay online by UPI, card or net banking (through Razorpay), or choose to pay in cash when the job is done.",
   "faqRefundQ": "How do refunds work?",
@@ -995,5 +995,423 @@
       }
     }
   },
-  "travelNoAddress": "This shop hasn't added its address yet. Contact them for directions."
+  "travelNoAddress": "This shop hasn't added its address yet. Contact them for directions.",
+  "rescheduleBooking": "Change time",
+  "rescheduleTitle": "Change booking time",
+  "rescheduleCurrent": "Now booked for {when}",
+  "@rescheduleCurrent": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "rescheduleRule": "You can change the time up to 2 hours before the booking starts. Changes left: {count}.",
+  "@rescheduleRule": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rescheduleConfirm": "Confirm new time",
+  "rescheduling": "Changing time…",
+  "bookingRescheduled": "Booking moved to {when}",
+  "@bookingRescheduled": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "bookAgain": "Book again",
+  "saveShop": "Save shop",
+  "unsaveShop": "Remove from saved shops",
+  "shopSaved": "Shop saved",
+  "shopUnsaved": "Removed from saved shops",
+  "savedShops": "Saved shops",
+  "noSavedShops": "No saved shops yet. Tap the heart on a service to save its shop.",
+  "shopNoServices": "This shop has no services to book right now.",
+  "tipAdd": "Add a tip",
+  "tipTitle": "Tip your professional",
+  "tipBody": "100% of your tip goes to the professional who served you, paid online.",
+  "tipOther": "Other amount (₹)",
+  "tipRange": "Enter ₹10 to ₹2,000",
+  "tipPay": "Tip {amount}",
+  "@tipPay": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "tipThanks": "You tipped {amount}. Thank you!",
+  "@tipThanks": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "rewardsTitle": "Rewards",
+  "pointsBalance": "{count} points",
+  "@pointsBalance": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsWorth": "Worth {amount} on your next bookings",
+  "@pointsWorth": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "pointsRules": "Earn {earn} points for every ₹100 you pay. Points pay up to {percent}% of a booking.",
+  "@pointsRules": {
+    "placeholders": {
+      "earn": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "referralTitle": "Invite friends",
+  "referralBody": "Share your code. When a friend's first booking is done, you both get {bonus} points.",
+  "@referralBody": {
+    "placeholders": {
+      "bonus": {
+        "type": "String"
+      }
+    }
+  },
+  "referralCopy": "Copy code",
+  "referralCopied": "Code copied",
+  "referralShare": "Share on WhatsApp",
+  "referralShareText": "Book salons and services on AlakhService with my code {code}: we both get {bonus} points after your first booking.",
+  "@referralShareText": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "bonus": {
+        "type": "String"
+      }
+    }
+  },
+  "referralFriends": "{rewarded} friends booked · {pending} yet to book",
+  "@referralFriends": {
+    "placeholders": {
+      "rewarded": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
+  "referralEnterTitle": "Got a friend's code?",
+  "referralCodeLabel": "Referral code",
+  "pointsHistory": "Points history",
+  "pointsEarned": "Earned on a booking",
+  "pointsSpent": "Used on a booking",
+  "pointsReturned": "Returned (booking cancelled)",
+  "pointsReferral": "Referral bonus",
+  "pointsTakenBack": "Taken back (booking refunded)",
+  "usePoints": "Use my points",
+  "usePointsSaving": "Save {amount} · {points} points available",
+  "@usePointsSaving": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsLine": "Points",
+  "pointsUsed": "Points used: {amount}",
+  "@pointsUsed": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "packagesTitle": "Packages",
+  "packageTerms": "{visits} visits · valid {days} days",
+  "@packageTerms": {
+    "placeholders": {
+      "visits": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "packageSaving": "save {amount}",
+  "@packageSaving": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "packageBuy": "Buy {amount}",
+  "@packageBuy": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "packageBought": "{name} is ready. Choose it when you book.",
+  "@packageBought": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myPackages": "My packages",
+  "noPackages": "No packages yet. Services that offer one show it on their page.",
+  "packageVisitsLeft": "{left} of {total} visits left",
+  "@packageVisitsLeft": {
+    "placeholders": {
+      "left": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "packageValidUntil": "valid until {date}",
+  "@packageValidUntil": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "packageRefunded": "Refunded",
+  "packageUsedUp": "Used up or expired",
+  "usePackage": "Use my package",
+  "usePackageLeft": "{name} · {left} visits left",
+  "@usePackageLeft": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "left": {
+        "type": "int"
+      }
+    }
+  },
+  "packageLine": "Package visit",
+  "waitlistJoin": "Tell me if a time opens",
+  "waitlistJoined": "We'll tell you if a time opens up on this day.",
+  "whoQuestion": "Who would you like?",
+  "anyProfessional": "Anyone",
+  "professionalNote": "The shop does its best to give you the person you choose.",
+  "askedFor": "You asked for {name}",
+  "@askedFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueTitle": "Live queue at the shop",
+  "liveQueueWait": "About {time} to wait",
+  "@liveQueueWait": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueBeingServed": "Being served now: {count}",
+  "@liveQueueBeingServed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "liveQueueRunningLate": "The shop is running about {minutes} min late",
+  "@liveQueueRunningLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "liveQueueGoIn": "Please go to the shop's counter now.",
+  "liveQueueInProgress": "Your service is in progress",
+  "liveQueueShort": "#{position} in line · {wait}",
+  "@liveQueueShort": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "wait": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueBetween": "Expected between {from} and {to}",
+  "@liveQueueBetween": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueWith": "With {name}",
+  "@liveQueueWith": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "liveQueueCheckIn": "I'm here",
+  "liveQueueCheckedIn": "You're checked in",
+  "liveQueueCheckInNeeded": "You're past your time. Check in when you arrive to rejoin the line.",
+  "liveQueueUnservable": "The shop can't fit this in today. Please contact the shop or book another day.",
+  "liveQueueStaffAway": "Your chosen professional is away today, so someone else will serve you.",
+  "joinLineNow": "Join today's line now",
+  "joinLineNote": "No booked time needed: you get a place and a wait straight away.",
+  "joinLineDone": "You're in line",
+  "joinLineDoneBody": "#{position} in line, expected around {time}.",
+  "@joinLineDoneBody": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "joinLineSeeBookings": "See my bookings",
+  "navShopLine": "My shop",
+  "shopLineTitle": "Today's line",
+  "shopLineEmpty": "Nobody is in line right now.",
+  "shopLineWaiting": "{count, plural, =0{Nobody waiting} =1{1 waiting} other{{count} waiting}}",
+  "@shopLineWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "shopLineTeam": "Team today",
+  "shopLineFree": "Free",
+  "shopLineServing": "Serving {name}",
+  "@shopLineServing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shopLineOnBreak": "On a break until {time}",
+  "@shopLineOnBreak": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "shopLineOffToday": "Off today",
+  "shopLineNext": "Next customer",
+  "shopLineDone": "Done",
+  "shopLineBreak": "Break 15 min",
+  "shopLineOff": "Off today",
+  "shopLineBack": "Back",
+  "shopLineStart": "Start",
+  "shopLineNoShow": "No-show",
+  "shopLineCheckIn": "Check in",
+  "shopLineNow": "Now",
+  "shopLineWalkIn": "Walk-in",
+  "shopLineAddWalkIn": "Add a walk-in",
+  "shopLineWalkInName": "Name to call out",
+  "shopLineService": "Service",
+  "shopLineAdd": "Add",
+  "shopLineAdded": "{name} is #{position} in line",
+  "@shopLineAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "position": {
+        "type": "int"
+      }
+    }
+  },
+  "shopLineLate": "{minutes} min late",
+  "@shopLineLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "homeArrivalTitle": "Your home visit",
+  "homeArrivalAround": "Your professional arrives around {time}",
+  "@homeArrivalAround": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalBetween": "Between {from} and {to}",
+  "@homeArrivalBetween": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalOnTheWay": "On the way, arriving around {time}",
+  "@homeArrivalOnTheWay": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "homeArrivalHere": "Your professional is with you",
+  "homeArrivalBefore": "{count, plural, =0{You're their first visit} =1{1 visit before yours} other{{count} visits before yours}}",
+  "@homeArrivalBefore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeArrivalLate": "Running about {minutes} min behind your booked time",
+  "@homeArrivalLate": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  }
 }

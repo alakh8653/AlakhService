@@ -189,7 +189,7 @@ export default function PayoutsPanel() {
           </button>
         </p>
       )}
-      <DataTable
+      <DataTable failed={!!error}
         label="Payouts"
         columns={columns}
         rows={payouts}

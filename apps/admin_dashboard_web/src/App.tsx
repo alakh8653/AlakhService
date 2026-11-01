@@ -70,7 +70,8 @@ export default function App() {
         <AdminSidebar open={menuOpen} onClose={closeMenu} />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <AdminHeader menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
-          <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 sm:p-6 focus:outline-none">
+          {/* relative: absolutely positioned bits inside (e.g. sr-only labels) scroll with it instead of stretching the page */}
+          <main id="main" tabIndex={-1} className="relative flex-1 overflow-y-auto p-4 sm:p-6 focus:outline-none">
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 {/* Disputes are the queue staff act on, so that is where the dashboard opens. */}

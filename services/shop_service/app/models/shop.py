@@ -99,6 +99,9 @@ class StaffMember(Base):
     phone = Column(String, nullable=True)
     role = Column(String, nullable=False, default="staff")
     service_ids = Column(Text, nullable=False, default="[]")  # JSON list of service listing ids
+    # JSON week like the shop's ([{"day": 0, "intervals": [{"start": "09:00", "end": "14:00"}]}], days left
+    # out are off); null means they work whenever the shop is open.
+    working_hours = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -138,3 +141,16 @@ class ReviewReport(Base):
     reporter_id = Column(String, nullable=False)
     reason = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class FavoriteShop(Base):
+    """A shop a customer has saved, to find it again and book it quickly."""
+
+    __tablename__ = "favorite_shops"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False, index=True)
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "shop_id", name="uq_favorite_shops_user_shop"),)

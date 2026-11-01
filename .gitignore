@@ -552,6 +552,8 @@ Thumbs.db
 .AppleDouble
 .LSOverride
 Icon?
+# On Windows (case-insensitive) Icon? also matches the app's icons folder.
+!apps/mobile_app/assets/icons/
 .DocumentRevisions-V100
 .fseventsd
 .VolumeIcon.icns

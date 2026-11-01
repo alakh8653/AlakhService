@@ -480,6 +480,10 @@ responses, Redis errors, public HTTPS checks, CPU, memory, disk and certificate 
 | BackupTooOld / BackupMetricMissing | no verified backup for 50 h | `make prod-logs S=backup`, `make prod-backup` |
 | DiskAlmostFull | < 15% disk free | `docker image prune -a`, old backups, bigger disk |
 | MemoryLow | < 10% memory available | `docker stats`; consider a bigger server |
+| QueueSlow | a live-queue page's p95 > 300 ms for 10 min | `make prod-logs S=booking_service`, database load |
+| QueueNotificationsFailing | > 5% of queue messages not handed to notification_service | `make prod-logs S=notification_service` |
+| BookingWorkerSlow / BookingWorkerStopped | the every-minute pass takes > 20 s, or every pass fails for 5 min | `make prod-logs S=booking_service` (`booking_worker_failed`) |
+| QueueWaitsOff | a shop's starts average > 15 min from what customers were told, over a day | ask the shop to check its service lengths and team |
 
 **Telegram alerts:** talk to [@BotFather](https://t.me/BotFather), `/newbot`, copy the token into
 `TELEGRAM_BOT_TOKEN`. Send your new bot any message, open

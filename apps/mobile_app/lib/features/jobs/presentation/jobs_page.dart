@@ -6,19 +6,22 @@ import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../booking/data/home_arrival_api.dart';
 import '../../booking/domain/entities/booking.dart';
 import '../../tracking/data/tracking_api.dart';
 import '../data/jobs_api.dart';
 import '../../../shared/widgets/location_rationale.dart';
 import '../data/location_reporter.dart';
 
-/// A provider's assigned jobs: move each one along, and share location while one is under way.
+/// A provider's assigned jobs: move each one along, and share location while one is under way. Home
+/// visits today show when to set off and the drive (their route, planned by booking_service).
 class JobsPage extends StatefulWidget {
   final String providerId;
   final JobsApi? jobsApi;
   final LocationReporter? reporter;
+  final HomeArrivalApi? routeApi;
 
-  const JobsPage({super.key, required this.providerId, this.jobsApi, this.reporter});
+  const JobsPage({super.key, required this.providerId, this.jobsApi, this.reporter, this.routeApi});
 
   @override
   State<JobsPage> createState() => _JobsPageState();
@@ -34,6 +37,7 @@ class _JobsPageState extends State<JobsPage> {
         onState: _onSharing,
       );
   List<Booking>? _jobs;
+  Map<String, RouteStop> _route = const {};
   String? _error;
   String? _busyId;
   SharingState _sharing = SharingState.off;
@@ -64,9 +68,12 @@ class _JobsPageState extends State<JobsPage> {
     try {
       final jobs = await _api.list();
       jobs.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      final routeApi = widget.routeApi ?? (sl.isRegistered<HomeArrivalApi>() ? sl<HomeArrivalApi>() : null);
+      final route = await routeApi?.myRoute().catchError((Object _) => <String, RouteStop>{}) ?? const {};
       if (!mounted) return;
       setState(() {
         _jobs = jobs;
+        _route = route;
         _error = null;
       });
       _updateSharing();
@@ -122,7 +129,7 @@ class _JobsPageState extends State<JobsPage> {
               const Text('Current', style: AppTextStyles.subtitle1),
               const SizedBox(height: 8),
               for (final job in active)
-                _JobCard(job: job, busy: _busyId == job.id, onAdvance: (step) => _advance(job, step)),
+                _JobCard(job: job, stop: _route[job.id], busy: _busyId == job.id, onAdvance: (step) => _advance(job, step)),
             ],
             if (earlier.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -164,10 +171,11 @@ class _SharingBanner extends StatelessWidget {
 
 class _JobCard extends StatelessWidget {
   final Booking job;
+  final RouteStop? stop;
   final bool busy;
   final ValueChanged<JobStep> onAdvance;
 
-  const _JobCard({required this.job, required this.busy, required this.onAdvance});
+  const _JobCard({required this.job, this.stop, required this.busy, required this.onAdvance});
 
   static const _labels = {
     BookingStatus.pending: 'Awaiting confirmation',
@@ -212,6 +220,20 @@ class _JobCard extends StatelessWidget {
             if (job.notes != null) ...[
               const SizedBox(height: 4),
               Text(job.notes!, style: AppTextStyles.caption.themed(context)),
+            ],
+            if (stop case final s? when job.status == BookingStatus.assigned) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(Icons.directions_car_outlined, size: 16, color: context.colors.primary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Leave by ${DateFormat('h:mm a').format(s.leaveAt)} · ${s.travelMinutes} min drive'
+                    '${s.lateMinutes > 0 ? ' · arriving ${s.lateMinutes} min late' : ''}',
+                    style: AppTextStyles.body2.copyWith(color: s.lateMinutes > 0 ? context.colors.error : context.colors.primary),
+                  ),
+                ),
+              ]),
             ],
             if (step != null) ...[
               const SizedBox(height: 12),

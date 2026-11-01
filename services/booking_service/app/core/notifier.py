@@ -12,6 +12,7 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.core import metrics
 
 log = structlog.get_logger()
 
@@ -35,8 +36,12 @@ class Notifier:
                     headers={"X-Internal-Key": self.key},
                 )
             if resp.status_code >= 400:
+                metrics.NOTIFICATIONS.labels(event, "rejected").inc()
                 log.warning("notify_rejected", notify_event=event, status=resp.status_code)
+            else:
+                metrics.NOTIFICATIONS.labels(event, "sent").inc()
         except httpx.HTTPError as e:
+            metrics.NOTIFICATIONS.labels(event, "failed").inc()
             log.warning("notify_failed", notify_event=event, error=str(e))
 
 
@@ -44,7 +49,7 @@ def get_notifier() -> Notifier:
     return Notifier(settings.NOTIFICATION_SERVICE_URL, settings.INTERNAL_API_KEY)
 
 
-def _when(at: datetime) -> str:
+def when(at: datetime) -> str:
     return at.astimezone(ZoneInfo(settings.DISPLAY_TIMEZONE)).strftime("%d %b, %I:%M %p")
 
 
@@ -57,8 +62,8 @@ def snapshot(booking, service_name: Optional[str] = None) -> dict:
         "customer_id": booking.customer_id,
         "provider_id": booking.provider_id,
         "shop_id": booking.shop_id,
-        "scheduled_at": _when(booking.scheduled_at),
-        "ready_by": _when(booking.ready_by) if getattr(booking, "ready_by", None) else None,
+        "scheduled_at": when(booking.scheduled_at),
+        "ready_by": when(booking.ready_by) if getattr(booking, "ready_by", None) else None,
         "service_name": service_name,
     }
 
@@ -82,7 +87,8 @@ async def notify_booking(
     recipients, seen = [], {actor_id}
     for role in roles:
         user_id = people.get(role)
-        if user_id and user_id not in seen:
+        # A walk-in without an account (live_queue.WALK_IN_PREFIX) has nobody to tell.
+        if user_id and user_id not in seen and not user_id.startswith("walk-in:"):
             seen.add(user_id)
             recipients.append({"user_id": user_id, "role": role})
     data = {k: booking[k] for k in ("booking_id", "booking_number", "scheduled_at", "service_name")}

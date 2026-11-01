@@ -1302,7 +1302,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get faqRescheduleA =>
-      'अभी ऐप में यह सुविधा नहीं है। जब तक हो सके बुकिंग रद्द करें और नया समय बुक करें। अगर प्रोफ़ेशनल रास्ते में है, तो Alakh सपोर्ट से संपर्क करें।';
+      'हाँ। बुकिंग खोलें और \'समय बदलें\' दबाएँ। हर बुकिंग का समय दो बार तक, शुरू होने से 2 घंटे पहले तक बदला जा सकता है, जब तक कोई प्रोफ़ेशनल तय नहीं हुआ है। उसके बाद बुकिंग की चैट से दुकान को मैसेज करें।';
 
   @override
   String get faqPayQ => 'भुगतान कब और कैसे करें?';
@@ -1726,4 +1726,451 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get travelNoAddress =>
       'इस दुकान ने अभी अपना पता नहीं जोड़ा है। रास्ते के लिए उनसे संपर्क करें।';
+
+  @override
+  String get rescheduleBooking => 'समय बदलें';
+
+  @override
+  String get rescheduleTitle => 'बुकिंग का समय बदलें';
+
+  @override
+  String rescheduleCurrent(String when) {
+    return 'अभी $when के लिए बुक है';
+  }
+
+  @override
+  String rescheduleRule(int count) {
+    return 'बुकिंग शुरू होने से 2 घंटे पहले तक आप समय बदल सकते हैं। बचे हुए बदलाव: $count।';
+  }
+
+  @override
+  String get rescheduleConfirm => 'नया समय पक्का करें';
+
+  @override
+  String get rescheduling => 'समय बदला जा रहा है…';
+
+  @override
+  String bookingRescheduled(String when) {
+    return 'बुकिंग $when पर कर दी गई';
+  }
+
+  @override
+  String get bookAgain => 'फिर से बुक करें';
+
+  @override
+  String get saveShop => 'दुकान सेव करें';
+
+  @override
+  String get unsaveShop => 'सेव की गई दुकानों से हटाएँ';
+
+  @override
+  String get shopSaved => 'दुकान सेव हो गई';
+
+  @override
+  String get shopUnsaved => 'सेव की गई दुकानों से हटाई गई';
+
+  @override
+  String get savedShops => 'सेव की गई दुकानें';
+
+  @override
+  String get noSavedShops =>
+      'अभी कोई दुकान सेव नहीं है। किसी सेवा पर दिल वाले बटन को दबाकर उसकी दुकान सेव करें।';
+
+  @override
+  String get shopNoServices =>
+      'इस दुकान में अभी बुक करने के लिए कोई सेवा नहीं है।';
+
+  @override
+  String get tipAdd => 'टिप दें';
+
+  @override
+  String get tipTitle => 'अपने प्रोफ़ेशनल को टिप दें';
+
+  @override
+  String get tipBody =>
+      'आपकी पूरी टिप उस प्रोफ़ेशनल को जाती है जिसने आपकी सेवा की। भुगतान ऑनलाइन होता है।';
+
+  @override
+  String get tipOther => 'दूसरी रकम (₹)';
+
+  @override
+  String get tipRange => '₹10 से ₹2,000 तक डालें';
+
+  @override
+  String tipPay(String amount) {
+    return '$amount टिप दें';
+  }
+
+  @override
+  String tipThanks(String amount) {
+    return 'आपने $amount की टिप दी। धन्यवाद!';
+  }
+
+  @override
+  String get rewardsTitle => 'रिवॉर्ड';
+
+  @override
+  String pointsBalance(int count) {
+    return '$count पॉइंट';
+  }
+
+  @override
+  String pointsWorth(String amount) {
+    return 'अगली बुकिंग पर $amount की छूट';
+  }
+
+  @override
+  String pointsRules(String earn, String percent) {
+    return 'हर ₹100 के भुगतान पर $earn पॉइंट पाएँ। पॉइंट से बुकिंग का $percent% तक भुगतान हो सकता है।';
+  }
+
+  @override
+  String get referralTitle => 'दोस्तों को बुलाएँ';
+
+  @override
+  String referralBody(String bonus) {
+    return 'अपना कोड शेयर करें। दोस्त की पहली बुकिंग पूरी होने पर आप दोनों को $bonus पॉइंट मिलेंगे।';
+  }
+
+  @override
+  String get referralCopy => 'कोड कॉपी करें';
+
+  @override
+  String get referralCopied => 'कोड कॉपी हो गया';
+
+  @override
+  String get referralShare => 'WhatsApp पर शेयर करें';
+
+  @override
+  String referralShareText(String code, String bonus) {
+    return 'मेरे कोड $code से AlakhService पर सैलून और सेवाएँ बुक करें: आपकी पहली बुकिंग के बाद हम दोनों को $bonus पॉइंट मिलेंगे।';
+  }
+
+  @override
+  String referralFriends(int rewarded, int pending) {
+    return '$rewarded दोस्तों ने बुक किया · $pending ने अभी नहीं';
+  }
+
+  @override
+  String get referralEnterTitle => 'क्या किसी दोस्त का कोड है?';
+
+  @override
+  String get referralCodeLabel => 'रेफ़रल कोड';
+
+  @override
+  String get pointsHistory => 'पॉइंट का इतिहास';
+
+  @override
+  String get pointsEarned => 'बुकिंग पर मिले';
+
+  @override
+  String get pointsSpent => 'बुकिंग में इस्तेमाल';
+
+  @override
+  String get pointsReturned => 'वापस मिले (बुकिंग रद्द)';
+
+  @override
+  String get pointsReferral => 'रेफ़रल बोनस';
+
+  @override
+  String get pointsTakenBack => 'वापस लिए गए (रिफ़ंड)';
+
+  @override
+  String get usePoints => 'मेरे पॉइंट इस्तेमाल करें';
+
+  @override
+  String usePointsSaving(String amount, int points) {
+    return '$amount बचाएँ · $points पॉइंट उपलब्ध';
+  }
+
+  @override
+  String get pointsLine => 'पॉइंट';
+
+  @override
+  String pointsUsed(String amount) {
+    return 'इस्तेमाल हुए पॉइंट: $amount';
+  }
+
+  @override
+  String get packagesTitle => 'पैकेज';
+
+  @override
+  String packageTerms(int visits, int days) {
+    return '$visits विज़िट · $days दिन तक मान्य';
+  }
+
+  @override
+  String packageSaving(String amount) {
+    return '$amount की बचत';
+  }
+
+  @override
+  String packageBuy(String amount) {
+    return '$amount में खरीदें';
+  }
+
+  @override
+  String packageBought(String name) {
+    return '$name तैयार है। बुक करते समय इसे चुनें।';
+  }
+
+  @override
+  String get myPackages => 'मेरे पैकेज';
+
+  @override
+  String get noPackages =>
+      'अभी कोई पैकेज नहीं है। जिन सेवाओं में पैकेज है, वे उनके पेज पर दिखते हैं।';
+
+  @override
+  String packageVisitsLeft(int left, int total) {
+    return '$total में से $left विज़िट बाकी';
+  }
+
+  @override
+  String packageValidUntil(String date) {
+    return '$date तक मान्य';
+  }
+
+  @override
+  String get packageRefunded => 'रिफ़ंड हो गया';
+
+  @override
+  String get packageUsedUp => 'इस्तेमाल हो चुका या समय खत्म';
+
+  @override
+  String get usePackage => 'मेरा पैकेज इस्तेमाल करें';
+
+  @override
+  String usePackageLeft(String name, int left) {
+    return '$name · $left विज़िट बाकी';
+  }
+
+  @override
+  String get packageLine => 'पैकेज विज़िट';
+
+  @override
+  String get waitlistJoin => 'कोई समय खाली हो तो बताएँ';
+
+  @override
+  String get waitlistJoined => 'इस दिन कोई समय खाली होने पर हम आपको बताएँगे।';
+
+  @override
+  String get whoQuestion => 'आप किससे करवाना चाहेंगे?';
+
+  @override
+  String get anyProfessional => 'कोई भी';
+
+  @override
+  String get professionalNote =>
+      'दुकान आपकी चुनी हुई व्यक्ति देने की पूरी कोशिश करती है।';
+
+  @override
+  String askedFor(String name) {
+    return 'आपने $name को चुना';
+  }
+
+  @override
+  String get liveQueueTitle => 'दुकान पर लाइव कतार';
+
+  @override
+  String liveQueueWait(String time) {
+    return 'लगभग $time इंतज़ार';
+  }
+
+  @override
+  String liveQueueBeingServed(int count) {
+    return 'अभी सेवा में: $count';
+  }
+
+  @override
+  String liveQueueRunningLate(int minutes) {
+    return 'दुकान लगभग $minutes मिनट देरी से चल रही है';
+  }
+
+  @override
+  String get liveQueueGoIn => 'कृपया अभी दुकान के काउंटर पर जाएँ।';
+
+  @override
+  String get liveQueueInProgress => 'आपकी सेवा चल रही है';
+
+  @override
+  String liveQueueShort(int position, String wait) {
+    return 'कतार में #$position · $wait';
+  }
+
+  @override
+  String liveQueueBetween(String from, String to) {
+    return '$from से $to के बीच अपेक्षित';
+  }
+
+  @override
+  String liveQueueWith(String name) {
+    return '$name के साथ';
+  }
+
+  @override
+  String get liveQueueCheckIn => 'मैं आ गया/गई हूँ';
+
+  @override
+  String get liveQueueCheckedIn => 'आपका चेक-इन हो गया है';
+
+  @override
+  String get liveQueueCheckInNeeded =>
+      'आपका समय निकल गया है। पहुँचने पर चेक-इन करें, आप फिर से कतार में आ जाएँगे।';
+
+  @override
+  String get liveQueueUnservable =>
+      'दुकान आज इसे नहीं कर पाएगी। कृपया दुकान से संपर्क करें या किसी और दिन बुक करें।';
+
+  @override
+  String get liveQueueStaffAway =>
+      'आपके चुने हुए प्रोफ़ेशनल आज उपलब्ध नहीं हैं, इसलिए कोई और आपकी सेवा करेगा।';
+
+  @override
+  String get joinLineNow => 'अभी आज की कतार में जुड़ें';
+
+  @override
+  String get joinLineNote =>
+      'बुकिंग समय की ज़रूरत नहीं: आपको तुरंत जगह और इंतज़ार का समय मिलेगा।';
+
+  @override
+  String get joinLineDone => 'आप कतार में हैं';
+
+  @override
+  String joinLineDoneBody(int position, String time) {
+    return 'कतार में #$position, लगभग $time बजे अपेक्षित।';
+  }
+
+  @override
+  String get joinLineSeeBookings => 'मेरी बुकिंग देखें';
+
+  @override
+  String get navShopLine => 'मेरी दुकान';
+
+  @override
+  String get shopLineTitle => 'आज की कतार';
+
+  @override
+  String get shopLineEmpty => 'अभी कतार में कोई नहीं है।';
+
+  @override
+  String shopLineWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count इंतज़ार में',
+      one: '1 इंतज़ार में',
+      zero: 'कोई इंतज़ार में नहीं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get shopLineTeam => 'आज की टीम';
+
+  @override
+  String get shopLineFree => 'खाली';
+
+  @override
+  String shopLineServing(String name) {
+    return '$name की सेवा';
+  }
+
+  @override
+  String shopLineOnBreak(String time) {
+    return '$time तक ब्रेक पर';
+  }
+
+  @override
+  String get shopLineOffToday => 'आज छुट्टी';
+
+  @override
+  String get shopLineNext => 'अगला ग्राहक';
+
+  @override
+  String get shopLineDone => 'हो गया';
+
+  @override
+  String get shopLineBreak => '15 मिनट ब्रेक';
+
+  @override
+  String get shopLineOff => 'आज छुट्टी';
+
+  @override
+  String get shopLineBack => 'वापस';
+
+  @override
+  String get shopLineStart => 'शुरू करें';
+
+  @override
+  String get shopLineNoShow => 'नहीं आए';
+
+  @override
+  String get shopLineCheckIn => 'चेक-इन';
+
+  @override
+  String get shopLineNow => 'अभी';
+
+  @override
+  String get shopLineWalkIn => 'बिना बुकिंग';
+
+  @override
+  String get shopLineAddWalkIn => 'बिना बुकिंग ग्राहक जोड़ें';
+
+  @override
+  String get shopLineWalkInName => 'बुलाने के लिए नाम';
+
+  @override
+  String get shopLineService => 'सेवा';
+
+  @override
+  String get shopLineAdd => 'जोड़ें';
+
+  @override
+  String shopLineAdded(String name, int position) {
+    return '$name कतार में #$position पर हैं';
+  }
+
+  @override
+  String shopLineLate(int minutes) {
+    return '$minutes मिनट देर';
+  }
+
+  @override
+  String get homeArrivalTitle => 'आपकी होम विज़िट';
+
+  @override
+  String homeArrivalAround(String time) {
+    return 'आपके प्रोफ़ेशनल लगभग $time बजे पहुँचेंगे';
+  }
+
+  @override
+  String homeArrivalBetween(String from, String to) {
+    return '$from से $to के बीच';
+  }
+
+  @override
+  String homeArrivalOnTheWay(String time) {
+    return 'रास्ते में हैं, लगभग $time बजे पहुँचेंगे';
+  }
+
+  @override
+  String get homeArrivalHere => 'आपके प्रोफ़ेशनल आपके पास हैं';
+
+  @override
+  String homeArrivalBefore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'आपसे पहले $count विज़िट',
+      one: 'आपसे पहले 1 विज़िट',
+      zero: 'आप उनकी पहली विज़िट हैं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String homeArrivalLate(int minutes) {
+    return 'आपके बुक किए समय से लगभग $minutes मिनट देर';
+  }
 }

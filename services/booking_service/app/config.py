@@ -9,7 +9,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     DATABASE_URL: str = "postgresql+asyncpg://alakh:alakh_secret@postgres:5432/booking_db"
     REDIS_URL: str = "redis://redis:6379/2"
+    # Live queue screens on every replica refresh when the line changes on any (Redis pub/sub); off, each
+    # refreshes on its own changes and every few seconds.
+    QUEUE_PUBSUB: bool = False
     SHOP_SERVICE_URL: str = "http://shop_service:8000"
+    USER_SERVICE_URL: str = "http://user_service:8000"
     SERVICE_CATALOG_URL: str = "http://service_catalog_service:8000"
     PRICING_ENGINE_URL: str = "http://pricing_engine:8000"
     NOTIFICATION_SERVICE_URL: str = "http://notification_service:8000"
@@ -38,6 +42,14 @@ class Settings(BaseSettings):
     # A PENDING booking the shop has not confirmed this long after it was made (or by its start time)
     # is cancelled and refunded.
     EXPIRE_PENDING_AFTER_HOURS: float = 12
+    # This long after a completed visit the customer is asked once whether to book it again (0: never),
+    # unless they already have; visits older than this plus REBOOK_REMINDER_WINDOW_DAYS are left alone.
+    REBOOK_REMINDER_DAYS: int = 28
+    REBOOK_REMINDER_WINDOW_DAYS: int = 14
+    # On the day of a visit at the shop: tell the customer when their estimated wait is this short, and
+    # when the shop is running this many minutes behind their booked time (0: never), once each.
+    TURN_SOON_MINUTES: int = 15
+    RUNNING_LATE_MINUTES: int = 15
     # Times in notifications are shown in this zone.
     DISPLAY_TIMEZONE: str = "Asia/Kolkata"
     # Browsers talk to the gateway, never to a service directly, so no cross-origin access by default.

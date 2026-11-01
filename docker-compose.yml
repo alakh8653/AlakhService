@@ -143,6 +143,11 @@ services:
       # Terms acceptance at sign-up is recorded in the consent register here.
       COMPLIANCE_SERVICE_URL: http://compliance_service:8000
       USER_SERVICE_URL: http://user_service:8000
+      SHOP_SERVICE_URL: http://shop_service:8000
+      # With no SMS or SMTP set up, log sign-up codes and reset tokens so the apps can be tried
+      # locally (`docker compose logs auth_service`). docker-compose.prod.yml turns both off.
+      LOG_OTP_CODES: ${LOG_OTP_CODES:-true}
+      LOG_PASSWORD_RESET_TOKENS: ${LOG_PASSWORD_RESET_TOKENS:-true}
 
   user_service:
     <<: *python-service
@@ -397,6 +402,22 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Public site (legal pages, account deletion): http://localhost:8080
+  # ---------------------------------------------------------------------------
+
+  site:
+    image: caddy:2.10-alpine
+    container_name: alakh_site
+    restart: unless-stopped
+    networks:
+      - alakhservice_network
+    ports:
+      - "${SERVICE_BIND_ADDRESS:-127.0.0.1}:${SITE_PORT:-8080}:8080"
+    volumes:
+      - ./deploy/site:/srv/site:ro
+      - ./deploy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
 
 volumes:
   postgres_data:

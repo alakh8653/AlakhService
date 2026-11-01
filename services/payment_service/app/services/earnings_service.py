@@ -9,6 +9,7 @@ Statuses: HELD (under dispute), READY (owed, waiting for a payout), PAID (in a p
 REFUNDED (refunded in full, nothing owed either way).
 """
 
+import json
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
@@ -24,12 +25,26 @@ from app.config import settings
 from app.core import money
 from app.core.escrow import escrow_service
 from app.core.ledger import ledger
-from app.models.payment import Account, CommissionRate, Escrow, Payment, Payout, Refund, ShopEarning
+from app.models.payment import (
+    BOOKING,
+    PACKAGE,
+    TIP,
+    Account,
+    CommissionRate,
+    Escrow,
+    PackagePurchase,
+    Payment,
+    Payout,
+    Refund,
+    ShopEarning,
+)
+from app.services import loyalty_service, package_service
 
 log = structlog.get_logger()
 
 DEFAULT_RATE_KEY = "*"
 SALE, ADJUSTMENT = "SALE", "ADJUSTMENT"
+TIP_KIND, TIP_ADJUSTMENT = "TIP", "TIP_ADJUSTMENT"
 ONLINE, CASH = "ONLINE", "CASH"
 HELD, READY, PAID, REFUNDED = "HELD", "READY", "PAID", "REFUNDED"
 GST_ACCOUNT = "gst_payable"
@@ -106,7 +121,11 @@ async def settled_payment(db: AsyncSession, booking_id: str) -> Optional[Payment
     """The payment the booking kept (never a duplicate), if it was paid."""
     result = await db.execute(
         select(Payment)
-        .where(Payment.booking_id == booking_id, Payment.status.in_(SETTLED_PAYMENT_STATUSES))
+        .where(
+            Payment.booking_id == booking_id,
+            Payment.purpose == BOOKING,
+            Payment.status.in_(SETTLED_PAYMENT_STATUSES),
+        )
         .order_by(Payment.created_at)
     )
     payments = list(result.scalars().all())
@@ -123,15 +142,21 @@ async def sale_for(db: AsyncSession, booking_id: str, kind: str = SALE) -> Optio
     return result.scalar_one_or_none()
 
 
-def _apply_split(earning: ShopEarning, gross: int, commission_pct: Decimal, gst_pct: Decimal) -> None:
-    s = money.split(gross, commission_pct, gst_pct)
+def _apply_split(
+    earning: ShopEarning, gross: int, commission_pct: Decimal, gst_pct: Decimal, platform_discount: int = 0
+) -> None:
+    """[gross] is what the customer paid (and kept paid); the platform adds [platform_discount] for their
+    points, so the shop earns on the full price. Nothing is added once the booking is refunded in full."""
+    discount = platform_discount if gross > 0 else 0
+    s = money.split(gross + discount, commission_pct, gst_pct)
     earning.gross_cents = s.gross_cents
     earning.commission_percent = commission_pct
     earning.gst_percent = gst_pct
     earning.commission_cents = s.commission_cents
     earning.gst_cents = s.gst_cents
     earning.net_cents = s.net_cents
-    earning.payout_cents = money.payout_cents(s, earning.collection)
+    earning.platform_discount_cents = discount
+    earning.payout_cents = money.payout_cents(s, earning.collection, discount)
     earning.updated_at = _now()
 
 
@@ -163,10 +188,17 @@ async def settle_booking(
     if existing is not None:
         return existing, False
     payment, collection, gross = await _gross_and_collection(db, booking_id, total_amount)
+    visit = await package_service.redemption_for(db, booking_id) if payment is None else None
+    if visit is not None and visit.status == package_service.USED:
+        # Paid upfront with a package: this visit's share, held by the platform since the purchase.
+        purchase = await db.get(PackagePurchase, visit.purchase_id)
+        payment = await db.get(Payment, purchase.payment_id) if purchase and purchase.payment_id else None
+        collection, gross = ONLINE, visit.visit_value_cents
     shop_id = shop_id or (payment.shop_id if payment else None)
     if not shop_id:
         raise ValueError("The booking has no shop to settle with")
     commission_pct, gst_pct = await rates_for(db, shop_id)
+    points_paid = await loyalty_service.redeemed_cents(db, booking_id)
     earning = ShopEarning(
         id=str(uuid.uuid4()),
         booking_id=booking_id,
@@ -179,7 +211,7 @@ async def settle_booking(
         completed_at=completed_at or _now(),
         created_at=_now(),
     )
-    _apply_split(earning, gross, commission_pct, gst_pct)
+    _apply_split(earning, gross, commission_pct, gst_pct, points_paid)
     if gross <= 0:
         earning.status = REFUNDED
     try:
@@ -192,7 +224,10 @@ async def settle_booking(
             raise
         return again, False
     if collection == ONLINE and payment is not None:
-        await _release_escrow(db, payment, earning)
+        if payment.purpose == PACKAGE:
+            await _pay_from_platform(db, earning, f"Package visit for booking {booking_id}")
+        else:
+            await _release_escrow(db, payment, earning)
     log.info(
         "booking_settled",
         booking_id=booking_id,
@@ -233,6 +268,40 @@ async def _release_escrow(db: AsyncSession, payment: Payment, earning: ShopEarni
         log.warning("escrow_release_failed", payment_id=payment.id, error=str(e))
 
 
+async def _pay_from_platform(db: AsyncSession, earning: ShopEarning, description: str) -> None:
+    """Moves the shop's net and the GST out of the platform's account in the ledger (best effort); for
+    money the platform holds for several bookings at once, such as a package's."""
+    try:
+        async with db.begin_nested():
+            platform = await _account(db, settings.PLATFORM_ACCOUNT_ID, "platform", earning.currency)
+            shop = await _account(db, shop_account_owner(earning.shop_id), "shop", earning.currency)
+            gst = await _account(db, GST_ACCOUNT, "platform", earning.currency)
+            if earning.net_cents > 0:
+                await ledger.transfer(
+                    db,
+                    from_account_id=platform.id,
+                    to_account_id=shop.id,
+                    amount_cents=earning.net_cents,
+                    currency=earning.currency,
+                    description=description,
+                    reference_id=earning.id,
+                    reference_type="package_visit",
+                )
+            if earning.gst_cents > 0:
+                await ledger.transfer(
+                    db,
+                    from_account_id=platform.id,
+                    to_account_id=gst.id,
+                    amount_cents=earning.gst_cents,
+                    currency=earning.currency,
+                    description=f"GST on commission: {description}",
+                    reference_id=earning.id,
+                    reference_type="gst_on_commission",
+                )
+    except Exception as e:  # the earning stands; finance reconciles the ledger
+        log.warning("package_ledger_failed", earning_id=earning.id, error=str(e))
+
+
 async def payment_completed(db: AsyncSession, payment: Payment) -> None:
     """A payment completed for a booking already settled as paid at the shop (the customer paid online
     afterwards): the earning becomes an online one, as long as it has not been paid out."""
@@ -244,32 +313,115 @@ async def payment_completed(db: AsyncSession, payment: Payment) -> None:
         return
     sale.payment_id = payment.id
     sale.collection = CASH if payment.gateway == "cash" else ONLINE
-    _apply_split(sale, payment.amount_cents, Decimal(sale.commission_percent), Decimal(sale.gst_percent))
+    _apply_split(
+        sale,
+        payment.amount_cents,
+        Decimal(sale.commission_percent),
+        Decimal(sale.gst_percent),
+        await loyalty_service.redeemed_cents(db, payment.booking_id),
+    )
     await db.flush()
     if sale.collection == ONLINE:
         await _release_escrow(db, payment, sale)
+
+
+def tip_provider(payment: Payment) -> Optional[str]:
+    """The provider a tip is for, as recorded when the customer started it."""
+    try:
+        return (json.loads(payment.metadata_json) if payment.metadata_json else {}).get("provider_id")
+    except ValueError:
+        return None
+
+
+async def tip_completed(db: AsyncSession, payment: Payment) -> ShopEarning:
+    """A tip paid online: all of it is owed to the shop for the provider (no commission, no GST), in the
+    next payout. Recorded once per booking, like the booking's own sale."""
+    existing = await sale_for(db, payment.booking_id, TIP_KIND)
+    if existing is not None:
+        return existing
+    earning = ShopEarning(
+        id=str(uuid.uuid4()),
+        booking_id=payment.booking_id,
+        kind=TIP_KIND,
+        payment_id=payment.id,
+        shop_id=payment.shop_id,
+        provider_id=tip_provider(payment),
+        collection=ONLINE,
+        currency=payment.currency,
+        status=READY,
+        completed_at=_now(),
+        created_at=_now(),
+    )
+    _apply_split(earning, payment.amount_cents, Decimal(0), Decimal(0))
+    db.add(earning)
+    await db.flush()
+    await _release_escrow(db, payment, earning)
+    log.info("tip_recorded", booking_id=payment.booking_id, shop_id=payment.shop_id, amount_cents=payment.amount_cents)
+    return earning
+
+
+async def _after_tip_refund(db: AsyncSession, payment: Payment) -> None:
+    """A tip refunded: what is owed shrinks, or a tip already paid out is taken back from the next payout."""
+    tip = await sale_for(db, payment.booking_id, TIP_KIND)
+    if tip is None or tip.payment_id != payment.id:
+        return
+    left = payment.amount_cents - await _refunded_cents(db, payment.id)
+    if tip.status != PAID and tip.payout_id is None:
+        _apply_split(tip, left, Decimal(0), Decimal(0))
+        tip.status = REFUNDED if left <= 0 else READY
+        await db.flush()
+        return
+    adjustment = await sale_for(db, payment.booking_id, TIP_ADJUSTMENT)
+    if adjustment is not None and (adjustment.status == PAID or adjustment.payout_id is not None):
+        log.error("tip_refund_after_adjustment_paid_out", booking_id=payment.booking_id)
+        return
+    if adjustment is None:
+        adjustment = ShopEarning(
+            id=str(uuid.uuid4()),
+            booking_id=payment.booking_id,
+            kind=TIP_ADJUSTMENT,
+            payment_id=payment.id,
+            shop_id=tip.shop_id,
+            provider_id=tip.provider_id,
+            collection=ONLINE,
+            currency=tip.currency,
+            status=READY,
+            completed_at=_now(),
+            created_at=_now(),
+        )
+        db.add(adjustment)
+    _apply_split(adjustment, left - tip.gross_cents, Decimal(0), Decimal(0))
+    await db.flush()
 
 
 async def after_refund(db: AsyncSession, payment: Payment) -> None:
     """Brings the booking's earning in line with what is left of its payment after a refund.
 
     Not paid out yet: the earning itself shrinks (REFUNDED when nothing is left). Already paid out: an
-    ADJUSTMENT takes the difference off the shop's next payout.
+    ADJUSTMENT takes the difference off the shop's next payout. A tip's refund changes only the tip.
     """
+    if payment.purpose == TIP:
+        return await _after_tip_refund(db, payment)
+    if payment.purpose == PACKAGE:
+        return  # only unused visits are refunded; the visits already earned stay earned
     sale = await sale_for(db, payment.booking_id)
     if sale is None or sale.payment_id not in (None, payment.id):
         return
     gross = payment.amount_cents - await _refunded_cents(db, payment.id)
     pct, gst_pct = Decimal(sale.commission_percent), Decimal(sale.gst_percent)
+    points_paid = await loyalty_service.redeemed_cents(db, payment.booking_id)
+    if gross <= 0:
+        await loyalty_service.booking_refunded_in_full(db, payment.booking_id)
+    discount = points_paid if gross > 0 else 0
     if sale.status != PAID and sale.payout_id is None:
-        _apply_split(sale, gross, pct, gst_pct)
+        _apply_split(sale, gross, pct, gst_pct, points_paid)
         if gross <= 0:
             sale.status = REFUNDED
         elif sale.status == REFUNDED:  # a refund that failed after all
             sale.status = READY
         await db.flush()
         return
-    owed = money.payout_cents(money.split(gross, pct, gst_pct), sale.collection)
+    owed = money.payout_cents(money.split(gross + discount, pct, gst_pct), sale.collection, discount)
     adjustment = await sale_for(db, payment.booking_id, ADJUSTMENT)
     already = sale.payout_cents + (adjustment.payout_cents if adjustment else 0)
     if owed == already:
@@ -277,7 +429,7 @@ async def after_refund(db: AsyncSession, payment: Payment) -> None:
     if adjustment is not None and (adjustment.status == PAID or adjustment.payout_id is not None):
         log.error("refund_after_adjustment_paid_out", booking_id=payment.booking_id, difference=owed - already)
         return
-    new = money.split(gross, pct, gst_pct)
+    new = money.split(gross + discount, pct, gst_pct)
     old = money.split(sale.gross_cents, pct, gst_pct)
     if adjustment is None:
         adjustment = ShopEarning(
@@ -368,6 +520,10 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
         )
     ).scalar()
     r = money.rupees
+    tips = [e for e in rows if e.kind in (TIP_KIND, TIP_ADJUSTMENT)]
+    by_provider: Dict[Optional[str], int] = defaultdict(int)
+    for e in tips:
+        by_provider[e.provider_id] += e.gross_cents
     return {
         "shop_id": shop_id,
         "currency": "INR",
@@ -380,6 +536,13 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
         "pending_payout": r(sum(e.payout_cents for e in rows if e.status in (HELD, READY))),
         "paid_out": r(sum(e.payout_cents for e in rows if e.status == PAID)),
         "outstanding": r(int(outstanding or 0)),
+        # Tips are in the totals above too (no commission); the shop passes each on to its provider.
+        "tips": r(sum(e.gross_cents for e in tips)),
+        "tips_by_provider": [
+            {"provider_id": p, "amount": r(cents)}
+            for p, cents in sorted(by_provider.items(), key=lambda kv: -kv[1])
+            if cents
+        ],
         "items": [
             {
                 "booking_id": e.booking_id,
@@ -394,6 +557,9 @@ async def earnings_report(db: AsyncSession, shop_id: str, date_from: date, date_
                 "payout_amount": r(e.payout_cents),
                 "commission_percent": float(e.commission_percent),
                 "payout_status": e.status,
+                "provider_id": e.provider_id,
+                # Of gross, what the platform paid for the customer's points.
+                "points_paid_by_platform": r(e.platform_discount_cents or 0),
             }
             for e in rows
         ],

@@ -29,6 +29,9 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const EarningsPage = lazy(() => import('./pages/EarningsPage'));
+const PackagesPage = lazy(() => import('./pages/PackagesPage'));
+const LiveLinePage = lazy(() => import('./pages/LiveLinePage'));
+const BoardPage = lazy(() => import('./pages/BoardPage'));
 
 function PageFallback() {
   return (
@@ -76,7 +79,8 @@ function ProtectedLayout() {
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header onOpenMenu={() => setMenuOpen(true)} menuOpen={menuOpen} />
-        <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 md:p-6 focus:outline-none">
+        {/* relative: absolutely positioned bits inside (e.g. sr-only labels) scroll with it instead of stretching the page */}
+        <main id="main" tabIndex={-1} className="relative flex-1 overflow-y-auto p-4 md:p-6 focus:outline-none">
           {shop && <OnboardingBanner shop={shop} />}
           <Suspense fallback={<PageFallback />}>
             <Routes>
@@ -86,6 +90,8 @@ function ProtectedLayout() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/bookings" element={<BookingsPage />} />
               <Route path="/services" element={<ServicesPage />} />
+              <Route path="/packages" element={<PackagesPage />} />
+              <Route path="/line" element={<LiveLinePage />} />
               <Route path="/queues" element={<QueuesPage />} />
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/hours" element={<OpeningHoursPage />} />
@@ -160,6 +166,15 @@ export default function App() {
         {!isAuthenticated && <Route path="/register" element={<RegisterPage />} />}
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* The screen in the shop: public, no account. */}
+        <Route
+          path="/board/:shopId"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <BoardPage />
+            </Suspense>
+          }
+        />
         <Route
           path="/*"
           element={

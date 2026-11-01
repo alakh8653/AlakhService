@@ -174,11 +174,11 @@ export default function PrivacyRequestsPage() {
       )}
       <section aria-labelledby="exports" className="space-y-2">
         <h2 id="exports" className="text-lg font-semibold text-gray-900">Data exports</h2>
-        <DataTable label="Data exports" columns={columns('export')} rows={exportsList} isLoading={isLoading} emptyMessage="No export requests." />
+        <DataTable failed={!!error} label="Data exports" columns={columns('export')} rows={exportsList} isLoading={isLoading} emptyMessage="No export requests." />
       </section>
       <section aria-labelledby="erasures" className="space-y-2">
         <h2 id="erasures" className="text-lg font-semibold text-gray-900">Account erasures</h2>
-        <DataTable label="Account erasures" columns={columns('erasure')} rows={erasures} isLoading={isLoading} emptyMessage="No erasure requests." />
+        <DataTable failed={!!error} label="Account erasures" columns={columns('erasure')} rows={erasures} isLoading={isLoading} emptyMessage="No erasure requests." />
       </section>
 
       {pending?.action === 'complete' && pending.request.kind === 'export' && (

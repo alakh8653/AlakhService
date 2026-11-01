@@ -161,6 +161,36 @@ describe('sign-in rate limit', () => {
   });
 });
 
+describe('shared rate limits', () => {
+  it('start counting once Redis comes up after the gateway', async () => {
+    const catalog = await upstream();
+    let online = false;
+    const hits = new Map<string, number>();
+    // Answers just what the limit store sends: script loads and the increment script.
+    const redis = async (args: string[]) => {
+      if (!online) throw new Error('The client is offline');
+      if (args[0] === 'SCRIPT') return 'sha';
+      if (args[0] === 'EVALSHA') {
+        const count = (hits.get(args[3]) ?? 0) + 1;
+        hits.set(args[3], count);
+        return [count, 60_000];
+      }
+      throw new Error(`unexpected ${args[0]}`);
+    };
+    const app = createApp(testConfig({ serviceCatalog: catalog.url }, { rateLimit: { windowMs: 60_000, max: 1 } }), {
+      ...quiet,
+      redis,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10)); // the stores' startup script loads fail
+    online = true;
+
+    const browse = () => request(app).get('/api/v1/categories');
+    expect((await browse()).status).toBe(200); // not counted: the store reloads its script
+    expect((await browse()).status).toBe(200);
+    expect((await browse()).status).toBe(429);
+  });
+});
+
 describe('production settings', () => {
   const env = { ENVIRONMENT: 'production', REDIS_URL: 'redis://redis:6379/0', CORS_ORIGINS: 'https://shop.example.com' };
 

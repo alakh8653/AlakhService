@@ -26,6 +26,9 @@ class BookingModel extends Booking {
     super.addressId,
     super.readyBy,
     super.paymentStatus,
+    super.rescheduleCount,
+    super.pointsDiscount,
+    super.preferredStaffName,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -56,6 +59,9 @@ class BookingModel extends Booking {
       addressId: json['address_id'] as String?,
       readyBy: DateTime.tryParse((json['ready_by'] as String?) ?? '')?.toLocal(),
       paymentStatus: json['payment_status'] as String?,
+      rescheduleCount: (json['reschedule_count'] as int?) ?? 0,
+      pointsDiscount: ((json['points_discount'] as num?) ?? 0) / 100,
+      preferredStaffName: json['preferred_staff_name'] as String?,
     );
   }
 

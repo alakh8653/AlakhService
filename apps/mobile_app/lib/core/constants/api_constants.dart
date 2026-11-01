@@ -30,6 +30,19 @@ class ApiConstants {
   static const String bookings = '$apiVersion/bookings';
   static String booking(String id) => '$bookings/$id';
   static String cancelBooking(String id) => '$bookings/$id/cancel';
+  // Today's live queue at the shop for one booking.
+  static String bookingQueue(String id) => '$bookings/$id/queue';
+  static String bookingCheckIn(String id) => '$bookings/$id/check-in';
+  // Home visits: when the professional arrives, and a professional's route for today.
+  static String bookingArrival(String id) => '$bookings/$id/arrival';
+  static const String myRoute = '$bookings/assigned/route';
+  // Joining a shop's line on the day, without a booked time.
+  static const String joinLine = '$bookings/walk-in';
+  // The shop's own line (its owner): /bookings/shop/{id}/queue and its actions.
+  static String shopLine(String shopId) => '$bookings/shop/$shopId/queue';
+  static String shopWalkIns(String shopId) => '$bookings/shop/$shopId/walk-ins';
+  static String bookingNoShow(String id) => '$bookings/$id/no-show';
+  static String rescheduleBooking(String id) => '$bookings/$id/reschedule';
   static String bookingStatus(String id) => '$bookings/$id/status';
   // A booking's chat with the shop, and the masked call (booking_service).
   static String bookingMessages(String id) => '$bookings/$id/messages';
@@ -42,8 +55,13 @@ class ApiConstants {
   static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 
   // Shops (shop_service)
+  // Shops, filtered (owner_id: the shops someone owns).
+  static const String shopsList = '$apiVersion/shops';
   static String shop(String shopId) => '$apiVersion/shops/$shopId';
   static String rateShop(String shopId) => '$apiVersion/shops/$shopId/rating';
+  // Shops the customer has saved (shop_service).
+  static const String favoriteShops = '$apiVersion/shops/favorites';
+  static String favoriteShop(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/favorite';
   // Reviews (public): ratings for several shops at once, and one shop's summary and reviews.
   static const String shopRatings = '$apiVersion/shops/ratings';
   static String shopReviews(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/reviews';
@@ -59,6 +77,19 @@ class ApiConstants {
   // Payments (payment_service)
   static const String initiatePayment = '$apiVersion/payments/initiate';
   static const String payments = '$apiVersion/payments';
+  // A tip for the provider of a completed booking (payment_service).
+  static const String tips = '$apiVersion/payments/tips';
+  // Loyalty points and referral codes (payment_service).
+  static const String loyalty = '$apiVersion/loyalty/me';
+  static const String referral = '$apiVersion/loyalty/referral';
+  // Prepaid packages of visits (payment_service).
+  static const String packages = '$apiVersion/packages';
+  // The waitlist for full days (booking_service).
+  static const String waitlist = '$apiVersion/waitlist';
+  // A shop's team as customers see it, to ask for someone (shop_service).
+  static String shopTeam(String shopId) => '$apiVersion/shops/${Uri.encodeComponent(shopId)}/team';
+  static const String myPackages = '$apiVersion/packages/mine';
+  static String buyPackage(String id) => '$apiVersion/packages/${Uri.encodeComponent(id)}/buy';
   static String verifyPayment(String paymentId) => '$apiVersion/payments/$paymentId/verify';
   /// A printable HTML invoice for a completed payment.
   static String paymentInvoice(String paymentId) => '$apiVersion/payments/$paymentId/invoice';

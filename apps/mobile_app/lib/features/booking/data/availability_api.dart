@@ -67,13 +67,14 @@ class AvailabilityApi {
   AvailabilityApi(this.apiClient);
 
   /// [day] is a calendar day in the shop's time zone (India); only its date is used.
-  Future<DayAvailability> forDay(String serviceId, DateTime day) async {
+  /// [movingBookingId] is a booking being moved to another time: its own place counts as free.
+  Future<DayAvailability> forDay(String serviceId, DateTime day, {String? movingBookingId}) async {
     final date = '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-'
         '${day.day.toString().padLeft(2, '0')}';
     try {
       final response = await apiClient.get<Map<String, dynamic>>(
         ApiConstants.availability,
-        queryParameters: {'service_id': serviceId, 'date': date},
+        queryParameters: {'service_id': serviceId, 'date': date, if (movingBookingId != null) 'moving_booking_id': movingBookingId},
       );
       return DayAvailability.fromJson(response.data!);
     } on DioException catch (e) {

@@ -83,6 +83,10 @@ interface BookingResponse {
   address_id?: string | null;
   notes: string | null;
   total_amount: number;
+  reschedule_count?: number;
+  points_discount?: number;
+  preferred_staff_id?: string | null;
+  preferred_staff_name?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +116,10 @@ export function toBooking(data: BookingResponse): Booking {
     addressId: data.address_id ?? null,
     notes: data.notes,
     totalAmount: data.total_amount,
+    rescheduleCount: data.reschedule_count ?? 0,
+    pointsDiscount: data.points_discount ?? 0,
+    preferredStaffId: data.preferred_staff_id ?? null,
+    preferredStaffName: data.preferred_staff_name ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -162,6 +170,37 @@ export async function getAllShopBookings(
     if (page >= result.totalPages) break;
   }
   return all.slice(0, max);
+}
+
+/** A booking's place in today's queue at the shop (booking_service's live queue). */
+export interface QueueEntry {
+  bookingId: string;
+  /** WAITING, YOUR_TURN (next, a place is free) or IN_PROGRESS. */
+  state: string;
+  /** 1 for the first customer waiting; null while being served. */
+  position: number | null;
+  estimatedStart: string;
+  runningLateMinutes: number;
+}
+
+interface QueueEntryRecord {
+  booking_id: string;
+  state: string;
+  position: number | null;
+  estimated_start: string;
+  running_late_minutes: number;
+}
+
+/** Today's queue at the shop, in order. */
+export async function getShopQueue(shopId: string): Promise<QueueEntry[]> {
+  const { data } = await apiClient.get<QueueEntryRecord[]>(`/bookings/shop/${encodeURIComponent(shopId)}/queue`);
+  return data.map((e) => ({
+    bookingId: e.booking_id,
+    state: e.state,
+    position: e.position,
+    estimatedStart: e.estimated_start,
+    runningLateMinutes: e.running_late_minutes,
+  }));
 }
 
 export async function updateBookingStatus(

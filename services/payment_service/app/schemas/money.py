@@ -88,8 +88,22 @@ class MarkPaid(BaseModel):
     reference: str = Field(min_length=3, max_length=100)
 
 
+class LoyaltyRedeem(BaseModel):
+    """booking_service spending a customer's points on a booking it is making."""
+
+    customer_id: str
+    booking_id: str
+    price_cents: int = Field(ge=0)
+
+
+class LoyaltyRelease(BaseModel):
+    booking_id: str
+
+
 class BookingCompleted(BaseModel):
     shop_id: Optional[str] = None
+    # Who earns loyalty points on it (older booking_service messages leave it out: no points).
+    customer_id: Optional[str] = None
     total_amount: Optional[int] = Field(default=None, ge=0)
     completed_at: Optional[datetime] = None
 

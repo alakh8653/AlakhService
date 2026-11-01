@@ -15,7 +15,7 @@ from app.channels.push import FCMChannel
 from app.channels.sms import TwilioSMSChannel
 from app.config import settings
 from app.core.contact import fetch_contact
-from app.core.events import CRITICAL_EVENTS, SHOP_EMAIL_EVENTS, render_sms
+from app.core.events import CRITICAL_EVENTS, QUIET_HOURS_HELD, SHOP_EMAIL_EVENTS, render_sms
 from app.core.events import render as render_event
 from app.core.exceptions import NotificationNotFoundError, TemplateNotFoundError
 from app.models.notification import DeviceToken, Notification, NotificationPreference, NotificationTemplate
@@ -271,7 +271,8 @@ class NotificationService:
         )
         db.add(notif)
         await db.flush()
-        if await self._dispatch_channel(db, redis, "push", user_id, notif, title, body, payload):
+        held = event in QUIET_HOURS_HELD and await self.check_quiet_hours(db, user_id)
+        if not held and await self._dispatch_channel(db, redis, "push", user_id, notif, title, body, payload):
             notif.channel = "push"
         if redis is not None:
             await InAppChannel(redis).send(user_id, title, body, {**payload, "id": notif.id})

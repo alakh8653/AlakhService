@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # turns uploads off.
     AVATAR_STORAGE_DIR: str = "/app/data/avatars"
     MAX_AVATAR_SIZE_MB: int = 5
+    # Shared with the other platform services for their calls to /internal (never sent to clients).
+    INTERNAL_API_KEY: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env")
 

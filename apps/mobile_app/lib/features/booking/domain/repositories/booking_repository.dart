@@ -11,6 +11,9 @@ abstract class BookingRepository {
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
     String? idempotencyKey,
+    bool usePoints = false,
+    String? packagePurchaseId,
+    String? preferredStaffId,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});
@@ -18,4 +21,7 @@ abstract class BookingRepository {
   Future<Either<Failure, Booking>> getBookingById(String id);
 
   Future<Either<Failure, bool>> cancelBooking(String bookingId);
+
+  /// Moves the booking to [scheduledAt]; the updated booking.
+  Future<Either<Failure, Booking>> rescheduleBooking(String bookingId, DateTime scheduledAt);
 }

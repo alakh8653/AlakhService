@@ -2387,7 +2387,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqRescheduleA.
   ///
   /// In en, this message translates to:
-  /// **'Not in the app yet. Cancel the booking while you still can and book the new time. If the provider is already on the way, contact Alakh support.'**
+  /// **'Yes. Open the booking and tap Change time. You can do it twice per booking, up to 2 hours before it starts, until a professional has been assigned. After that, message the shop from the booking\'s chat.'**
   String get faqRescheduleA;
 
   /// No description provided for @faqPayQ.
@@ -3109,6 +3109,702 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This shop hasn\'t added its address yet. Contact them for directions.'**
   String get travelNoAddress;
+
+  /// No description provided for @rescheduleBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Change time'**
+  String get rescheduleBooking;
+
+  /// No description provided for @rescheduleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change booking time'**
+  String get rescheduleTitle;
+
+  /// No description provided for @rescheduleCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Now booked for {when}'**
+  String rescheduleCurrent(String when);
+
+  /// No description provided for @rescheduleRule.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change the time up to 2 hours before the booking starts. Changes left: {count}.'**
+  String rescheduleRule(int count);
+
+  /// No description provided for @rescheduleConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new time'**
+  String get rescheduleConfirm;
+
+  /// No description provided for @rescheduling.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing time…'**
+  String get rescheduling;
+
+  /// No description provided for @bookingRescheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking moved to {when}'**
+  String bookingRescheduled(String when);
+
+  /// No description provided for @bookAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Book again'**
+  String get bookAgain;
+
+  /// No description provided for @saveShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Save shop'**
+  String get saveShop;
+
+  /// No description provided for @unsaveShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from saved shops'**
+  String get unsaveShop;
+
+  /// No description provided for @shopSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop saved'**
+  String get shopSaved;
+
+  /// No description provided for @shopUnsaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from saved shops'**
+  String get shopUnsaved;
+
+  /// No description provided for @savedShops.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved shops'**
+  String get savedShops;
+
+  /// No description provided for @noSavedShops.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved shops yet. Tap the heart on a service to save its shop.'**
+  String get noSavedShops;
+
+  /// No description provided for @shopNoServices.
+  ///
+  /// In en, this message translates to:
+  /// **'This shop has no services to book right now.'**
+  String get shopNoServices;
+
+  /// No description provided for @tipAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a tip'**
+  String get tipAdd;
+
+  /// No description provided for @tipTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip your professional'**
+  String get tipTitle;
+
+  /// No description provided for @tipBody.
+  ///
+  /// In en, this message translates to:
+  /// **'100% of your tip goes to the professional who served you, paid online.'**
+  String get tipBody;
+
+  /// No description provided for @tipOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other amount (₹)'**
+  String get tipOther;
+
+  /// No description provided for @tipRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter ₹10 to ₹2,000'**
+  String get tipRange;
+
+  /// No description provided for @tipPay.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip {amount}'**
+  String tipPay(String amount);
+
+  /// No description provided for @tipThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'You tipped {amount}. Thank you!'**
+  String tipThanks(String amount);
+
+  /// No description provided for @rewardsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewards'**
+  String get rewardsTitle;
+
+  /// No description provided for @pointsBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} points'**
+  String pointsBalance(int count);
+
+  /// No description provided for @pointsWorth.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth {amount} on your next bookings'**
+  String pointsWorth(String amount);
+
+  /// No description provided for @pointsRules.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {earn} points for every ₹100 you pay. Points pay up to {percent}% of a booking.'**
+  String pointsRules(String earn, String percent);
+
+  /// No description provided for @referralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get referralTitle;
+
+  /// No description provided for @referralBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code. When a friend\'s first booking is done, you both get {bonus} points.'**
+  String referralBody(String bonus);
+
+  /// No description provided for @referralCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get referralCopy;
+
+  /// No description provided for @referralCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied'**
+  String get referralCopied;
+
+  /// No description provided for @referralShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share on WhatsApp'**
+  String get referralShare;
+
+  /// No description provided for @referralShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Book salons and services on AlakhService with my code {code}: we both get {bonus} points after your first booking.'**
+  String referralShareText(String code, String bonus);
+
+  /// No description provided for @referralFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'{rewarded} friends booked · {pending} yet to book'**
+  String referralFriends(int rewarded, int pending);
+
+  /// No description provided for @referralEnterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Got a friend\'s code?'**
+  String get referralEnterTitle;
+
+  /// No description provided for @referralCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral code'**
+  String get referralCodeLabel;
+
+  /// No description provided for @pointsHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Points history'**
+  String get pointsHistory;
+
+  /// No description provided for @pointsEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Earned on a booking'**
+  String get pointsEarned;
+
+  /// No description provided for @pointsSpent.
+  ///
+  /// In en, this message translates to:
+  /// **'Used on a booking'**
+  String get pointsSpent;
+
+  /// No description provided for @pointsReturned.
+  ///
+  /// In en, this message translates to:
+  /// **'Returned (booking cancelled)'**
+  String get pointsReturned;
+
+  /// No description provided for @pointsReferral.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral bonus'**
+  String get pointsReferral;
+
+  /// No description provided for @pointsTakenBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken back (booking refunded)'**
+  String get pointsTakenBack;
+
+  /// No description provided for @usePoints.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my points'**
+  String get usePoints;
+
+  /// No description provided for @usePointsSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Save {amount} · {points} points available'**
+  String usePointsSaving(String amount, int points);
+
+  /// No description provided for @pointsLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Points'**
+  String get pointsLine;
+
+  /// No description provided for @pointsUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Points used: {amount}'**
+  String pointsUsed(String amount);
+
+  /// No description provided for @packagesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Packages'**
+  String get packagesTitle;
+
+  /// No description provided for @packageTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'{visits} visits · valid {days} days'**
+  String packageTerms(int visits, int days);
+
+  /// No description provided for @packageSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'save {amount}'**
+  String packageSaving(String amount);
+
+  /// No description provided for @packageBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy {amount}'**
+  String packageBuy(String amount);
+
+  /// No description provided for @packageBought.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is ready. Choose it when you book.'**
+  String packageBought(String name);
+
+  /// No description provided for @myPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'My packages'**
+  String get myPackages;
+
+  /// No description provided for @noPackages.
+  ///
+  /// In en, this message translates to:
+  /// **'No packages yet. Services that offer one show it on their page.'**
+  String get noPackages;
+
+  /// No description provided for @packageVisitsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{left} of {total} visits left'**
+  String packageVisitsLeft(int left, int total);
+
+  /// No description provided for @packageValidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'valid until {date}'**
+  String packageValidUntil(String date);
+
+  /// No description provided for @packageRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get packageRefunded;
+
+  /// No description provided for @packageUsedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Used up or expired'**
+  String get packageUsedUp;
+
+  /// No description provided for @usePackage.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my package'**
+  String get usePackage;
+
+  /// No description provided for @usePackageLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} · {left} visits left'**
+  String usePackageLeft(String name, int left);
+
+  /// No description provided for @packageLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Package visit'**
+  String get packageLine;
+
+  /// No description provided for @waitlistJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell me if a time opens'**
+  String get waitlistJoin;
+
+  /// No description provided for @waitlistJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll tell you if a time opens up on this day.'**
+  String get waitlistJoined;
+
+  /// No description provided for @whoQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Who would you like?'**
+  String get whoQuestion;
+
+  /// No description provided for @anyProfessional.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone'**
+  String get anyProfessional;
+
+  /// No description provided for @professionalNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop does its best to give you the person you choose.'**
+  String get professionalNote;
+
+  /// No description provided for @askedFor.
+  ///
+  /// In en, this message translates to:
+  /// **'You asked for {name}'**
+  String askedFor(String name);
+
+  /// No description provided for @liveQueueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Live queue at the shop'**
+  String get liveQueueTitle;
+
+  /// No description provided for @liveQueueWait.
+  ///
+  /// In en, this message translates to:
+  /// **'About {time} to wait'**
+  String liveQueueWait(String time);
+
+  /// No description provided for @liveQueueBeingServed.
+  ///
+  /// In en, this message translates to:
+  /// **'Being served now: {count}'**
+  String liveQueueBeingServed(int count);
+
+  /// No description provided for @liveQueueRunningLate.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop is running about {minutes} min late'**
+  String liveQueueRunningLate(int minutes);
+
+  /// No description provided for @liveQueueGoIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Please go to the shop\'s counter now.'**
+  String get liveQueueGoIn;
+
+  /// No description provided for @liveQueueInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Your service is in progress'**
+  String get liveQueueInProgress;
+
+  /// No description provided for @liveQueueShort.
+  ///
+  /// In en, this message translates to:
+  /// **'#{position} in line · {wait}'**
+  String liveQueueShort(int position, String wait);
+
+  /// No description provided for @liveQueueBetween.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected between {from} and {to}'**
+  String liveQueueBetween(String from, String to);
+
+  /// No description provided for @liveQueueWith.
+  ///
+  /// In en, this message translates to:
+  /// **'With {name}'**
+  String liveQueueWith(String name);
+
+  /// No description provided for @liveQueueCheckIn.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here'**
+  String get liveQueueCheckIn;
+
+  /// No description provided for @liveQueueCheckedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re checked in'**
+  String get liveQueueCheckedIn;
+
+  /// No description provided for @liveQueueCheckInNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re past your time. Check in when you arrive to rejoin the line.'**
+  String get liveQueueCheckInNeeded;
+
+  /// No description provided for @liveQueueUnservable.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop can\'t fit this in today. Please contact the shop or book another day.'**
+  String get liveQueueUnservable;
+
+  /// No description provided for @liveQueueStaffAway.
+  ///
+  /// In en, this message translates to:
+  /// **'Your chosen professional is away today, so someone else will serve you.'**
+  String get liveQueueStaffAway;
+
+  /// No description provided for @joinLineNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Join today\'s line now'**
+  String get joinLineNow;
+
+  /// No description provided for @joinLineNote.
+  ///
+  /// In en, this message translates to:
+  /// **'No booked time needed: you get a place and a wait straight away.'**
+  String get joinLineNote;
+
+  /// No description provided for @joinLineDone.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in line'**
+  String get joinLineDone;
+
+  /// No description provided for @joinLineDoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'#{position} in line, expected around {time}.'**
+  String joinLineDoneBody(int position, String time);
+
+  /// No description provided for @joinLineSeeBookings.
+  ///
+  /// In en, this message translates to:
+  /// **'See my bookings'**
+  String get joinLineSeeBookings;
+
+  /// No description provided for @navShopLine.
+  ///
+  /// In en, this message translates to:
+  /// **'My shop'**
+  String get navShopLine;
+
+  /// No description provided for @shopLineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s line'**
+  String get shopLineTitle;
+
+  /// No description provided for @shopLineEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nobody is in line right now.'**
+  String get shopLineEmpty;
+
+  /// No description provided for @shopLineWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Nobody waiting} =1{1 waiting} other{{count} waiting}}'**
+  String shopLineWaiting(int count);
+
+  /// No description provided for @shopLineTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team today'**
+  String get shopLineTeam;
+
+  /// No description provided for @shopLineFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get shopLineFree;
+
+  /// No description provided for @shopLineServing.
+  ///
+  /// In en, this message translates to:
+  /// **'Serving {name}'**
+  String shopLineServing(String name);
+
+  /// No description provided for @shopLineOnBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'On a break until {time}'**
+  String shopLineOnBreak(String time);
+
+  /// No description provided for @shopLineOffToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get shopLineOffToday;
+
+  /// No description provided for @shopLineNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next customer'**
+  String get shopLineNext;
+
+  /// No description provided for @shopLineDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get shopLineDone;
+
+  /// No description provided for @shopLineBreak.
+  ///
+  /// In en, this message translates to:
+  /// **'Break 15 min'**
+  String get shopLineBreak;
+
+  /// No description provided for @shopLineOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get shopLineOff;
+
+  /// No description provided for @shopLineBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get shopLineBack;
+
+  /// No description provided for @shopLineStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get shopLineStart;
+
+  /// No description provided for @shopLineNoShow.
+  ///
+  /// In en, this message translates to:
+  /// **'No-show'**
+  String get shopLineNoShow;
+
+  /// No description provided for @shopLineCheckIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Check in'**
+  String get shopLineCheckIn;
+
+  /// No description provided for @shopLineNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get shopLineNow;
+
+  /// No description provided for @shopLineWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in'**
+  String get shopLineWalkIn;
+
+  /// No description provided for @shopLineAddWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a walk-in'**
+  String get shopLineAddWalkIn;
+
+  /// No description provided for @shopLineWalkInName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name to call out'**
+  String get shopLineWalkInName;
+
+  /// No description provided for @shopLineService.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get shopLineService;
+
+  /// No description provided for @shopLineAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get shopLineAdd;
+
+  /// No description provided for @shopLineAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is #{position} in line'**
+  String shopLineAdded(String name, int position);
+
+  /// No description provided for @shopLineLate.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min late'**
+  String shopLineLate(int minutes);
+
+  /// No description provided for @homeArrivalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your home visit'**
+  String get homeArrivalTitle;
+
+  /// No description provided for @homeArrivalAround.
+  ///
+  /// In en, this message translates to:
+  /// **'Your professional arrives around {time}'**
+  String homeArrivalAround(String time);
+
+  /// No description provided for @homeArrivalBetween.
+  ///
+  /// In en, this message translates to:
+  /// **'Between {from} and {to}'**
+  String homeArrivalBetween(String from, String to);
+
+  /// No description provided for @homeArrivalOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way, arriving around {time}'**
+  String homeArrivalOnTheWay(String time);
+
+  /// No description provided for @homeArrivalHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your professional is with you'**
+  String get homeArrivalHere;
+
+  /// No description provided for @homeArrivalBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{You\'re their first visit} =1{1 visit before yours} other{{count} visits before yours}}'**
+  String homeArrivalBefore(int count);
+
+  /// No description provided for @homeArrivalLate.
+  ///
+  /// In en, this message translates to:
+  /// **'Running about {minutes} min behind your booked time'**
+  String homeArrivalLate(int minutes);
 }
 
 class _AppLocalizationsDelegate

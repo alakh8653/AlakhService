@@ -38,6 +38,13 @@ export interface Booking {
   addressId: string | null;
   notes: string | null;
   totalAmount: number; // minor units (paise)
+  /** How many times the customer has moved it to another time (they may twice). */
+  rescheduleCount?: number;
+  /** Paid by the customer's loyalty points (minor units): AlakhService pays it to the shop. */
+  pointsDiscount?: number;
+  /** The staff member the customer asked for (shop staff id and display name), if anyone. */
+  preferredStaffId?: string | null;
+  preferredStaffName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +73,8 @@ export interface StaffMember {
   phone: string | null;
   role: string;
   serviceIds: string[];
+  /** Their own week (Monday first, an empty day is off); null means they work the shop's opening hours. */
+  workingHours: OpenInterval[][] | null;
   isActive: boolean;
   createdAt: string;
 }

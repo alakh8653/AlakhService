@@ -11,13 +11,17 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
+import '../../../loyalty/data/loyalty_api.dart';
+import '../../../packages/data/packages_api.dart';
 import '../../../profile/data/address_api.dart';
+import '../../../shops/data/team_api.dart';
 import '../../../profile/presentation/pages/addresses_page.dart';
 import '../../../push/push_service.dart';
 import '../../../services/domain/entities/service_entity.dart';
 import '../../domain/entities/booking.dart';
 import '../../data/availability_api.dart';
 import '../../data/coupon_api.dart';
+import '../../data/waitlist_api.dart';
 import '../bloc/booking_bloc.dart';
 import '../bloc/booking_event.dart';
 import '../bloc/booking_state.dart';
@@ -63,11 +67,18 @@ class _Slot {
 
 class BookingPage extends StatefulWidget {
   final String serviceId;
+
+  /// The service's shop, to offer its team (no choice of professional without it).
+  final String? shopId;
+  final TeamApi? teamApi;
   final String serviceName;
   final double servicePrice;
   final CouponApi? couponApi;
   final AddressApi? addressApi;
   final AvailabilityApi? availabilityApi;
+  final LoyaltyApi? loyaltyApi;
+  final PackagesApi? packagesApi;
+  final WaitlistApi? waitlistApi;
 
   /// The ways the service is offered (ServiceMode values) and their extra fees.
   final List<String> serviceModes;
@@ -80,11 +91,16 @@ class BookingPage extends StatefulWidget {
   const BookingPage({
     super.key,
     required this.serviceId,
+    this.shopId,
+    this.teamApi,
     required this.serviceName,
     required this.servicePrice,
     this.couponApi,
     this.addressApi,
     this.availabilityApi,
+    this.loyaltyApi,
+    this.packagesApi,
+    this.waitlistApi,
     this.serviceModes = const [ServiceMode.atShop],
     this.homeVisitFee = 0,
     this.pickupFee = 0,
@@ -103,6 +119,18 @@ class _BookingPageState extends State<BookingPage> {
   late final AddressApi _addressApi = widget.addressApi ?? sl<AddressApi>();
   late final AvailabilityApi _availabilityApi = widget.availabilityApi ?? sl<AvailabilityApi>();
   CouponCheck? _coupon;
+  // The customer's points, to offer paying part of the price with them (none until loaded).
+  LoyaltySummary? _loyalty;
+  bool _usePoints = false;
+  // A package of this service the customer can book with, and whether this booking uses it.
+  OwnedPackage? _package;
+  // Full days the customer asked to hear about, and the one being sent.
+  final Set<DateTime> _waitingDays = {};
+  // The shop's people who do this service, and who the customer would like (null: anyone).
+  List<TeamMember> _team = const [];
+  String? _preferred;
+  DateTime? _joiningDay;
+  bool _usePackage = false;
   List<SavedAddress> _saved = const [];
   bool _addressesLoaded = false;
   late String _mode = widget.serviceModes.isEmpty ? ServiceMode.atShop : widget.serviceModes.first;
@@ -131,6 +159,47 @@ class _BookingPageState extends State<BookingPage> {
     super.initState();
     _loadAddresses();
     _loadTimes(_day);
+    _loadPoints();
+    _loadPackage();
+    _loadTeam();
+  }
+
+  Future<void> _loadTeam() async {
+    final shopId = widget.shopId;
+    final api = widget.teamApi ?? (sl.isRegistered<TeamApi>() ? sl<TeamApi>() : null);
+    if (shopId == null || api == null) return;
+    try {
+      final team = await api.forShop(shopId);
+      if (mounted) setState(() => _team = team.where((m) => m.does(widget.serviceId)).toList());
+    } catch (_) {
+      // Then anyone at the shop does it, as before.
+    }
+  }
+
+  Future<void> _loadPackage() async {
+    final api = widget.packagesApi ?? (sl.isRegistered<PackagesApi>() ? sl<PackagesApi>() : null);
+    if (api == null) return;
+    try {
+      final mine = await api.mine();
+      final usable = mine.where((p) => p.usable && p.serviceId == widget.serviceId).firstOrNull;
+      if (mounted && usable != null) setState(() => _package = usable);
+    } catch (_) {
+      // Booking works the same without it.
+    }
+  }
+
+  /// The visit is covered by the package: at the shop, with no coupon or points on top.
+  bool get _packageCovers => _usePackage && _package != null && _mode == ServiceMode.atShop;
+
+  Future<void> _loadPoints() async {
+    final api = widget.loyaltyApi ?? (sl.isRegistered<LoyaltyApi>() ? sl<LoyaltyApi>() : null);
+    if (api == null) return;
+    try {
+      final loyalty = await api.summary();
+      if (mounted) setState(() => _loyalty = loyalty);
+    } catch (_) {
+      // Booking works the same without points.
+    }
   }
 
   Future<void> _loadTimes(DateTime day, {bool refresh = false}) async {
@@ -162,6 +231,25 @@ class _BookingPageState extends State<BookingPage> {
       return [for (final t in BookingSlots.on(day, now: widget.clock())) _Slot(t, t)];
     }
     return [for (final s in times.slots) _Slot(DateTime(day.year, day.month, day.day, s.hour, s.minute), s.at)];
+  }
+
+  /// A day with no free times left, which a cancellation could open up again.
+  bool _isFull(DateTime day) =>
+      const {DayStatus.fullyBooked, DayStatus.noMoreToday}.contains(_availability[day]?.status);
+
+  Future<void> _joinWaitlist(DateTime day) async {
+    final api = widget.waitlistApi ?? (sl.isRegistered<WaitlistApi>() ? sl<WaitlistApi>() : null);
+    if (api == null || _joiningDay != null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _joiningDay = day);
+    try {
+      await api.join(widget.serviceId, day);
+      if (mounted) setState(() => _waitingDays.add(day));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(apiErrorMessage(e)), backgroundColor: AppColors.error));
+    } finally {
+      if (mounted) setState(() => _joiningDay = null);
+    }
   }
 
   /// Why [day] has no times, in the customer's words.
@@ -273,7 +361,12 @@ class _BookingPageState extends State<BookingPage> {
   /// The coupon discounts the service; the visit or pickup fee is added on top (as booking_service prices it).
   double get _discount => _couponApplies ? widget.servicePrice * _coupon!.discountPct / 100 : 0;
 
-  double get _price => widget.servicePrice - _discount + _fee;
+  /// What the points take off: up to a share of the service's price after the coupon (booking_service
+  /// works it out the same way and has the last word).
+  double get _pointsDiscount =>
+      _usePoints && !_packageCovers && _loyalty != null ? _loyalty!.discountOn(widget.servicePrice - _discount) : 0;
+
+  double get _price => _packageCovers ? 0 : widget.servicePrice - _discount - _pointsDiscount + _fee;
 
   void _onBook() {
     if (context.read<BookingBloc>().state is BookingLoading) return; // already sending
@@ -303,13 +396,13 @@ class _BookingPageState extends State<BookingPage> {
     final address = _needsAddress ? _address!.oneLine : '';
     final notes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
     // Only a code that checked out is sent; the server applies it to the catalogue price.
-    final couponCode = _couponApplies ? _coupon!.code : null;
+    final couponCode = _couponApplies && !_packageCovers ? _coupon!.code : null;
     final delivery = BookingDelivery(
       mode: _mode,
       addressId: _needsAddress ? _address!.id : null,
       itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
     );
-    final details = <Object?>[slot.at, address, notes, couponCode, delivery];
+    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints, _packageCovers, _preferred];
     if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
       _attemptKey = newIdempotencyKey();
       _attemptDetails = details;
@@ -323,6 +416,9 @@ class _BookingPageState extends State<BookingPage> {
             couponCode: couponCode,
             delivery: delivery,
             idempotencyKey: _attemptKey,
+            usePoints: _usePoints && _pointsDiscount > 0,
+            packagePurchaseId: _packageCovers ? _package!.id : null,
+            preferredStaffId: _preferred,
           ),
         );
   }
@@ -410,6 +506,32 @@ class _BookingPageState extends State<BookingPage> {
                   Text(modeExplanation(_mode, l10n: l10n), style: AppTextStyles.caption.themed(context)),
                   const SizedBox(height: 24),
                 ],
+                if (_team.isNotEmpty) ...[
+                  _Heading(l10n.whoQuestion),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: Text(l10n.anyProfessional),
+                        showCheckmark: false,
+                        selected: _preferred == null,
+                        onSelected: (_) => setState(() => _preferred = null),
+                      ),
+                      for (final m in _team)
+                        ChoiceChip(
+                          avatar: const Icon(Icons.person_outline, size: 18),
+                          label: Text(m.name),
+                          showCheckmark: false,
+                          selected: _preferred == m.id,
+                          onSelected: (_) => setState(() => _preferred = m.id),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(l10n.professionalNote, style: AppTextStyles.caption.themed(context)),
+                  const SizedBox(height: 24),
+                ],
                 _Heading(l10n.whenQuestion, key: _whenKey),
                 SizedBox(
                   height: 64,
@@ -420,7 +542,7 @@ class _BookingPageState extends State<BookingPage> {
                     itemBuilder: (context, i) {
                       final day = _days[i];
                       final selected = day == _day;
-                      return _DayChip(
+                      return DayChip(
                         day: day,
                         now: widget.clock(),
                         selected: selected,
@@ -451,7 +573,21 @@ class _BookingPageState extends State<BookingPage> {
                     ),
                   )
                 else if (slots.isEmpty)
-                  _TimesProblem(text: _noTimesMessage(_day)),
+                  _TimesProblem(
+                    text: _noTimesMessage(_day),
+                    action: !_isFull(_day)
+                        ? null
+                        : _waitingDays.contains(_day)
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(l10n.waitlistJoined, style: AppTextStyles.caption.copyWith(color: context.palette.success)),
+                              )
+                            : TextButton.icon(
+                                onPressed: _joiningDay == null ? () => _joinWaitlist(_day) : null,
+                                icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                                label: Text(l10n.waitlistJoin),
+                              ),
+                  ),
                 // Grouped by part of the day so 20-odd times are quick to scan.
                 for (final (part, times) in [
                   (l10n.partMorning, (slots ?? const <_Slot>[]).where((t) => t.shown.hour < 12)),
@@ -583,13 +719,38 @@ class _BookingPageState extends State<BookingPage> {
                       child: Text(_coupon!.message, style: AppTextStyles.caption.copyWith(color: context.colors.error)),
                     ),
                 ],
+                if (_package != null && _mode == ServiceMode.atShop)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.local_offer_outlined),
+                    title: Text(l10n.usePackage),
+                    subtitle: Text(l10n.usePackageLeft(_package!.name, _package!.visitsLeft)),
+                    value: _usePackage,
+                    onChanged: (v) => setState(() => _usePackage = v),
+                  ),
+                if (!_packageCovers && (_loyalty?.points ?? 0) > 0 && _loyalty!.discountOn(widget.servicePrice - _discount) > 0) ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.card_giftcard),
+                    title: Text(l10n.usePoints),
+                    subtitle: Text(l10n.usePointsSaving(
+                      rupees(_loyalty!.discountOn(widget.servicePrice - _discount)),
+                      _loyalty!.points,
+                    )),
+                    value: _usePoints,
+                    onChanged: (v) => setState(() => _usePoints = v),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 _PriceBreakdown(
+                  packageCovers: _packageCovers,
                   service: widget.servicePrice,
                   feeLabel: _mode == ServiceMode.atHome ? l10n.homeVisitFee : l10n.pickupDropFee,
                   fee: _fee,
                   couponCode: _couponApplies ? _coupon!.code : null,
                   discount: _discount,
+                  points: _pointsDiscount,
                   total: _price,
                 ),
               ],
@@ -646,13 +807,14 @@ class _Heading extends StatelessWidget {
       );
 }
 
-class _DayChip extends StatelessWidget {
+/// One day in the row of days to book (also used when moving a booking).
+class DayChip extends StatelessWidget {
   final DateTime day;
   final DateTime now;
   final bool selected;
   final VoidCallback onTap;
 
-  const _DayChip({required this.day, required this.now, required this.selected, required this.onTap});
+  const DayChip({super.key, required this.day, required this.now, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -736,14 +898,18 @@ class _PriceBreakdown extends StatelessWidget {
   final double fee;
   final String? couponCode;
   final double discount;
+  final double points;
   final double total;
+  final bool packageCovers;
 
   const _PriceBreakdown({
+    this.packageCovers = false,
     required this.service,
     required this.feeLabel,
     required this.fee,
     required this.couponCode,
     required this.discount,
+    this.points = 0,
     required this.total,
   });
 
@@ -772,6 +938,10 @@ class _PriceBreakdown extends StatelessWidget {
             _row(context, context.l10n.priceService, rupees(service)),
             if (fee > 0) _row(context, feeLabel, rupees(fee)),
             if (discount > 0) _row(context, context.l10n.priceCoupon(couponCode ?? ''), '−${rupees(discount)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
+            if (packageCovers)
+              _row(context, context.l10n.packageLine, '−${rupees(service)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
+            if (points > 0)
+              _row(context, context.l10n.pointsLine, '−${rupees(points)}', style: AppTextStyles.body2.copyWith(color: context.palette.success)),
             const Divider(height: 16),
             _row(context, context.l10n.total, rupees(total), style: AppTextStyles.subtitle1),
             const SizedBox(height: 4),

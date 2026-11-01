@@ -1,4 +1,5 @@
-"""The booking worker: reminders, expiring unconfirmed bookings, and retrying payment messages.
+"""The booking worker: reminders, expiring unconfirmed bookings, retrying payment messages, and asking
+customers some weeks after a visit whether they want to book it again.
 
 It runs as an asyncio task inside every booking_service replica (REMINDERS_ENABLED). Replicas never
 do the same work twice: candidate rows are taken with SELECT ... FOR UPDATE SKIP LOCKED, and each
@@ -10,6 +11,7 @@ retried (a missed reminder is better than two).
 """
 
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, List, Optional, Tuple
 
@@ -18,7 +20,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import payments
+from app.core import availability, live_queue, metrics, payments, queue_notify, queue_ops, waitlist
 from app.core.fsm import BookingStatus
 from app.core.notifier import Notifier, notify_booking, snapshot
 from app.models.booking import Booking
@@ -27,6 +29,8 @@ from app.services.booking_service import booking_service
 log = structlog.get_logger()
 
 SYSTEM = "system"
+# A team member on a break or off: the customers waiting for them hear why their time moved.
+AWAY = ("BREAK", "OFF")
 EXPIRED_REASON = "Shop did not confirm"
 # Bookings that will happen: confirmed, perhaps with a provider assigned, not started yet.
 REMINDER_STATUSES = (BookingStatus.CONFIRMED.value, BookingStatus.ASSIGNED.value)
@@ -77,6 +81,126 @@ async def due_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> Li
     return out
 
 
+async def due_rebook_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> List[Booking]:
+    """Completed visits REBOOK_REMINDER_DAYS old whose customer has not booked that service again since;
+    marks each asked, so it is asked once."""
+    days = settings.REBOOK_REMINDER_DAYS
+    if days <= 0:
+        return []
+    newest, oldest = now - timedelta(days=days), now - timedelta(days=days + settings.REBOOK_REMINDER_WINDOW_DAYS)
+    query = _skip_locked(
+        select(Booking)
+        .where(
+            Booking.status == BookingStatus.COMPLETED.value,
+            Booking.rebook_reminder_sent_at.is_(None),
+            Booking.scheduled_at <= newest,
+            Booking.scheduled_at > oldest,
+        )
+        .order_by(Booking.scheduled_at)
+        .limit(limit),
+        db,
+    )
+    due = []
+    for visit in (await db.execute(query)).scalars().all():
+        visit.rebook_reminder_sent_at = now
+        later = await db.execute(
+            select(Booking.id)
+            .where(
+                Booking.customer_id == visit.customer_id,
+                Booking.service_id == visit.service_id,
+                Booking.id != visit.id,
+                Booking.scheduled_at > visit.scheduled_at,
+                Booking.status != BookingStatus.CANCELLED.value,
+            )
+            .limit(1)
+        )
+        if later.first() is None:  # already booked again: marked, not asked
+            due.append(visit)
+    await db.flush()
+    return due
+
+
+async def shops_with_a_line(db: AsyncSession, now: datetime) -> List[str]:
+    """Shops with someone waiting at the shop today (in any shop's zone)."""
+    window = (now - timedelta(hours=12), now + timedelta(hours=14))
+    rows = (
+        (
+            await db.execute(
+                select(Booking.shop_id)
+                .where(
+                    Booking.status.in_(live_queue.WAITING),
+                    Booking.service_mode == live_queue.AT_SHOP,
+                    Booking.scheduled_at >= window[0],
+                    Booking.scheduled_at < window[1],
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [s for s in rows if s]
+
+
+async def due_queue_notices(
+    db: AsyncSession, now: datetime, lookup_schedule, lookup_team=None
+) -> List[Tuple[Booking, str, dict]]:
+    """What each customer waiting in a shop's line today should hear now, from what changed since they were
+    last told (app/core/queue_notify.py). Returns (booking, event kind, data); the state is kept on the
+    booking so each message goes once, across replicas. The worker runs one shop per transaction
+    (shop_notices) so a pass never holds many shops' bookings while it works."""
+    out: List[Tuple[Booking, str, dict]] = []
+    for shop_id in await shops_with_a_line(db, now):
+        out += await shop_notices(db, shop_id, now, lookup_schedule, lookup_team)
+    return out
+
+
+async def shop_notices(
+    db: AsyncSession, shop_id: str, now: datetime, lookup_schedule, lookup_team=None
+) -> List[Tuple[Booking, str, dict]]:
+    """One shop's due queue messages (see due_queue_notices)."""
+    out: List[Tuple[Booking, str, dict]] = []
+    try:
+        schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id))
+    except Exception as e:  # shop_service down: try again next pass
+        log.warning("queue_notice_schedule_failed", shop_id=shop_id, error=str(e))
+        return out
+    team = await queue_ops.team_of(lookup_team, shop_id) if lookup_team else []
+    spots = await live_queue.shop_queue(db, shop_id, schedule, now, team)
+    waiting = [s for s in spots.values() if s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN)]
+    if waiting:
+        names = {m["id"]: m.get("name") for m in team}
+        statuses = await live_queue.statuses_for(db, shop_id, schedule, now) if team else {}
+        for b in await booking_service_get(db, [s.booking_id for s in waiting]):
+            spot = spots[b.id]
+            away = next(
+                (x for x in (b.preferred_staff_id, spot.worker_id) if x and statuses.get(x, ("",))[0] in AWAY),
+                None,
+            )
+            notice, state = queue_notify.decide(
+                queue_notify.load(b.queue_notice_state),
+                spot,
+                now,
+                turn_soon_minutes=settings.TURN_SOON_MINUTES,
+                running_late_minutes=settings.RUNNING_LATE_MINUTES,
+                zone=schedule.timezone,
+                staff_name=names.get(away or spot.worker_id),
+                staff_away=away is not None,
+            )
+            b.queue_notice_state = json.dumps(state)
+            if notice is None:
+                continue
+            if notice.kind == "turn_soon":
+                b.turn_soon_sent_at = now
+            out.append((b, notice.kind, notice.data))
+    await db.flush()
+    return out
+
+
+async def booking_service_get(db: AsyncSession, ids: List[str]) -> List[Booking]:
+    return await booking_service.get_bookings(db, ids)
+
+
 async def expire_unconfirmed(
     db: AsyncSession, now: datetime, after_hours: float, limit: int = 100
 ) -> List[Tuple[Booking, str]]:
@@ -109,6 +233,8 @@ async def run_once(
     lookup_owner: OwnerLookup,
     client: payments.PaymentClient,
     now: Optional[datetime] = None,
+    lookup_schedule=None,
+    lookup_team=None,
 ) -> dict:
     """One pass of the worker; returns what it did."""
     now = now or datetime.now(timezone.utc)
@@ -116,10 +242,28 @@ async def run_once(
         reminders = [(snapshot(b), label) for b, label in await due_reminders(db, now)]
         await db.commit()
     async with factory() as db:
-        expired = [
-            (snapshot(b), outbox_id)
-            for b, outbox_id in await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
-        ]
+        rebook = [snapshot(b) for b in await due_rebook_reminders(db, now)]
+        await db.commit()
+    queue_notices = []
+    if lookup_schedule is not None:
+        async with factory() as db:
+            shops = await shops_with_a_line(db, now)
+        # One shop per transaction: its bookings are held only while its own line is worked out, so a
+        # customer cancelling elsewhere never waits for the whole pass.
+        for shop_id in shops:
+            async with factory() as db:
+                queue_notices += [
+                    (snapshot(b), kind, data)
+                    for b, kind, data in await shop_notices(db, shop_id, now, lookup_schedule, lookup_team)
+                ]
+                await db.commit()
+    async with factory() as db:
+        expired_rows = await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
+        expired = [(snapshot(b), outbox_id) for b, outbox_id in expired_rows]
+        # An expired request frees its time for anyone waiting for that day.
+        waiting = []
+        for b, _ in expired_rows:
+            waiting += await waitlist.time_opened(db, b.shop_id, b.scheduled_at, except_customer=b.customer_id)
         await db.commit()
     for _snap, outbox_id in expired:
         await payments.deliver_now(factory, client, outbox_id)
@@ -129,6 +273,11 @@ async def run_once(
 
     for snap, label in reminders:
         await notify_booking(notifier, snap, "booking.reminder", None, lookup_owner, extra={"reminder": label})
+    await waitlist.tell(notifier, waiting)
+    for snap, kind, data in queue_notices:
+        await notify_booking(notifier, snap, f"booking.{kind}", None, lookup_owner, roles=("customer",), extra=data)
+    for snap in rebook:
+        await notify_booking(notifier, snap, "booking.rebook", None, lookup_owner, roles=("customer",))
     for snap, _ in expired:
         await notify_booking(
             notifier,
@@ -139,17 +288,34 @@ async def run_once(
             roles=("customer", "shop"),
             extra={"reason": EXPIRED_REASON},
         )
-    summary = {"reminders": len(reminders), "expired": len(expired), "payment_retries": len(retried)}
+    summary = {
+        "reminders": len(reminders),
+        "rebook_reminders": len(rebook),
+        "queue_notices": len(queue_notices),
+        "expired": len(expired),
+        "payment_retries": len(retried),
+    }
     if any(summary.values()):
         log.info("booking_worker_pass", **summary)
     return summary
 
 
-async def run_forever(factory, notifier: Notifier, lookup_owner: OwnerLookup, client: payments.PaymentClient) -> None:
+async def run_forever(
+    factory,
+    notifier: Notifier,
+    lookup_owner: OwnerLookup,
+    client: payments.PaymentClient,
+    lookup_schedule=None,
+    lookup_team=None,
+) -> None:
     log.info("booking_worker_started", interval=settings.WORKER_INTERVAL_SECONDS)
     while True:
         try:
-            await run_once(factory, notifier, lookup_owner, client)
+            with metrics.WORKER_PASS_SECONDS.time():
+                await run_once(
+                    factory, notifier, lookup_owner, client, lookup_schedule=lookup_schedule, lookup_team=lookup_team
+                )
+            metrics.WORKER_LAST_PASS.set_to_current_time()
         except asyncio.CancelledError:
             raise
         except Exception as e:  # a bad pass never stops the next one

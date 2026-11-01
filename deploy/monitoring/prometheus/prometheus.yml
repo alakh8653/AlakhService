@@ -26,6 +26,14 @@ scrape_configs:
     static_configs:
       - targets: ["api_gateway:3000"]
 
+  # The live queue from inside booking_service: its pages' latency, the minute worker, queue
+  # messages handed to notification_service and wait-time accuracy per shop
+  # (services/booking_service/app/core/metrics.py). Internal network only; the gateway does not route it.
+  - job_name: booking
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["booking_service:8000"]
+
   # Each service's /ready (its database, and Redis where used, answer).
   - job_name: services
     metrics_path: /probe

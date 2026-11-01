@@ -16,6 +16,9 @@ abstract class BookingRemoteDataSource {
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
     String? idempotencyKey,
+    bool usePoints = false,
+    String? packagePurchaseId,
+    String? preferredStaffId,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -23,6 +26,8 @@ abstract class BookingRemoteDataSource {
   Future<BookingModel> getBookingById(String id);
 
   Future<bool> cancelBooking(String bookingId, {String reason});
+
+  Future<BookingModel> rescheduleBooking(String bookingId, DateTime scheduledAt);
 }
 
 /// The signed-in customer's bookings in booking_service. The price, shop and duration of a new
@@ -57,6 +62,9 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     String? couponCode,
     BookingDelivery delivery = BookingDelivery.atShop,
     String? idempotencyKey,
+    bool usePoints = false,
+    String? packagePurchaseId,
+    String? preferredStaffId,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
@@ -72,6 +80,9 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
           if (delivery.addressId != null) 'address_id': delivery.addressId,
           if (delivery.itemDescription != null && delivery.itemDescription!.trim().isNotEmpty)
             'item_description': delivery.itemDescription!.trim(),
+          if (usePoints) 'use_points': true,
+          if (packagePurchaseId != null) 'package_purchase_id': packagePurchaseId,
+          if (preferredStaffId != null) 'preferred_staff_id': preferredStaffId,
         },
       );
       return await _model(response.data!);
@@ -109,6 +120,19 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     try {
       await apiClient.post<dynamic>(ApiConstants.cancelBooking(bookingId), data: {'reason': reason});
       return true;
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
+  @override
+  Future<BookingModel> rescheduleBooking(String bookingId, DateTime scheduledAt) async {
+    try {
+      final response = await apiClient.post<Map<String, dynamic>>(
+        ApiConstants.rescheduleBooking(bookingId),
+        data: {'scheduled_at': scheduledAt.toUtc().toIso8601String()},
+      );
+      return await _model(response.data!);
     } on DioException catch (e) {
       throw toServerException(e);
     }

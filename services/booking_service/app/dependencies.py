@@ -1,9 +1,10 @@
 import time
 from datetime import datetime, timezone
-from typing import Awaitable, Callable, Dict, Optional, Tuple
+from typing import Awaitable, Callable, Dict, List, Optional, Tuple
 from urllib.parse import quote
 
 import httpx
+import structlog
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -11,6 +12,7 @@ from jose import JWTError, jwt
 from app.config import settings
 
 security = HTTPBearer()
+log = structlog.get_logger()
 
 
 def path_segment(value: str) -> str:
@@ -39,13 +41,64 @@ def verify_access_token(token: str) -> dict:
     return payload
 
 
+# When shop_service cannot answer, the last answer it gave is used for this long, so a shop's line, its
+# board and its customers' places keep working through a restart or an outage (logged each time).
+STALE_IF_ERROR_SECONDS = 3600.0
+_CACHE_MAX = 1000
+
+
+class _Cache:
+    """Answers from shop_service by shop id: fresh for [ttl] seconds (0: never served while fresh), then
+    kept for STALE_IF_ERROR_SECONDS to stand in when shop_service fails."""
+
+    def __init__(self, ttl: float):
+        self.ttl = ttl
+        self._entries: Dict[str, Tuple[float, object]] = {}
+
+    def fresh(self, key: str):
+        entry = self._entries.get(key)
+        if entry and time.monotonic() - entry[0] < self.ttl:
+            return True, entry[1]
+        return False, None
+
+    def put(self, key: str, value) -> None:
+        if len(self._entries) >= _CACHE_MAX and key not in self._entries:
+            self._entries.clear()
+        self._entries[key] = (time.monotonic(), value)
+
+    async def stale_on_error(self, key: str, what: str, fetch):
+        """fetch(), remembered; on a 503 from it, the last answer if it is recent enough."""
+        try:
+            value = await fetch()
+        except HTTPException as exc:
+            entry = self._entries.get(key)
+            if exc.status_code != 503 or not entry or time.monotonic() - entry[0] > STALE_IF_ERROR_SECONDS:
+                raise
+            log.warning("shop_service_unavailable_using_last_answer", what=what, shop_id=key,
+                        age_seconds=round(time.monotonic() - entry[0]))  # fmt: skip
+            return entry[1]
+        self.put(key, value)
+        return value
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+
 def internal_headers() -> dict:
     """Lets shop_service answer for a shop that is not public yet (awaiting approval)."""
     return {"X-Internal-Key": settings.INTERNAL_API_KEY} if settings.INTERNAL_API_KEY else {}
 
 
+_owner_cache = _Cache(ttl=0)
+
+
 async def fetch_shop_owner(shop_id: str) -> Optional[str]:
-    """Owner user id of a shop according to shop_service, or None if the shop does not exist."""
+    """Owner user id of a shop according to shop_service, or None if the shop does not exist (asked every
+    time; the last answer stands in while shop_service is down)."""
+    return await _owner_cache.stale_on_error(shop_id, "owner", lambda: _fetch_shop_owner(shop_id))
+
+
+async def _fetch_shop_owner(shop_id: str) -> Optional[str]:
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}", headers=internal_headers())
@@ -114,18 +167,55 @@ def get_staff_lookup() -> Callable[[str, str], Awaitable[set]]:
     return fetch_shop_provider_ids
 
 
+# The live queue reads the team on every look: kept this long (a change to the team shows within it).
+TEAM_CACHE_SECONDS = 30.0
+_team_cache = _Cache(ttl=TEAM_CACHE_SECONDS)
+
+
+async def fetch_shop_team(shop_id: str) -> List[dict]:
+    """The shop's active staff as customers see them (id, name, role, service_ids, working_hours), from
+    shop_service."""
+    hit, team = _team_cache.fresh(shop_id)
+    if hit:
+        return team
+    return await _team_cache.stale_on_error(shop_id, "team", lambda: _fetch_shop_team(shop_id))
+
+
+async def _fetch_shop_team(shop_id: str) -> List[dict]:
+    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/team")
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
+    if resp.status_code == 404:
+        return []
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Shop service unavailable")
+    return resp.json()
+
+
+TeamLookup = Callable[[str], Awaitable[List[dict]]]
+
+
+def get_team_lookup() -> TeamLookup:
+    return fetch_shop_team
+
+
 # Opening hours change rarely and every availability check and booking reads them: a short cache spares
 # shop_service, and an owner's edit shows within this long.
 SCHEDULE_CACHE_SECONDS = 30.0
-_SCHEDULE_CACHE_MAX = 1000
-_schedule_cache: Dict[str, Tuple[float, Optional[dict]]] = {}
+_schedule_cache = _Cache(ttl=SCHEDULE_CACHE_SECONDS)
 
 
 async def fetch_shop_schedule(shop_id: str) -> Optional[dict]:
     """The shop's opening hours, holidays and capacity (shop_service), or None if the shop does not exist."""
-    cached = _schedule_cache.get(shop_id)
-    if cached and cached[0] > time.monotonic():
-        return cached[1]
+    hit, schedule = _schedule_cache.fresh(shop_id)
+    if hit:
+        return schedule
+    return await _schedule_cache.stale_on_error(shop_id, "hours", lambda: _fetch_shop_schedule(shop_id))
+
+
+async def _fetch_shop_schedule(shop_id: str) -> Optional[dict]:
     # Short timeouts: this sits in front of every booking.
     async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
         try:
@@ -134,11 +224,7 @@ async def fetch_shop_schedule(shop_id: str) -> Optional[dict]:
             raise HTTPException(status_code=503, detail="Shop service unavailable") from exc
     if resp.status_code not in (200, 404):
         raise HTTPException(status_code=503, detail="Shop service unavailable")
-    schedule = resp.json() if resp.status_code == 200 else None
-    if len(_schedule_cache) >= _SCHEDULE_CACHE_MAX:
-        _schedule_cache.clear()
-    _schedule_cache[shop_id] = (time.monotonic() + SCHEDULE_CACHE_SECONDS, schedule)
-    return schedule
+    return resp.json() if resp.status_code == 200 else None
 
 
 ScheduleLookup = Callable[[str], Awaitable[Optional[dict]]]
@@ -146,6 +232,38 @@ ScheduleLookup = Callable[[str], Awaitable[Optional[dict]]]
 
 def get_schedule_lookup() -> ScheduleLookup:
     return fetch_shop_schedule
+
+
+# Where an address or a shop is, for planning home visits: places rarely move, so kept for a while.
+LOCATION_CACHE_SECONDS = 600.0
+_location_cache: Dict[Tuple[str, str], Tuple[float, Optional[Tuple[float, float]]]] = {}
+
+
+async def fetch_location(kind: str, ref: str) -> Optional[Tuple[float, float]]:
+    """(latitude, longitude) of a saved address (user_service) or a shop (shop_service), or None."""
+    key = (kind, ref)
+    cached = _location_cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    if kind == "address":
+        base, path = settings.USER_SERVICE_URL, f"/internal/addresses/{path_segment(ref)}/location"
+    else:
+        base, path = settings.SHOP_SERVICE_URL, f"/api/v1/shops/{path_segment(ref)}"
+    async with httpx.AsyncClient(base_url=base, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
+        resp = await client.get(path, headers=internal_headers())
+    point = None
+    if resp.status_code == 200:
+        data = resp.json()
+        if data.get("latitude") is not None and data.get("longitude") is not None:
+            point = (float(data["latitude"]), float(data["longitude"]))
+    if len(_location_cache) >= _CACHE_MAX:
+        _location_cache.clear()
+    _location_cache[key] = (time.monotonic() + LOCATION_CACHE_SECONDS, point)
+    return point
+
+
+def get_location_lookup() -> Callable[[str, str], Awaitable[Optional[Tuple[float, float]]]]:
+    return fetch_location
 
 
 def get_clock() -> Callable[[], datetime]:

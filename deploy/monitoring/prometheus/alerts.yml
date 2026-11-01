@@ -102,6 +102,82 @@ groups:
             Rate limits and sign-out checks are being skipped (requests are let through). Check: make
             prod-logs S=redis
 
+  - name: live_queue
+    # From booking_service's /metrics (job "booking"); docs/LIVE_QUEUE.md §12.
+    rules:
+      - alert: QueueSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, endpoint) (rate(alakh_queue_request_seconds_bucket[5m]))
+          ) > 0.3
+          and sum by (endpoint) (rate(alakh_queue_request_seconds_count[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Live queue ({{ $labels.endpoint }}): 95% of requests take up to {{ $value | humanizeDuration }}"
+          description: >-
+            Each look recomputes the shop's day; above 300 ms for 10 minutes a shop's line is very long
+            or the database is slow. Check: make prod-logs S=booking_service, and the database load.
+
+      - alert: QueueNotificationsFailing
+        expr: |
+          (
+            sum(rate(alakh_booking_notifications_total{event=~"booking\\.(your_turn|turn_soon|queue_update|queue_ahead)",outcome!="sent"}[10m]))
+            /
+            sum(rate(alakh_booking_notifications_total{event=~"booking\\.(your_turn|turn_soon|queue_update|queue_ahead)"}[10m]))
+          ) > 0.05
+          and sum(rate(alakh_booking_notifications_total{event=~"booking\\.(your_turn|turn_soon|queue_update|queue_ahead)"}[10m])) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of queue messages do not reach notification_service"
+          description: >-
+            Customers are not told their turn is coming. Check: make prod-logs S=notification_service, then
+            make prod-logs S=booking_service (notify_failed, notify_rejected).
+
+      - alert: BookingWorkerSlow
+        expr: |
+          increase(alakh_booking_worker_pass_seconds_count[10m])
+            - ignoring(le) increase(alakh_booking_worker_pass_seconds_bucket{le="20"}[10m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Booking worker passes take longer than 20 s"
+          description: >-
+            The every-minute pass (queue notices, reminders, expiries) is falling behind, so queue messages
+            arrive late. Look at how many shops have a line today and the database load.
+
+      - alert: BookingWorkerStopped
+        expr: |
+          time() - alakh_booking_worker_last_pass_timestamp_seconds > 5 * 60
+          and alakh_booking_worker_last_pass_timestamp_seconds > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No good booking worker pass for {{ $value | humanizeDuration }}"
+          description: >-
+            No queue notices, reminders or expiries are going out; every pass is failing. Check: make
+            prod-logs S=booking_service (booking_worker_failed).
+
+      - alert: QueueWaitsOff
+        expr: |
+          sum by (shop_id) (increase(alakh_queue_start_error_minutes_total[1d]))
+            / sum by (shop_id) (increase(alakh_queue_starts_measured_total[1d])) > 15
+          and sum by (shop_id) (increase(alakh_queue_starts_measured_total[1d])) >= 10
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Shop {{ $labels.shop_id }}: starts are {{ $value | humanize }} min from what customers were told"
+          description: >-
+            Over the last day this shop's customers started on average more than 15 minutes from the time
+            they were last given. Its service lengths or team are probably out of date; ask the shop to
+            check them (the queue learns lengths, but slowly from a far-off start).
+
   - name: server
     rules:
       - alert: BackupTooOld

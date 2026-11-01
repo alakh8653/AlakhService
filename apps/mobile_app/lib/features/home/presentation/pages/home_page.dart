@@ -6,6 +6,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/service_card.dart';
 import '../../../auth/domain/entities/user.dart';
+import '../../../booking/data/booking_queue_api.dart';
 import '../../../booking/domain/entities/booking.dart';
 import '../../../booking/domain/repositories/booking_repository.dart';
 import '../../../booking/presentation/pages/booking_history_page.dart';
@@ -65,6 +66,8 @@ class _HomePageState extends State<HomePage> {
   late Future<List<ServiceEntity>> _popular;
   // The customer's soonest booking that is still ahead or under way, if any.
   Booking? _next;
+  // Today's queue for the next booking, if it is at the shop today.
+  BookingQueue? _nextQueue;
   int _unread = 0;
 
   NotificationsApi get _notifications => widget.notificationsApi ?? sl<NotificationsApi>();
@@ -86,6 +89,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String? _queueLine(AppLocalizations l10n) {
+    final q = _nextQueue;
+    if (q == null) return null;
+    return switch (q.state) {
+      'IN_PROGRESS' => l10n.liveQueueInProgress,
+      'YOUR_TURN' => l10n.queueYourTurn,
+      _ => l10n.liveQueueShort(
+          q.position ?? 0,
+          (q.waitMinutes ?? 0) > 0 ? l10n.liveQueueWait(l10n.queueWaitMinutes(q.waitMinutes!)) : l10n.queueYoureNext,
+        ),
+    };
+  }
+
   Future<void> _loadNext() async {
     final result = await (widget.bookingRepository ?? sl<BookingRepository>()).getUserBookings();
     final now = DateTime.now();
@@ -95,6 +111,15 @@ class _HomePageState extends State<HomePage> {
         .where((b) => !b.isOverdue(now))
         .toList();
     if (mounted) setState(() => _next = upcoming.isEmpty ? null : upcoming.first);
+    final next = _next;
+    final api = sl.isRegistered<BookingQueueApi>() ? sl<BookingQueueApi>() : null;
+    if (next == null || api == null || next.serviceMode != 'AT_SHOP') return;
+    try {
+      final queue = await api.forBooking(next.id);
+      if (mounted) setState(() => _nextQueue = queue.isLive ? queue : null);
+    } catch (_) {
+      // The card shows the booked time as before.
+    }
   }
 
   Future<List<ServiceEntity>> _loadPopular() async {
@@ -145,6 +170,7 @@ class _HomePageState extends State<HomePage> {
                   serviceName: _next!.serviceName,
                   when: friendlyDateTime(_next!.scheduledAt, l10n: l10n),
                   status: bookingStatusLabel(l10n, _next!.status),
+                  queueLine: _queueLine(l10n),
                   onTap: widget.onOpenBookings,
                 )
               else

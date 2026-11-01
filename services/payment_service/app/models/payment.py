@@ -18,6 +18,9 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
+# What a payment is for: the booking itself, or a tip the customer adds once it is completed.
+BOOKING, TIP, PACKAGE = "BOOKING", "TIP", "PACKAGE"
+
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -63,6 +66,9 @@ class Payment(Base):
     provider_payment_id = Column(String, nullable=True)
     provider_order_id = Column(String, nullable=True, index=True)
     gateway = Column(String, nullable=True)  # razorpay, cash
+    # BOOKING or TIP: a booking is paid for once, and tipped at most once, each on its own. PACKAGE: a
+    # prepaid package of visits, whose booking_id holds the PackagePurchase id it pays for.
+    purpose = Column(String(10), nullable=False, default=BOOKING, server_default=BOOKING)
     idempotency_key = Column(String, unique=True, nullable=False)
     metadata_json = Column("metadata", Text, nullable=True)
     # Numbered when the payment completes, gap-free per financial year: ALK/2026-27/000123.
@@ -71,11 +77,12 @@ class Payment(Base):
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
 
-    # A booking is paid for once, even if two checkouts are confirmed at the same moment.
+    # A booking is paid for (and tipped) once, even if two checkouts are confirmed at the same moment.
     __table_args__ = (
         Index(
-            "uq_payments_booking_completed",
+            "uq_payments_booking_purpose_completed",
             "booking_id",
+            "purpose",
             unique=True,
             sqlite_where=text("status = 'COMPLETED'"),
             postgresql_where=text("status = 'COMPLETED'"),
@@ -137,7 +144,9 @@ class ShopEarning(Base):
     """What one booking earned its shop, after the platform's commission and GST on that commission.
 
     SALE is the booking itself (one per booking); ADJUSTMENT corrects a SALE already paid out (a later
-    refund), so the difference is netted against the shop's next payout.
+    refund), so the difference is netted against the shop's next payout. TIP is a tip the customer paid
+    online for its provider: no commission or GST, all of it paid out (TIP_ADJUSTMENT corrects one already
+    paid out).
 
     ONLINE: the platform collected the money and owes the shop ``net`` (payout_cents = net).
     CASH: the shop collected it and owes the platform commission + GST (payout_cents is negative).
@@ -160,6 +169,10 @@ class ShopEarning(Base):
     net_cents = Column(Integer, nullable=False)
     payout_cents = Column(Integer, nullable=False)
     status = Column(String(10), nullable=False)  # HELD, READY, PAID, REFUNDED
+    # TIP: the staff member who did the job; the shop passes the tip on to them in full.
+    provider_id = Column(String, nullable=True)
+    # Paid by the platform for the customer's points: the shop earns as if the customer paid it.
+    platform_discount_cents = Column(Integer, nullable=False, default=0, server_default="0")
     payout_id = Column(String, ForeignKey("payouts.id"), nullable=True, index=True)
     completed_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
@@ -184,4 +197,101 @@ class Payout(Base):
     paid_at = Column(DateTime(timezone=True), nullable=True)
     reference = Column(String, nullable=True)
     created_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class LoyaltyEntry(Base):
+    """One change to a customer's points: earned on a completed booking, spent on (or returned from) a
+    booking, a referral bonus, or taken back after a refund. The balance is their sum.
+
+    The platform pays for points: a booking paid partly with points earns its shop the full price.
+    """
+
+    __tablename__ = "loyalty_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False, index=True)
+    kind = Column(String(20), nullable=False)  # EARN, REDEEM, REDEEM_RETURN, REFERRAL_BONUS, CLAWBACK
+    points = Column(Integer, nullable=False)  # positive adds, negative spends
+    booking_id = Column(String, nullable=True, index=True)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    # Each event happens once per booking and person, however often it is reported.
+    __table_args__ = (UniqueConstraint("user_id", "kind", "booking_id", name="uq_loyalty_user_kind_booking"),)
+
+
+class ReferralCode(Base):
+    """A customer's own code to invite friends."""
+
+    __tablename__ = "referral_codes"
+
+    user_id = Column(String, primary_key=True)
+    code = Column(String(12), nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class Referral(Base):
+    """Who invited a new customer; both get a bonus once that customer's first booking is completed."""
+
+    __tablename__ = "referrals"
+
+    referee_id = Column(String, primary_key=True)
+    referrer_id = Column(String, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    rewarded_at = Column(DateTime(timezone=True), nullable=True)
+    rewarded_booking_id = Column(String, nullable=True)
+
+
+class ServicePackage(Base):
+    """Visits of one service a shop sells together, paid upfront: e.g. 5 haircuts for the price of 4."""
+
+    __tablename__ = "service_packages"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, nullable=False, index=True)
+    service_id = Column(String, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    visits = Column(Integer, nullable=False)
+    price_cents = Column(Integer, nullable=False)
+    valid_days = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class PackagePurchase(Base):
+    """A customer's package: PENDING until paid, then ACTIVE with visits to book until it expires;
+    REFUNDED once an admin refunds what is unused. Its terms are copied at purchase."""
+
+    __tablename__ = "package_purchases"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    package_id = Column(String, ForeignKey("service_packages.id"), nullable=False, index=True)
+    customer_id = Column(String, nullable=False, index=True)
+    shop_id = Column(String, nullable=False, index=True)
+    service_id = Column(String, nullable=False)
+    name = Column(String(100), nullable=False)
+    visits_total = Column(Integer, nullable=False)
+    visits_left = Column(Integer, nullable=False)
+    price_cents = Column(Integer, nullable=False)
+    valid_days = Column(Integer, nullable=False)
+    status = Column(String(10), nullable=False, default="PENDING")  # PENDING, ACTIVE, REFUNDED
+    payment_id = Column(String, nullable=True)
+    purchased_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class PackageRedemption(Base):
+    """One visit of a package used for a booking (RETURNED if the booking was cancelled). The visit's share
+    of the package price is what the shop earns when the booking is completed."""
+
+    __tablename__ = "package_redemptions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    purchase_id = Column(String, ForeignKey("package_purchases.id"), nullable=False, index=True)
+    booking_id = Column(String, nullable=False, unique=True)
+    visit_value_cents = Column(Integer, nullable=False)
+    status = Column(String(10), nullable=False, default="USED")  # USED, RETURNED
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

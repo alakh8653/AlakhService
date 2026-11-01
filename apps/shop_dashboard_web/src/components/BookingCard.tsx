@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { CalendarCheck, Clock, Home, MessageCircle, Package, Store, User, Scissors, UserCog } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
-import { READY_BY_STATUSES, bookingActions } from '../services/bookingService';
+import { READY_BY_STATUSES, bookingActions, type QueueEntry } from '../services/bookingService';
 import { formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
@@ -45,6 +45,8 @@ interface BookingCardProps {
   onAssign?: (id: string, providerId: string) => Result;
   /** Pickup & drop: promise (ISO datetime) or clear (null) when the item will be back. */
   onSetReadyBy?: (id: string, readyBy: string | null) => Result;
+  /** Today's place in the shop's queue, if the booking is in it. */
+  queue?: QueueEntry;
 }
 
 /** A datetime-local input's value (local time, to the minute) for an ISO datetime. */
@@ -96,6 +98,7 @@ export default function BookingCard({
   onCancel,
   onAssign,
   onSetReadyBy,
+  queue,
 }: BookingCardProps) {
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -138,6 +141,11 @@ export default function BookingCard({
           <Clock size={14} className="flex-shrink-0" aria-hidden />
           {formatWhen(booking.scheduledAt)}
           <span className="font-normal text-gray-500">· {booking.durationMinutes} min</span>
+          {(booking.rescheduleCount ?? 0) > 0 && (
+            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+              Rescheduled by customer
+            </span>
+          )}
         </p>
         <p className="font-semibold text-gray-900 flex items-center gap-1.5">
           <Scissors size={14} className="text-gray-400 flex-shrink-0" aria-hidden />
@@ -154,6 +162,21 @@ export default function BookingCard({
             <MessageCircle size={12} aria-hidden /> {chatOpen ? 'Hide messages' : 'Messages'}
           </button>
         </p>
+        {queue && (
+          <p className="text-sm font-medium text-indigo-800" data-testid="queue-line">
+            {queue.state === 'IN_PROGRESS'
+              ? 'Being served now'
+              : `${queue.position === 1 ? 'Next in line' : `#${queue.position} in line`} · starts about ${format(new Date(queue.estimatedStart), 'h:mm a')}`}
+            {queue.state !== 'IN_PROGRESS' && queue.runningLateMinutes > 0 && (
+              <span className="ml-1 text-red-700">· {queue.runningLateMinutes} min late</span>
+            )}
+          </p>
+        )}
+        {booking.preferredStaffName && (
+          <p className="text-sm text-indigo-700">
+            <span className="text-gray-500">Asked for:</span> {booking.preferredStaffName}
+          </p>
+        )}
         {booking.itemDescription && (
           <p className="text-sm text-gray-700">
             <span className="text-gray-500">Item:</span> {booking.itemDescription}
@@ -183,6 +206,9 @@ export default function BookingCard({
       </div>
       <div className="flex flex-col sm:items-end gap-2 sm:min-w-44">
         <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        {(booking.pointsDiscount ?? 0) > 0 && (
+          <p className="text-xs text-emerald-700">+ {formatMoney(booking.pointsDiscount ?? 0)} in points, paid to you by AlakhService</p>
+        )}
         {CASH_STATUSES.has(booking.status) && <CashDue bookingId={booking.id} />}
         {booking.status === 'CONFIRMED' && onAssign && (
           providers.length > 0 ? (

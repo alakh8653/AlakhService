@@ -8,6 +8,7 @@ import { useBookings } from '../hooks/useBookings';
 import { useBookingActions } from '../hooks/useBookingActions';
 import { useShopServices } from '../hooks/useShopServices';
 import { useStaff } from '../hooks/useStaff';
+import { useShopQueue } from '../hooks/useShopQueue';
 import BookingCard, { MODE_LABELS } from '../components/BookingCard';
 import { useToast } from '../components/Toast';
 import {
@@ -63,6 +64,8 @@ export default function BookingsPage() {
   const { serviceNames } = useShopServices();
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const { staff, providers, providerName } = useStaff();
+  // Today's live queue (place in line, expected start), refreshed with the list.
+  const queue = useShopQueue(shopId, bookings);
   const actions = useBookingActions(replace, providerName);
   const toast = useToast();
 
@@ -208,6 +211,7 @@ export default function BookingsPage() {
               onAssign={actions.assign}
               onCancel={actions.cancel}
               onSetReadyBy={actions.setReadyBy}
+              queue={queue[b.id]}
             />
           ))}
           {!error && shown.length === 0 && (

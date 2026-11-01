@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 SCHEDULE_CLOCK_SKEW = timedelta(minutes=5)
 
 
+def _not_in_past(v: datetime) -> datetime:
+    at = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+    if at < datetime.now(timezone.utc) - SCHEDULE_CLOCK_SKEW:
+        raise ValueError("scheduled_at must not be in the past")
+    return v
+
+
 class BookingCreate(BaseModel):
     # Ignored by the API: the customer is the caller.
     customer_id: Optional[str] = None
@@ -25,14 +32,17 @@ class BookingCreate(BaseModel):
     service_mode: Literal["AT_SHOP", "AT_HOME", "PICKUP_DROP"] = "AT_SHOP"
     # What is being collected and what is wrong with it (pickup & drop).
     item_description: Optional[str] = Field(default=None, max_length=500)
+    # Spend the customer's loyalty points on it (up to a share of the price; the platform pays for them).
+    use_points: bool = False
+    # Book it as one visit of the customer's prepaid package (at the shop only): it then costs nothing more.
+    package_purchase_id: Optional[str] = Field(default=None, max_length=128)
+    # The staff member the customer would like (shop_service's team id); the shop still assigns the job.
+    preferred_staff_id: Optional[str] = Field(default=None, max_length=128)
 
     @field_validator("scheduled_at")
     @classmethod
     def validate_scheduled_at(cls, v: datetime) -> datetime:
-        at = v if v.tzinfo else v.replace(tzinfo=timezone.utc)
-        if at < datetime.now(timezone.utc) - SCHEDULE_CLOCK_SKEW:
-            raise ValueError("scheduled_at must not be in the past")
-        return v
+        return _not_in_past(v)
 
     @field_validator("duration_minutes")
     @classmethod
@@ -52,6 +62,8 @@ class BookingCreate(BaseModel):
 class BookingStatusUpdate(BaseModel):
     status: str
     reason: Optional[str] = None
+    # Starting a service at the shop: the team member doing it (else the one the queue planned, if free).
+    staff_id: Optional[str] = None
 
 
 class BookingAssignRequest(BaseModel):
@@ -65,6 +77,17 @@ class BookingReadyByUpdate(BaseModel):
 
 class BookingCancelRequest(BaseModel):
     reason: str
+
+
+class BookingRescheduleRequest(BaseModel):
+    # The new start; the service, price and duration stay as booked.
+    scheduled_at: datetime
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def validate_scheduled_at(cls, v: datetime) -> datetime:
+        return _not_in_past(v)
 
 
 class BookingResponse(BaseModel):
@@ -92,6 +115,15 @@ class BookingResponse(BaseModel):
     # Home visit or pickup fee included in total_amount.
     service_mode_fee: int = 0
     coupon_code: Optional[str] = None
+    # Paid by the customer's loyalty points (included in list_price, not in total_amount).
+    points_discount: int = 0
+    # The prepaid package one of whose visits this booking uses.
+    package_purchase_id: Optional[str] = None
+    # Who the customer asked for, if anyone (first name and last initial).
+    preferred_staff_id: Optional[str] = None
+    preferred_staff_name: Optional[str] = None
+    # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
+    reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
     created_at: datetime
@@ -108,6 +140,63 @@ class BookingStatusHistoryResponse(BaseModel):
     changed_by: str
     reason: Optional[str] = None
     created_at: datetime
+
+
+class QueueStatus(BaseModel):
+    """Where a booking stands in today's queue at its shop (see app.core.live_queue)."""
+
+    booking_id: str
+    # WAITING, YOUR_TURN, IN_PROGRESS, or NOT_TODAY / NOT_QUEUED (another day, finished, not at the shop).
+    state: str
+    scheduled_at: datetime
+    position: Optional[int] = None
+    people_ahead: Optional[int] = None
+    being_served: Optional[int] = None
+    estimated_start: Optional[datetime] = None
+    wait_minutes: Optional[int] = None
+    running_late_minutes: Optional[int] = None
+    # How many customers the shop serves at once.
+    capacity: Optional[int] = None
+    # The likely range of the start and how sure it is (HIGH, MEDIUM, LOW).
+    eta_min: Optional[datetime] = None
+    eta_max: Optional[datetime] = None
+    confidence: Optional[str] = None
+    # Who is expected to serve them (by name), and how many are before them with that person.
+    staff_name: Optional[str] = None
+    ahead_with_staff: Optional[int] = None
+    # UNSERVABLE: NO_ELIGIBLE_WORKER or BEYOND_SHIFT; or PREFERRED_UNAVAILABLE (their pick is away today).
+    reason: Optional[str] = None
+    checked_in: bool = False
+    # They can tell the shop they have arrived (today, still waiting, not yet checked in).
+    can_check_in: bool = False
+
+
+class ShopQueueEntry(BaseModel):
+    booking_id: str
+    booking_number: str
+    customer_display_name: str = "Customer"
+    state: str
+    position: Optional[int] = None
+    scheduled_at: datetime
+    estimated_start: Optional[datetime] = None
+    running_late_minutes: int
+    service_id: Optional[str] = None
+    # BOOKED or WALK_IN; VIP, APPOINTMENT or WALK_IN.
+    source: str = "BOOKED"
+    priority: str = "APPOINTMENT"
+    checked_in: bool = False
+    staff_id: Optional[str] = None
+    staff_name: Optional[str] = None
+    eta_min: Optional[datetime] = None
+    eta_max: Optional[datetime] = None
+    estimated_end: Optional[datetime] = None
+    confidence: Optional[str] = None
+    reason: Optional[str] = None
+    overrun: bool = False
+    # Moved in the line by hand.
+    moved: bool = False
+    # Late past the grace period and not checked in: the shop may mark them a no-show.
+    can_mark_no_show: bool = False
 
 
 class BookingListResponse(BaseModel):

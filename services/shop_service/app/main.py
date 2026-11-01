@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 from fastapi import FastAPI
@@ -6,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.observability import install_observability
+from app.routers.favorites import router as favorites_router
 from app.routers.hours import router as hours_router
 from app.routers.internal import router as internal_router
 from app.routers.kyc import router as kyc_router
@@ -19,7 +21,18 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("service_starting", service=settings.APP_NAME)
+    resync = None
+    if settings.LISTING_RESYNC_SECONDS > 0:
+        from app.core.listing_sync import run_forever
+        from app.core.reporting import get_reporter
+        from app.database import AsyncSessionLocal
+
+        resync = asyncio.create_task(run_forever(AsyncSessionLocal, get_reporter()))
     yield
+    if resync is not None:
+        resync.cancel()
+        with suppress(asyncio.CancelledError):
+            await resync
     logger.info("service_stopping", service=settings.APP_NAME)
 
 
@@ -32,8 +45,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 install_observability(app, service="shop_service")
-# Before the shop routes, whose /shops/{shop_id} would otherwise take /shops/ratings.
+# Before the shop routes, whose /shops/{shop_id} would otherwise take /shops/ratings and /shops/favorites.
 app.include_router(reviews_router, prefix="/api/v1", tags=["reviews"])
+app.include_router(favorites_router, prefix="/api/v1", tags=["favorites"])
 app.include_router(shop_router, prefix="/api/v1", tags=["shops"])
 app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 app.include_router(hours_router, prefix="/api/v1", tags=["opening hours"])

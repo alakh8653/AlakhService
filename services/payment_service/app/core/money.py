@@ -41,10 +41,15 @@ def split(gross_cents: int, commission_percent: Decimal, gst_percent: Decimal) -
     return Split(gross_cents, commission, gst)
 
 
-def payout_cents(s: Split, collection: str) -> int:
+def payout_cents(s: Split, collection: str, platform_discount_cents: int = 0) -> int:
     """What the platform owes the shop for a booking: the net when the platform collected the money,
-    or minus commission and GST when the shop collected it in cash."""
-    return s.net_cents if collection == "ONLINE" else -s.platform_cents
+    or minus commission and GST when the shop collected it in cash.
+
+    [s] is on the full price; [platform_discount_cents] of it was paid by the platform (the customer's
+    points). Online the platform already holds less than the full price and pays the rest from its own
+    funds; in cash the shop collected less, so the platform owes it that much more.
+    """
+    return s.net_cents if collection == "ONLINE" else platform_discount_cents - s.platform_cents
 
 
 @dataclass(frozen=True)

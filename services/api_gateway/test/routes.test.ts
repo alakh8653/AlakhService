@@ -45,6 +45,16 @@ describe('route table', () => {
     expect(upstreamPath(viaAdmin, '/api/v1/admin/reviews/r1/visibility')).toBe('/api/v1/reviews/r1/visibility');
   });
 
+  it("opens only a shop's queue board to read without an account", () => {
+    const board = findRoute('/api/v1/bookings/shop/s1/queue/board')!;
+    expect(board.upstream).toBe('booking');
+    expect(requiredAccess(board, 'GET')).toBe('public');
+    expect(requiredAccess(board, 'POST')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/bookings/shop/s1/queue')!, 'GET')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/bookings/shop/s1/queue/board/x')!, 'GET')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/bookings/shop/s1/queue/settings')!, 'GET')).toBe('user');
+  });
+
   it('sends booking chat to booking_service for signed-in users and its moderation to admins only', () => {
     const chat = findRoute('/api/v1/bookings/b1/messages')!;
     expect(chat.upstream).toBe('booking');

@@ -10,15 +10,21 @@ class AppBottomNavBar extends StatelessWidget {
   /// Adds a Jobs tab (before Profile) for people who work as providers.
   final bool showJobs;
 
+  /// Adds My shop (the shop's live line, before Profile) for shop owners.
+  final bool showShopLine;
+
   const AppBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
     this.showJobs = false,
+    this.showShopLine = false,
   });
 
   static String _jobsLabel(AppLocalizations l10n) => l10n.navJobs;
   static const _jobs = _NavItem(icon: Icons.work_outline, activeIcon: Icons.work, label: _jobsLabel);
+  static String _shopLineLabel(AppLocalizations l10n) => l10n.navShopLine;
+  static const _shopLine = _NavItem(icon: Icons.storefront_outlined, activeIcon: Icons.storefront, label: _shopLineLabel);
 
   static const List<_NavItem> _items = [
     _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: _home),
@@ -52,7 +58,7 @@ class AppBottomNavBar extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
       unselectedLabelStyle: AppTextStyles.caption.themed(context),
-      items: [..._items.take(3), if (showJobs) _jobs, _items.last]
+      items: [..._items.take(3), if (showJobs) _jobs, if (showShopLine) _shopLine, _items.last]
           .map(
             (item) => BottomNavigationBarItem(
               icon: Icon(item.icon),

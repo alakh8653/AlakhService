@@ -12,15 +12,19 @@ import '../features/notifications/presentation/pages/notifications_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/services/presentation/bloc/service_bloc.dart';
 import '../features/services/presentation/pages/service_list_page.dart';
+import '../features/shop_line/data/shop_line_api.dart';
+import '../features/shop_line/presentation/shop_line_page.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 import 'shell_navigation.dart';
 
-/// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers.
+/// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers and My shop (the
+/// shop's live line) for shop owners.
 class HomeShell extends StatefulWidget {
   final User user;
   final JobsApi? jobsApi;
+  final ShopLineApi? shopLineApi;
 
-  const HomeShell({super.key, required this.user, this.jobsApi});
+  const HomeShell({super.key, required this.user, this.jobsApi, this.shopLineApi});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -28,17 +32,23 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   // Tab ids; the bar shows them in this order, Jobs only for providers.
-  static const _home = 0, _services = 1, _bookings = 2, _jobs = 3, _profile = 4;
+  static const _home = 0, _services = 1, _bookings = 2, _jobs = 3, _profile = 4, _shopLine = 5;
 
   int _index = _home;
   // Shown once the user turns out to have jobs assigned to them as a provider.
   bool _showJobs = false;
+  // The shop the user owns, if any: its line gets a tab.
+  OwnedShop? _shop;
 
   @override
   void initState() {
     super.initState();
     (widget.jobsApi ?? sl<JobsApi>()).hasJobs().then((has) {
       if (has && mounted) setState(() => _showJobs = true);
+    }).catchError((Object _) {});
+    final lineApi = widget.shopLineApi ?? (sl.isRegistered<ShopLineApi>() ? sl<ShopLineApi>() : null);
+    lineApi?.ownedShop(widget.user.id).then((shop) {
+      if (shop != null && mounted) setState(() => _shop = shop);
     }).catchError((Object _) {});
     ShellNavigation.instance.addListener(_onTabRequest);
   }
@@ -60,7 +70,7 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
-  List<int> get _tabs => [_home, _services, _bookings, if (_showJobs) _jobs, _profile];
+  List<int> get _tabs => [_home, _services, _bookings, if (_showJobs) _jobs, if (_shop != null) _shopLine, _profile];
   String? _serviceQuery;
   // Bumped on every visit so a tab reloads its data when shown again.
   int _visit = 0;
@@ -97,6 +107,8 @@ class _HomeShellState extends State<HomeShell> {
         );
       case _jobs:
         return JobsPage(key: ValueKey('jobs-$_visit'), providerId: widget.user.id);
+      case _shopLine:
+        return ShopLinePage(key: ValueKey('line-$_visit'), shop: _shop!, api: widget.shopLineApi);
       default:
         return ProfilePage(
           user: widget.user,
@@ -120,6 +132,7 @@ class _HomeShellState extends State<HomeShell> {
           currentIndex: _tabs.indexOf(_index),
           onTap: (i) => _select(_tabs[i]),
           showJobs: _showJobs,
+          showShopLine: _shop != null,
         ),
       ),
     );

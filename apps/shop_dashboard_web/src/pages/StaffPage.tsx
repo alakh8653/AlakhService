@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useSelector } from 'react-redux';
-import { Plus, Pencil, Phone, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, Phone, CalendarDays, Clock } from 'lucide-react';
 import type { RootState } from '../state/store';
-import type { StaffMember } from '../types';
-import { createStaffMember, updateStaffMember } from '../services/shopService';
+import type { OpenInterval, StaffMember } from '../types';
+import { createStaffMember, getShopHours, updateStaffMember } from '../services/shopService';
 import { apiErrorMessage } from '../services/format';
 import { useShopServices } from '../hooks/useShopServices';
 import { useStaff } from '../hooks/useStaff';
 import StaffSchedule from '../components/StaffSchedule';
+import WorkingHoursDialog from '../components/WorkingHoursDialog';
 import Dialog from '../components/Dialog';
 import Switch from '../components/Switch';
 import { useToast } from '../components/Toast';
@@ -132,6 +133,8 @@ export default function StaffPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<StaffMember | 'new' | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [hoursFor, setHoursFor] = useState<StaffMember | null>(null);
+  const [shopWeek, setShopWeek] = useState<OpenInterval[][] | null>(null);
   const toast = useToast();
 
   const selected = staff.find((m) => m.id === selectedId) ?? null;
@@ -163,6 +166,25 @@ export default function StaffPage() {
     }
   };
 
+  const openHours = async (member: StaffMember) => {
+    if (shopId && shopWeek === null) {
+      try {
+        const hours = await getShopHours(shopId);
+        if (hours.configured) setShopWeek(hours.weekly);
+      } catch {
+        // Without the shop's week their own starts from a usual one.
+      }
+    }
+    setHoursFor(member);
+  };
+
+  const saveHours = async (week: OpenInterval[][] | null) => {
+    if (!hoursFor) return;
+    const updated = await updateStaffMember(hoursFor.id, { workingHours: week });
+    replace(updated);
+    toast(week ? `${updated.name}'s own hours saved.` : `${updated.name} works whenever the shop is open.`);
+  };
+
   const showSchedule = (id: string) => {
     setSelectedId(id);
     // On a phone the schedule is below the list: bring it into view.
@@ -188,6 +210,9 @@ export default function StaffPage() {
           onClose={() => setEditing(null)}
         />
       )}
+      {hoursFor && (
+        <WorkingHoursDialog key={hoursFor.id} member={hoursFor} shopWeek={shopWeek} onSave={saveHours} onClose={() => setHoursFor(null)} />
+      )}
       {isLoading ? (
         <div className="bg-white rounded-2xl shadow h-32 animate-pulse" aria-label="Loading staff" />
       ) : (
@@ -209,7 +234,11 @@ export default function StaffPage() {
                       {member.name}
                       {!member.isActive && <span className="ml-2 text-xs font-normal bg-gray-200 text-gray-700 rounded-full px-2 py-0.5">Inactive</span>}
                     </p>
-                    <p className="text-xs text-gray-600 capitalize">{member.role}</p>
+                    <p className="text-xs text-gray-600">
+                      <span className="capitalize">{member.role}</span>
+                      {' · '}
+                      <span>{member.workingHours ? 'Own hours' : "Shop's hours"}</span>
+                    </p>
                     <p className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
                       {member.phone && (
                         <a href={`tel:${member.phone}`} className="flex items-center gap-1 text-indigo-600 hover:underline">
@@ -232,6 +261,14 @@ export default function StaffPage() {
                       className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
                     >
                       <CalendarDays size={18} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void openHours(member)}
+                      aria-label={`${member.name}'s working hours`}
+                      className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                    >
+                      <Clock size={18} aria-hidden />
                     </button>
                     <button type="button" onClick={() => setEditing(member)} aria-label={`Edit ${member.name}`} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50">
                       <Pencil size={16} aria-hidden />

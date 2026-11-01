@@ -1,5 +1,6 @@
 import hashlib
 import json
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
@@ -19,12 +20,15 @@ from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import availability, payments, risk
-from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
+from app.config import settings
+from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, waitlist
+from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
-from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
+from app.core.packages import PackageUnusable, PackageWallet, get_package_wallet
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
+from app.core.points import PointsWallet, get_points_wallet
 from app.core.privacy import present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
@@ -34,10 +38,12 @@ from app.dependencies import (
     get_clock,
     get_coupon_pricer,
     get_current_user,
+    get_location_lookup,
     get_schedule_lookup,
     get_service_lookup,
     get_shop_owner_lookup,
     get_staff_lookup,
+    get_team_lookup,
     require_shop_access,
     security,
     verify_access_token,
@@ -48,6 +54,7 @@ from app.schemas.booking import (
     BookingCreate,
     BookingListResponse,
     BookingReadyByUpdate,
+    BookingRescheduleRequest,
     BookingResponse,
     BookingStatusHistoryResponse,
     BookingStatusUpdate,
@@ -136,6 +143,9 @@ async def create_booking(
     # gets the booking already made rather than a second one.
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
     lookup_names: NameLookup = Depends(get_name_lookup),
+    wallet: PointsWallet = Depends(get_points_wallet),
+    packages: PackageWallet = Depends(get_package_wallet),
+    lookup_team=Depends(get_team_lookup),
 ):
     customer_id = current_user.get("sub")
     fingerprint = None
@@ -164,10 +174,40 @@ async def create_booking(
     fee = {AT_HOME: listing.get("home_visit_fee_cents") or 0, PICKUP_DROP: listing.get("pickup_fee_cents") or 0}.get(
         mode, 0
     )
+    preferred = None
+    if booking_data.preferred_staff_id:
+        # Someone on the shop's team who does this service (an empty list means all of them).
+        team = {m["id"]: m for m in await lookup_team(listing["shop_id"])}
+        preferred = team.get(booking_data.preferred_staff_id)
+        if preferred is None or (
+            preferred.get("service_ids") and booking_data.service_id not in preferred["service_ids"]
+        ):
+            raise HTTPException(status_code=422, detail="That professional does not do this service here")
+        if preferred.get("working_hours") is not None and mode == AT_SHOP:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(listing["shop_id"]))
+            start = live_queue._utc(booking_data.scheduled_at)
+            end = start + timedelta(minutes=duration)
+            if schedule.configured and not live_queue.works_through(schedule, preferred, start, end):
+                name = preferred.get("name") or "That professional"
+                raise HTTPException(
+                    status_code=409, detail=f"{name} is not working then; choose another time or anyone"
+                )
     # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
     await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
+    booking_id = str(uuid.uuid4())
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
+    package_id = booking_data.package_purchase_id
+    if package_id:
+        if mode != AT_SHOP:
+            raise HTTPException(status_code=422, detail="Packages are for visits at the shop")
+        if code or booking_data.use_points:
+            raise HTTPException(status_code=422, detail="The package covers this visit: no coupon or points are needed")
+        try:
+            await packages.redeem(customer_id, package_id, booking_data.service_id, booking_id)
+        except PackageUnusable as e:
+            raise HTTPException(status_code=e.status, detail=e.detail) from e
+        price = 0
     if code:
         try:
             price = await price_with_coupon(
@@ -175,6 +215,10 @@ async def create_booking(
             )
         except CouponRejected as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
+    # Points come off what is left of the service's price, last, so nothing can refuse the booking after
+    # they are spent (except a lost idempotency race, which gives them back).
+    points_discount = await wallet.redeem(customer_id, booking_id, price) if booking_data.use_points and price else 0
+    price -= points_discount
     # The coupon applies to the service; the visit or pickup fee is added on top.
     booking_data = booking_data.model_copy(
         update={
@@ -185,26 +229,40 @@ async def create_booking(
         }
     )
     meta = {}
+    if code or points_discount or package_id:
+        meta["list_price"] = listing["price_cents"] + fee
+    if package_id:
+        meta["package_purchase_id"] = package_id
+    if preferred:
+        meta.update(preferred_staff_id=preferred["id"], preferred_staff_name=preferred.get("name"))
     if code:
-        meta.update(coupon_code=code, list_price=listing["price_cents"] + fee)
+        meta["coupon_code"] = code
+    if points_discount:
+        meta["points_discount"] = points_discount
     if fee:
         meta["service_mode_fee"] = fee
     metadata = json.dumps(meta) if meta else None
     try:
         booking = await booking_service.create_booking(
-            db, customer_id, booking_data, metadata, idempotency_key, fingerprint
+            db, customer_id, booking_data, metadata, idempotency_key, fingerprint, booking_id
         )
         # Commit first: the background task delays the session's own commit, and the people notified
         # (and the caller's next request) must already see the change.
         await db.commit()
+        queue_hub.hub.poke(booking.shop_id)
     except IntegrityError:
-        # Another request with the same key got there first (without the lock): its booking stands.
+        # Another request with the same key got there first (without the lock): its booking stands, and
+        # points or a package visit spent on this attempt go back.
         await db.rollback()
+        await _give_back(wallet, packages, booking_id, points_discount, package_id)
         earlier = idempotency_key and await booking_service.get_by_idempotency_key(db, customer_id, idempotency_key)
         if not earlier:
             raise
         log.info("booking_idempotency_race_lost", booking_id=earlier.id)
         return await present(replay(earlier, fingerprint, response), current_user, lookup_names)
+    except Exception:
+        await _give_back(wallet, packages, booking_id, points_discount, package_id)
+        raise
     background.add_task(
         notify_booking,
         notifier,
@@ -217,10 +275,22 @@ async def create_booking(
     return await present(booking, current_user, lookup_names)
 
 
-async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime) -> None:
+async def _give_back(wallet, packages, booking_id: str, points_discount: int, package_id) -> None:
+    """Returns the points or package visit spent on a booking that was not made after all (awaited: a
+    background task would not run once the request fails)."""
+    if points_discount:
+        await wallet.release(booking_id)
+    if package_id:
+        await packages.release(booking_id)
+
+
+async def _ensure_bookable(
+    db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime, exclude_id: Optional[str] = None
+) -> None:
     """409 unless the shop is open for the whole booking, it is far enough ahead, and a place is free.
 
     A shop that has not published opening hours takes any future time, as before hours existed.
+    [exclude_id] is a booking being moved, which does not take a place from itself.
     """
     schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
     if not schedule.accepting_bookings:
@@ -230,7 +300,7 @@ async def _ensure_bookable(db, shop_id, start: datetime, duration: int, lookup_s
     await booking_service.hold_shop_capacity(db, shop_id)
     start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
     end = start + timedelta(minutes=duration)
-    booked = await booking_service.shop_spans(db, shop_id, start, end)
+    booked = await booking_service.shop_spans(db, shop_id, start, end, exclude_id)
     # The customer picked the time a little while ago; a slot that has just slipped inside the lead time
     # is still taken.
     problem = availability.booking_problem(schedule, start, duration, now, booked, grace=timedelta(minutes=5))
@@ -387,17 +457,39 @@ async def update_status(
     lookup_names: NameLookup = Depends(get_name_lookup),
     payment_client: PaymentClient = Depends(get_payment_client),
     session_factory=Depends(get_session_factory),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+    lookup_location=Depends(get_location_lookup),
 ):
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
         raise HTTPException(status_code=400, detail="Use POST /bookings/{id}/assign to assign a provider")
     previous_status = await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
+    now = live_queue._utc(clock())
+    current = await booking_service.get_booking(db, booking_id)
+    at_shop = current.service_mode == AT_SHOP and bool(current.shop_id)
+    starting = at_shop and update_data.status == BookingStatus.IN_PROGRESS.value
+    team, spots = [], {}
+    if starting:  # who the queue planned for them, before they leave the line
+        team = await queue_ops.team_of(lookup_team, current.shop_id)
+        if team:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(current.shop_id))
+            spots = await live_queue.shop_queue(db, current.shop_id, schedule, now, team)
     try:
         booking = await booking_service.transition_status(
             db, booking_id, update_data.status, user_id, update_data.reason
         )
+        if starting:
+            await queue_ops.begin_service(db, booking, update_data.staff_id, team, spots, now)
+            await db.flush()
+        elif at_shop and booking.status == BookingStatus.COMPLETED.value:
+            await queue_ops.finish_service(db, booking, now)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="That team member is already serving someone") from e
     queued = None
     if booking.status in PAYMENT_EVENTS:
         queued = await payments.enqueue(db, booking, PAYMENT_EVENTS[booking.status])
@@ -405,13 +497,38 @@ async def update_status(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     if queued is not None:
         background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
+    extra = None
+    if booking.status == BookingStatus.PROVIDER_EN_ROUTE.value and booking.service_mode == AT_HOME:
+        extra = await _arrival_line(db, booking, now, lookup_location)
     background.add_task(
-        notify_booking, notifier, snapshot(booking), f"booking.{booking.status.lower()}", user_id, lookup_owner
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        f"booking.{booking.status.lower()}",
+        user_id,
+        lookup_owner,
+        extra=extra,
     )
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)
+
+
+async def _arrival_line(db, booking, now: datetime, lookup_location) -> Optional[dict]:
+    """ "Arriving around 10:40." for the customer of a home visit the professional has set off for."""
+    try:
+        day = home_visits.day_window(now, settings.DISPLAY_TIMEZONE)
+        _, route = await home_visits.route_for(db, booking.provider_id, day, now, lookup_location)
+    except Exception as e:  # the message goes out without the time
+        log.warning("arrival_estimate_failed", booking_id=booking.id, error=str(e))
+        return None
+    arrival = route.get(booking.id)
+    if arrival is None:
+        return None
+    eta = home_visits.eta_text(arrival.arrive_at, settings.DISPLAY_TIMEZONE)
+    return {"eta": eta, "arrival_line": f"Arriving around {eta}."}
 
 
 @router.post("/bookings/{booking_id}/assign", response_model=BookingResponse)
@@ -445,6 +562,7 @@ async def assign_provider(
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     background.add_task(
         notify_booking,
         notifier,
@@ -514,13 +632,93 @@ async def cancel_booking(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     queued = await payments.enqueue(db, booking, payments.CANCELLED, cancelled_by(parties))
+    waiting = await waitlist.time_opened(db, booking.shop_id, booking.scheduled_at, except_customer=booking.customer_id)
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     # Commit first: the background task delays the session's own commit, and the people notified
     # (and the caller's next request) must already see the change.
     await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
+    background.add_task(waitlist.tell, notifier, waiting)
     background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
     _report_risk_after(background, booking, previous_status, user_id)
+    return await present(booking, current_user, lookup_names)
+
+
+# A customer may move a booking this many times; after that they cancel (by the refund policy) and rebook.
+MAX_CUSTOMER_RESCHEDULES = 2
+
+
+@router.post("/bookings/{booking_id}/reschedule", response_model=BookingResponse)
+async def reschedule_booking(
+    booking_id: str,
+    body: BookingRescheduleRequest,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    notifier: Notifier = Depends(get_notifier),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """Moves a pending or confirmed booking to another free time. The customer, the shop or an admin.
+
+    The customer can do it up to the late-cancellation window before the start and a few times per
+    booking, so a slot cannot be held and released at the last minute without the cancellation policy.
+    """
+    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    if not parties & {ADMIN, CUSTOMER, SHOP_OWNER}:
+        raise HTTPException(status_code=403, detail="Only the customer or the shop can move this booking")
+    if booking.status not in booking_service.RESCHEDULABLE_STATUSES:
+        raise HTTPException(
+            status_code=409, detail="This booking can no longer be moved. Contact the shop from the booking's chat."
+        )
+    now = clock()
+    new_at = body.scheduled_at if body.scheduled_at.tzinfo else body.scheduled_at.replace(tzinfo=timezone.utc)
+    current = booking.scheduled_at if booking.scheduled_at.tzinfo else booking.scheduled_at.replace(tzinfo=timezone.utc)
+    if new_at == current:
+        raise HTTPException(status_code=422, detail="The booking is already at this time")
+    by_customer = not parties & {ADMIN, SHOP_OWNER}
+    if by_customer:
+        if now > current - risk.LATE_CANCELLATION_WINDOW:
+            hours = int(risk.LATE_CANCELLATION_WINDOW.total_seconds() // 3600)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Bookings can be moved up to {hours} hours before they start. Contact the shop instead.",
+            )
+        if booking.reschedule_count >= MAX_CUSTOMER_RESCHEDULES:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This booking has already been moved {MAX_CUSTOMER_RESCHEDULES} times. "
+                "Cancel it and book a new time instead.",
+            )
+    await _ensure_bookable(
+        db, booking.shop_id, new_at, booking.duration_minutes, lookup_schedule, now, exclude_id=booking.id
+    )
+    previous = await booking_service.reschedule_booking(
+        db, booking, new_at, current_user.get("sub"), body.reason, by_customer=by_customer
+    )
+    waiting = []
+    if waitlist.local_day(previous) != waitlist.local_day(new_at):
+        waiting = await waitlist.time_opened(db, booking.shop_id, previous, except_customer=booking.customer_id)
+    await manager.broadcast(
+        booking_id, {"booking_id": booking_id, "status": booking.status, "scheduled_at": new_at.isoformat()}
+    )
+    # Commit first: the background task delays the session's own commit, and the people notified
+    # (and the caller's next request) must already see the change.
+    await db.commit()
+    queue_hub.hub.poke(booking.shop_id)
+    background.add_task(
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        "booking.rescheduled",
+        current_user.get("sub"),
+        lookup_owner,
+        extra={"previous_scheduled_at": when(previous)},
+    )
+    background.add_task(waitlist.tell, notifier, waiting)
     return await present(booking, current_user, lookup_names)
 
 

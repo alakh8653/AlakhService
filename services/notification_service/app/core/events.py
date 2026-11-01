@@ -24,7 +24,7 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ),
     ("booking.provider_en_route", None): (
         "Provider on the way",
-        "Your provider is on the way for booking {booking_number}.",
+        "Your provider is on the way for booking {booking_number}. {arrival_line}",
     ),
     ("booking.picked_up", "customer"): (
         "Item picked up",
@@ -50,6 +50,15 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ),
     ("booking.completed", None): ("Booking completed", "Booking {booking_number} is complete."),
     ("booking.cancelled", None): ("Booking cancelled", "Booking {booking_number} for {scheduled_at} was cancelled."),
+    # Moved to another time by the customer, the shop or an admin (the one who moved it is not told).
+    ("booking.rescheduled", "customer"): (
+        "Booking moved",
+        "Your booking {booking_number} has been moved to {scheduled_at}.",
+    ),
+    ("booking.rescheduled", None): (
+        "Booking rescheduled",
+        "Booking {booking_number} has moved from {previous_scheduled_at} to {scheduled_at}.",
+    ),
     ("booking.disputed", None): ("Booking disputed", "Booking {booking_number} is under dispute."),
     ("booking.refunded", None): ("Booking refunded", "Booking {booking_number} has been refunded."),
     ("booking.refunded", "customer"): (
@@ -64,6 +73,43 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ("booking.reminder", None): (
         "Upcoming booking",
         "Reminder: booking {booking_number} for {service_name} is at {scheduled_at}.",
+    ),
+    # On the day of a visit at the shop, from the live queue (booking_service's worker), once each.
+    ("booking.turn_soon", "customer"): (
+        "Almost your turn",
+        "Booking {booking_number}: you're #{position} in line, about {wait_minutes} min to go. Please head to the shop.",
+    ),
+    ("booking.running_late", "customer"): (
+        "The shop is running late",
+        "Booking {booking_number} will start about {late_minutes} min after {scheduled_at}. Come a little later; we'll tell you when it's nearly your turn.",
+    ),
+    # The live queue's updates, when something the customer would notice changes (booking_service's
+    # queue_notify): moving up the line, a new expected time, their turn, and a no-show.
+    ("booking.queue_ahead", "customer"): (
+        "You're moving up the line",
+        "Booking {booking_number}: {people_ahead} ahead of you (#{position}), expected around {eta}.",
+    ),
+    ("booking.queue_update", "customer"): (
+        "New expected time",
+        "Booking {booking_number}: now expected around {eta}, {why}.",
+    ),
+    ("booking.your_turn", "customer"): (
+        "It's your turn",
+        "Booking {booking_number}: please go to the counter now. {staff_line}",
+    ),
+    ("booking.no_show", "customer"): (
+        "Marked as a no-show",
+        "You did not arrive for booking {booking_number} at {scheduled_at}, so it was cancelled. Book again any time.",
+    ),
+    # A day the customer wanted at a shop that was full: a time there has opened up.
+    ("waitlist.time_opened", "customer"): (
+        "A time just opened up",
+        "A time is free on {date} at the shop you wanted. Book it before someone else does.",
+    ),
+    # Some weeks after a completed visit, to the customer, once (unless they have booked it again).
+    ("booking.rebook", "customer"): (
+        "Time for your next visit?",
+        "It has been a few weeks since booking {booking_number}. Book again in a tap.",
     ),
     # A booking the shop never confirmed in time.
     ("booking.expired", "customer"): (
@@ -90,6 +136,25 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Your payment of ₹{amount} did not go through. You can try again.",
     ),
     ("payment.refunded", "customer"): ("Refund issued", "₹{amount} has been refunded to you."),
+    # A prepaid package of visits, bought online.
+    ("payment.package", "customer"): (
+        "Package bought",
+        "Your ₹{amount} package is ready. Choose it when you book to use a visit.",
+    ),
+    ("payment.package", "shop"): (
+        "Package sold",
+        "A customer bought a ₹{amount} package. You earn each visit's share when it is completed.",
+    ),
+    # A tip on a completed booking: passed on in full, with the shop's next payout.
+    ("payment.tip", "customer"): (
+        "Thank you for the tip",
+        "Your ₹{amount} tip goes in full to the professional who served you.",
+    ),
+    ("payment.tip", "shop"): (
+        "Tip received",
+        "A customer left a ₹{amount} tip. It comes with your next payout, for the staff member who did the job.",
+    ),
+    ("payment.tip", "provider"): ("You got a tip", "A customer tipped you ₹{amount}. Your shop passes it on to you."),
     # Shop onboarding (shop_service): the owner hears the review's outcome.
     ("shop.approved", "shop"): (
         "Your shop is live",
@@ -102,8 +167,13 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
 }
 
 # Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
-SHOP_EMAIL_EVENTS = frozenset({"booking.created", "shop.approved", "shop.rejected"})
+SHOP_EMAIL_EVENTS = frozenset({"booking.created", "booking.rescheduled", "shop.approved", "shop.rejected"})
 
+
+# Updates that can wait: during the recipient's quiet hours they are kept in the app but not pushed.
+QUIET_HOURS_HELD = frozenset(
+    {"booking.queue_ahead", "booking.queue_update", "booking.turn_soon", "booking.running_late", "booking.rebook"}
+)
 
 # Events important enough to text or email someone who has no app installed (no push token).
 CRITICAL_EVENTS = frozenset(

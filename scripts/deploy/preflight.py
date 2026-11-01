@@ -376,7 +376,7 @@ def check_integrations(env: dict[str, str], r: Report) -> None:
             r.error(f"{flag} must not be on in production (it writes secrets to the logs)")
 
 
-def check_site(repo: Path, r: Report) -> None:
+def check_site(repo: Path, r: Report, env: dict[str, str] | None = None) -> None:
     """The public site's legal pages and app-link files must be filled in before launch."""
     r.section("Public site (deploy/site)")
     site = repo / "deploy" / "site"
@@ -391,6 +391,24 @@ def check_site(repo: Path, r: Report) -> None:
         )
     else:
         r.ok("legal pages filled in")
+    # The refund page's late-cancellation row must say what payment_service does.
+    refunds = site / "refunds.html"
+    late = (
+        re.search(r"Less than [^<]* before the booking time</td><td>(.*?)</td>", refunds.read_text(encoding="utf-8"))
+        if refunds.is_file()
+        else None
+    )
+    if late and env is not None and 'class="placeholder"' not in late.group(1):
+        try:
+            fee = float(env.get("CANCEL_FEE_PERCENT") or 0)
+        except ValueError:
+            fee = None
+        says_full = late.group(1).strip().lower().startswith("full refund")
+        if fee is not None and (fee > 0) == says_full:
+            r.warn(
+                f"refunds.html says {late.group(1).strip()!r} for late cancellations but CANCEL_FEE_PERCENT={fee:g}: "
+                "make the page match (LATE_CANCEL_REFUND in deploy/site-details.env)"
+            )
     for name in ("assetlinks.json", "apple-app-site-association"):
         path = site / ".well-known" / name
         if not path.is_file():
@@ -547,7 +565,7 @@ def main(argv: list[str]) -> int:
         r.ok(f"{len(env)} settings read")
 
     check_file(env, r)
-    check_site(repo, r)
+    check_site(repo, r, env)
     if not args.no_system:
         check_system(env, repo, r)
 

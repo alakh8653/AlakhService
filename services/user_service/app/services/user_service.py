@@ -8,6 +8,8 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
+from app.core.storage import get_storage, sniff_content_type
 from app.models.user import UserAddress, UserDevice, UserPreferences, UserProfile
 from app.schemas.user import (
     UserAddressCreate,
@@ -18,6 +20,9 @@ from app.schemas.user import (
 )
 
 log = structlog.get_logger()
+
+# Where the API serves a stored photo; avatar_url is this followed by the storage key.
+AVATAR_URL_PREFIX = "/api/v1/users/avatars/"
 
 
 class UserService:
@@ -177,27 +182,25 @@ class UserService:
         return list(result.scalars().all())
 
     async def upload_avatar(self, db: AsyncSession, user_id: str, file: UploadFile) -> str:
-        allowed_content_types = {
-            "image/jpeg": "jpg",
-            "image/png": "png",
-            "image/webp": "webp",
-        }
-        if file.content_type not in allowed_content_types:
+        storage = get_storage()
+        if not storage.enabled:
+            raise HTTPException(status_code=503, detail="Photo uploads are turned off")
+
+        max_bytes = settings.MAX_AVATAR_SIZE_MB * 1024 * 1024
+        contents = await file.read(max_bytes + 1)
+        if len(contents) > max_bytes:
+            raise HTTPException(status_code=400, detail=f"File too large (max {settings.MAX_AVATAR_SIZE_MB}MB)")
+        # The type comes from the file's own bytes, not the client's word for it.
+        content_type = sniff_content_type(contents, file.content_type)
+        if content_type is None:
             raise HTTPException(status_code=400, detail="Invalid image type")
 
-        contents = await file.read()
-        if len(contents) > 5 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large (max 5MB)")
-
-        # Derive extension from validated content_type (not from user-supplied filename)
-        ext = allowed_content_types[file.content_type]
-        safe_filename = f"{uuid.uuid4()}.{ext}"
-        # NOTE: In production this URL is the S3 object key after uploading `contents`
-        # to the configured S3_BUCKET. Here we store the path reference only.
-        avatar_url = f"/avatars/{user_id}/{safe_filename}"
+        key = storage.save(user_id, contents, content_type)
+        avatar_url = AVATAR_URL_PREFIX + key
 
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = result.scalar_one_or_none()
+        previous = profile.avatar_url if profile else None
         if profile:
             profile.avatar_url = avatar_url
             profile.updated_at = datetime.now(timezone.utc)
@@ -211,6 +214,10 @@ class UserService:
             )
             db.add(profile)
         await db.flush()
+
+        # The old photo goes once the new one is recorded.
+        if previous and previous.startswith(AVATAR_URL_PREFIX):
+            storage.delete(previous[len(AVATAR_URL_PREFIX) :])
 
         log.info("avatar_uploaded", user_id=user_id, url=avatar_url)
         return avatar_url
@@ -232,6 +239,7 @@ class UserService:
             update(UserDevice).where(UserDevice.user_id == user_id).values(is_active=False, device_token="deleted")
         )
         await db.flush()
+        get_storage().delete_user(user_id)
 
         log.info("account_deleted", user_id=user_id)
         return True

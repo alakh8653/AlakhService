@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,10 +13,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = []
     # "production" turns on the checks at the bottom of this file.
     ENVIRONMENT: str = "development"
-    S3_BUCKET: Optional[str] = None
-    S3_REGION: Optional[str] = "us-east-1"
-    S3_ACCESS_KEY: Optional[str] = None
-    S3_SECRET_KEY: Optional[str] = None
+    # Profile photos are kept here (a volume in production, backed up with the databases); empty
+    # turns uploads off.
+    AVATAR_STORAGE_DIR: str = "/app/data/avatars"
     MAX_AVATAR_SIZE_MB: int = 5
 
     model_config = SettingsConfigDict(env_file=".env")

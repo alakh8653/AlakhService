@@ -1,8 +1,9 @@
 # Backups and disaster recovery
 
 Every service keeps its data in its own PostgreSQL database (`auth_db`, `booking_db`,
-`payment_db`, …). This page covers how those databases are backed up, how a backup is proven to
-work, and how to bring data back.
+`payment_db`, …), and uploaded files in two Docker volumes (`alakhservice_shop_documents`: shops'
+KYC documents; `alakhservice_user_avatars`: profile photos). This page covers how they are backed
+up, how a backup is proven to work, and how to bring data back.
 
 ## What runs
 
@@ -10,13 +11,15 @@ The `backup` service in `docker-compose.yml` runs `scripts/backup/schedule.sh`:
 
 1. Every `BACKUP_INTERVAL_HOURS` (default 24) it runs **`backup.sh`**. Each database is dumped
    separately in PostgreSQL's custom format, which is compressed and lets you restore one database
-   or one table. Roles, a manifest and SHA-256 checksums are written alongside. Each backup goes to
-   `backups/<UTC timestamp>/`, and `backups/LATEST` names the newest.
+   or one table. Each upload volume is archived as `files-<name>.tar.gz`. Roles, a manifest and
+   SHA-256 checksums are written alongside. Each backup goes to `backups/<UTC timestamp>/`, and
+   `backups/LATEST` names the newest.
 2. It then runs **`verify.sh`** on that backup:
    - The checksums are checked.
    - Every dump is restored into a scratch database (`verify_<db>_<pid>`), and the number of
      tables and the migration version are checked against the manifest.
    - The scratch copy is then dropped.
+   - Every file archive is read through and its file count checked against the manifest.
 
    A backup that has never been restored is a hope, not a backup.
 3. Backups older than `BACKUP_KEEP_DAYS` (14) are deleted, but the newest `BACKUP_MIN_KEEP` (3)
@@ -48,7 +51,7 @@ On a production server deployed with docs/DEPLOYMENT.md, use the matching `prod-
 | `make db-backup` | Back up now, then verify that backup |
 | `make db-verify-backup [BACKUP=backups/<ts>]` | Prove a backup restores (latest by default) |
 | `make db-restore BACKUP=backups/<ts> [DBS="booking_db"]` | Restore **next to** the live data as `<db>_restored`; nothing is overwritten |
-| `make db-restore-in-place BACKUP=backups/<ts> [DBS=…]` | Replace live databases. It stops the services, restores, then restarts them |
+| `make db-restore-in-place BACKUP=backups/<ts> [DBS=…]` | Replace live databases. It stops the services, restores, then restarts them. Without `DBS` it also puts back the uploaded files |
 
 ## Recovering
 
@@ -66,7 +69,7 @@ On a production server deployed with docs/DEPLOYMENT.md, use the matching `prod-
 1. Start a fresh stack with the same `.env`, and keep the services stopped (`docker compose up -d postgres`).
 2. Copy a backup folder from off-site storage into `backups/`.
 3. Restore the roles first if they matter to you: `psql -f backups/<ts>/globals.sql`.
-4. Run `make db-restore-in-place BACKUP=backups/<ts>`.
+4. Run `make db-restore-in-place BACKUP=backups/<ts>` (no `DBS`, so the uploaded files come back too).
 
 Restores refuse to start if any checksum differs from the one recorded at backup time.
 

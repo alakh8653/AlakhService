@@ -306,8 +306,8 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      # The gateway has no /ready of its own; /health says it is up and serving.
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      # /ready answers 200 only while Redis (sign-out checks, shared rate limits) responds.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 4

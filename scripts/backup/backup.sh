@@ -4,12 +4,15 @@
 #   BACKUP_DIR/<UTC timestamp>/<database>.dump   pg_dump custom format (compressed; pg_restore
 #                                                can bring back one database or one table)
 #                             /globals.sql        roles, so a fresh server can take the dumps
+#                             /files-<name>.tar.gz uploaded files (KYC documents, profile photos):
+#                                                 one archive per directory under BACKUP_FILES_ROOT
 #                             /SHA256SUMS         checked before anything is restored
 #                             /MANIFEST           when, which server, size and tables per database
 #
 # Connection: the usual PGHOST/PGPORT/PGUSER/PGPASSWORD. Settings (defaults):
 #   BACKUP_DIR=/backups  BACKUP_KEEP_DAYS=14  BACKUP_MIN_KEEP=3
 #   BACKUP_DATABASES     space-separated; default: every non-template database on the server
+#   BACKUP_FILES_ROOT=/files  each directory in it is archived; missing or empty: no file archives
 #   BACKUP_UPLOAD_COMMAND  run after a successful backup with the backup's path as $1, e.g.
 #                          'aws s3 cp --recursive "$1" s3://my-bucket/alakh/$(basename "$1")'
 #                          Keep a copy off this machine: a backup on the same disk as the
@@ -46,7 +49,24 @@ for db in $databases; do
   echo "database=$db bytes=$(wc -c < "$partial/$db.dump" | tr -d ' ') tables=$tables" >> "$partial/MANIFEST"
 done
 
-(cd "$partial" && sha256sum ./*.dump globals.sql MANIFEST > SHA256SUMS)
+FILES_ROOT=${BACKUP_FILES_ROOT:-/files}
+if [ -d "$FILES_ROOT" ]; then
+  for src in "$FILES_ROOT"/*/; do
+    [ -d "$src" ] || continue
+    name=$(basename "$src")
+    log "archiving files in $name"
+    tar -czf "$partial/files-$name.tar.gz" -C "$src" .
+    nfiles=$(find "$src" -type f | wc -l | tr -d ' ')
+    echo "files=$name bytes=$(wc -c < "$partial/files-$name.tar.gz" | tr -d ' ') count=$nfiles" >> "$partial/MANIFEST"
+  done
+fi
+
+(
+  cd "$partial"
+  set -- ./*.dump
+  for f in ./files-*.tar.gz; do [ -f "$f" ] && set -- "$@" "$f"; done
+  sha256sum "$@" globals.sql MANIFEST > SHA256SUMS
+)
 mv "$partial" "$target"
 trap - EXIT
 log "wrote $target ($(du -sh "$target" | cut -f1))"

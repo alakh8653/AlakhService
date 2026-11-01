@@ -114,6 +114,9 @@ services:
     volumes:
       - ./scripts/backup:/scripts:ro
       - ${BACKUP_HOST_DIR:-./backups}:/backups
+      # Uploaded files, archived next to the database dumps (one .tar.gz per directory).
+      - shop_documents:/files/shop_documents:ro
+      - user_avatars:/files/user_avatars:ro
     healthcheck:
       # Healthy while the last verified backup is younger than two intervals.
       test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /backups/.last_success 2>/dev/null || echo 0) )) -lt $$(( $${BACKUP_INTERVAL_HOURS:-24} * 7200 ))"]
@@ -152,6 +155,9 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/user_db
       REDIS_URL: redis://redis:6379/1
+    volumes:
+      # Profile photos people upload; kept across image updates and backed up.
+      - user_avatars:/app/data/avatars
 
   shop_service:
     <<: *python-service
@@ -357,7 +363,11 @@ services:
       - "${API_GATEWAY_PORT:-3000}:3000"
     environment:
       SECRET_KEY: ${JWT_SECRET_KEY:-changeme}
+      # The image sets NODE_ENV=production; this keeps a laptop stack in development mode unless asked.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+      # Shared rate limits and sign-out checks (the same Redis database auth_service writes them to).
+      REDIS_URL: redis://redis:6379/0
       AUTH_SERVICE_URL: http://auth_service:8000
       USER_SERVICE_URL: http://user_service:8000
       SHOP_SERVICE_URL: http://shop_service:8000
@@ -374,6 +384,8 @@ services:
       PRICING_ENGINE_URL: http://pricing_engine:8000
       SERVICE_CATALOG_URL: http://service_catalog_service:8000
     depends_on:
+      redis:
+        condition: service_healthy
       auth_service:
         condition: service_healthy
       user_service:
@@ -393,6 +405,8 @@ volumes:
     name: alakhservice_redis_data
   shop_documents:
     name: alakhservice_shop_documents
+  user_avatars:
+    name: alakhservice_user_avatars
 
 networks:
   alakhservice_network:

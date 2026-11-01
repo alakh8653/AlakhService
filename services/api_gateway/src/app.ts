@@ -99,6 +99,26 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
     res.json({ status: 'healthy', service: 'api_gateway' });
   });
 
+  // Ready to serve: Redis (sign-out checks, shared rate limits) answers. Without Redis configured
+  // there is nothing to wait for. The services behind are reported by /api/v1/admin/monitoring/health.
+  app.get('/ready', async (_req, res) => {
+    if (!options.redis) {
+      res.json({ status: 'ready', service: 'api_gateway', redis: 'not configured' });
+      return;
+    }
+    try {
+      const pong = await Promise.race([
+        options.redis(['PING']),
+        new Promise((_resolve, reject) => setTimeout(() => reject(new Error('timeout')), options.healthTimeoutMs ?? 3_000).unref()),
+      ]);
+      if (pong !== 'PONG') throw new Error(`unexpected reply ${String(pong)}`);
+      res.json({ status: 'ready', service: 'api_gateway', redis: 'ok' });
+    } catch (err) {
+      redisError(err);
+      res.status(503).json({ status: 'not ready', service: 'api_gateway', redis: 'unreachable' });
+    }
+  });
+
   app.use(
     '/api',
     rateLimit({

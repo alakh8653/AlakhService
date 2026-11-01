@@ -37,6 +37,8 @@ export const ROUTES: Route[] = [
   // The current Terms and Privacy Policy version and page links, shown before signing up.
   { prefix: '/api/v1/legal', upstream: 'auth', access: 'public', publicMethods: READ_ONLY },
 
+  // Profile photos are public to read (their keys are random); uploading needs an account.
+  { prefix: '/api/v1/users/avatars', upstream: 'user', access: 'public', publicMethods: READ_ONLY },
   { prefix: '/api/v1/users', upstream: 'user' },
   // Shops and their reviews are public to read; rating, replying and reporting need an account.
   { prefix: '/api/v1/shops', upstream: 'shop', access: 'public', publicMethods: READ_ONLY },

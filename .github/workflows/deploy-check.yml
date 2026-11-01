@@ -95,6 +95,24 @@ jobs:
           variant 's/^PLATFORM_GSTIN=.*/PLATFORM_GSTIN=NOTAGSTIN/; s/^PLATFORM_LEGAL_NAME=.*/PLATFORM_LEGAL_NAME=Alakh Pvt Ltd/; s/^PLATFORM_ADDRESS=.*/PLATFORM_ADDRESS=Pune/'
           expect_fail "$RUNNER_TEMP/variant.env" "an invalid GSTIN" "not a valid GSTIN"
 
+      - name: fill_site.py fills every placeholder of the public site
+        run: |
+          site="$RUNNER_TEMP/site"
+          cp -r deploy/site "$site"
+          fp=$(python3 -c "print(':'.join(['AB'] * 32))")
+          # Every key of the example, given a value.
+          sed -E "s/^([A-Z_]+)=$/\1=Filled \1/; s/^(GRIEVANCE_EMAIL|SUPPORT_EMAIL)=.*/\1=ci@example.in/; s/^ANDROID_SHA256_FINGERPRINT=.*/ANDROID_SHA256_FINGERPRINT=$fp/; s/^APPLE_TEAM_ID=.*/APPLE_TEAM_ID=ABCDE12345/" \
+            deploy/site-details.example.env > "$RUNNER_TEMP/site-details.env"
+          python3 scripts/deploy/fill_site.py --details "$RUNNER_TEMP/site-details.env" --site "$site"
+          python3 scripts/deploy/fill_site.py --details "$RUNNER_TEMP/site-details.env" --site "$site" --check
+          if grep -rn 'class="placeholder"\|REPLACE_WITH' "$site"; then echo "::error::placeholders left after fill_site.py"; exit 1; fi
+          python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$site/.well-known/assetlinks.json"
+          # A malformed fingerprint is refused.
+          sed -i "s/^ANDROID_SHA256_FINGERPRINT=.*/ANDROID_SHA256_FINGERPRINT=nope/" "$RUNNER_TEMP/site-details.env"
+          if python3 scripts/deploy/fill_site.py --details "$RUNNER_TEMP/site-details.env" --site "$site"; then
+            echo "::error::fill_site.py accepted a malformed fingerprint"; exit 1
+          fi
+
       - name: Shellcheck
         run: |
           shellcheck --version

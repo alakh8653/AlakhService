@@ -23,6 +23,28 @@ describe('gateway', () => {
     expect(res.body).toEqual({ status: 'healthy', service: 'api_gateway' });
   });
 
+  it('is ready when Redis answers, and says so when it does not', async () => {
+    const without = await request(createApp(testConfig(), quiet)).get('/ready');
+    expect(without.status).toBe(200);
+    const up = await request(createApp(testConfig(), { ...quiet, redis: async () => 'PONG' })).get('/ready');
+    expect(up.status).toBe(200);
+    expect(up.body.redis).toBe('ok');
+    const errors = console.error;
+    console.error = () => {};
+    try {
+      const down = await request(
+        createApp(testConfig(), { ...quiet, redis: async () => Promise.reject(new Error('ECONNREFUSED')) }),
+      ).get('/ready');
+      expect(down.status).toBe(503);
+      const hung = await request(
+        createApp(testConfig(), { ...quiet, healthTimeoutMs: 50, redis: () => new Promise(() => {}) }),
+      ).get('/ready');
+      expect(hung.status).toBe(503);
+    } finally {
+      console.error = errors;
+    }
+  });
+
   it('forwards public requests with body, query and tracing headers', async () => {
     const auth = await upstream();
     const app = createApp(testConfig({ auth: auth.url }), quiet);

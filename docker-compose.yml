@@ -114,6 +114,9 @@ services:
     volumes:
       - ./scripts/backup:/scripts:ro
       - ${BACKUP_HOST_DIR:-./backups}:/backups
+      # Uploaded files, archived next to the database dumps (one .tar.gz per directory).
+      - shop_documents:/files/shop_documents:ro
+      - user_avatars:/files/user_avatars:ro
     healthcheck:
       # Healthy while the last verified backup is younger than two intervals.
       test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /backups/.last_success 2>/dev/null || echo 0) )) -lt $$(( $${BACKUP_INTERVAL_HOURS:-24} * 7200 ))"]
@@ -152,6 +155,9 @@ services:
       <<: *service-env
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-alakh}:${POSTGRES_PASSWORD:-alakhpassword}@postgres:5432/user_db
       REDIS_URL: redis://redis:6379/1
+    volumes:
+      # Profile photos people upload; kept across image updates and backed up.
+      - user_avatars:/app/data/avatars
 
   shop_service:
     <<: *python-service
@@ -393,6 +399,8 @@ volumes:
     name: alakhservice_redis_data
   shop_documents:
     name: alakhservice_shop_documents
+  user_avatars:
+    name: alakhservice_user_avatars
 
 networks:
   alakhservice_network:

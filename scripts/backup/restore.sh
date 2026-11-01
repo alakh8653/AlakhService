@@ -8,6 +8,9 @@
 #                                                      services first; this is destructive)
 #
 # Without database names, every database in the backup is restored. Checksums are verified first.
+# A full in-place restore (no database names) also puts back the uploaded files when
+# RESTORE_FILES_ROOT is set: each files-<name>.tar.gz replaces the contents of $RESTORE_FILES_ROOT/<name>
+# (the Makefile's restore-in-place targets mount the upload volumes there).
 set -eu
 
 in_place=0
@@ -21,7 +24,7 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ $# -ge 1 ] || { sed -n '2,12p' "$0"; exit 2; }
+[ $# -ge 1 ] || { sed -n '2,15p' "$0"; exit 2; }
 dir=$1
 shift
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) restore: $*"; }
@@ -33,6 +36,8 @@ if [ "$in_place" = 1 ] && [ "$confirmed" != 1 ]; then
   exit 2
 fi
 
+full=0
+[ $# -eq 0 ] && full=1
 databases=${*:-$(for f in "$dir"/*.dump; do basename "$f" .dump; done)}
 for db in $databases; do
   dump="$dir/$db.dump"
@@ -49,3 +54,16 @@ for db in $databases; do
   pg_restore --no-owner --exit-on-error --dbname="$target" "$dump"
   log "restored $db into $target"
 done
+
+if [ "$in_place" = 1 ] && [ "$full" = 1 ] && [ -n "${RESTORE_FILES_ROOT:-}" ]; then
+  for archive in "$dir"/files-*.tar.gz; do
+    [ -f "$archive" ] || continue
+    name=$(basename "$archive" .tar.gz)
+    name=${name#files-}
+    target="$RESTORE_FILES_ROOT/$name"
+    [ -d "$target" ] || { log "no $target to restore $name into; skipped"; continue; }
+    find "$target" -mindepth 1 -delete
+    tar -xzf "$archive" -C "$target"
+    log "restored files $name into $target"
+  done
+fi

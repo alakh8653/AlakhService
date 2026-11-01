@@ -638,15 +638,16 @@ Be aware of what a single server does and does not give you:
 - **One server, one point of failure.** If the server dies, the site is down until you restore
   it (DISASTER_RECOVERY.md) — hence off-site backups and provider snapshots. Restarts during
   updates cause a few seconds of errors per service; there is no zero-downtime deploy.
-- **Avatar uploads are not stored yet.** `user_service` records a path but does not write the
-  image anywhere; object storage (S3/R2) is still to be added in the code.
+- **Uploaded files live on the server's disk** (Docker volumes `alakhservice_shop_documents` for KYC
+  documents and `alakhservice_user_avatars` for profile photos). The daily backup archives both next to
+  the database dumps, and off-site copies include them; there is no object storage (S3/R2).
 - **SMS: MSG91 or Twilio;** SMTP: port 587 (STARTTLS) only.
 - **dispatch_service, catalog_service and the legacy `backend/`** are deprecated and not deployed
   (see the `DEPRECATED.md` in each). Their old databases stay on servers that had them.
 - **Redis has no password.** It is reachable only inside the Docker network, never from the
   internet. Add one if other software will share the server.
-- **The gateway has no `/ready`;** its health check uses `/health`, and the Python services'
-  `/ready` checks cover the databases and Redis.
+- **Health checks:** the gateway's `/ready` covers Redis, and each Python service's `/ready` covers its
+  database (and Redis, where used).
 - **Verified here vs. on a server.** The repository's CI (`deploy-check.yml`) validates the
   compose files, Caddyfile, preflight, shell scripts, Prometheus/Alertmanager configs and alert
   rules, and builds the Caddy + dashboards image; `e2e.yml` starts every service and the gateway

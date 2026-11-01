@@ -31,17 +31,29 @@ stays the two dashboards.
 
 ### Fill in before launch
 
-The pages show every missing detail as a highlighted `[PLACEHOLDER]`. `grep -n 'class="placeholder"' deploy/site/*.html`
-lists them; preflight warns while any remain.
+The pages show every missing detail as a highlighted `[PLACEHOLDER]`. The quickest way to fill them all:
+
+```bash
+cp deploy/site-details.example.env deploy/site-details.env   # fill in every value
+make site-fill                                               # python3 scripts/deploy/fill_site.py
+```
+
+It writes the values into the pages and the `.well-known` files, checks emails, the Android fingerprint
+and the Apple Team ID, and lists what is still missing, so you can run it again as details arrive.
+Commit the result (deploy.sh refuses a checkout with local changes). `grep -n 'class="placeholder"' deploy/site/*.html`
+lists what is left; preflight warns while any remain, and also when the refund page's late-cancellation
+rule does not match `CANCEL_FEE_PERCENT`.
 
 - `[COMPANY LEGAL NAME]`, `[REGISTERED ADDRESS]`, `[CIN]`, `[CITY]` (courts' jurisdiction)
 - `[GRIEVANCE OFFICER NAME]`, `[DESIGNATION]`, `[GRIEVANCE EMAIL]`, `[GRIEVANCE PHONE]`, `[HOURS]`,
   `[NODAL CONTACT NAME, EMAIL]`
 - `[SUPPORT EMAIL]`, `[EFFECTIVE DATE]`
 - Privacy: `[HOSTING PROVIDER, REGION]`, `[MSG91 / TWILIO]`, `[EMAIL PROVIDER]`, retention periods
-  (`[180 days]` chat, `[1 year]` security logs, `[14 days]` backups: match `BACKUP_KEEP_DAYS`)
-- Refunds: the late-cancellation rule `[No refund / 50% refund]` (match what payment_service does),
-  the dispute window `[48 hours]` and decision time `[7 days]`
+  (`[180 days]` chat, `[1 year]` security logs; backups are filled in as 14 days, the default
+  `BACKUP_KEEP_DAYS`)
+- Refunds: the late-cancellation rule is filled in as **Full refund**, which is what payment_service does
+  with the default `CANCEL_FEE_PERCENT=0`; change both together. The dispute window `[48 hours]` and
+  decision time `[7 days]`
 - Terms: the no-show grace period `[15]` minutes
 - `.well-known/assetlinks.json`: the Play app-signing SHA-256 fingerprint; `apple-app-site-association`:
   the Apple Team ID. Both are explained in [DEPLOYMENT.md](DEPLOYMENT.md#6-fill-in-envproduction).

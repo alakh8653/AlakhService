@@ -18,6 +18,15 @@ describe('route table', () => {
     expect(upstreamPath(plain, '/api/v1/bookings/1')).toBe('/api/v1/bookings/1');
   });
 
+  it('serves profile photos without a token but takes an account to upload one', () => {
+    const photo = findRoute('/api/v1/users/avatars/abc/1.png')!;
+    expect(photo.upstream).toBe('user');
+    expect(requiredAccess(photo, 'GET')).toBe('public');
+    expect(requiredAccess(photo, 'DELETE')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/users/me/avatar')!, 'POST')).toBe('user');
+    expect(requiredAccess(findRoute('/api/v1/users/me/profile')!, 'GET')).toBe('user');
+  });
+
   it('opens shop reviews to read, takes an account to write and an admin to moderate', () => {
     const reviews = findRoute('/api/v1/shops/s1/reviews')!;
     expect(reviews.upstream).toBe('shop');

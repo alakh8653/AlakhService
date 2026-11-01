@@ -1,6 +1,7 @@
 #!/bin/sh
 # Proves a backup can be restored: checks the checksums, restores every dump into a scratch
-# database, checks it has its tables and migration version, then drops the scratch copy.
+# database, checks it has its tables and migration version, then drops the scratch copy; and
+# reads every uploaded-files archive through, checking it holds as many files as were backed up.
 # Nothing existing is touched. Exits non-zero if any database fails.
 #
 #   verify.sh [backup dir]     default: the latest backup in BACKUP_DIR (/backups)
@@ -34,6 +35,25 @@ for dump in "$dir"/*.dump; do
   fi
   psql -d postgres -qc "drop database if exists \"$scratch\""
   rm -f "/tmp/$scratch.err"
+done
+
+for archive in "$dir"/files-*.tar.gz; do
+  [ -f "$archive" ] || continue
+  name=$(basename "$archive" .tar.gz)
+  name=${name#files-}
+  expected=$(sed -n "s/^files=$name .*count=\([0-9]*\)$/\1/p" "$dir/MANIFEST")
+  if listing=$(tar -tzf "$archive" 2>/dev/null); then
+    count=$(printf '%s\n' "$listing" | grep -cv '/$' || true)
+    if [ "$count" = "${expected:-$count}" ]; then
+      log "ok      files $name: $count files"
+    else
+      log "FAILED  files $name: $count files in the archive, $expected expected"
+      failed=1
+    fi
+  else
+    log "FAILED  files $name: archive cannot be read"
+    failed=1
+  fi
 done
 
 if [ "$failed" = 0 ]; then

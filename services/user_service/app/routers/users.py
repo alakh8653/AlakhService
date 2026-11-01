@@ -2,9 +2,11 @@ import math
 
 import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.storage import CONTENT_TYPE_BY_EXT, LocalAvatarStorage, StorageDisabled, get_storage
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import UserProfile
@@ -157,6 +159,26 @@ async def upload_avatar(
     user_id = current_user.get("sub")
     url = await user_service.upload_avatar(db, user_id, file)
     return {"avatar_url": url}
+
+
+@router.get("/users/avatars/{folder}/{filename}")
+async def get_avatar(folder: str, filename: str, storage: LocalAvatarStorage = Depends(get_storage)):
+    """A stored profile photo. Public to read (the gateway allows GET without a token): keys are random."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in CONTENT_TYPE_BY_EXT:
+        raise HTTPException(status_code=404, detail="Not found")
+    try:
+        path = storage.path_of(f"{folder}/{filename}")
+    except (StorageDisabled, ValueError):
+        raise HTTPException(status_code=404, detail="Not found") from None
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Not found")
+    # A new upload gets a new key, so a stored photo never changes.
+    return FileResponse(
+        path,
+        media_type=CONTENT_TYPE_BY_EXT[ext],
+        headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.delete("/users/me/account")

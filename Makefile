@@ -381,7 +381,7 @@ db-restore-in-place: ## Replace live databases from a backup (DESTRUCTIVE; stops
 	$(call warn,"This REPLACES live databases with $(BACKUP). Press Ctrl-C to cancel...")
 	@sleep 5
 	docker compose stop $(shell docker compose config --services | grep -E '_service$$|^pricing_engine$$|^api_gateway$$')
-	docker compose run --rm --no-deps --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
+	docker compose run --rm --no-deps -v alakhservice_shop_documents:/restore-files/shop_documents -v alakhservice_user_avatars:/restore-files/user_avatars -e RESTORE_FILES_ROOT=/restore-files --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
 	docker compose up -d
 	$(call success,"Restored; services restarted")
 
@@ -444,6 +444,10 @@ COMPOSE_PROD := docker compose --env-file $(ENV_FILE) -f docker-compose.yml -f d
 prod-preflight: ## Check .env.production and this server before deploying (no changes made)
 	python3 $(SCRIPTS_DIR)/deploy/preflight.py --env-file $(ENV_FILE)
 
+.PHONY: site-fill
+site-fill: ## Fill the legal pages and app-link files from deploy/site-details.env, then list what is missing
+	python3 $(SCRIPTS_DIR)/deploy/fill_site.py
+
 .PHONY: prod-config
 prod-config: ## Validate the production compose files with .env.production (no changes made)
 	$(COMPOSE_PROD) config --quiet
@@ -492,7 +496,7 @@ prod-restore-in-place: ## Replace live production databases from a backup (DESTR
 	$(call warn,"This REPLACES live production databases with $(BACKUP). Press Ctrl-C to cancel...")
 	@sleep 10
 	$(COMPOSE_PROD) stop $$($(COMPOSE_PROD) config --services | grep -E '_service$$|^pricing_engine$$|^api_gateway$$')
-	$(COMPOSE_PROD) run --rm --no-deps --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
+	$(COMPOSE_PROD) run --rm --no-deps -v alakhservice_shop_documents:/restore-files/shop_documents -v alakhservice_user_avatars:/restore-files/user_avatars -e RESTORE_FILES_ROOT=/restore-files --entrypoint /scripts/restore.sh backup --in-place --yes /backups/$(notdir $(BACKUP)) $(DBS)
 	$(PROD_SCRIPT) restart
 
 .PHONY: prod-make-admin

@@ -265,10 +265,14 @@ jobs:
           cat > /tmp/pg.sh <<'SH'
           pg() {
             docker run --rm --network host -e PGHOST -e PGUSER -e PGPASSWORD \
-              -v "$GITHUB_WORKSPACE/scripts/backup:/scripts:ro" -v /tmp/backups:/backups postgres:16-alpine "$@"
+              -v "$GITHUB_WORKSPACE/scripts/backup:/scripts:ro" -v /tmp/backups:/backups               -v /tmp/files:/files:ro -v /tmp/live:/restore-files -e RESTORE_FILES_ROOT=/restore-files               postgres:16-alpine "$@"
           }
           SH
           . /tmp/pg.sh
+          # Uploaded files, as the upload volumes hold them.
+          mkdir -p /tmp/files/shop_documents/shop-1 /tmp/files/user_avatars/u1 /tmp/live/shop_documents /tmp/live/user_avatars
+          head -c 2000 /dev/urandom > /tmp/files/shop_documents/shop-1/pan.pdf
+          head -c 3000 /dev/urandom > /tmp/files/user_avatars/u1/me.png
           for db in booking_db payment_db; do
             pg psql -d postgres -c "create database $db"
             pg psql -d $db -c "create table alembic_version (version_num varchar(32) primary key); insert into alembic_version values ('drill1');
@@ -296,4 +300,8 @@ jobs:
           ! pg /scripts/restore.sh --in-place --yes /backups/tampered booking_db
           pg /scripts/restore.sh --in-place --yes "/backups/$latest" booking_db
           [ "$(fingerprint)" = "$before" ] && echo "restored: $before"
+          # Naming databases leaves the files alone; a full restore puts them back exactly.
+          [ -z "$(ls -A /tmp/live/shop_documents)" ]
+          pg /scripts/restore.sh --in-place --yes "/backups/$latest"
+          sudo diff -r /tmp/files /tmp/live && echo "uploaded files restored"
 

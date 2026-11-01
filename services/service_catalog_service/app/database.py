@@ -11,6 +11,8 @@ class Base(DeclarativeBase):
     pass
 
 
+# Routes depend on this with scope="function": the commit then happens before the response is sent.
+# With the default scope the client hears "done" first, and background tasks run before the commit.
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:

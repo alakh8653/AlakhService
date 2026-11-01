@@ -311,7 +311,7 @@ async def start_service(
 async def booking_queue(
     booking_id: str,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -330,7 +330,7 @@ async def booking_queue(
 @router.post("/bookings/{booking_id}/check-in", response_model=QueueStatus)
 async def check_in(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -367,7 +367,7 @@ async def check_in(
 async def join_line(
     body: JoinBody,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_service=Depends(get_service_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -413,7 +413,7 @@ async def join_line(
 @router.get("/bookings/shop/{shop_id}/queue", response_model=list[ShopQueueEntry])
 async def shop_queue(
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -488,7 +488,7 @@ async def board(
     shop_id: str,
     response: Response,
     if_none_match: Optional[str] = Header(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -585,7 +585,7 @@ async def add_walk_in(
     body: WalkInBody,
     background: BackgroundTasks,
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_service=Depends(get_service_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -625,7 +625,7 @@ async def call_next(
     body: CallNextBody,
     background: BackgroundTasks,
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
@@ -674,7 +674,7 @@ async def call_next(
 async def reorder(
     body: ReorderBody,
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
@@ -701,7 +701,7 @@ async def reorder(
 async def set_priority(
     booking_id: str,
     body: PriorityBody,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -736,7 +736,7 @@ async def set_priority(
 async def mark_no_show(
     booking_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -772,7 +772,7 @@ async def mark_no_show(
 @router.get("/bookings/shop/{shop_id}/queue/team", response_model=list[TeamMemberState])
 async def team_state(
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -824,7 +824,7 @@ async def set_team_status(
     staff_id: str,
     body: TeamStatusBody,
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     lookup_team=Depends(get_team_lookup),
@@ -847,7 +847,9 @@ async def set_team_status(
 
 
 @router.get("/bookings/shop/{shop_id}/queue/settings", response_model=QueueSettingsBody)
-async def get_settings(shop_id: str = Depends(require_shop_access), db: AsyncSession = Depends(get_db)):
+async def get_settings(
+    shop_id: str = Depends(require_shop_access), db: AsyncSession = Depends(get_db, scope="function")
+):
     return QueueSettingsBody(**(await live_queue.settings_for(db, shop_id)).__dict__)
 
 
@@ -855,7 +857,7 @@ async def get_settings(shop_id: str = Depends(require_shop_access), db: AsyncSes
 async def put_settings(
     body: QueueSettingsBody,
     shop_id: str = Depends(require_shop_access),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     saved = await live_queue.save_settings(db, shop_id, body.model_dump())

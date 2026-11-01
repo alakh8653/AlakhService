@@ -79,7 +79,7 @@ async def get_redis():
 )
 async def send_notification(
     payload: NotificationCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis=Depends(get_redis),
 ):
     try:
@@ -107,7 +107,7 @@ async def get_my_notifications(
     unread_only: bool = Query(False),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await notification_service.get_notifications(db, user_id, unread_only, page, per_page)
 
@@ -116,7 +116,7 @@ async def get_my_notifications(
 async def mark_read(
     notification_id: str,
     user_id: str = Depends(target_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     try:
         await notification_service.mark_as_read(db, notification_id, user_id)
@@ -128,7 +128,7 @@ async def mark_read(
 @router.post("/notifications/read-all")
 async def mark_all_read(
     user_id: str = Depends(target_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     count = await notification_service.mark_all_read(db, user_id)
     return {"marked_read": count}
@@ -137,7 +137,7 @@ async def mark_all_read(
 @router.get("/notifications/count/unread")
 async def unread_count(
     user_id: str = Depends(target_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     count = await notification_service.get_unread_count(db, user_id)
     return {"unread_count": count}
@@ -198,7 +198,7 @@ async def ws_notifications(websocket: WebSocket, user_id: str, token: str = Quer
 
 
 @router.get("/notifications/templates", response_model=list[NotificationTemplateResponse])
-async def list_templates(db: AsyncSession = Depends(get_db)):
+async def list_templates(db: AsyncSession = Depends(get_db, scope="function")):
     result = await db.execute(select(NotificationTemplate).where(NotificationTemplate.is_active == True))
     return result.scalars().all()
 
@@ -209,7 +209,7 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
     status_code=201,
     dependencies=[Depends(require_admin)],
 )
-async def create_template(payload: NotificationTemplateCreate, db: AsyncSession = Depends(get_db)):
+async def create_template(payload: NotificationTemplateCreate, db: AsyncSession = Depends(get_db, scope="function")):
     import json as _json
 
     for source in (payload.subject_template, payload.body_template):
@@ -233,7 +233,9 @@ async def create_template(payload: NotificationTemplateCreate, db: AsyncSession 
 
 @router.post("/notifications/device-tokens", response_model=DeviceTokenResponse, status_code=201)
 async def register_device_token(
-    payload: DeviceTokenCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    payload: DeviceTokenCreate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(payload.user_id, caller)
     result = await db.execute(select(DeviceToken).where(DeviceToken.token == payload.token))
@@ -253,7 +255,9 @@ async def register_device_token(
 
 @router.post("/notifications/device-tokens/unregister", status_code=204)
 async def unregister_device_token(
-    payload: DeviceTokenRemove, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    payload: DeviceTokenRemove,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     """Signing out: this device stops getting the user's pushes. Unknown tokens are fine (204)."""
     existing = (await db.execute(select(DeviceToken).where(DeviceToken.token == payload.token))).scalar_one_or_none()

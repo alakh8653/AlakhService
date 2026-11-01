@@ -32,7 +32,7 @@ class WaitlistOut(BaseModel):
 @router.post("/waitlist", response_model=WaitlistOut, response_model_by_alias=True, status_code=201)
 async def join_waitlist(
     body: WaitlistJoin,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
 ):
@@ -48,13 +48,15 @@ async def join_waitlist(
 
 
 @router.get("/waitlist", response_model=List[WaitlistOut], response_model_by_alias=True)
-async def my_waitlist(db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def my_waitlist(
+    db: AsyncSession = Depends(get_db, scope="function"), current_user: dict = Depends(get_current_user)
+):
     return await waitlist.waiting(db, current_user["sub"])
 
 
 @router.delete("/waitlist/{entry_id}", status_code=204)
 async def leave_waitlist(
-    entry_id: str, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)
+    entry_id: str, db: AsyncSession = Depends(get_db, scope="function"), current_user: dict = Depends(get_current_user)
 ):
     entry = await db.get(WaitlistEntry, entry_id)
     if entry is None or entry.customer_id != current_user["sub"]:

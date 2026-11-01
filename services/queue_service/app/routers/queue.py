@@ -47,7 +47,7 @@ async def _named(entries: List[QueueEntry], lookup_names: NameLookup) -> List[Qu
 @router.post("/queues", response_model=QueueResponse, status_code=201)
 async def create_queue(
     data: QueueCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
 ):
@@ -68,7 +68,7 @@ async def create_queue(
 async def list_queues(
     service_id: str,
     include_closed: bool = False,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     """A service's queues: those open to customers, or all of them for the shop to manage."""
@@ -76,7 +76,9 @@ async def list_queues(
 
 
 @router.get("/queues/{queue_id}", response_model=QueueResponse)
-async def get_queue(queue_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def get_queue(
+    queue_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     try:
         return await queue_service.get_queue(db, queue_id)
     except QueueNotFoundError as e:
@@ -85,7 +87,10 @@ async def get_queue(queue_id: str, db: AsyncSession = Depends(get_db), caller: C
 
 @router.post("/queues/{queue_id}/join", response_model=QueueEntryResponse, status_code=201)
 async def join_queue(
-    queue_id: str, data: QueueJoinRequest, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    queue_id: str,
+    data: QueueJoinRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(data.customer_id, caller)
     if not caller.is_admin:
@@ -123,7 +128,7 @@ async def leave_queue(
     queue_id: str,
     entry_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     notifier: Notifier = Depends(get_notifier),
 ):
@@ -140,7 +145,10 @@ async def leave_queue(
 
 @router.get("/queues/{queue_id}/position/{customer_id}", response_model=QueuePositionResponse)
 async def get_position(
-    queue_id: str, customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    queue_id: str,
+    customer_id: str,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(customer_id, caller)
     try:
@@ -163,7 +171,7 @@ async def _owned_queue(db: AsyncSession, queue_id: str, caller: Caller, lookup_o
 @router.get("/queues/{queue_id}/entries", response_model=List[QueueEntryResponse])
 async def waiting_list(
     queue_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -177,7 +185,7 @@ async def waiting_list(
 async def call_next(
     queue_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
@@ -196,7 +204,7 @@ async def call_next(
 async def complete_entry(
     queue_id: str,
     entry_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -215,7 +223,7 @@ async def no_show_entry(
     queue_id: str,
     entry_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -236,7 +244,7 @@ async def no_show_entry(
 async def update_queue(
     queue_id: str,
     data: QueueUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_service_owner_lookup),
 ):

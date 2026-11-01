@@ -42,7 +42,9 @@ class UseReferralCode(BaseModel):
 
 
 @router.get("/loyalty/me", response_model=LoyaltySummary)
-async def my_points(db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def my_points(
+    db: AsyncSession = Depends(get_db, scope="function"), current_user: dict = Depends(get_current_user)
+):
     user_id = current_user["sub"]
     points = await loyalty_service.balance(db, user_id)
     rewarded, pending = await loyalty_service.referral_counts(db, user_id)
@@ -68,7 +70,9 @@ async def my_points(db: AsyncSession = Depends(get_db), current_user: dict = Dep
 
 @router.post("/loyalty/referral", status_code=201)
 async def use_referral_code(
-    body: UseReferralCode, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)
+    body: UseReferralCode,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    current_user: dict = Depends(get_current_user),
 ):
     """A new customer enters the code of the friend who invited them; both get a bonus after their first
     completed booking."""

@@ -136,7 +136,7 @@ async def list_messages(
     booking_id: str,
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -221,7 +221,7 @@ async def send_message(
     booking_id: str,
     body: MessageCreate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -289,7 +289,7 @@ async def send_message(
 @router.post("/bookings/{booking_id}/messages/read", response_model=ReadReceipt)
 async def mark_read(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     clock: Callable[[], datetime] = Depends(get_clock),
@@ -310,7 +310,7 @@ async def mark_read(
 @router.post("/bookings/{booking_id}/call", response_model=CallResponse, status_code=202)
 async def call(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_number: NumberLookup = Depends(get_number_lookup),
@@ -393,7 +393,7 @@ async def flagged_messages(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     sender_id: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Messages that had contact details hidden, newest first, with what was originally written."""
     where = [BookingMessage.flagged.is_(True)]
@@ -435,7 +435,7 @@ async def flagged_messages(
 async def repeat_offenders(
     min_attempts: int = Query(2, ge=1, le=100),
     days: int = Query(30, ge=1, le=365),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     clock: Callable[[], datetime] = Depends(get_clock),
 ):
     """People who kept trying to share contact details: most attempts first."""

@@ -65,7 +65,9 @@ async def _announce_refund(
 
 
 @router.post("/booking/{booking_id}/completed")
-async def booking_completed(booking_id: str, body: BookingCompleted, db: AsyncSession = Depends(get_db)):
+async def booking_completed(
+    booking_id: str, body: BookingCompleted, db: AsyncSession = Depends(get_db, scope="function")
+):
     try:
         earning, created = await earnings_service.settle_booking(
             db, booking_id, body.shop_id, body.total_amount, body.completed_at
@@ -82,14 +84,14 @@ async def booking_completed(booking_id: str, body: BookingCompleted, db: AsyncSe
 
 
 @router.post("/loyalty/redeem")
-async def redeem_points(body: LoyaltyRedeem, db: AsyncSession = Depends(get_db)):
+async def redeem_points(body: LoyaltyRedeem, db: AsyncSession = Depends(get_db, scope="function")):
     """Spends the customer's points on a booking being made; returns the discount (0 when they have none)."""
     discount = await loyalty_service.redeem(db, body.customer_id, body.booking_id, body.price_cents)
     return {"booking_id": body.booking_id, "discount_cents": discount}
 
 
 @router.post("/loyalty/release")
-async def release_points(body: LoyaltyRelease, db: AsyncSession = Depends(get_db)):
+async def release_points(body: LoyaltyRelease, db: AsyncSession = Depends(get_db, scope="function")):
     """A booking the points were spent on was never made after all: they go back."""
     return {"booking_id": body.booking_id, "points_returned": await loyalty_service.return_points(db, body.booking_id)}
 
@@ -99,7 +101,7 @@ async def booking_cancelled(
     booking_id: str,
     body: BookingCancelled,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
     sync: BookingSync = Depends(get_booking_sync),
@@ -121,12 +123,12 @@ async def booking_cancelled(
 
 
 @router.post("/booking/{booking_id}/disputed")
-async def booking_disputed(booking_id: str, db: AsyncSession = Depends(get_db)):
+async def booking_disputed(booking_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     return {"earning": _earning(await earnings_service.hold(db, booking_id))}
 
 
 @router.post("/booking/{booking_id}/release")
-async def release_to_shop(booking_id: str, body: DisputeRelease, db: AsyncSession = Depends(get_db)):
+async def release_to_shop(booking_id: str, body: DisputeRelease, db: AsyncSession = Depends(get_db, scope="function")):
     try:
         earning = await earnings_service.release(db, booking_id, body.shop_id, body.total_amount)
     except ValueError as e:
@@ -139,7 +141,7 @@ async def dispute_refund(
     booking_id: str,
     body: DisputeRefund,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
     sync: BookingSync = Depends(get_booking_sync),

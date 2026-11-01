@@ -22,12 +22,12 @@ router = APIRouter()
 
 
 @router.post("/admin/users", response_model=AdminUserResponse, status_code=201)
-async def create_admin_user(data: AdminUserCreate, db: AsyncSession = Depends(get_db)):
+async def create_admin_user(data: AdminUserCreate, db: AsyncSession = Depends(get_db, scope="function")):
     return await admin_service.create_admin_user(db, data)
 
 
 @router.get("/admin/users", response_model=List[AdminUserResponse])
-async def list_admin_users(db: AsyncSession = Depends(get_db)):
+async def list_admin_users(db: AsyncSession = Depends(get_db, scope="function")):
     return await admin_service.list_admin_users(db)
 
 
@@ -35,7 +35,7 @@ async def list_admin_users(db: AsyncSession = Depends(get_db)):
 async def ban_user(
     user_id: str,
     data: BanUserRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
     origin: Origin = Depends(request_origin),
@@ -57,7 +57,7 @@ async def ban_user(
 async def unban_user(
     user_id: str,
     admin_id: Optional[str] = Query(None, description="Ignored; the acting admin comes from the token"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
     origin: Origin = Depends(request_origin),
@@ -74,7 +74,7 @@ async def get_audit_logs(
     service: Optional[str] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await admin_service.get_audit_logs(
         db, admin_id=admin_id, action=action, service=service, skip=skip, limit=limit
@@ -82,7 +82,7 @@ async def get_audit_logs(
 
 
 @router.get("/system-config", response_model=List[SystemConfigResponse])
-async def get_system_configs(db: AsyncSession = Depends(get_db)):
+async def get_system_configs(db: AsyncSession = Depends(get_db, scope="function")):
     return await admin_service.get_system_configs(db)
 
 
@@ -90,7 +90,7 @@ async def get_system_configs(db: AsyncSession = Depends(get_db)):
 async def update_system_config(
     key: str,
     data: SystemConfigUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     origin: Origin = Depends(request_origin),
 ):
@@ -101,7 +101,7 @@ async def update_system_config(
 @router.post("/admin/actions/bulk-update")
 async def bulk_update(
     data: BulkUpdateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     switch: AccountSwitch = Depends(get_account_switch),
     origin: Origin = Depends(request_origin),

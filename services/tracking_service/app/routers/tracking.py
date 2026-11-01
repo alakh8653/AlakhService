@@ -25,7 +25,7 @@ router = APIRouter()
 
 @router.post("/locations", response_model=LocationResponse, status_code=201)
 async def update_location(
-    data: LocationUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    data: LocationUpdate, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
     # Providers report only their own position.
     ensure_self_or_admin(data.provider_id, caller)
@@ -35,7 +35,7 @@ async def update_location(
 @router.get("/locations/{provider_id}", response_model=LocationResponse)
 async def get_location(
     provider_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     tracking_check: TrackingCheck = Depends(get_tracking_check),
 ):
@@ -49,7 +49,7 @@ async def get_location(
 
 
 @router.post("/geofences", response_model=GeofenceResponse, status_code=201, dependencies=[Depends(require_admin)])
-async def create_geofence(data: GeofenceCreate, db: AsyncSession = Depends(get_db)):
+async def create_geofence(data: GeofenceCreate, db: AsyncSession = Depends(get_db, scope="function")):
     return await tracking_service.create_geofence(db, data)
 
 
@@ -58,7 +58,7 @@ async def check_geofence(
     geofence_id: str,
     lat: float = Query(...),
     lon: float = Query(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     try:

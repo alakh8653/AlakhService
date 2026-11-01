@@ -26,14 +26,14 @@ async def list_permissions():
 
 
 @router.get("/access/roles", response_model=List[RoleResponse])
-async def list_roles(db: AsyncSession = Depends(get_db)):
+async def list_roles(db: AsyncSession = Depends(get_db, scope="function")):
     return await access_service.list_roles(db)
 
 
 @router.post("/access/roles", response_model=RoleResponse, status_code=201)
 async def create_role(
     data: RoleCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     actor_id: ActorId = Depends(actor),
     origin: Origin = Depends(request_origin),
 ):
@@ -49,7 +49,7 @@ async def create_role(
 async def update_role_permissions(
     role_id: str,
     data: RolePermissionsUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     actor_id: ActorId = Depends(actor),
     origin: Origin = Depends(request_origin),
 ):
@@ -66,7 +66,7 @@ async def update_role_permissions(
 @router.delete("/access/roles/{role_id}", status_code=204)
 async def delete_role(
     role_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     actor_id: ActorId = Depends(actor),
     origin: Origin = Depends(request_origin),
 ):

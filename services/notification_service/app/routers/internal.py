@@ -28,7 +28,7 @@ class EventNotification(BaseModel):
 async def notify_event(
     body: EventNotification,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis=Depends(get_redis),
 ):
     """Tells each recipient about a booking or payment event (other platform services only).

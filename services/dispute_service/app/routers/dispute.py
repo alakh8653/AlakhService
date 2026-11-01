@@ -51,7 +51,7 @@ async def _visible_dispute(db: AsyncSession, dispute_id: str, caller: Caller, bo
 @router.post("/disputes", response_model=DisputeResponse, status_code=201)
 async def create_dispute(
     data: DisputeCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     booking_check: BookingCheck = Depends(get_booking_check),
 ):
@@ -72,7 +72,7 @@ async def list_disputes(
     raised_by: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     if not caller.is_admin:
@@ -86,7 +86,7 @@ async def list_disputes(
 @router.get("/disputes/{dispute_id}", response_model=DisputeResponse)
 async def get_dispute(
     dispute_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     booking_check: BookingCheck = Depends(get_booking_check),
 ):
@@ -141,7 +141,7 @@ async def _change_status(
 async def review_dispute(
     dispute_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     origin: Origin = Depends(request_origin),
     audit: AuditReporter = Depends(get_audit_reporter),
@@ -153,7 +153,7 @@ async def review_dispute(
 async def escalate_dispute(
     dispute_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     origin: Origin = Depends(request_origin),
     audit: AuditReporter = Depends(get_audit_reporter),
@@ -166,7 +166,7 @@ async def resolve_dispute(
     dispute_id: str,
     data: DisputeResolve,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     origin: Origin = Depends(request_origin),
     audit: AuditReporter = Depends(get_audit_reporter),
@@ -205,7 +205,7 @@ async def resolve_dispute(
 async def add_message(
     dispute_id: str,
     data: DisputeMessageCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     booking_check: BookingCheck = Depends(get_booking_check),
 ):
@@ -221,7 +221,7 @@ async def add_message(
 @router.get("/disputes/{dispute_id}/messages", response_model=List[DisputeMessageResponse])
 async def get_messages(
     dispute_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     booking_check: BookingCheck = Depends(get_booking_check),
 ):

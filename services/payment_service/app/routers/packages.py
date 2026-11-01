@@ -115,7 +115,7 @@ async def _own_shop(shop_id: str, user: dict, lookup_owner: OwnerLookup) -> None
 async def list_packages(
     shop_id: Optional[str] = Query(None, max_length=128),
     service_id: Optional[str] = Query(None, max_length=128),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Packages on offer, for a shop or a service (public)."""
     if not shop_id and not service_id:
@@ -126,7 +126,7 @@ async def list_packages(
 @router.get("/packages/shop/{shop_id}", response_model=List[PackageOut])
 async def shop_packages(
     shop_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -138,7 +138,7 @@ async def shop_packages(
 @router.post("/packages", response_model=PackageOut, status_code=201)
 async def create_package(
     body: PackageCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_service: ServiceLookup = Depends(get_service_lookup),
@@ -158,7 +158,7 @@ async def create_package(
 async def update_package(
     package_id: str,
     body: PackageUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -178,7 +178,7 @@ async def update_package(
 async def buy_package(
     package_id: str,
     checkout: PackageCheckout,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
@@ -230,14 +230,16 @@ async def buy_package(
 
 
 @router.get("/packages/mine", response_model=List[PurchaseOut])
-async def my_packages(db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def my_packages(
+    db: AsyncSession = Depends(get_db, scope="function"), current_user: dict = Depends(get_current_user)
+):
     return [_purchase_out(p) for p in await package_service.customer_packages(db, current_user["sub"])]
 
 
 @router.post("/admin/payments/packages/{purchase_id}/refund", response_model=PurchaseOut)
 async def refund_unused_visits(
     purchase_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     gateway: RazorpayGateway = Depends(get_razorpay),
 ):
@@ -265,7 +267,7 @@ async def refund_unused_visits(
 
 
 @internal_router.post("/redeem")
-async def redeem_visit(body: PackageRedeem, db: AsyncSession = Depends(get_db)):
+async def redeem_visit(body: PackageRedeem, db: AsyncSession = Depends(get_db, scope="function")):
     """booking_service uses one visit of the customer's package for a booking it is making."""
     try:
         visit = await package_service.redeem(db, body.customer_id, body.purchase_id, body.service_id, body.booking_id)
@@ -280,6 +282,6 @@ async def redeem_visit(body: PackageRedeem, db: AsyncSession = Depends(get_db)):
 
 
 @internal_router.post("/release")
-async def release_visit(body: PackageRelease, db: AsyncSession = Depends(get_db)):
+async def release_visit(body: PackageRelease, db: AsyncSession = Depends(get_db, scope="function")):
     """A booking the visit was used for was never made after all: the visit can be booked again."""
     return {"booking_id": body.booking_id, "returned": await package_service.return_visit(db, body.booking_id)}

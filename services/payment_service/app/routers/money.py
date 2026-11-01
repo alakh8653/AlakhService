@@ -51,7 +51,7 @@ async def shop_earnings(
     shop_id: str,
     date_from: Optional[date] = Query(None, alias="from"),
     date_to: Optional[date] = Query(None, alias="to"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -69,7 +69,7 @@ async def shop_earnings(
 @router.get("/payments/shops/{shop_id}/payouts", response_model=List[ShopPayout])
 async def shop_payouts(
     shop_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -92,7 +92,7 @@ async def shop_payouts(
 @router.get("/payments/{payment_id}/invoice", response_class=HTMLResponse)
 async def invoice(
     payment_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     shops: ShopDirectory = Depends(get_shop_directory),
 ):
@@ -122,7 +122,7 @@ def _audit(
 
 
 @admin_router.get("/commission", response_model=CommissionSettings)
-async def commission_settings(db: AsyncSession = Depends(get_db)):
+async def commission_settings(db: AsyncSession = Depends(get_db, scope="function")):
     return CommissionSettings(
         default_commission_percent=float(await earnings_service.default_commission_percent(db)),
         configured_default_percent=float(settings.PLATFORM_COMMISSION_PERCENT),
@@ -135,7 +135,7 @@ async def commission_settings(db: AsyncSession = Depends(get_db)):
 async def set_default_commission(
     body: CommissionUpdate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     audit: AuditReporter = Depends(get_audit_reporter),
     origin: Origin = Depends(request_origin),
@@ -168,7 +168,7 @@ async def _shop_commission(db: AsyncSession, shop_id: str) -> ShopCommission:
 
 
 @admin_router.get("/commission/{shop_id}", response_model=ShopCommission)
-async def shop_commission(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def shop_commission(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     return await _shop_commission(db, shop_id)
 
 
@@ -177,7 +177,7 @@ async def set_shop_commission(
     shop_id: str,
     body: CommissionUpdate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     audit: AuditReporter = Depends(get_audit_reporter),
     origin: Origin = Depends(request_origin),
@@ -199,7 +199,7 @@ async def list_payouts(
     batch_id: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     payouts, total = await earnings_service.list_payouts(db, shop_id, status, batch_id, page, per_page)
     return PayoutList(data=payouts, total=total, page=page, per_page=per_page)
@@ -209,7 +209,7 @@ async def list_payouts(
 async def create_payout_batch(
     body: PayoutBatchCreate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     audit: AuditReporter = Depends(get_audit_reporter),
     origin: Origin = Depends(request_origin),
@@ -237,7 +237,7 @@ async def mark_payout_paid(
     payout_id: str,
     body: MarkPaid,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     audit: AuditReporter = Depends(get_audit_reporter),
     origin: Origin = Depends(request_origin),
@@ -292,7 +292,7 @@ def _csv_cell(value) -> str:
 async def export_payouts(
     batch_id: Optional[str] = None,
     status: Optional[Literal["PENDING", "PAID"]] = "PENDING",
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     shops: ShopDirectory = Depends(get_shop_directory),
 ):
     """Payouts with each shop's bank or UPI details (from shop_service), for the bank's bulk upload."""

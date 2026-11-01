@@ -87,7 +87,7 @@ async def arrival_for(db, booking, now: datetime, lookup_location) -> ArrivalSta
 
 @router.get("/bookings/assigned/route", response_model=List[RouteStop])
 async def my_route(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_location=Depends(get_location_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -119,7 +119,7 @@ async def my_route(
 @router.get("/bookings/{booking_id}/arrival", response_model=ArrivalStatus)
 async def booking_arrival(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_location=Depends(get_location_lookup),

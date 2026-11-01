@@ -19,7 +19,7 @@ async def get_redis():
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db=Depends(get_db),
+    db=Depends(get_db, scope="function"),
 ):
     token = credentials.credentials
     try:

@@ -10,5 +10,5 @@ router = APIRouter(dependencies=[Depends(require_internal)])
 
 
 @router.post("/internal/audit-logs", response_model=AuditLogResponse, status_code=201)
-async def record_audit_log(report: AuditLogReport, db: AsyncSession = Depends(get_db)):
+async def record_audit_log(report: AuditLogReport, db: AsyncSession = Depends(get_db, scope="function")):
     return await admin_service.record_report(db, report)

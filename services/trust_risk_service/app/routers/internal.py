@@ -12,5 +12,5 @@ router = APIRouter(prefix="/internal", dependencies=[Depends(require_internal)])
 
 
 @router.post("/risk/{user_id}/signals", response_model=UserRiskProfileResponse)
-async def report_signal(user_id: str, data: RiskSignalCreate, db: AsyncSession = Depends(get_db)):
+async def report_signal(user_id: str, data: RiskSignalCreate, db: AsyncSession = Depends(get_db, scope="function")):
     return await trust_risk_service.record_signal(db, user_id, data)

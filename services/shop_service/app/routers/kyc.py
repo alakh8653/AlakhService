@@ -71,7 +71,9 @@ def _safe_file_name(name: Optional[str]) -> Optional[str]:
 
 
 @router.get("/shops/{shop_id}/documents", response_model=List[ShopDocumentResponse])
-async def list_documents(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def list_documents(
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     await managed_shop(shop_id, db, caller)
     return await kyc_service.list_documents(db, shop_id)
 
@@ -80,7 +82,7 @@ async def list_documents(shop_id: str, db: AsyncSession = Depends(get_db), calle
 async def add_document_link(
     shop_id: str,
     data: ShopDocumentCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     """Records a document kept elsewhere, by its https link."""
@@ -97,7 +99,7 @@ async def upload_document(
     request: Request,
     type: DocumentType = Query(..., description="PAN, GST, AADHAAR, UDYAM, BANK_PROOF or SHOP_PHOTO"),
     file_name: Optional[str] = Query(None, max_length=255),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     storage: LocalDocumentStorage = Depends(get_storage),
 ):
@@ -143,7 +145,7 @@ async def upload_document(
 async def download_document(
     shop_id: str,
     document_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     storage: LocalDocumentStorage = Depends(get_storage),
 ):
@@ -174,7 +176,7 @@ async def download_document(
 async def delete_document(
     shop_id: str,
     document_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     storage: LocalDocumentStorage = Depends(get_storage),
 ):
@@ -197,7 +199,7 @@ async def delete_document(
 
 @router.get("/shops/{shop_id}/payout-details", response_model=PayoutDetailsOut)
 async def get_payout_details(
-    shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
     await managed_shop(shop_id, db, caller)
     details = await kyc_service.get_payout_details(db, shop_id)
@@ -210,7 +212,7 @@ async def get_payout_details(
 async def set_payout_details(
     shop_id: str,
     data: PayoutDetailsIn,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     await managed_shop(shop_id, db, caller)
@@ -221,7 +223,9 @@ async def set_payout_details(
 
 
 @router.post("/shops/{shop_id}/submit-for-review", response_model=ShopResponse)
-async def submit_for_review(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def submit_for_review(
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     """The owner asks for their shop to be checked (again, after a rejection)."""
     shop = await managed_shop(shop_id, db, caller)
     try:
@@ -247,7 +251,7 @@ async def admin_list_shops(
     q: Optional[str] = Query(None, max_length=100),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Every shop, whatever its status, for the admin dashboard."""
     items, total = await kyc_service.admin_list(db, status=status, q=q, skip=skip, limit=limit)
@@ -256,7 +260,9 @@ async def admin_list_shops(
 
 @router.get("/admin/shops/review-queue", response_model=List[ShopReviewItem], dependencies=[Depends(require_admin)])
 async def review_queue(
-    skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100), db: AsyncSession = Depends(get_db)
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Shops submitted for review and still waiting, oldest submission first, with their documents."""
     shops, _ = await kyc_service.admin_list(db, status=PENDING_REVIEW, submitted_only=True, skip=skip, limit=limit)
@@ -264,7 +270,7 @@ async def review_queue(
 
 
 @router.get("/admin/shops/{shop_id}", response_model=ShopReviewItem, dependencies=[Depends(require_admin)])
-async def admin_get_shop(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def admin_get_shop(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     try:
         return await _review_item(db, await shop_service.get_shop(db, shop_id))
     except ShopNotFoundError as e:
@@ -283,7 +289,7 @@ async def approve_shop(
     shop_id: str,
     request: Request,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     reporter: Reporter = Depends(get_reporter),
 ):
@@ -315,7 +321,7 @@ async def reject_shop(
     decision: ReviewDecision,
     request: Request,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     reporter: Reporter = Depends(get_reporter),
 ):

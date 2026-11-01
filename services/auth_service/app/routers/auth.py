@@ -44,7 +44,7 @@ async def register(
     user_create: UserCreate,
     request: Request,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Creates an account. accepted_terms_version (from GET /legal/current) is required: it is the
     person's acceptance of the Terms and Privacy Policy, kept on the account and in the consent register."""
@@ -67,7 +67,7 @@ async def accept_terms(
     body: AcceptTerms,
     request: Request,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     """Records that a signed-in person accepted a (newer) Terms and Privacy Policy version: older
@@ -93,7 +93,7 @@ async def accept_terms(
 async def login(
     login_data: UserLogin,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     try:
@@ -113,7 +113,7 @@ async def login(
 async def refresh(
     body: RefreshTokenRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     return await auth_service.refresh_tokens(db, redis, body.refresh_token, request)
@@ -122,7 +122,7 @@ async def refresh(
 @router.post("/auth/logout")
 async def logout(
     body: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
 ):
@@ -133,7 +133,7 @@ async def logout(
 
 @router.post("/auth/logout-all")
 async def logout_all(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
 ):
@@ -146,7 +146,7 @@ async def logout_all(
 async def send_otp(
     otp_request: OTPRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     created = await auth_service.send_otp(db, redis, otp_request)
@@ -161,7 +161,7 @@ async def send_otp(
 async def verify_otp(
     otp_verify: OTPVerify,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     user = await auth_service.verify_otp(db, otp_verify)
     if otp_verify.purpose in ("login", "registration"):
@@ -178,7 +178,7 @@ async def verify_otp(
 async def forgot_password(
     body: PasswordResetRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     result = await db.execute(
         select(User).where(func.lower(User.email) == body.email).order_by(User.created_at).limit(1)
@@ -195,7 +195,7 @@ async def forgot_password(
 @router.post("/auth/reset-password")
 async def reset_password(
     body: PasswordResetConfirm,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     await auth_service.reset_password(db, body.token, body.new_password, redis)
@@ -204,7 +204,7 @@ async def reset_password(
 
 @router.get("/auth/me", response_model=UserResponse)
 async def get_me(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -217,7 +217,7 @@ async def get_me(
 
 @router.get("/auth/sessions", response_model=list[SessionResponse])
 async def list_sessions(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     """Where the caller is signed in: one entry per device, the one making this request marked current."""
@@ -239,7 +239,7 @@ async def list_sessions(
 @router.delete("/auth/sessions/{session_id}")
 async def end_session(
     session_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
 ):

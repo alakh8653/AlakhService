@@ -54,7 +54,8 @@ def require_admin(caller: Caller = Depends(require_caller)) -> Caller:
 # Declared before /shops/{shop_id} (this router is included first) so "ratings" is not read as an id.
 @router.get("/shops/ratings", response_model=List[ShopRatingBrief])
 async def shop_ratings(
-    ids: str = Query(..., description="Comma-separated shop ids, at most 50"), db: AsyncSession = Depends(get_db)
+    ids: str = Query(..., description="Comma-separated shop ids, at most 50"),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """The rating shown next to each of several shops, e.g. for a page of service cards."""
     shop_ids = [i.strip() for i in ids.split(",") if i.strip()]
@@ -64,7 +65,9 @@ async def shop_ratings(
 
 
 @router.get("/shops/{shop_id}/reviews/summary", response_model=RatingSummary)
-async def review_summary(shop_id: str, service_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def review_summary(
+    shop_id: str, service_id: Optional[str] = None, db: AsyncSession = Depends(get_db, scope="function")
+):
     await _shop(db, shop_id)
     return await review_service.summary(db, shop_id, service_id)
 
@@ -77,7 +80,7 @@ async def list_reviews(
     rating: Optional[int] = Query(None, ge=1, le=5),
     service_id: Optional[str] = None,
     needs_reply: bool = False,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Newest first. Reviewers appear by first name and last initial only."""
     await _shop(db, shop_id)
@@ -92,7 +95,7 @@ async def reply_to_review(
     shop_id: str,
     review_id: str,
     data: ReplyCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     """The shop owner's one public reply to a review; sending it again edits it."""
@@ -103,7 +106,10 @@ async def reply_to_review(
 
 @router.delete("/shops/{shop_id}/reviews/{review_id}/reply", response_model=ReviewResponse)
 async def delete_reply(
-    shop_id: str, review_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str,
+    review_id: str,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_owner((await _shop(db, shop_id)).owner_id, caller)
     review = await _review(db, shop_id, review_id)
@@ -116,7 +122,7 @@ async def report_review(
     review_id: str,
     data: ReportCreate,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     """Flag a review for an admin to look at. It stays visible until an admin hides it."""
@@ -133,7 +139,7 @@ async def moderation_queue(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     hidden: Optional[bool] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Reported and hidden reviews, most reported first."""
     items, total = await review_service.moderation_queue(db, skip=skip, limit=limit, hidden=hidden)
@@ -141,7 +147,7 @@ async def moderation_queue(
 
 
 @router.put("/reviews/{review_id}/visibility", response_model=ModerationReview, dependencies=[Depends(require_admin)])
-async def set_visibility(review_id: str, data: VisibilityUpdate, db: AsyncSession = Depends(get_db)):
+async def set_visibility(review_id: str, data: VisibilityUpdate, db: AsyncSession = Depends(get_db, scope="function")):
     """Hide a review (it leaves the shop's listing and average) or put it back."""
     review = await review_service.get(db, review_id)
     if review is None:

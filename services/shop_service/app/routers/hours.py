@@ -37,14 +37,17 @@ async def _schedule(db: AsyncSession, shop) -> ShopSchedule:
 
 
 @router.get("/shops/{shop_id}/hours", response_model=ShopSchedule)
-async def get_hours(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def get_hours(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """Public: the customer app shows these and booking_service checks bookings against them."""
     return await _schedule(db, await _shop(db, shop_id))
 
 
 @router.put("/shops/{shop_id}/hours", response_model=ShopSchedule)
 async def set_hours(
-    shop_id: str, data: WeeklyHoursUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str,
+    data: WeeklyHoursUpdate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     shop = await _owned_shop(db, shop_id, caller)
     await hours_service.set_weekly_hours(db, shop_id, data.weekly)
@@ -53,7 +56,10 @@ async def set_hours(
 
 @router.put("/shops/{shop_id}/capacity", response_model=ShopSchedule)
 async def set_capacity(
-    shop_id: str, data: CapacityUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str,
+    data: CapacityUpdate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     shop = await _owned_shop(db, shop_id, caller)
     await hours_service.set_capacity(db, shop_id, data.capacity)
@@ -62,7 +68,10 @@ async def set_capacity(
 
 @router.post("/shops/{shop_id}/holidays", response_model=ShopSchedule, status_code=201)
 async def add_holiday(
-    shop_id: str, data: HolidayCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str,
+    data: HolidayCreate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     shop = await _owned_shop(db, shop_id, caller)
     today = hours_service.today_in_shop_zone()
@@ -79,7 +88,10 @@ async def add_holiday(
 
 @router.delete("/shops/{shop_id}/holidays/{day}", status_code=204)
 async def remove_holiday(
-    shop_id: str, day: date, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    shop_id: str,
+    day: date,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     await _owned_shop(db, shop_id, caller)
     if not await hours_service.remove_holiday(db, shop_id, day):

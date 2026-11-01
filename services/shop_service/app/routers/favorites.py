@@ -24,7 +24,9 @@ MAX_FAVORITES = 200
 
 
 @router.get("/shops/favorites", response_model=List[ShopResponse])
-async def list_favorites(db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def list_favorites(
+    db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     """The caller's saved shops, most recently saved first. A shop that is closed or under review is
     left out until it is listed again, and stays saved."""
     result = await db.execute(
@@ -37,7 +39,9 @@ async def list_favorites(db: AsyncSession = Depends(get_db), caller: Caller = De
 
 
 @router.delete("/shops/favorites", status_code=204)
-async def clear_favorites(db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def clear_favorites(
+    db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     """Unsaves every shop the caller saved; auth_service calls it, as them, when they delete their account."""
     await db.execute(delete(FavoriteShop).where(FavoriteShop.user_id == caller.user_id))
     await db.commit()
@@ -45,7 +49,9 @@ async def clear_favorites(db: AsyncSession = Depends(get_db), caller: Caller = D
 
 
 @router.put("/shops/{shop_id}/favorite", status_code=204)
-async def add_favorite(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def add_favorite(
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     """Saves the shop. Saving it again changes nothing."""
     shop = await db.get(Shop, shop_id)
     if shop is None or not is_public(shop):
@@ -66,7 +72,9 @@ async def add_favorite(shop_id: str, db: AsyncSession = Depends(get_db), caller:
 
 
 @router.delete("/shops/{shop_id}/favorite", status_code=204)
-async def remove_favorite(shop_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def remove_favorite(
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     """Unsaves the shop. Unsaving one that is not saved changes nothing."""
     await db.execute(
         delete(FavoriteShop).where(FavoriteShop.user_id == caller.user_id, FavoriteShop.shop_id == shop_id)

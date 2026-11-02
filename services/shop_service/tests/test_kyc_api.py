@@ -35,7 +35,7 @@ class FakeReporter:
     async def notify_owner(self, event, owner_id, data):
         self.notifications.append((event, owner_id, data))
 
-    async def sync_listing(self, shop_id, listed):
+    async def sync_listing(self, shop_id, listed, category=None):
         self.listings.append((shop_id, listed))
 
 

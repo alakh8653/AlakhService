@@ -9,11 +9,11 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../features/auth/domain/entities/user.dart';
 import '../../../l10n/l10n.dart';
+import '../../../shared/service_types.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/location_rationale.dart';
 import '../data/shop_owner_api.dart';
-import 'business_categories.dart';
 import 'verification_page.dart';
 import 'week_hours_editor.dart';
 
@@ -127,6 +127,25 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
 
   List<String> get _modes => [if (_atShop) modeAtShop, if (_atHome) modeAtHome];
 
+  /// Common services for their type of work that they have not added yet.
+  List<String> get _suggestions {
+    final added = {for (final d in _drafts) d.name.text.trim().toLowerCase()};
+    return [
+      for (final name in serviceTypeById(_category ?? '')?.suggestions ?? const <String>[])
+        if (!added.contains(name.toLowerCase())) name,
+    ];
+  }
+
+  void _addSuggestion(String name) {
+    setState(() {
+      // Into the first empty form, so the first tap does not leave a blank one behind.
+      final empty = _drafts.skip(_servicesSaved).where((d) => d.name.text.trim().isEmpty);
+      final draft = empty.isNotEmpty ? empty.first : (_ServiceDraft()..name.text = '');
+      if (empty.isEmpty) _drafts.add(draft);
+      draft.name.text = name;
+    });
+  }
+
   Future<void> _finish() async {
     if (!_hours.valid) {
       setState(() => _error = context.l10n.ownerHoursInvalid);
@@ -198,8 +217,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
               decoration: InputDecoration(labelText: l10n.ownerCategory),
               validator: (value) => value == null ? l10n.ownerRequired : null,
               items: [
-                for (final category in businessCategories)
-                  DropdownMenuItem(value: category, child: Text(businessCategoryLabel(category, l10n))),
+                for (final type in serviceTypes) DropdownMenuItem(value: type.id, child: Text(type.label(l10n))),
               ],
               onChanged: (value) => setState(() => _category = value),
             ),
@@ -258,7 +276,23 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(l10n.ownerServicesHelp, style: AppTextStyles.body2.themed(context)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            if (_suggestions.isNotEmpty) ...[
+              Text(l10n.ownerTapToAdd, style: AppTextStyles.caption.themed(context)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final name in _suggestions)
+                    ActionChip(
+                      avatar: const Icon(Icons.add, size: 16),
+                      label: Text(name),
+                      onPressed: () => _addSuggestion(name),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             for (var i = 0; i < _drafts.length; i++) ...[
               ServiceFields(
                 key: ObjectKey(_drafts[i]),

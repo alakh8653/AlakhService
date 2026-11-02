@@ -1590,5 +1590,50 @@
   "ownerRefunded": "Refunded",
   "ownerPartlyRefunded": "Partly refunded",
   "ownerBeforeSending": "Before sending, you need:",
-  "ownerSubmittedTitle": "Sent for verification"
+  "ownerSubmittedTitle": "Sent for verification",
+  "allServices": "All services",
+  "ownerTapToAdd": "Tap to add, or type your own:",
+  "servicesShowingType": "Showing: {type}",
+  "@servicesShowingType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "groupBeauty": "Beauty and grooming",
+  "groupHealth": "Health and care",
+  "groupHomeRepairs": "Home repairs",
+  "groupHomeHelp": "Home help",
+  "groupVehicles": "Vehicles",
+  "groupLearning": "Learning and fitness",
+  "groupEvents": "Events and functions",
+  "groupOther": "Other services",
+  "typeMehndi": "Mehndi artist",
+  "typeTailoring": "Tailor",
+  "typeDentist": "Dentist",
+  "typePhysiotherapy": "Physiotherapy",
+  "typeHomeNursing": "Nurse at home",
+  "typeLabTests": "Lab tests",
+  "typePetCare": "Pet care and vet",
+  "typeCarpentry": "Carpenter",
+  "typeWaterPurifier": "RO and water purifier",
+  "typePainting": "Painter",
+  "typePestControl": "Pest control",
+  "typeDomesticHelp": "House help",
+  "typeCook": "Cook",
+  "typeCareGiver": "Elder and baby care",
+  "typeLaundry": "Laundry and ironing",
+  "typeGardening": "Gardener",
+  "typePackersMovers": "Packers and movers",
+  "typeCarWash": "Car and bike wash",
+  "typeDriver": "Driver",
+  "typeTutor": "Tutor",
+  "typeFitness": "Yoga and fitness",
+  "typeMusicDance": "Music and dance classes",
+  "typePhotography": "Photographer",
+  "typeCatering": "Caterer",
+  "typeEventDecor": "Decorator",
+  "typePriest": "Pandit and puja",
+  "typeTaxLegal": "Tax and legal help"
 }

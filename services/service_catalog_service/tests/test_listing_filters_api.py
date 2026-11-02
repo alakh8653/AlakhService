@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 import app.models.catalog  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_shop_listed_lookup, get_shop_owner_lookup
+from app.dependencies import get_shop_category_lookup, get_shop_listed_lookup, get_shop_owner_lookup
 from app.main import app
 
 OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2", "shop-new": "owner-3"}
@@ -40,6 +40,11 @@ async def client():
         return OWNERS.get(shop_id)
 
     app.dependency_overrides[get_db] = override_get_db
+
+    async def fake_category(shop_id):
+        return "electrical"
+
+    app.dependency_overrides[get_shop_category_lookup] = lambda: fake_category
 
     async def fake_listed(shop_id):
         return LISTED[shop_id]
@@ -235,3 +240,15 @@ async def test_services_of_a_shop_awaiting_approval_stay_hidden_until_it_is_appr
         "Bridal hair",
         "Bridal makeup",
     ]
+
+
+@pytest.mark.asyncio
+async def test_browsing_by_type_finds_a_service_whatever_it_is_called(client):
+    """A customer tapping Electrical finds "Fan repair", which never says electrical."""
+    created = await create_listing(client, "Fan repair")
+    found = await client.get("/api/v1/services", params={"category": "electrical"})
+    assert [s["id"] for s in found.json()] == [created["id"]]
+    assert (await client.get("/api/v1/services", params={"category": "plumbing"})).json() == []
+    searched = await client.get("/api/v1/services/search", params={"q": "fan", "category": "electrical"})
+    assert [s["id"] for s in searched.json()] == [created["id"]]
+    assert (await client.get("/api/v1/services/search", params={"q": "fan", "category": "plumbing"})).json() == []

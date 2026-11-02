@@ -40,7 +40,14 @@
 	}
 	log {
 		output stdout
-		format json
+		# Live sockets carry the access token as ?token= (browsers cannot send headers on them):
+		# it is never written to the log.
+		format filter {
+			request>uri query {
+				replace token REDACTED
+			}
+			wrap json
+		}
 	}
 }
 

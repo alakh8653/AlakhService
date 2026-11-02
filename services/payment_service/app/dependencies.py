@@ -1,4 +1,5 @@
 from typing import Awaitable, Callable, Optional
+from urllib.parse import quote
 
 import httpx
 import redis.asyncio as aioredis
@@ -78,8 +79,28 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
     return shop.get("owner_id") if shop else None
 
 
+async def fetch_shop_public(shop_id: str) -> bool:
+    """Whether customers can see and book the shop now (approved and switched on): its public page,
+    asked without the internal key, answers only then."""
+    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+        try:
+            resp = await client.get(f"/api/v1/shops/{quote(shop_id, safe='')}")
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Upstream service unavailable") from exc
+    if resp.status_code in (403, 404):
+        return False
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Upstream service unavailable")
+    return True
+
+
 BookingLookup = Callable[[str, str], Awaitable[Optional[dict]]]
 OwnerLookup = Callable[[str], Awaitable[Optional[str]]]
+PublicShopLookup = Callable[[str], Awaitable[bool]]
+
+
+def get_shop_public_lookup() -> PublicShopLookup:
+    return fetch_shop_public
 
 
 def get_booking_lookup() -> BookingLookup:

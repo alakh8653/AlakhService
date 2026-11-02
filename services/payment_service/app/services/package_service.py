@@ -196,10 +196,25 @@ async def redeem(
 
 async def return_visit(db: AsyncSession, booking_id: str) -> bool:
     """A booking made with a package was cancelled (or never made): its visit can be booked again."""
-    redemption = await redemption_for(db, booking_id)
+    # Locked, re-read rows: two returns of one booking at once (a cancel and a give-back) add one visit.
+    redemption = (
+        await db.execute(
+            select(PackageRedemption)
+            .where(PackageRedemption.booking_id == booking_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     if redemption is None or redemption.status != USED:
         return False
-    purchase = await db.get(PackagePurchase, redemption.purchase_id)
+    purchase = (
+        await db.execute(
+            select(PackagePurchase)
+            .where(PackagePurchase.id == redemption.purchase_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     redemption.status = RETURNED
     if purchase is not None and purchase.status == ACTIVE:
         purchase.visits_left += 1

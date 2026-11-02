@@ -6,7 +6,7 @@ import pytest
 import pytest_asyncio
 
 from app.database import get_db
-from app.dependencies import get_service_lookup
+from app.dependencies import get_service_lookup, get_shop_public_lookup
 from app.main import app
 from app.models.payment import PackagePurchase, Payment, ShopEarning
 from tests import test_earnings_api
@@ -17,6 +17,8 @@ from tests.test_payment_access_api import KEY_SECRET, NOTIFIED, REFUNDS, auth, s
 http = test_earnings_api.http
 client = test_earnings_api.client
 CUSTOMER = auth("cust")
+# Shops still awaiting approval in shop_service.
+PENDING_SHOPS: set = set()
 SERVICES = {
     "svc-cut": {"id": "svc-cut", "shop_id": "shop-1", "name": "Haircut", "price_cents": 30000, "is_active": True},
     "svc-elsewhere": {
@@ -34,7 +36,11 @@ async def shop(http):
     async def fake_service(service_id):
         return SERVICES.get(service_id)
 
+    async def fake_public(shop_id):
+        return shop_id not in PENDING_SHOPS
+
     app.dependency_overrides[get_service_lookup] = lambda: fake_service
+    app.dependency_overrides[get_shop_public_lookup] = lambda: fake_public
     yield http
 
 
@@ -177,3 +183,19 @@ async def test_an_admin_refunds_only_the_unused_visits(shop):
     [sale] = await rows(ShopEarning, ShopEarning.booking_id == "bk-p1")
     assert (sale.gross_cents, sale.status) == (24000, "READY")  # the visit already given stays earned
     assert (await use(shop, purchase_id, "bk-p9")).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_nobody_can_buy_a_package_from_a_shop_awaiting_approval(shop):
+    package = await offer(shop)
+    PENDING_SHOPS.add("shop-1")
+    try:
+        resp = await shop.post(
+            f"/api/v1/packages/{package['id']}/buy",
+            json={"payment_method": "upi", "idempotency_key": "pkg-pending"},
+            headers=CUSTOMER,
+        )
+    finally:
+        PENDING_SHOPS.discard("shop-1")
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "This shop is not taking bookings yet"

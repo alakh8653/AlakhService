@@ -13,18 +13,21 @@ import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/services/presentation/bloc/service_bloc.dart';
 import '../features/services/presentation/pages/service_list_page.dart';
 import '../features/shop_line/data/shop_line_api.dart';
-import '../features/shop_line/presentation/shop_line_page.dart';
+import '../features/shop_owner/data/shop_owner_api.dart';
+import '../features/shop_owner/presentation/owner_home_page.dart';
+import '../features/shop_owner/presentation/shop_setup_page.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 import 'shell_navigation.dart';
 
-/// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers and My shop (the
-/// shop's live line) for shop owners.
+/// The signed-in app: Home, Services, Bookings and Profile tabs, plus Jobs for providers and My shop for
+/// owners. Someone who joined to offer services starts on setting up their business.
 class HomeShell extends StatefulWidget {
   final User user;
   final JobsApi? jobsApi;
   final ShopLineApi? shopLineApi;
+  final ShopOwnerApi? ownerApi;
 
-  const HomeShell({super.key, required this.user, this.jobsApi, this.shopLineApi});
+  const HomeShell({super.key, required this.user, this.jobsApi, this.shopLineApi, this.ownerApi});
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -39,6 +42,8 @@ class _HomeShellState extends State<HomeShell> {
   bool _showJobs = false;
   // The shop the user owns, if any: its line gets a tab.
   OwnedShop? _shop;
+  // False until the server has answered, so a slow or failed answer never looks like "no shop".
+  bool _shopKnown = false;
 
   @override
   void initState() {
@@ -46,11 +51,41 @@ class _HomeShellState extends State<HomeShell> {
     (widget.jobsApi ?? sl<JobsApi>()).hasJobs().then((has) {
       if (has && mounted) setState(() => _showJobs = true);
     }).catchError((Object _) {});
-    final lineApi = widget.shopLineApi ?? (sl.isRegistered<ShopLineApi>() ? sl<ShopLineApi>() : null);
-    lineApi?.ownedShop(widget.user.id).then((shop) {
-      if (shop != null && mounted) setState(() => _shop = shop);
-    }).catchError((Object _) {});
+    _loadShop(openingApp: true);
     ShellNavigation.instance.addListener(_onTabRequest);
+  }
+
+  /// Finds the user's shop. On opening the app, someone who came to offer services lands on it, or on
+  /// setting it up.
+  Future<void> _loadShop({bool openingApp = false}) async {
+    final lineApi = widget.shopLineApi ?? (sl.isRegistered<ShopLineApi>() ? sl<ShopLineApi>() : null);
+    if (lineApi == null) return;
+    final OwnedShop? shop;
+    try {
+      shop = await lineApi.ownedShop(widget.user.id);
+    } catch (_) {
+      return; // Not knowing is not the same as having no shop: never offer setup on an error.
+    }
+    if (!mounted) return;
+    setState(() {
+      _shop = shop;
+      _shopKnown = true;
+    });
+    if (!openingApp || !await OwnerIntent.read() || !mounted) return;
+    if (shop != null) {
+      _select(_shopLine);
+    } else {
+      await _setUpBusiness();
+    }
+  }
+
+  Future<void> _setUpBusiness() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => ShopSetupPage(user: widget.user, api: widget.ownerApi)),
+    );
+    await _loadShop();
+    if (_shop != null && mounted) _select(_shopLine);
   }
 
   @override
@@ -108,12 +143,19 @@ class _HomeShellState extends State<HomeShell> {
       case _jobs:
         return JobsPage(key: ValueKey('jobs-$_visit'), providerId: widget.user.id);
       case _shopLine:
-        return ShopLinePage(key: ValueKey('line-$_visit'), shop: _shop!, api: widget.shopLineApi);
+        return OwnerHomePage(
+          key: ValueKey('owner-$_visit'),
+          shop: _shop!,
+          user: widget.user,
+          api: widget.ownerApi,
+          lineApi: widget.shopLineApi,
+        );
       default:
         return ProfilePage(
           user: widget.user,
           onOpenBookings: () => _select(_bookings),
           onOpenNotifications: _openNotifications,
+          onOfferServices: _shopKnown && _shop == null ? _setUpBusiness : null,
         );
     }
   }

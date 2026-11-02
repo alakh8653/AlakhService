@@ -68,6 +68,10 @@
 	</array>
 	<key>GMSApiKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AlakhService uses the camera to photograph the documents that verify your business.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AlakhService lets you choose a photo of the documents that verify your business.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>AlakhService uses your location to show nearby services and, when you are working on a job, to show your customer where you are.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

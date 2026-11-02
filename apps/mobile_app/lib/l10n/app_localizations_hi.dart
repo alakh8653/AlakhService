@@ -2173,4 +2173,412 @@ class AppLocalizationsHi extends AppLocalizations {
   String homeArrivalLate(int minutes) {
     return 'आपके बुक किए समय से लगभग $minutes मिनट देर';
   }
+
+  @override
+  String get registerWhy => 'आप क्यों जुड़ रहे हैं?';
+
+  @override
+  String get registerAsCustomer => 'मुझे सेवाएँ बुक करनी हैं';
+
+  @override
+  String get registerAsCustomerHelp =>
+      'सैलून, इलेक्ट्रीशियन, डॉक्टर और बहुत कुछ खोजें';
+
+  @override
+  String get registerAsProvider => 'मैं सेवाएँ देता/देती हूँ';
+
+  @override
+  String get registerAsProviderHelp =>
+      'अपनी दुकान या अपने काम के लिए बुकिंग पाएँ';
+
+  @override
+  String get locationWhyBusiness =>
+      'आपकी लोकेशन से आपका काम मैप पर दिखता है, ताकि पास के ग्राहक आपको ढूँढ सकें। यह एक बार सेव होती है, ट्रैक नहीं होती।';
+
+  @override
+  String get ownerOfferServices => 'अपनी सेवाएँ दें';
+
+  @override
+  String get ownerSetupTitle => 'अपना काम जोड़ें';
+
+  @override
+  String ownerStepOf(int step, int total) {
+    return 'चरण $step / $total';
+  }
+
+  @override
+  String get ownerStepBusiness => 'आपके काम के बारे में';
+
+  @override
+  String get ownerStepServices => 'आप क्या सेवा देते हैं?';
+
+  @override
+  String get ownerStepHours => 'आप कब काम करते हैं?';
+
+  @override
+  String get ownerBusinessName => 'आपका नाम या दुकान का नाम';
+
+  @override
+  String get ownerBusinessNameHelp =>
+      'ग्राहक यही देखेंगे। अकेले काम करते हैं तो अपना नाम लिखें।';
+
+  @override
+  String get ownerCategory => 'काम का प्रकार';
+
+  @override
+  String get ownerWhereDoYouWork => 'आप काम कहाँ करते हैं?';
+
+  @override
+  String get ownerAtMyShop => 'मेरी दुकान पर';
+
+  @override
+  String get ownerAtCustomersHome => 'ग्राहक के घर पर';
+
+  @override
+  String get ownerChooseWhere => 'काम की कम से कम एक जगह चुनें।';
+
+  @override
+  String get ownerCity => 'शहर';
+
+  @override
+  String get ownerShopAddress => 'दुकान का पता';
+
+  @override
+  String get ownerAreaYouServe => 'आपका कार्य क्षेत्र (वैकल्पिक)';
+
+  @override
+  String get ownerPhone => 'ग्राहकों के लिए फ़ोन नंबर';
+
+  @override
+  String get ownerUseLocation => 'मेरी मौजूदा लोकेशन लें';
+
+  @override
+  String get ownerLocationSaved => 'लोकेशन जुड़ गई';
+
+  @override
+  String get ownerLocationFailed =>
+      'लोकेशन नहीं मिली। आप इसके बिना आगे बढ़ सकते हैं।';
+
+  @override
+  String get ownerRequired => 'कृपया इसे भरें';
+
+  @override
+  String get ownerEnterNumber => 'संख्या लिखें';
+
+  @override
+  String get ownerServicesHelp =>
+      'जो ग्राहक बुक कर सकें, वह जोड़ें। बाद में और जोड़ सकते हैं।';
+
+  @override
+  String get ownerServiceName => 'सेवा का नाम';
+
+  @override
+  String get ownerServiceNameHint => 'जैसे हेयरकट, पंखा मरम्मत';
+
+  @override
+  String get ownerPrice => 'कीमत';
+
+  @override
+  String get ownerMinutes => 'कितने मिनट लगते हैं';
+
+  @override
+  String get ownerAddAnotherService => 'एक और सेवा जोड़ें';
+
+  @override
+  String get ownerOpenDays => 'काम के दिन';
+
+  @override
+  String get ownerOpensAt => 'से';
+
+  @override
+  String get ownerClosesAt => 'तक';
+
+  @override
+  String get ownerHoursInvalid =>
+      'कम से कम एक दिन चुनें, और समाप्ति का समय शुरू के बाद का रखें।';
+
+  @override
+  String get ownerFinishSetup => 'सेव करके आगे बढ़ें';
+
+  @override
+  String get ownerVerificationTitle => 'सत्यापन और भुगतान';
+
+  @override
+  String get ownerStatusApproved =>
+      'आपका काम सत्यापित है और ग्राहक बुक कर सकते हैं।';
+
+  @override
+  String ownerStatusRejected(String reason) {
+    return 'आपके विवरण में बदलाव चाहिए: $reason';
+  }
+
+  @override
+  String get ownerStatusInReview =>
+      'हम आपके विवरण जाँच रहे हैं। इसके बाद ग्राहक बुक कर सकेंगे।';
+
+  @override
+  String get ownerStatusNotSubmitted =>
+      'इन विवरणों की जाँच के बाद ग्राहक आपको ढूँढ और बुक कर सकेंगे।';
+
+  @override
+  String get ownerBannerFinish => 'सत्यापन पूरा करें, ताकि ग्राहक बुक कर सकें';
+
+  @override
+  String get ownerAboutYou => 'आपके बारे में';
+
+  @override
+  String get ownerLegalName => 'PAN पर लिखा नाम';
+
+  @override
+  String get ownerLegalNameHelp =>
+      'आपका नाम, या PAN कंपनी का हो तो कंपनी का नाम।';
+
+  @override
+  String get ownerLegalAddress => 'आपका पता (वैकल्पिक)';
+
+  @override
+  String get ownerGstin => 'GSTIN (वैकल्पिक)';
+
+  @override
+  String get ownerGstinHelp => 'सिर्फ़ तब, जब आपका व्यवसाय GST में पंजीकृत हो।';
+
+  @override
+  String get ownerDocuments => 'दस्तावेज़';
+
+  @override
+  String get ownerDocPan => 'PAN कार्ड';
+
+  @override
+  String get ownerDocGst => 'GST प्रमाणपत्र';
+
+  @override
+  String get ownerDocAadhaar => 'आधार कार्ड';
+
+  @override
+  String get ownerDocShopPhoto => 'दुकान या काम की फ़ोटो';
+
+  @override
+  String get ownerUploaded => 'जुड़ गया';
+
+  @override
+  String get ownerNeeded => 'ज़रूरी';
+
+  @override
+  String get ownerOptional => 'वैकल्पिक';
+
+  @override
+  String get ownerReplace => 'बदलें';
+
+  @override
+  String get ownerAddPhoto => 'फ़ोटो जोड़ें';
+
+  @override
+  String get ownerTakePhoto => 'फ़ोटो खींचें';
+
+  @override
+  String get ownerChoosePhoto => 'गैलरी से चुनें';
+
+  @override
+  String get ownerPhotoFailed => 'वह फ़ोटो नहीं खुली। कृपया फिर कोशिश करें।';
+
+  @override
+  String get ownerPanNeeded => 'कृपया अपने PAN कार्ड की फ़ोटो जोड़ें।';
+
+  @override
+  String get ownerGstNeeded =>
+      'आपने GSTIN दिया है, इसलिए GST प्रमाणपत्र की फ़ोटो जोड़ें।';
+
+  @override
+  String get ownerPayouts => 'आपका पैसा कहाँ भेजें?';
+
+  @override
+  String get ownerPayoutsHelp =>
+      'ऑनलाइन भुगतान वाली बुकिंग के लिए। इसे बाद में भी जोड़ सकते हैं।';
+
+  @override
+  String get ownerUpi => 'UPI';
+
+  @override
+  String get ownerBankAccount => 'बैंक खाता';
+
+  @override
+  String get ownerUpiId => 'UPI आईडी';
+
+  @override
+  String get ownerAccountName => 'खाताधारक का नाम';
+
+  @override
+  String get ownerAccountNumber => 'खाता संख्या';
+
+  @override
+  String get ownerIfsc => 'IFSC कोड';
+
+  @override
+  String ownerPayoutSaved(String account) {
+    return 'सेव है: $account। बदलने के लिए नीचे भरें।';
+  }
+
+  @override
+  String get ownerSubmit => 'सत्यापन के लिए भेजें';
+
+  @override
+  String get ownerSubmitAgain => 'फिर से भेजें';
+
+  @override
+  String get ownerSubmitted => 'भेज दिया। जाँच होने पर हम आपको बताएँगे।';
+
+  @override
+  String get ownerDetailsSaved => 'विवरण सेव हो गए';
+
+  @override
+  String get ownerDoItLater => 'बाद में करूँगा/करूँगी';
+
+  @override
+  String ownerNewRequests(int count) {
+    return 'नए अनुरोध ($count)';
+  }
+
+  @override
+  String get ownerNoRequests =>
+      'अभी कोई नया अनुरोध नहीं। वे यहाँ अपने आप दिखेंगे।';
+
+  @override
+  String get ownerComingUp => 'आगे का काम';
+
+  @override
+  String get ownerNothingAhead => 'अभी कुछ बुक नहीं है।';
+
+  @override
+  String get ownerManage => 'प्रबंधन';
+
+  @override
+  String get ownerLiveLine => 'आज की लाइव लाइन';
+
+  @override
+  String get ownerMyServices => 'मेरी सेवाएँ';
+
+  @override
+  String get ownerOpeningHours => 'काम के घंटे';
+
+  @override
+  String get ownerAccept => 'स्वीकार करें';
+
+  @override
+  String get ownerDecline => 'मना करें';
+
+  @override
+  String get ownerDeclineTitle => 'यह बुकिंग मना करें?';
+
+  @override
+  String get ownerCancelTitle => 'यह बुकिंग रद्द करें?';
+
+  @override
+  String get ownerCancelBooking => 'बुकिंग रद्द करें';
+
+  @override
+  String get ownerRefundNote =>
+      'ग्राहक को बताया जाएगा और ऑनलाइन दिया पैसा वापस मिलेगा।';
+
+  @override
+  String get ownerReasonLabel => 'कारण (ग्राहक देख सकता है)';
+
+  @override
+  String get ownerDefaultReason => 'इस समय उपलब्ध नहीं';
+
+  @override
+  String get ownerCustomerArrived => 'ग्राहक आ गया';
+
+  @override
+  String get ownerGoMyself => 'यह काम मैं करूँगा/करूँगी';
+
+  @override
+  String get ownerOnTheWay => 'मैं रास्ते में हूँ';
+
+  @override
+  String get ownerOnTheWayToCollect => 'लेने जा रहा/रही हूँ';
+
+  @override
+  String get ownerPickedUp => 'सामान ले लिया';
+
+  @override
+  String get ownerStartWork => 'काम शुरू करें';
+
+  @override
+  String get ownerStartService => 'सेवा शुरू करें';
+
+  @override
+  String get ownerSendBack => 'वापस भेजें';
+
+  @override
+  String get ownerDelivered => 'पहुँचा दिया';
+
+  @override
+  String get ownerComplete => 'पूरा हुआ';
+
+  @override
+  String get ownerMessage => 'संदेश';
+
+  @override
+  String get ownerAService => 'सेवा';
+
+  @override
+  String get ownerHomeVisit => 'घर पर सेवा';
+
+  @override
+  String get ownerPickupDrop => 'पिकअप और ड्रॉप';
+
+  @override
+  String get ownerAddService => 'सेवा जोड़ें';
+
+  @override
+  String get ownerNoServices =>
+      'अभी कुछ नहीं। जो ग्राहक बुक कर सकें, वह जोड़ें।';
+
+  @override
+  String ownerMinutesShort(int minutes) {
+    return '$minutes मिनट';
+  }
+
+  @override
+  String get ownerHoursSimplified =>
+      'आपके सेव घंटों में ब्रेक हैं या दिन के अनुसार अलग हैं। यहाँ सेव करने पर एक ही समय लागू होगा।';
+
+  @override
+  String get categorySalon => 'सैलून';
+
+  @override
+  String get categoryBeauty => 'ब्यूटी पार्लर';
+
+  @override
+  String get categorySpa => 'स्पा';
+
+  @override
+  String get categoryClinic => 'डॉक्टर / क्लिनिक';
+
+  @override
+  String get categoryVehicleRepair => 'कार और बाइक मरम्मत';
+
+  @override
+  String get categoryElectronicsRepair => 'लैपटॉप और फ़ोन मरम्मत';
+
+  @override
+  String get categoryApplianceRepair => 'AC और उपकरण मरम्मत';
+
+  @override
+  String get categoryCleaning => 'सफ़ाई';
+
+  @override
+  String get categoryPlumbing => 'प्लंबिंग';
+
+  @override
+  String get categoryElectrical => 'बिजली का काम';
+
+  @override
+  String get categoryRepair => 'अन्य मरम्मत';
+
+  @override
+  String get categoryOffice => 'ऑफ़िस / अपॉइंटमेंट';
+
+  @override
+  String get categoryOther => 'अन्य';
 }

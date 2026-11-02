@@ -2191,4 +2191,413 @@ class AppLocalizationsEn extends AppLocalizations {
   String homeArrivalLate(int minutes) {
     return 'Running about $minutes min behind your booked time';
   }
+
+  @override
+  String get registerWhy => 'Why are you joining?';
+
+  @override
+  String get registerAsCustomer => 'I want to book services';
+
+  @override
+  String get registerAsCustomerHelp =>
+      'Find a salon, electrician, doctor and more';
+
+  @override
+  String get registerAsProvider => 'I provide services';
+
+  @override
+  String get registerAsProviderHelp =>
+      'Get bookings for your shop, or for the work you do on your own';
+
+  @override
+  String get locationWhyBusiness =>
+      'Your location puts your business on the map so nearby customers can find it. It is saved once and not tracked.';
+
+  @override
+  String get ownerOfferServices => 'Offer your services';
+
+  @override
+  String get ownerSetupTitle => 'Set up your business';
+
+  @override
+  String ownerStepOf(int step, int total) {
+    return 'Step $step of $total';
+  }
+
+  @override
+  String get ownerStepBusiness => 'About your business';
+
+  @override
+  String get ownerStepServices => 'What do you offer?';
+
+  @override
+  String get ownerStepHours => 'When do you work?';
+
+  @override
+  String get ownerBusinessName => 'Your name or business name';
+
+  @override
+  String get ownerBusinessNameHelp =>
+      'Customers see this. If you work alone, your own name is fine.';
+
+  @override
+  String get ownerCategory => 'Type of work';
+
+  @override
+  String get ownerWhereDoYouWork => 'Where do you do the work?';
+
+  @override
+  String get ownerAtMyShop => 'At my shop';
+
+  @override
+  String get ownerAtCustomersHome => 'At the customer\'s home';
+
+  @override
+  String get ownerChooseWhere => 'Choose at least one place you do the work.';
+
+  @override
+  String get ownerCity => 'City';
+
+  @override
+  String get ownerShopAddress => 'Shop address';
+
+  @override
+  String get ownerAreaYouServe => 'Area you serve (optional)';
+
+  @override
+  String get ownerPhone => 'Phone for customers';
+
+  @override
+  String get ownerUseLocation => 'Use my current location';
+
+  @override
+  String get ownerLocationSaved => 'Location added';
+
+  @override
+  String get ownerLocationFailed =>
+      'Could not get your location. You can carry on without it.';
+
+  @override
+  String get ownerRequired => 'Please fill this in';
+
+  @override
+  String get ownerEnterNumber => 'Enter a number';
+
+  @override
+  String get ownerServicesHelp =>
+      'Add what customers can book. You can add more later.';
+
+  @override
+  String get ownerServiceName => 'Service name';
+
+  @override
+  String get ownerServiceNameHint => 'e.g. Haircut, Fan repair';
+
+  @override
+  String get ownerPrice => 'Price';
+
+  @override
+  String get ownerMinutes => 'Minutes it takes';
+
+  @override
+  String get ownerAddAnotherService => 'Add another service';
+
+  @override
+  String get ownerOpenDays => 'Days you work';
+
+  @override
+  String get ownerOpensAt => 'From';
+
+  @override
+  String get ownerClosesAt => 'To';
+
+  @override
+  String get ownerHoursInvalid =>
+      'Choose at least one day, and an end time after the start time.';
+
+  @override
+  String get ownerFinishSetup => 'Save and continue';
+
+  @override
+  String get ownerVerificationTitle => 'Verification and payouts';
+
+  @override
+  String get ownerStatusApproved =>
+      'Your business is verified and customers can book you.';
+
+  @override
+  String ownerStatusRejected(String reason) {
+    return 'Your details need a change: $reason';
+  }
+
+  @override
+  String get ownerStatusInReview =>
+      'We are checking your details. Customers can book you once this is done.';
+
+  @override
+  String get ownerStatusNotSubmitted =>
+      'Customers can find and book you after we verify these details.';
+
+  @override
+  String get ownerBannerFinish =>
+      'Finish verification so customers can book you';
+
+  @override
+  String get ownerAboutYou => 'About you';
+
+  @override
+  String get ownerLegalName => 'Name as on your PAN';
+
+  @override
+  String get ownerLegalNameHelp =>
+      'Your own name, or your company\'s if the PAN is the company\'s.';
+
+  @override
+  String get ownerLegalAddress => 'Your address (optional)';
+
+  @override
+  String get ownerGstin => 'GSTIN (optional)';
+
+  @override
+  String get ownerGstinHelp => 'Only if your business is registered for GST.';
+
+  @override
+  String get ownerDocuments => 'Documents';
+
+  @override
+  String get ownerDocPan => 'PAN card';
+
+  @override
+  String get ownerDocGst => 'GST certificate';
+
+  @override
+  String get ownerDocAadhaar => 'Aadhaar card';
+
+  @override
+  String get ownerDocShopPhoto => 'Photo of your shop or work';
+
+  @override
+  String get ownerUploaded => 'Added';
+
+  @override
+  String get ownerNeeded => 'Needed';
+
+  @override
+  String get ownerOptional => 'Optional';
+
+  @override
+  String get ownerReplace => 'Replace';
+
+  @override
+  String get ownerAddPhoto => 'Add photo';
+
+  @override
+  String get ownerTakePhoto => 'Take a photo';
+
+  @override
+  String get ownerChoosePhoto => 'Choose from gallery';
+
+  @override
+  String get ownerPhotoFailed => 'Could not read that photo. Please try again.';
+
+  @override
+  String get ownerPanNeeded => 'Please add a photo of your PAN card.';
+
+  @override
+  String get ownerGstNeeded =>
+      'You gave a GSTIN, so please add a photo of your GST certificate.';
+
+  @override
+  String get ownerPayouts => 'Where should we send your money?';
+
+  @override
+  String get ownerPayoutsHelp =>
+      'For bookings customers pay for online. You can add this later.';
+
+  @override
+  String get ownerUpi => 'UPI';
+
+  @override
+  String get ownerBankAccount => 'Bank account';
+
+  @override
+  String get ownerUpiId => 'UPI ID';
+
+  @override
+  String get ownerAccountName => 'Account holder\'s name';
+
+  @override
+  String get ownerAccountNumber => 'Account number';
+
+  @override
+  String get ownerIfsc => 'IFSC code';
+
+  @override
+  String ownerPayoutSaved(String account) {
+    return 'Saved: $account. Fill in below to change it.';
+  }
+
+  @override
+  String get ownerSubmit => 'Submit for verification';
+
+  @override
+  String get ownerSubmitAgain => 'Submit again';
+
+  @override
+  String get ownerSubmitted => 'Sent. We will let you know when it is checked.';
+
+  @override
+  String get ownerDetailsSaved => 'Details saved';
+
+  @override
+  String get ownerDoItLater => 'I\'ll do this later';
+
+  @override
+  String ownerNewRequests(int count) {
+    return 'New requests ($count)';
+  }
+
+  @override
+  String get ownerNoRequests =>
+      'No new requests right now. They appear here on their own.';
+
+  @override
+  String get ownerComingUp => 'Coming up';
+
+  @override
+  String get ownerNothingAhead => 'Nothing booked yet.';
+
+  @override
+  String get ownerManage => 'Manage';
+
+  @override
+  String get ownerLiveLine => 'Today\'s live line';
+
+  @override
+  String get ownerMyServices => 'My services';
+
+  @override
+  String get ownerOpeningHours => 'Working hours';
+
+  @override
+  String get ownerAccept => 'Accept';
+
+  @override
+  String get ownerDecline => 'Decline';
+
+  @override
+  String get ownerDeclineTitle => 'Decline this booking?';
+
+  @override
+  String get ownerCancelTitle => 'Cancel this booking?';
+
+  @override
+  String get ownerCancelBooking => 'Cancel booking';
+
+  @override
+  String get ownerRefundNote =>
+      'The customer is told and gets back anything paid online.';
+
+  @override
+  String get ownerReasonLabel => 'Reason (the customer may see this)';
+
+  @override
+  String get ownerDefaultReason => 'Not available at this time';
+
+  @override
+  String get ownerCustomerArrived => 'Customer arrived';
+
+  @override
+  String get ownerGoMyself => 'I will do this job';
+
+  @override
+  String get ownerOnTheWay => 'I\'m on the way';
+
+  @override
+  String get ownerOnTheWayToCollect => 'On the way to collect';
+
+  @override
+  String get ownerPickedUp => 'Item picked up';
+
+  @override
+  String get ownerStartWork => 'Start work';
+
+  @override
+  String get ownerStartService => 'Start service';
+
+  @override
+  String get ownerSendBack => 'Send it back';
+
+  @override
+  String get ownerDelivered => 'Delivered';
+
+  @override
+  String get ownerComplete => 'Mark complete';
+
+  @override
+  String get ownerMessage => 'Message';
+
+  @override
+  String get ownerAService => 'Service';
+
+  @override
+  String get ownerHomeVisit => 'Home visit';
+
+  @override
+  String get ownerPickupDrop => 'Pickup and drop';
+
+  @override
+  String get ownerAddService => 'Add a service';
+
+  @override
+  String get ownerNoServices =>
+      'Nothing here yet. Add what customers can book.';
+
+  @override
+  String ownerMinutesShort(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get ownerHoursSimplified =>
+      'Your saved hours include breaks or differ by day. Saving here replaces them with one set of hours.';
+
+  @override
+  String get categorySalon => 'Salon';
+
+  @override
+  String get categoryBeauty => 'Beauty parlour';
+
+  @override
+  String get categorySpa => 'Spa';
+
+  @override
+  String get categoryClinic => 'Doctor / clinic';
+
+  @override
+  String get categoryVehicleRepair => 'Car and bike repair';
+
+  @override
+  String get categoryElectronicsRepair => 'Laptop and phone repair';
+
+  @override
+  String get categoryApplianceRepair => 'AC and appliance repair';
+
+  @override
+  String get categoryCleaning => 'Cleaning';
+
+  @override
+  String get categoryPlumbing => 'Plumbing';
+
+  @override
+  String get categoryElectrical => 'Electrical';
+
+  @override
+  String get categoryRepair => 'Other repairs';
+
+  @override
+  String get categoryOffice => 'Office / appointments';
+
+  @override
+  String get categoryOther => 'Other';
 }

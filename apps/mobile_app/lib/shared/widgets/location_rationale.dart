@@ -10,6 +10,9 @@ enum LocationPurpose {
 
   /// A provider on a job: showing their customer where they are.
   sharing,
+
+  /// An owner placing their business on the map, once.
+  business,
 }
 
 /// Explains why location is needed before the system asks; true to go on and ask. With no screen
@@ -23,7 +26,11 @@ Future<bool> explainLocation(LocationPurpose purpose, {BuildContext? context}) a
     builder: (dialogContext) => AlertDialog(
       icon: const Icon(Icons.location_on_outlined, size: 40),
       title: Text(l10n.locationWhyTitle),
-      content: Text(purpose == LocationPurpose.sharing ? l10n.locationWhySharing : l10n.locationWhyEta),
+      content: Text(switch (purpose) {
+        LocationPurpose.sharing => l10n.locationWhySharing,
+        LocationPurpose.business => l10n.locationWhyBusiness,
+        LocationPurpose.eta => l10n.locationWhyEta,
+      }),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.notNow)),
         FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(l10n.continueLabel)),

@@ -56,7 +56,7 @@ async def get_availability(
     day: date = Query(..., alias="date", description="YYYY-MM-DD, in the shop's time zone"),
     # A booking being moved: its own place is free to it, as POST /bookings/{id}/reschedule counts it.
     moving_booking_id: Optional[str] = Query(None, max_length=128),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
     clock: Callable[[], datetime] = Depends(get_clock),

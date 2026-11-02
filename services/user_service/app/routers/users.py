@@ -30,7 +30,7 @@ log = structlog.get_logger()
 
 @router.get("/users/me/profile", response_model=UserProfileResponse)
 async def get_my_profile(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -43,7 +43,7 @@ async def get_my_profile(
 @router.put("/users/me/profile", response_model=UserProfileResponse)
 async def update_my_profile(
     profile_data: UserProfileCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -53,7 +53,7 @@ async def update_my_profile(
 
 @router.get("/users/me/addresses", response_model=list[UserAddressResponse])
 async def get_my_addresses(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -63,7 +63,7 @@ async def get_my_addresses(
 @router.post("/users/me/addresses", response_model=UserAddressResponse, status_code=201)
 async def add_address(
     address_data: UserAddressCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -74,7 +74,7 @@ async def add_address(
 async def update_address(
     address_id: str,
     data: UserAddressUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -87,7 +87,7 @@ async def update_address(
 @router.delete("/users/me/addresses/{address_id}", status_code=204)
 async def delete_address(
     address_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -99,7 +99,7 @@ async def delete_address(
 @router.post("/users/me/addresses/{address_id}/default")
 async def set_default_address(
     address_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -111,7 +111,7 @@ async def set_default_address(
 
 @router.get("/users/me/preferences", response_model=UserPreferencesResponse)
 async def get_preferences(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -121,7 +121,7 @@ async def get_preferences(
 @router.put("/users/me/preferences", response_model=UserPreferencesResponse)
 async def update_preferences(
     prefs_data: UserPreferencesUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -131,7 +131,7 @@ async def update_preferences(
 @router.post("/users/me/devices", response_model=UserDeviceResponse, status_code=201)
 async def register_device(
     device_data: UserDeviceCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -141,7 +141,7 @@ async def register_device(
 @router.delete("/users/me/devices/{device_id}", status_code=204)
 async def deregister_device(
     device_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -153,7 +153,7 @@ async def deregister_device(
 @router.post("/users/me/avatar")
 async def upload_avatar(
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -188,7 +188,7 @@ async def get_avatar(folder: str, filename: str, storage: LocalAvatarStorage = D
 
 @router.delete("/users/me/account")
 async def delete_account(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user.get("sub")
@@ -199,7 +199,7 @@ async def delete_account(
 @router.get("/users/{user_id}", response_model=UserProfileResponse)
 async def get_user_by_id(
     user_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     role = current_user.get("role", "user")
@@ -215,7 +215,7 @@ async def get_user_by_id(
 async def list_users(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     role = current_user.get("role", "user")

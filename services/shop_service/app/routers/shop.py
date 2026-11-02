@@ -43,7 +43,9 @@ def for_caller(shop, caller: Optional[Caller]) -> ShopResponse:
 
 
 @router.post("/shops", response_model=ShopResponse, status_code=201)
-async def create_shop(data: ShopCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def create_shop(
+    data: ShopCreate, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     # Only admins may open a shop on someone else's behalf.
     ensure_owner(data.owner_id, caller)
     # An owner runs one shop (the dashboard manages a single shop); a repeat submit must not open a second.
@@ -58,7 +60,7 @@ async def list_shops(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     owner_id: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Optional[Caller] = Depends(optional_caller),
 ):
     # An owner listing their own shops (the dashboard) also sees the ones in review, rejected or closed.
@@ -73,7 +75,7 @@ async def search_shops(
     city: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Optional[Caller] = Depends(optional_caller),
 ):
     shops = await shop_service.search_shops(db, q=q, city=city, category=category, limit=limit)
@@ -83,7 +85,7 @@ async def search_shops(
 @router.get("/shops/{shop_id}", response_model=ShopResponse)
 async def get_shop(
     shop_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Optional[Caller] = Depends(optional_caller),
     x_internal_key: Optional[str] = Header(None),
 ):
@@ -107,7 +109,7 @@ async def update_shop(
     shop_id: str,
     data: ShopUpdate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     reporter: Reporter = Depends(get_reporter),
 ):
@@ -135,7 +137,7 @@ async def update_shop(
 async def delete_shop(
     shop_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     reporter: Reporter = Depends(get_reporter),
 ):
@@ -151,7 +153,7 @@ async def delete_shop(
 async def rate_shop(
     shop_id: str,
     data: ShopRatingCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_booking: BookingLookup = Depends(get_booking_lookup),
     lookup_name: NameLookup = Depends(get_name_lookup),

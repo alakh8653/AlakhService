@@ -29,7 +29,9 @@ async def _booking(db: AsyncSession, booking_id: str):
 
 
 @router.post("/{booking_id}/payment-status")
-async def set_payment_status(booking_id: str, body: PaymentStatusUpdate, db: AsyncSession = Depends(get_db)):
+async def set_payment_status(
+    booking_id: str, body: PaymentStatusUpdate, db: AsyncSession = Depends(get_db, scope="function")
+):
     """payment_service reports how the booking's payment stands; shown on the booking."""
     booking = await _booking(db, booking_id)
     if booking.payment_status != body.payment_status:
@@ -44,7 +46,7 @@ async def resolve_dispute(
     booking_id: str,
     body: DisputeResolution,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     notifier: Notifier = Depends(get_notifier),
     lookup_owner=Depends(get_shop_owner_lookup),
     payment_client: PaymentClient = Depends(get_payment_client),

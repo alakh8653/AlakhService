@@ -84,7 +84,7 @@ def _with_checkout(payment: Payment, gateway: RazorpayGateway) -> PaymentCheckou
 @router.post("/payments/initiate", response_model=PaymentCheckoutResponse, status_code=201)
 async def initiate_payment(
     checkout: PaymentCheckout,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -151,7 +151,7 @@ async def initiate_payment(
 @router.post("/payments/tips", response_model=PaymentCheckoutResponse, status_code=201)
 async def tip_provider(
     checkout: TipCheckout,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -223,7 +223,7 @@ async def verify_payment(
     payment_id: str,
     proof: RazorpayVerification,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
@@ -259,7 +259,7 @@ def _ensure_party(payment, current_user: dict) -> None:
 async def list_payments(
     booking_id: Optional[str] = None,
     purpose: str = Query(BOOKING, pattern="^(BOOKING|TIP)$"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     """Payments for a booking (all of them for admins, otherwise those the caller paid or received),
@@ -275,7 +275,7 @@ async def list_payments(
 @router.get("/payments/{payment_id}", response_model=PaymentResponse)
 async def get_payment(
     payment_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     payment = await payment_service.get_payment(db, payment_id)
@@ -289,7 +289,7 @@ async def get_payment(
 async def confirm_cash_received(
     payment_id: str,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     notifier: Notifier = Depends(get_notifier),
     sync: BookingSync = Depends(get_booking_sync),
@@ -321,7 +321,7 @@ async def request_refund(
     payment_id: str,
     refund_data: RefundRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(require_admin),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
@@ -381,7 +381,7 @@ async def _own_ledger_account(db: AsyncSession, account_id: str, current_user: d
 @router.get("/accounts/{account_id}/balance")
 async def get_account_balance(
     account_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     ledger_account_id = await _own_ledger_account(db, account_id, current_user)
@@ -394,7 +394,7 @@ async def get_transaction_history(
     account_id: str,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
 ):
     ledger_account_id = await _own_ledger_account(db, account_id, current_user)
@@ -407,7 +407,7 @@ async def get_transaction_history(
 async def razorpay_webhook(
     request: Request,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     gateway: RazorpayGateway = Depends(get_razorpay),
     notifier: Notifier = Depends(get_notifier),
     sync: BookingSync = Depends(get_booking_sync),

@@ -40,6 +40,13 @@ jobs:
 
       # Pinned so a new ruff release can't change formatting under everyone;
       # keep in step with the ruff-pre-commit rev in .pre-commit-config.yaml.
+      # Without scope="function" the response goes out before the commit (see get_db in each service).
+      - name: Routes commit before they respond
+        run: |
+          if grep -rn --include='*.py' 'Depends(get_db)' services/*/app --exclude-dir=__pycache__ | grep -vE '^services/(catalog_service|dispatch_service)/'; then
+            echo "::error::use Depends(get_db, scope=\"function\")"; exit 1
+          fi
+
       - name: Install ruff
         run: pip install ruff==0.17.1
 

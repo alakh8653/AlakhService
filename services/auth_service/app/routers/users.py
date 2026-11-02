@@ -41,7 +41,7 @@ async def search_users(
     q: Optional[str] = Query(None, description="Part of a name, email or phone number"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     stmt = select(User).order_by(User.created_at.desc()).offset(skip).limit(limit)
     if q and q.strip():
@@ -103,7 +103,7 @@ async def anonymise_account(db: AsyncSession, redis, user: User, token: str, era
 @router.post("/auth/delete-account")
 async def delete_account(
     body: AccountDeletion,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -122,7 +122,7 @@ async def delete_account(
 @router.post("/auth/delete-account/otp")
 async def delete_account_with_code(
     body: AccountDeletionByOTP,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
     erase=Depends(get_profile_eraser),
 ):
@@ -163,7 +163,7 @@ class AccountStatus(BaseModel):
 async def set_account_status(
     user_id: str,
     body: AccountStatus,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     """Bans and unbans. A deactivated account cannot sign in or refresh, and its sessions are ended
@@ -216,7 +216,7 @@ class DisplayNamesResponse(BaseModel):
 @internal_router.post(
     "/internal/users/display-names", response_model=DisplayNamesResponse, dependencies=[Depends(require_internal)]
 )
-async def display_names(body: DisplayNamesRequest, db: AsyncSession = Depends(get_db)):
+async def display_names(body: DisplayNamesRequest, db: AsyncSession = Depends(get_db, scope="function")):
     """Names other services may show to the other party of a booking (e.g. a shop seeing its customers).
 
     Every id asked for gets an answer; one that matches no account reads "Customer".
@@ -236,7 +236,7 @@ class CallContact(BaseModel):
 @internal_router.get(
     "/internal/users/{user_id}/call-contact", response_model=CallContact, dependencies=[Depends(require_internal)]
 )
-async def call_contact(user_id: str, db: AsyncSession = Depends(get_db)):
+async def call_contact(user_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """The number a masked call rings (booking_service's call bridge). Never passed on to the other party."""
     user = await db.get(User, user_id)
     if user is None or not user.is_active:
@@ -252,7 +252,7 @@ class NotifyContact(BaseModel):
 @internal_router.get(
     "/internal/users/{user_id}/contact", response_model=NotifyContact, dependencies=[Depends(require_internal)]
 )
-async def notify_contact(user_id: str, db: AsyncSession = Depends(get_db)):
+async def notify_contact(user_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """Where notification_service texts or emails the person THEMSELVES (booking updates when they have
     no app installed). Never put into a message to anyone else."""
     user = await db.get(User, user_id)

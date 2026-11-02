@@ -29,7 +29,9 @@ internal_router = APIRouter(dependencies=[Depends(require_internal)])
 
 @router.post("/pricing/calculate", response_model=PriceCalculationResponse, status_code=201)
 async def calculate_price(
-    data: PriceCalculationRequest, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    data: PriceCalculationRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(data.customer_id, caller)
     return await pricing_service.calculate_price(db, data)
@@ -37,14 +39,14 @@ async def calculate_price(
 
 @router.get("/pricing/history/{customer_id}", response_model=List[PriceCalculationResponse])
 async def get_pricing_history(
-    customer_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    customer_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
     ensure_self_or_admin(customer_id, caller)
     return await pricing_service.get_pricing_history(db, customer_id)
 
 
 @internal_router.post("/internal/pricing/{calculation_id}/redeem", response_model=PriceCalculationResponse)
-async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db)):
+async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """Checkout: commit to a quote, using up its coupon.
 
     Only booking_service calls this, for the quote it made from the catalogue price while creating
@@ -64,7 +66,7 @@ async def redeem_quote(calculation_id: str, db: AsyncSession = Depends(get_db)):
 async def create_coupon(
     data: CouponCreate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     origin: Origin = Depends(request_origin),
     audit: AuditReporter = Depends(get_audit_reporter),
@@ -84,12 +86,14 @@ async def create_coupon(
 
 
 @router.get("/coupons", response_model=List[CouponResponse], dependencies=[Depends(require_admin)])
-async def list_coupons(db: AsyncSession = Depends(get_db)):
+async def list_coupons(db: AsyncSession = Depends(get_db, scope="function")):
     return await pricing_service.list_coupons(db)
 
 
 @router.get("/coupons/{code}/validate", response_model=CouponValidateResponse)
-async def validate_coupon(code: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def validate_coupon(
+    code: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     try:
         return await pricing_service.validate_coupon(db, code.strip().upper())
     except CouponNotFoundError as e:

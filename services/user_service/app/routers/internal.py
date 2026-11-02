@@ -11,7 +11,7 @@ router = APIRouter(dependencies=[Depends(require_internal)])
 
 
 @router.get("/internal/addresses/{address_id}/location")
-async def address_location(address_id: str, db: AsyncSession = Depends(get_db)):
+async def address_location(address_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """Where a saved address is (booking_service plans a professional's home visits with it): the city and
     coordinates only, never the street or who lives there."""
     address = await db.get(UserAddress, address_id)

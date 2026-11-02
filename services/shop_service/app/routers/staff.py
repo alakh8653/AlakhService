@@ -29,7 +29,7 @@ class TeamMember(BaseModel):
 
 
 @router.get("/shops/{shop_id}/team", response_model=List[TeamMember])
-async def shop_team(shop_id: str, db: AsyncSession = Depends(get_db)):
+async def shop_team(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     """A listed shop's active staff (public), by first name and last initial."""
     try:
         shop = await shop_service.get_shop(db, shop_id)
@@ -71,7 +71,7 @@ async def _owned_member(db: AsyncSession, staff_id: str, caller: Caller):
 async def list_staff(
     shop_id: str = Query(...),
     include_inactive: bool = False,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     await _owned_shop(db, shop_id, caller)
@@ -79,21 +79,28 @@ async def list_staff(
 
 
 @router.post("/staff", response_model=StaffResponse, status_code=201)
-async def create_staff(data: StaffCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def create_staff(
+    data: StaffCreate, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     await _owned_shop(db, data.shop_id, caller)
     return staff_service.to_response(await staff_service.create_staff(db, data))
 
 
 @router.put("/staff/{staff_id}", response_model=StaffResponse)
 async def update_staff(
-    staff_id: str, data: StaffUpdate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    staff_id: str,
+    data: StaffUpdate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     member = await _owned_member(db, staff_id, caller)
     return staff_service.to_response(await staff_service.update_staff(db, member, data))
 
 
 @router.delete("/staff/{staff_id}", status_code=204)
-async def delete_staff(staff_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def delete_staff(
+    staff_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     member = await _owned_member(db, staff_id, caller)
     await db.delete(member)
     await db.flush()

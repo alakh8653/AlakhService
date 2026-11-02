@@ -42,7 +42,7 @@ class InternalConsentCreate(BaseModel):
 
 
 @router.post("/internal/consent", response_model=ConsentRecordResponse, status_code=201)
-async def record_consent(body: InternalConsentCreate, db: AsyncSession = Depends(get_db)):
+async def record_consent(body: InternalConsentCreate, db: AsyncSession = Depends(get_db, scope="function")):
     data = ConsentRecordCreate(
         user_id=body.user_id, consent_type=body.consent_type, granted=body.granted, version=body.version
     )

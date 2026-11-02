@@ -130,7 +130,7 @@ async def create_booking(
     booking_data: BookingCreate,
     background: BackgroundTasks,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
@@ -313,7 +313,7 @@ async def list_bookings(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_names: NameLookup = Depends(get_name_lookup),
 ):
@@ -327,7 +327,7 @@ async def list_assigned_bookings(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_names: NameLookup = Depends(get_name_lookup),
 ):
@@ -345,7 +345,7 @@ async def list_shop_bookings(
     provider_id: Optional[str] = Query(None),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_names: NameLookup = Depends(get_name_lookup),
 ):
@@ -361,7 +361,7 @@ async def shop_booking_summary(
     shop_id: str = Depends(require_shop_access),
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     date_to = date_to or datetime.now(timezone.utc).date()
     date_from = date_from or date_to - timedelta(days=29)
@@ -373,7 +373,7 @@ async def shop_booking_summary(
 @router.get("/bookings/tracking/{provider_id}")
 async def can_track_provider(
     provider_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -397,7 +397,7 @@ async def can_track_provider(
 @router.get("/bookings/{booking_id}", response_model=BookingResponse)
 async def get_booking(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
@@ -450,7 +450,7 @@ async def update_status(
     booking_id: str,
     update_data: BookingStatusUpdate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
@@ -536,7 +536,7 @@ async def assign_provider(
     booking_id: str,
     body: BookingAssignRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
@@ -580,7 +580,7 @@ async def set_ready_by(
     booking_id: str,
     body: BookingReadyByUpdate,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
@@ -613,7 +613,7 @@ async def cancel_booking(
     booking_id: str,
     body: BookingCancelRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     notifier: Notifier = Depends(get_notifier),
@@ -654,7 +654,7 @@ async def reschedule_booking(
     booking_id: str,
     body: BookingRescheduleRequest,
     background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
@@ -725,7 +725,7 @@ async def reschedule_booking(
 @router.get("/bookings/{booking_id}/history", response_model=list[BookingStatusHistoryResponse])
 async def get_history(
     booking_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -739,7 +739,7 @@ async def booking_websocket(
     booking_id: str,
     websocket: WebSocket,
     token: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
     """Live status of a booking, for the people on it (the same ones who may GET it)."""

@@ -30,12 +30,12 @@ router = APIRouter()
 
 
 @router.get("/categories", response_model=List[CategoryResponse])
-async def list_categories(db: AsyncSession = Depends(get_db)):
+async def list_categories(db: AsyncSession = Depends(get_db, scope="function")):
     return await catalog_service.list_categories(db)
 
 
 @router.post("/categories", response_model=CategoryResponse, status_code=201, dependencies=[Depends(require_admin)])
-async def create_category(data: CategoryCreate, db: AsyncSession = Depends(get_db)):
+async def create_category(data: CategoryCreate, db: AsyncSession = Depends(get_db, scope="function")):
     return await catalog_service.create_category(db, data)
 
 
@@ -45,7 +45,7 @@ async def list_services(
     limit: int = Query(20, ge=1, le=200),
     shop_id: Optional[str] = None,
     include_inactive: bool = False,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await catalog_service.list_services(
         db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive
@@ -55,7 +55,7 @@ async def list_services(
 @router.post("/services", response_model=ServiceListingResponse, status_code=201)
 async def create_service(
     data: ServiceListingCreate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_listed: ListedLookup = Depends(get_shop_listed_lookup),
@@ -69,13 +69,13 @@ async def search_services(
     q: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await catalog_service.search_services(db, q=q, category=category, limit=limit)
 
 
 @router.get("/services/{service_id}", response_model=ServiceListingResponse)
-async def get_service(service_id: str, db: AsyncSession = Depends(get_db)):
+async def get_service(service_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     try:
         return await catalog_service.get_service(db, service_id)
     except ServiceListingNotFoundError as e:
@@ -86,7 +86,7 @@ async def get_service(service_id: str, db: AsyncSession = Depends(get_db)):
 async def update_service(
     service_id: str,
     data: ServiceListingUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
 ):
@@ -106,7 +106,7 @@ internal_router = APIRouter(dependencies=[Depends(require_internal)])
 
 
 @internal_router.post("/internal/shops/{shop_id}/listing")
-async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = Depends(get_db)):
+async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = Depends(get_db, scope="function")):
     """shop_service: the shop was approved, rejected, or switched on or off."""
     return {
         "shop_id": shop_id,

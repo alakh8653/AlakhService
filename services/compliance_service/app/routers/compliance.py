@@ -31,7 +31,9 @@ def own_user(user_id: Optional[str], caller: Caller) -> str:
 
 @router.post("/gdpr/export", response_model=DataExportRequestResponse, status_code=201)
 async def initiate_export(
-    data: DataExportRequestCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    data: DataExportRequestCreate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(data.user_id, caller)
     return await compliance_service.initiate_export(db, data)
@@ -40,7 +42,7 @@ async def initiate_export(
 @router.get("/gdpr/export", response_model=List[DataExportRequestResponse])
 async def list_my_exports(
     user_id: Optional[str] = Query(None, description="Admins only; defaults to the caller"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     return await compliance_service.list_requests(db, DataExportRequest, user_id=own_user(user_id, caller), limit=200)
@@ -48,7 +50,7 @@ async def list_my_exports(
 
 @router.get("/gdpr/export/{request_id}", response_model=DataExportRequestResponse)
 async def get_export_status(
-    request_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    request_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
     try:
         export = await compliance_service.get_export_status(db, request_id)
@@ -62,7 +64,9 @@ async def get_export_status(
 
 @router.post("/gdpr/erasure", response_model=DataErasureRequestResponse, status_code=201)
 async def request_erasure(
-    data: DataErasureRequestCreate, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    data: DataErasureRequestCreate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(data.user_id, caller)
     return await compliance_service.request_erasure(db, data)
@@ -71,7 +75,7 @@ async def request_erasure(
 @router.get("/gdpr/erasure", response_model=List[DataErasureRequestResponse])
 async def list_my_erasures(
     user_id: Optional[str] = Query(None, description="Admins only; defaults to the caller"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     return await compliance_service.list_requests(db, DataErasureRequest, user_id=own_user(user_id, caller), limit=200)
@@ -79,7 +83,7 @@ async def list_my_erasures(
 
 @router.get("/gdpr/erasure/{request_id}", response_model=DataErasureRequestResponse)
 async def get_erasure_status(
-    request_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)
+    request_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
     try:
         erasure = await compliance_service.get_erasure_request(db, request_id)
@@ -95,7 +99,7 @@ async def list_gdpr_requests(
     status: str = Query("PENDING", pattern="^(PENDING|COMPLETED|REJECTED)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """The queue operators work through; nothing processes these requests automatically yet."""
     return {
@@ -119,7 +123,7 @@ async def _decide(db: AsyncSession, req, decision: GdprRequestDecision, caller: 
 async def decide_export(
     request_id: str,
     decision: GdprRequestDecision,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
 ):
     if decision.status == "COMPLETED" and not decision.export_url:
@@ -135,7 +139,7 @@ async def decide_export(
 async def decide_erasure(
     request_id: str,
     decision: GdprRequestDecision,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
 ):
     if decision.export_url:
@@ -156,7 +160,7 @@ def client_address(request: Request) -> Optional[str]:
 async def record_consent(
     data: ConsentRecordCreate,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
 ):
     ensure_self_or_admin(data.user_id, caller)
@@ -166,6 +170,8 @@ async def record_consent(
 
 
 @router.get("/consent/{user_id}", response_model=List[ConsentRecordResponse])
-async def get_user_consents(user_id: str, db: AsyncSession = Depends(get_db), caller: Caller = Depends(require_caller)):
+async def get_user_consents(
+    user_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
     ensure_self_or_admin(user_id, caller)
     return await compliance_service.get_user_consents(db, user_id)

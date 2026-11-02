@@ -19,7 +19,7 @@ async def list_settlements(
     status: Optional[Literal["CREATED", "HELD", "RELEASED", "REFUNDED"]] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     data, total = await finance_service.list_settlements(db, status=status, page=page, per_page=per_page)
     return SettlementList(data=data, total=total, page=page, per_page=per_page)
@@ -30,7 +30,7 @@ async def revenue(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     currency: str = Query("INR", min_length=3, max_length=3),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     date_to = date_to or datetime.now(timezone.utc).date()
     date_from = date_from or date_to - timedelta(days=29)

@@ -71,6 +71,8 @@ class Booking(Base):
 
     __table_args__ = (
         UniqueConstraint("customer_id", "idempotency_key", name="uq_bookings_customer_idempotency_key"),
+        # A shop's bookings by time (availability and the live queue read them this way).
+        Index("ix_bookings_shop_scheduled", "shop_id", "scheduled_at"),
         # A team member serves one customer at a time: a second start for them fails (no double booking).
         Index(
             "uq_bookings_one_in_service_per_staff",

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import pytest_asyncio
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_service_lookup, get_shop_public_lookup
 from app.main import app
@@ -145,6 +146,27 @@ async def test_each_visit_is_booked_once_and_earned_when_completed(shop):
     await internal(shop, "/booking/bk-p2/cancelled", cancel_body("customer", 48))
     [purchase] = await rows(PackagePurchase, PackagePurchase.id == purchase_id)
     assert purchase.visits_left == 4  # the cancelled booking's visit came back
+
+
+@pytest.mark.asyncio
+async def test_a_late_cancellation_uses_the_visit_when_late_cancels_cost_a_fee(shop, monkeypatch):
+    monkeypatch.setattr(settings, "CANCEL_FEE_PERCENT", 50)
+    purchase_id = await bought(shop, (await offer(shop))["id"])
+    await use(shop, purchase_id, "bk-early")
+    await internal(shop, "/booking/bk-early/cancelled", cancel_body("customer", 48))
+    await use(shop, purchase_id, "bk-late")
+    await internal(shop, "/booking/bk-late/cancelled", cancel_body("customer", 0.5))
+    # The shop cancelling late still gives the visit back.
+    await use(shop, purchase_id, "bk-shop")
+    await internal(shop, "/booking/bk-shop/cancelled", cancel_body("shop", 0.5))
+    [purchase] = await rows(PackagePurchase, PackagePurchase.id == purchase_id)
+    assert purchase.visits_left == 4  # only the late customer cancellation used one
+    [earning] = await rows(ShopEarning, ShopEarning.booking_id == "bk-late")
+    assert (earning.gross_cents, earning.shop_id) == (24000, "shop-1")
+    # A retry changes nothing.
+    await internal(shop, "/booking/bk-late/cancelled", cancel_body("customer", 0.5))
+    [purchase] = await rows(PackagePurchase, PackagePurchase.id == purchase_id)
+    assert purchase.visits_left == 4
 
 
 @pytest.mark.asyncio

@@ -443,9 +443,9 @@ class PaymentService:
         retries.
         """
         now = datetime.now(timezone.utc)
-        # Points or a package visit spent on it go back, whatever happens to its money.
+        # Points spent on it go back, whatever happens to its money.
         await loyalty_service.return_points(db, booking_id)
-        await package_service.return_visit(db, booking_id)
+        await self._settle_package_visit(db, booking_id, cancelled_by, scheduled_at, cancelled_at or now)
         payments = await self.payments_for_booking(db, booking_id)
         for p in payments:
             if p.status == "PENDING":
@@ -490,6 +490,29 @@ class PaymentService:
             rule=policy.rule,
         )
         return self._cancel_result(booking_id, paid, refund, policy.fee_cents, "refunded" if refund else "fee_kept")
+
+    async def _settle_package_visit(
+        self, db: AsyncSession, booking_id: str, cancelled_by: str, scheduled_at, cancelled_at: datetime
+    ) -> None:
+        """A package visit spent on a cancelled booking follows the same policy as money: it goes back,
+        unless a late cancellation would cost a fee. A visit cannot be split, so then it counts as used
+        and the shop earns its share (less commission), as it keeps the fee on a paid booking."""
+        visit = await package_service.redemption_for(db, booking_id)
+        if visit is None or visit.status != package_service.USED:
+            return
+        policy = money.cancel_refund(
+            visit.visit_value_cents,
+            cancelled_by,
+            scheduled_at,
+            cancelled_at,
+            settings.CANCEL_FREE_HOURS,
+            Decimal(settings.CANCEL_FEE_PERCENT),
+        )
+        if policy.fee_cents == 0:
+            await package_service.return_visit(db, booking_id)
+            return
+        await earnings_service.settle_booking(db, booking_id, None, None)
+        log.info("package_visit_kept", booking_id=booking_id, rule=policy.rule)
 
     @staticmethod
     def _cancel_result(booking_id, payment, refund, fee_cents, status) -> dict:

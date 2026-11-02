@@ -2600,4 +2600,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get categoryOther => 'Other';
+
+  @override
+  String get loginJoinAsProvider => 'Have a shop or offer a service? Join here';
+
+  @override
+  String get modeSwitchToBusiness => 'Switch to my business';
+
+  @override
+  String get modeSwitchToBooking => 'Switch to booking services';
 }

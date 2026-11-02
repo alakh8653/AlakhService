@@ -1578,5 +1578,8 @@
   "categoryElectrical": "Electrical",
   "categoryRepair": "Other repairs",
   "categoryOffice": "Office / appointments",
-  "categoryOther": "Other"
+  "categoryOther": "Other",
+  "loginJoinAsProvider": "Have a shop or offer a service? Join here",
+  "modeSwitchToBusiness": "Switch to my business",
+  "modeSwitchToBooking": "Switch to booking services"
 }

@@ -24,7 +24,10 @@ class RegisterPage extends StatefulWidget {
   final LegalApi? legalApi;
   final LinkOpener? open;
 
-  const RegisterPage({super.key, this.legalApi, this.open});
+  /// Starts with "I provide services" chosen, for someone who came to join as a provider.
+  final bool offersServices;
+
+  const RegisterPage({super.key, this.legalApi, this.open, this.offersServices = false});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -32,7 +35,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   // Offering services leads to setting up a business after the account is verified.
-  bool _offersServices = false;
+  late bool _offersServices = widget.offersServices;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();

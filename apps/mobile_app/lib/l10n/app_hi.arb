@@ -744,5 +744,8 @@
   "categoryElectrical": "बिजली का काम",
   "categoryRepair": "अन्य मरम्मत",
   "categoryOffice": "ऑफ़िस / अपॉइंटमेंट",
-  "categoryOther": "अन्य"
+  "categoryOther": "अन्य",
+  "loginJoinAsProvider": "दुकान है या सेवा देते हैं? यहाँ जुड़ें",
+  "modeSwitchToBusiness": "मेरे काम पर जाएँ",
+  "modeSwitchToBooking": "सेवाएँ बुक करने पर जाएँ"
 }

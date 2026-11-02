@@ -27,6 +27,9 @@ class OwnerHomePage extends StatefulWidget {
   final ShopLineApi? lineApi;
   final Duration refreshEvery;
 
+  /// Moves to the side of the app for booking services.
+  final VoidCallback? onSwitchToBooking;
+
   const OwnerHomePage({
     super.key,
     required this.shop,
@@ -34,6 +37,7 @@ class OwnerHomePage extends StatefulWidget {
     this.api,
     this.lineApi,
     this.refreshEvery = const Duration(seconds: 30),
+    this.onSwitchToBooking,
   });
 
   @override
@@ -283,7 +287,18 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     final requests = bookings.where((b) => b.status == 'PENDING').toList();
     final ahead = bookings.where((b) => b.status != 'PENDING' && !_finished.contains(b.status)).toList();
     return Scaffold(
-      appBar: AppBar(title: Text(shop.name)),
+      appBar: AppBar(
+        title: Text(shop.name),
+        actions: [
+          if (widget.onSwitchToBooking != null)
+            IconButton(
+              key: const ValueKey('switch-to-booking'),
+              icon: const Icon(Icons.swap_horiz),
+              tooltip: l10n.modeSwitchToBooking,
+              onPressed: widget.onSwitchToBooking,
+            ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

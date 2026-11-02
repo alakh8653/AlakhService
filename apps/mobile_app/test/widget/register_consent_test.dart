@@ -54,6 +54,22 @@ void main() {
     expect(await OwnerIntent.read(), isTrue);
   });
 
+  testWidgets('coming from Join as a provider, the provider choice is already made', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = FakeAuth();
+    await tester.pumpWidget(
+      app(blocFor(repo), home: RegisterPage(legalApi: legalFrom(current), offersServices: true)),
+    );
+    await tester.pumpAndSettle();
+    await fillForm(tester);
+    await tester.ensureVisible(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox));
+    await submit(tester);
+    expect(repo.calls, isNotEmpty);
+    expect(await OwnerIntent.read(), isTrue);
+  });
+
   testWidgets('sign-up needs the Terms ticked', (tester) async {
     final repo = FakeAuth();
     await tester.pumpWidget(app(blocFor(repo), home: RegisterPage(legalApi: legalFrom(current))));

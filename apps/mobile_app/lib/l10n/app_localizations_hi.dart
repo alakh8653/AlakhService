@@ -2581,4 +2581,13 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get categoryOther => 'अन्य';
+
+  @override
+  String get loginJoinAsProvider => 'दुकान है या सेवा देते हैं? यहाँ जुड़ें';
+
+  @override
+  String get modeSwitchToBusiness => 'मेरे काम पर जाएँ';
+
+  @override
+  String get modeSwitchToBooking => 'सेवाएँ बुक करने पर जाएँ';
 }

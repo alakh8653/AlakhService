@@ -4567,6 +4567,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other'**
   String get categoryOther;
+
+  /// No description provided for @loginJoinAsProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a shop or offer a service? Join here'**
+  String get loginJoinAsProvider;
+
+  /// No description provided for @modeSwitchToBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to my business'**
+  String get modeSwitchToBusiness;
+
+  /// No description provided for @modeSwitchToBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to booking services'**
+  String get modeSwitchToBooking;
 }
 
 class _AppLocalizationsDelegate

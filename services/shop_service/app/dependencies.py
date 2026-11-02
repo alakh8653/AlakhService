@@ -55,13 +55,15 @@ def require_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends
 
 
 def optional_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)) -> Optional[Caller]:
-    """The signed-in caller on a public endpoint, or None (also for a bad token: the page stays public)."""
+    """The signed-in caller on a public endpoint, or None for someone who sent no token.
+
+    A token that is sent but expired or invalid is a 401, not an anonymous visit: as a visitor, an owner
+    would be told their shop in review does not exist, and their app would have no reason to renew the
+    token and ask again.
+    """
     if credentials is None:
         return None
-    try:
-        return _caller_from_token(credentials.credentials)
-    except HTTPException:
-        return None
+    return _caller_from_token(credentials.credentials)
 
 
 def ensure_owner(owner_id: str, caller: Caller) -> None:

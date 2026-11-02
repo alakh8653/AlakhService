@@ -24,7 +24,7 @@ const server = createApp(config, { redis, processMetrics: true }).listen(config.
   console.log(JSON.stringify({ msg: 'api_gateway listening', port: config.port, sharedLimits: Boolean(redis) }));
 });
 // Live sockets (a booking's status, a shop's queue) go straight to booking_service.
-attachWebSockets(server, config);
+attachWebSockets(server, config, { redis });
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {

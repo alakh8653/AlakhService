@@ -14,11 +14,13 @@ from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
 from app.dependencies import (
     OwnerLookup,
+    PublicShopLookup,
     ServiceLookup,
     get_current_user,
     get_redis,
     get_service_lookup,
     get_shop_owner_lookup,
+    get_shop_public_lookup,
     require_admin,
 )
 from app.models.payment import PACKAGE, PackagePurchase, ServicePackage
@@ -182,6 +184,7 @@ async def buy_package(
     redis: aioredis.Redis = Depends(get_redis),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    shop_is_public: PublicShopLookup = Depends(get_shop_public_lookup),
     gateway: RazorpayGateway = Depends(get_razorpay),
 ):
     """Buy a package, paid online; it is ACTIVE once the payment completes (``/payments/{id}/verify``)."""
@@ -196,6 +199,9 @@ async def buy_package(
     package = await db.get(ServicePackage, package_id)
     if package is None or not package.is_active:
         raise HTTPException(status_code=404, detail="Package not found")
+    # A shop still awaiting approval (or switched off) takes no bookings, so its visits could not be used.
+    if not await shop_is_public(package.shop_id):
+        raise HTTPException(status_code=409, detail="This shop is not taking bookings yet")
     payee_id = await lookup_owner(package.shop_id)
     if not payee_id:
         raise HTTPException(status_code=409, detail="This shop cannot be paid yet")

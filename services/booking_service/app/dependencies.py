@@ -61,6 +61,9 @@ class _Cache:
             return True, entry[1]
         return False, None
 
+    def forget(self, key: str) -> None:
+        self._entries.pop(key, None)
+
     def put(self, key: str, value) -> None:
         if len(self._entries) >= _CACHE_MAX and key not in self._entries:
             self._entries.clear()
@@ -225,6 +228,11 @@ async def _fetch_shop_schedule(shop_id: str) -> Optional[dict]:
     if resp.status_code not in (200, 404):
         raise HTTPException(status_code=503, detail="Shop service unavailable")
     return resp.json() if resp.status_code == 200 else None
+
+
+def forget_shop_schedule(shop_id: str) -> None:
+    """The shop just changed in a way bookings must see now, not when the cache runs out."""
+    _schedule_cache.forget(shop_id)
 
 
 ScheduleLookup = Callable[[str], Awaitable[Optional[dict]]]

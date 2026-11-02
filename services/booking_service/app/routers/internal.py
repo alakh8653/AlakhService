@@ -1,16 +1,18 @@
-"""What payment_service and dispute_service tell booking_service (X-Internal-Key, never via the gateway)."""
+"""What other services tell booking_service (X-Internal-Key, never via the gateway)."""
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import payments
+from app.core import payments, queue_hub
 from app.core.fsm import BookingStatus
 from app.core.internal import require_internal
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.database import get_db
-from app.dependencies import get_shop_owner_lookup
+from app.dependencies import forget_shop_schedule, get_shop_owner_lookup
+from app.models.booking import Booking
 from app.routers.bookings import manager
 from app.schemas.booking import DisputeResolution, PaymentStatusUpdate
 from app.services.booking_service import booking_service
@@ -19,6 +21,17 @@ router = APIRouter(prefix="/internal/bookings", dependencies=[Depends(require_in
 log = structlog.get_logger()
 
 SYSTEM = "system"
+
+# When a shop is removed: these have not started, so they are cancelled and refunded...
+NOT_STARTED = (BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value, BookingStatus.ASSIGNED.value)
+# ...and these are being served right now, so the shop has to finish them first.
+UNDER_WAY = (
+    BookingStatus.PROVIDER_EN_ROUTE.value,
+    BookingStatus.PICKED_UP.value,
+    BookingStatus.IN_PROGRESS.value,
+    BookingStatus.OUT_FOR_DELIVERY.value,
+)
+SHOP_REMOVED_REASON = "The shop is no longer on AlakhService"
 
 
 async def _booking(db: AsyncSession, booking_id: str):
@@ -80,3 +93,49 @@ async def resolve_dispute(
             roles=("customer", "shop"),
         )
     return {"booking_id": booking.id, "status": booking.status, "changed": True}
+
+
+@router.post("/shops/{shop_id}/cancel-upcoming")
+async def cancel_upcoming_for_removed_shop(
+    shop_id: str,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    notifier: Notifier = Depends(get_notifier),
+    lookup_owner=Depends(get_shop_owner_lookup),
+    payment_client: PaymentClient = Depends(get_payment_client),
+    session_factory=Depends(get_session_factory),
+):
+    """shop_service is removing the shop: cancels what has not started, refunded in full as a cancellation
+    by the shop, and tells the customers. Refused, changing nothing, while a booking is being served.
+
+    Repeating it finds nothing left to cancel, so shop_service can call it again.
+    """
+    under_way = await db.scalar(
+        select(func.count()).select_from(Booking).where(Booking.shop_id == shop_id, Booking.status.in_(UNDER_WAY))
+    )
+    if under_way:
+        raise HTTPException(status_code=409, detail=f"{under_way} booking(s) are being served: finish them first")
+    ids = (
+        await db.scalars(select(Booking.id).where(Booking.shop_id == shop_id, Booking.status.in_(NOT_STARTED)))
+    ).all()
+    cancelled = []
+    for booking_id in ids:
+        booking = await booking_service.cancel_booking(db, booking_id, SYSTEM, SHOP_REMOVED_REASON)
+        cancelled.append((booking, await payments.enqueue(db, booking, payments.CANCELLED, "shop")))
+    await db.commit()
+    forget_shop_schedule(shop_id)
+    queue_hub.hub.poke(shop_id)
+    for booking, queued in cancelled:
+        await manager.broadcast(booking.id, {"booking_id": booking.id, "status": booking.status})
+        background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
+        background.add_task(
+            notify_booking,
+            notifier,
+            snapshot(booking),
+            "booking.cancelled",
+            None,
+            lookup_owner,
+            roles=("customer", "provider"),
+        )
+    log.info("shop_removed_bookings_cancelled", shop_id=shop_id, count=len(cancelled))
+    return {"shop_id": shop_id, "cancelled": len(cancelled)}

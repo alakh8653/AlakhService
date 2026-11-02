@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,9 +12,11 @@ from app.dependencies import (
     BookingLookup,
     Caller,
     NameLookup,
+    ShopBookingCanceller,
     ensure_owner,
     get_booking_lookup,
     get_name_lookup,
+    get_shop_booking_canceller,
     optional_caller,
     require_caller,
 )
@@ -21,6 +24,7 @@ from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpd
 from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
+log = structlog.get_logger()
 
 # Only for the owner and admins: how to reach the shop off-platform, and its KYC and review details.
 PRIVATE_FIELDS = ("phone", "email", "legal_name", "legal_address", "gstin", "rejection_reason", "submitted_at")
@@ -133,6 +137,13 @@ async def update_shop(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
+async def _cancel_bookings_made_meanwhile(cancel_bookings: ShopBookingCanceller, shop_id: str) -> None:
+    try:
+        await cancel_bookings(shop_id)
+    except HTTPException as e:
+        log.warning("shop_removed_second_cancel_failed", shop_id=shop_id, detail=e.detail)
+
+
 @router.delete("/shops/{shop_id}", status_code=204)
 async def delete_shop(
     shop_id: str,
@@ -140,11 +151,17 @@ async def delete_shop(
     db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     reporter: Reporter = Depends(get_reporter),
+    cancel_bookings: ShopBookingCanceller = Depends(get_shop_booking_canceller),
 ):
     try:
         ensure_owner((await shop_service.get_shop(db, shop_id)).owner_id, caller)
+        # First, so that a refusal or an outage leaves the shop as it was.
+        await cancel_bookings(shop_id)
         await shop_service.delete_shop(db, shop_id)
+        await db.commit()
         background.add_task(reporter.sync_listing, shop_id, False)
+        # Once more now the shop is closed, for a booking made while this request was running.
+        background.add_task(_cancel_bookings_made_meanwhile, cancel_bookings, shop_id)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 

@@ -85,6 +85,32 @@ async def fetch_booking(booking_id: str, caller: Caller) -> Optional[dict]:
     return resp.json()
 
 
+async def cancel_shop_bookings(shop_id: str) -> None:
+    """Has booking_service cancel and refund what has not started at this shop. Raises when it refuses
+    (a booking is being served) or cannot be reached: then the shop must stay."""
+    if not settings.INTERNAL_API_KEY:
+        return
+    async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=30.0) as client:
+        try:
+            resp = await client.post(
+                f"/internal/bookings/shops/{path_segment(shop_id)}/cancel-upcoming",
+                headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=503, detail="Booking service unavailable") from exc
+    if resp.status_code == 409:
+        raise HTTPException(status_code=409, detail=resp.json().get("detail", "Bookings are being served"))
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Booking service unavailable")
+
+
+ShopBookingCanceller = Callable[[str], Awaitable[None]]
+
+
+def get_shop_booking_canceller() -> ShopBookingCanceller:
+    return cancel_shop_bookings
+
+
 BookingLookup = Callable[[str, Caller], Awaitable[Optional[dict]]]
 
 

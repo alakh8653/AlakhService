@@ -1313,7 +1313,7 @@ abstract class AppLocalizations {
   /// No description provided for @bookingRequestedBody.
   ///
   /// In en, this message translates to:
-  /// **'The shop will confirm it shortly. We\'ll notify you, and you can pay once it\'s confirmed.'**
+  /// **'The shop needs to accept your request. We\'ll notify you, and you can pay once it\'s confirmed.'**
   String get bookingRequestedBody;
 
   /// No description provided for @viewMyBookings.
@@ -1409,7 +1409,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusPending.
   ///
   /// In en, this message translates to:
-  /// **'Awaiting confirmation'**
+  /// **'Waiting for the shop'**
   String get statusPending;
 
   /// No description provided for @statusConfirmed.
@@ -4271,7 +4271,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerSubmitted.
   ///
   /// In en, this message translates to:
-  /// **'Sent. We will let you know when it is checked.'**
+  /// **'We will check your details and tell you the result. Customers can book you once you are verified.'**
   String get ownerSubmitted;
 
   /// No description provided for @ownerDetailsSaved.
@@ -4373,7 +4373,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerReasonLabel.
   ///
   /// In en, this message translates to:
-  /// **'Reason (the customer may see this)'**
+  /// **'Reason (for your own records)'**
   String get ownerReasonLabel;
 
   /// No description provided for @ownerDefaultReason.
@@ -4585,6 +4585,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Switch to booking services'**
   String get modeSwitchToBooking;
+
+  /// No description provided for @statusPendingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop has your request and needs to accept it. We\'ll notify you. If they don\'t reply in time, the request is cancelled.'**
+  String get statusPendingHelp;
+
+  /// No description provided for @statusCancelledHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Any refund due reaches your account in 5–7 working days.'**
+  String get statusCancelledHelp;
+
+  /// No description provided for @ownerNeedsYourAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs your answer'**
+  String get ownerNeedsYourAnswer;
+
+  /// No description provided for @ownerPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get ownerPaid;
+
+  /// No description provided for @ownerNotPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Not paid yet'**
+  String get ownerNotPaid;
+
+  /// No description provided for @ownerRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get ownerRefunded;
+
+  /// No description provided for @ownerPartlyRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Partly refunded'**
+  String get ownerPartlyRefunded;
+
+  /// No description provided for @ownerBeforeSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Before sending, you need:'**
+  String get ownerBeforeSending;
+
+  /// No description provided for @ownerSubmittedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent for verification'**
+  String get ownerSubmittedTitle;
 }
 
 class _AppLocalizationsDelegate

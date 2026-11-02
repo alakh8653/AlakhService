@@ -242,6 +242,17 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
           bookingStatusLabel(l10n, booking.status),
           style: AppTextStyles.subtitle2.copyWith(color: context.colors.primary),
         ),
+        // What the status means for the customer, where it is not obvious.
+        if (booking.status == BookingStatus.pending)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(l10n.statusPendingHelp, style: AppTextStyles.body2.themed(context)),
+          ),
+        if (booking.status == BookingStatus.cancelled)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(l10n.statusCancelledHelp, style: AppTextStyles.body2.themed(context)),
+          ),
         // Today, at the shop: place in line and the expected wait (shows nothing otherwise).
         if (booking.serviceMode == 'AT_SHOP' &&
             const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.inProgress}

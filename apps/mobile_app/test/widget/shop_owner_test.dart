@@ -169,9 +169,16 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> chooseCategory(WidgetTester tester) async {
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Electrical').last);
+      await tester.pumpAndSettle();
+    }
+
     Future<void> fillToLastStep(WidgetTester tester) async {
+      await chooseCategory(tester);
       await tapText(tester, "At the customer's home");
-      await tapText(tester, 'At my shop');
       await enter(tester, 'City', 'Bengaluru');
       await tapText(tester, 'Continue');
       await enter(tester, 'Service name', 'Fan repair');
@@ -191,6 +198,7 @@ void main() {
       final shop = adapter.requests.firstWhere((r) => r.path.endsWith('/shops') && r.method == 'POST');
       expect(shop.data['owner_id'], 'u1');
       expect(shop.data['city'], 'Bengaluru');
+      expect(shop.data['category'], 'electrical');
       final service = adapter.requests.firstWhere((r) => r.path.endsWith('/services') && r.method == 'POST');
       // Rupees on screen, paise on the server.
       expect(service.data['price_cents'], 25000);
@@ -202,15 +210,25 @@ void main() {
       expect(find.text('Verification and payouts'), findsOneWidget);
     });
 
-    testWidgets('a shop needs an address, and at least one place of work is required', (tester) async {
+    testWidgets('type of work and place of work are chosen, never assumed', (tester) async {
       await pumpSetup(tester);
       await enter(tester, 'City', 'Pune');
       await tapText(tester, 'Continue');
       expect(find.text('Please fill this in'), findsOneWidget);
       expect(find.text('What do you offer?'), findsNothing);
-      await tapText(tester, 'At my shop');
+      await chooseCategory(tester);
       await tapText(tester, 'Continue');
       expect(find.text('Choose at least one place you do the work.'), findsOneWidget);
+      expect(find.text('What do you offer?'), findsNothing);
+    });
+
+    testWidgets('a shop needs an address', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await enter(tester, 'City', 'Pune');
+      await tapText(tester, 'At my shop');
+      await tapText(tester, 'Continue');
+      expect(find.text('Please fill this in'), findsOneWidget);
     });
 
     testWidgets('trying again after a failure does not create a second shop', (tester) async {
@@ -274,9 +292,13 @@ void main() {
       await pump(tester, adapter);
       await enter(tester, 'Name as on your PAN', 'Ravi Kumar');
       await tapText(tester, 'Submit for verification');
-      expect(find.text('Please add a photo of your PAN card.'), findsOneWidget);
+      // Beside the button and in a message that shows wherever they have scrolled to.
+      expect(find.text('Please add a photo of your PAN card.'), findsNWidgets(2));
       expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isFalse);
 
+      // The message clears by itself and is not in the way afterwards.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
       await tester.tap(find.descendant(of: find.byKey(const ValueKey('document-PAN')), matching: find.text('Add photo')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Take a photo'));
@@ -292,6 +314,18 @@ void main() {
       final payout = adapter.requests.firstWhere((r) => r.method == 'PUT' && r.path.endsWith('/payout-details'));
       expect(payout.data['upi_id'], 'ravi@upi');
       expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isTrue);
+      // Nobody is left wondering whether it went.
+      expect(find.text('Sent for verification'), findsOneWidget);
+    });
+
+    testWidgets('what is left is listed at the top until it is done', (tester) async {
+      final adapter = verificationAdapter();
+      await pump(tester, adapter);
+      expect(find.text('Before sending, you need:'), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(3));
+      await enter(tester, 'Name as on your PAN', 'Ravi Kumar');
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(2));
     });
 
     testWidgets('giving a GSTIN asks for the certificate too', (tester) async {
@@ -305,7 +339,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('document-GST')), findsOneWidget);
       await tapText(tester, 'Submit for verification');
-      expect(find.text('You gave a GSTIN, so please add a photo of your GST certificate.'), findsOneWidget);
+      expect(find.text('You gave a GSTIN, so please add a photo of your GST certificate.'), findsNWidgets(2));
     });
 
     testWidgets('a rejection says why and can be submitted again', (tester) async {
@@ -359,6 +393,16 @@ void main() {
       shop = shopJson();
       bookings = [];
       refuseActions = false;
+    });
+
+    testWidgets('every card says where the booking stands and whether it is paid', (tester) async {
+      bookings = [
+        {...bookingJson('b1', 'CONFIRMED', name: 'Paid P.'), 'payment_status': 'PAID'},
+        bookingJson('b2', 'PENDING', name: 'New N.'),
+      ];
+      await pumpHome(tester);
+      expect(find.text('Confirmed · Paid'), findsOneWidget);
+      expect(find.text('Needs your answer · Not paid yet'), findsOneWidget);
     });
 
     testWidgets('a new request is accepted with one tap', (tester) async {

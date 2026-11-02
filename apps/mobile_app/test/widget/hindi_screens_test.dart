@@ -51,7 +51,7 @@ void main() {
     expect(friendlyDay(DateTime(2026, 10, 19), now: now, l10n: hi), 'कल');
     expect(friendlyDay(DateTime(2026, 10, 20), now: now, l10n: hi), 'मंगल, 20 अक्तू॰');
 
-    expect(bookingStatusLabel(hi, BookingStatus.pending), 'पुष्टि का इंतज़ार');
+    expect(bookingStatusLabel(hi, BookingStatus.pending), 'दुकान के जवाब का इंतज़ार');
     expect(bookingStatusLabel(hi, BookingStatus.completed), 'पूरी हो गई');
     // Money keeps ₹ and Indian grouping in Hindi too.
     expect(hi.payAmount(rupees(120000)), '₹1,20,000 का भुगतान करें');

@@ -11,6 +11,7 @@ import '../../../features/auth/domain/entities/user.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/utils/format.dart';
 import '../../../shared/widgets/loading_indicator.dart';
+import '../../booking/presentation/pages/booking_history_page.dart';
 import '../../chat/presentation/booking_chat_page.dart';
 import '../../shop_line/data/shop_line_api.dart';
 import '../../shop_line/presentation/shop_line_page.dart';
@@ -131,6 +132,13 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         OwnerAction.cancel => l10n.ownerCancelBooking,
       };
 
+  String _paymentLabel(String status, AppLocalizations l10n) => switch (status) {
+        'PAID' => l10n.ownerPaid,
+        'REFUNDED' => l10n.ownerRefunded,
+        'PARTIALLY_REFUNDED' => l10n.ownerPartlyRefunded,
+        _ => l10n.ownerNotPaid,
+      };
+
   Future<void> _open(Widget page) async {
     await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => page));
     if (mounted) await _load();
@@ -177,6 +185,11 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             ),
             const SizedBox(height: 4),
             Text(_serviceNames[booking.serviceId] ?? l10n.ownerAService, style: AppTextStyles.body1),
+            const SizedBox(height: 4),
+            Text(
+              '${isRequest ? l10n.ownerNeedsYourAnswer : bookingStatusLabel(l10n, booking.status)} · ${_paymentLabel(booking.paymentStatus, l10n)}',
+              style: AppTextStyles.subtitle2.copyWith(color: isRequest ? AppColors.warning : AppColors.primary),
+            ),
             const SizedBox(height: 4),
             Row(
               children: [

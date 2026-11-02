@@ -116,6 +116,9 @@ class OwnerBooking {
   final int totalCents;
   final String? notes;
 
+  /// UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
+  final String paymentStatus;
+
   const OwnerBooking({
     required this.id,
     required this.number,
@@ -126,6 +129,7 @@ class OwnerBooking {
     this.mode = modeAtShop,
     this.totalCents = 0,
     this.notes,
+    this.paymentStatus = 'UNPAID',
   });
 
   factory OwnerBooking.fromJson(Map<String, dynamic> j) => OwnerBooking(
@@ -138,6 +142,7 @@ class OwnerBooking {
         mode: j['service_mode'] as String? ?? modeAtShop,
         totalCents: (j['total_amount'] as num?)?.toInt() ?? 0,
         notes: j['notes'] as String?,
+        paymentStatus: j['payment_status'] as String? ?? 'UNPAID',
       );
 }
 

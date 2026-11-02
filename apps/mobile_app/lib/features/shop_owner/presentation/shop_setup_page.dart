@@ -67,8 +67,9 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
   final _address = TextEditingController();
   late final _phone = TextEditingController(text: widget.user.phone);
   final List<_ServiceDraft> _drafts = [_ServiceDraft()];
-  String _category = 'salon';
-  bool _atShop = true;
+  // Nothing chosen for them: a default here would quietly list an electrician as a salon.
+  String? _category;
+  bool _atShop = false;
   bool _atHome = false;
   ({double latitude, double longitude})? _position;
   WeekHours _hours = WeekHours.suggested;
@@ -139,7 +140,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
       final shopId = _shopId ??= (await _api.createShop(
         ownerId: widget.user.id,
         name: _name.text.trim(),
-        category: _category,
+        category: _category!,
         city: _city.text.trim(),
         address: _address.text.trim(),
         phone: _phone.text.trim(),
@@ -195,11 +196,12 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
               initialValue: _category,
               isExpanded: true,
               decoration: InputDecoration(labelText: l10n.ownerCategory),
+              validator: (value) => value == null ? l10n.ownerRequired : null,
               items: [
                 for (final category in businessCategories)
                   DropdownMenuItem(value: category, child: Text(businessCategoryLabel(category, l10n))),
               ],
-              onChanged: (value) => setState(() => _category = value ?? _category),
+              onChanged: (value) => setState(() => _category = value),
             ),
             const SizedBox(height: 16),
             Text(l10n.ownerWhereDoYouWork, style: AppTextStyles.body2.themed(context)),

@@ -678,7 +678,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookingRequestedBody =>
-      'The shop will confirm it shortly. We\'ll notify you, and you can pay once it\'s confirmed.';
+      'The shop needs to accept your request. We\'ll notify you, and you can pay once it\'s confirmed.';
 
   @override
   String get viewMyBookings => 'View my bookings';
@@ -734,7 +734,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get myBookings => 'My Bookings';
 
   @override
-  String get statusPending => 'Awaiting confirmation';
+  String get statusPending => 'Waiting for the shop';
 
   @override
   String get statusConfirmed => 'Confirmed';
@@ -2444,7 +2444,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ownerSubmitAgain => 'Submit again';
 
   @override
-  String get ownerSubmitted => 'Sent. We will let you know when it is checked.';
+  String get ownerSubmitted =>
+      'We will check your details and tell you the result. Customers can book you once you are verified.';
 
   @override
   String get ownerDetailsSaved => 'Details saved';
@@ -2499,7 +2500,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The customer is told and gets back anything paid online.';
 
   @override
-  String get ownerReasonLabel => 'Reason (the customer may see this)';
+  String get ownerReasonLabel => 'Reason (for your own records)';
 
   @override
   String get ownerDefaultReason => 'Not available at this time';
@@ -2609,4 +2610,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get modeSwitchToBooking => 'Switch to booking services';
+
+  @override
+  String get statusPendingHelp =>
+      'The shop has your request and needs to accept it. We\'ll notify you. If they don\'t reply in time, the request is cancelled.';
+
+  @override
+  String get statusCancelledHelp =>
+      'Any refund due reaches your account in 5–7 working days.';
+
+  @override
+  String get ownerNeedsYourAnswer => 'Needs your answer';
+
+  @override
+  String get ownerPaid => 'Paid';
+
+  @override
+  String get ownerNotPaid => 'Not paid yet';
+
+  @override
+  String get ownerRefunded => 'Refunded';
+
+  @override
+  String get ownerPartlyRefunded => 'Partly refunded';
+
+  @override
+  String get ownerBeforeSending => 'Before sending, you need:';
+
+  @override
+  String get ownerSubmittedTitle => 'Sent for verification';
 }

@@ -360,7 +360,7 @@
       }
     }
   },
-  "bookingRequestedBody": "The shop will confirm it shortly. We'll notify you, and you can pay once it's confirmed.",
+  "bookingRequestedBody": "The shop needs to accept your request. We'll notify you, and you can pay once it's confirmed.",
   "viewMyBookings": "View my bookings",
   "couponApplied": "{code} applied: {percent}% off, you save {saving}",
   "@couponApplied": {
@@ -396,7 +396,7 @@
   "explainPickup": "We collect your item from your address, service it and bring it back. You'll be told at each step.",
   "explainAtShop": "You go to the shop at the time you choose. See \"How to get there\" on your booking.",
   "myBookings": "My Bookings",
-  "statusPending": "Awaiting confirmation",
+  "statusPending": "Waiting for the shop",
   "statusConfirmed": "Confirmed",
   "statusAssigned": "Provider assigned",
   "statusEnRoute": "Provider on the way",
@@ -1515,7 +1515,7 @@
   },
   "ownerSubmit": "Submit for verification",
   "ownerSubmitAgain": "Submit again",
-  "ownerSubmitted": "Sent. We will let you know when it is checked.",
+  "ownerSubmitted": "We will check your details and tell you the result. Customers can book you once you are verified.",
   "ownerDetailsSaved": "Details saved",
   "ownerDoItLater": "I'll do this later",
   "ownerNewRequests": "New requests ({count})",
@@ -1539,7 +1539,7 @@
   "ownerCancelTitle": "Cancel this booking?",
   "ownerCancelBooking": "Cancel booking",
   "ownerRefundNote": "The customer is told and gets back anything paid online.",
-  "ownerReasonLabel": "Reason (the customer may see this)",
+  "ownerReasonLabel": "Reason (for your own records)",
   "ownerDefaultReason": "Not available at this time",
   "ownerCustomerArrived": "Customer arrived",
   "ownerGoMyself": "I will do this job",
@@ -1581,5 +1581,14 @@
   "categoryOther": "Other",
   "loginJoinAsProvider": "Have a shop or offer a service? Join here",
   "modeSwitchToBusiness": "Switch to my business",
-  "modeSwitchToBooking": "Switch to booking services"
+  "modeSwitchToBooking": "Switch to booking services",
+  "statusPendingHelp": "The shop has your request and needs to accept it. We'll notify you. If they don't reply in time, the request is cancelled.",
+  "statusCancelledHelp": "Any refund due reaches your account in 5–7 working days.",
+  "ownerNeedsYourAnswer": "Needs your answer",
+  "ownerPaid": "Paid",
+  "ownerNotPaid": "Not paid yet",
+  "ownerRefunded": "Refunded",
+  "ownerPartlyRefunded": "Partly refunded",
+  "ownerBeforeSending": "Before sending, you need:",
+  "ownerSubmittedTitle": "Sent for verification"
 }

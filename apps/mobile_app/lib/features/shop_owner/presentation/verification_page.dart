@@ -142,17 +142,23 @@ class _VerificationPageState extends State<VerificationPage> {
     }
   }
 
+  /// Not sent yet, and why: beside the button, and where they can see it wherever they have scrolled to.
+  void _blocked(String why) {
+    setState(() => _error = why);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(why)));
+  }
+
   Future<void> _submit() async {
     final l10n = context.l10n;
     final shop = _shop;
     if (shop == null || !(_form.currentState?.validate() ?? false)) return;
     if (!_documents.contains('PAN')) {
-      setState(() => _error = l10n.ownerPanNeeded);
+      _blocked(l10n.ownerPanNeeded);
       return;
     }
     final gstin = _gstin.text.trim();
     if (gstin.isNotEmpty && !_documents.contains('GST')) {
-      setState(() => _error = l10n.ownerGstNeeded);
+      _blocked(l10n.ownerGstNeeded);
       return;
     }
     setState(() {
@@ -180,11 +186,25 @@ class _VerificationPageState extends State<VerificationPage> {
       }
       final saved = shop.approved ? shop : await _api.submitForReview(widget.shopId);
       if (!mounted) return;
-      setState(() => _shop = saved);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(shop.approved ? l10n.ownerDetailsSaved : l10n.ownerSubmitted)),
-      );
-      Navigator.pop(context);
+      setState(() {
+        _shop = saved;
+        _saving = false;
+      });
+      if (shop.approved) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.ownerDetailsSaved)));
+      } else {
+        // Said plainly and waited on, so nobody is left wondering whether it was sent.
+        await showDialog<void>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            icon: const Icon(Icons.check_circle, color: AppColors.success, size: 40),
+            title: Text(l10n.ownerSubmittedTitle),
+            content: Text(l10n.ownerSubmitted),
+            actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: Text(l10n.done))],
+          ),
+        );
+      }
+      if (mounted) Navigator.pop(context);
     } on ServerException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -209,6 +229,21 @@ class _VerificationPageState extends State<VerificationPage> {
       ],
     );
   }
+
+  Widget _todo(String label, bool done) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          children: [
+            Icon(
+              done ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 20,
+              color: done ? AppColors.success : context.palette.muted,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: AppTextStyles.body2.themed(context))),
+          ],
+        ),
+      );
 
   Widget _document(String type, String label, {bool required = false}) {
     final l10n = context.l10n;
@@ -263,6 +298,14 @@ class _VerificationPageState extends State<VerificationPage> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _status(shop, l10n),
+                          if (!shop.approved && !shop.waitingForReview) ...[
+                            const SizedBox(height: 16),
+                            Text(l10n.ownerBeforeSending, style: AppTextStyles.body1),
+                            _todo(l10n.ownerLegalName, _legalName.text.trim().isNotEmpty),
+                            _todo(l10n.ownerDocPan, _documents.contains('PAN')),
+                            if (_gstin.text.trim().isNotEmpty) _todo(l10n.ownerDocGst, _documents.contains('GST')),
+                            _todo(l10n.ownerSubmit, false),
+                          ],
                           const SizedBox(height: 24),
                           Text(l10n.ownerAboutYou, style: AppTextStyles.heading3),
                           const SizedBox(height: 12),
@@ -271,6 +314,7 @@ class _VerificationPageState extends State<VerificationPage> {
                             label: l10n.ownerLegalName,
                             helper: l10n.ownerLegalNameHelp,
                             textCapitalization: TextCapitalization.words,
+                            onChanged: (_) => setState(() {}),
                             validator: (v) => (v ?? '').trim().isEmpty ? l10n.ownerRequired : null,
                           ),
                           const SizedBox(height: 12),

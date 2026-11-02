@@ -678,7 +678,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get bookingRequestedBody =>
-      'दुकान जल्द ही इसकी पुष्टि करेगी। हम आपको सूचना देंगे, और पुष्टि के बाद आप भुगतान कर सकते हैं।';
+      'दुकान को आपका अनुरोध स्वीकार करना होगा। हम आपको बताएँगे, और पुष्टि के बाद आप भुगतान कर सकते हैं।';
 
   @override
   String get viewMyBookings => 'मेरी बुकिंग देखें';
@@ -734,7 +734,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get myBookings => 'मेरी बुकिंग';
 
   @override
-  String get statusPending => 'पुष्टि का इंतज़ार';
+  String get statusPending => 'दुकान के जवाब का इंतज़ार';
 
   @override
   String get statusConfirmed => 'पक्की हो गई';
@@ -2185,7 +2185,7 @@ class AppLocalizationsHi extends AppLocalizations {
       'सैलून, इलेक्ट्रीशियन, डॉक्टर और बहुत कुछ खोजें';
 
   @override
-  String get registerAsProvider => 'मैं सेवाएँ देता/देती हूँ';
+  String get registerAsProvider => 'मुझे अपनी सेवाएँ देनी हैं';
 
   @override
   String get registerAsProviderHelp =>
@@ -2203,7 +2203,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String ownerStepOf(int step, int total) {
-    return 'चरण $step / $total';
+    return 'चरण $step, कुल $total';
   }
 
   @override
@@ -2425,13 +2425,14 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerSubmitAgain => 'फिर से भेजें';
 
   @override
-  String get ownerSubmitted => 'भेज दिया। जाँच होने पर हम आपको बताएँगे।';
+  String get ownerSubmitted =>
+      'हम आपके विवरण जाँचकर नतीजा बताएँगे। सत्यापन के बाद ग्राहक आपको बुक कर सकेंगे।';
 
   @override
   String get ownerDetailsSaved => 'विवरण सेव हो गए';
 
   @override
-  String get ownerDoItLater => 'बाद में करूँगा/करूँगी';
+  String get ownerDoItLater => 'बाद में करें';
 
   @override
   String ownerNewRequests(int count) {
@@ -2480,7 +2481,7 @@ class AppLocalizationsHi extends AppLocalizations {
       'ग्राहक को बताया जाएगा और ऑनलाइन दिया पैसा वापस मिलेगा।';
 
   @override
-  String get ownerReasonLabel => 'कारण (ग्राहक देख सकता है)';
+  String get ownerReasonLabel => 'कारण (आपके रिकॉर्ड के लिए)';
 
   @override
   String get ownerDefaultReason => 'इस समय उपलब्ध नहीं';
@@ -2489,13 +2490,13 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerCustomerArrived => 'ग्राहक आ गया';
 
   @override
-  String get ownerGoMyself => 'यह काम मैं करूँगा/करूँगी';
+  String get ownerGoMyself => 'यह काम मुझे करना है';
 
   @override
-  String get ownerOnTheWay => 'मैं रास्ते में हूँ';
+  String get ownerOnTheWay => 'रास्ते में हूँ';
 
   @override
-  String get ownerOnTheWayToCollect => 'लेने जा रहा/रही हूँ';
+  String get ownerOnTheWayToCollect => 'सामान लेने निकल गए';
 
   @override
   String get ownerPickedUp => 'सामान ले लिया';
@@ -2590,4 +2591,33 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get modeSwitchToBooking => 'सेवाएँ बुक करने पर जाएँ';
+
+  @override
+  String get statusPendingHelp =>
+      'दुकान को आपका अनुरोध मिल गया है और उसे स्वीकार करना है। हम आपको बताएँगे। समय पर जवाब न मिलने पर अनुरोध रद्द हो जाएगा।';
+
+  @override
+  String get statusCancelledHelp =>
+      'जो भी रिफ़ंड बनता है, वह 5–7 कार्यदिवसों में आपके खाते में आ जाएगा।';
+
+  @override
+  String get ownerNeedsYourAnswer => 'आपके जवाब का इंतज़ार';
+
+  @override
+  String get ownerPaid => 'भुगतान हो गया';
+
+  @override
+  String get ownerNotPaid => 'अभी भुगतान नहीं';
+
+  @override
+  String get ownerRefunded => 'पैसा वापस';
+
+  @override
+  String get ownerPartlyRefunded => 'कुछ पैसा वापस';
+
+  @override
+  String get ownerBeforeSending => 'भेजने से पहले ज़रूरी है:';
+
+  @override
+  String get ownerSubmittedTitle => 'सत्यापन के लिए भेज दिया';
 }

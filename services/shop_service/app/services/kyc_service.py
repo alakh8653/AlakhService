@@ -7,6 +7,7 @@ import structlog
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.trades import required_for
 from app.models.shop import APPROVED, PENDING_REVIEW, REJECTED, Shop, ShopDocument, ShopPayoutDetails
 from app.schemas.shop import PayoutDetailsIn
 
@@ -30,6 +31,9 @@ def missing_for_review(shop: Shop, documents: List[ShopDocument]) -> List[str]:
         missing.append("PAN document")
     if shop.gstin and not any(d.type == "GST" for d in documents):
         missing.append("GST certificate (you gave a GSTIN)")
+    for credential in required_for(shop.category):
+        if not any(d.type == credential.type for d in documents):
+            missing.append(credential.label)
     return missing
 
 

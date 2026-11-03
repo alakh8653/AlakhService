@@ -4169,7 +4169,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerAddPhoto.
   ///
   /// In en, this message translates to:
-  /// **'Add photo'**
+  /// **'Add'**
   String get ownerAddPhoto;
 
   /// No description provided for @ownerTakePhoto.
@@ -4873,6 +4873,384 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tax and legal help'**
   String get typeTaxLegal;
+
+  /// No description provided for @typeConstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Construction and masons'**
+  String get typeConstruction;
+
+  /// No description provided for @typeWelding.
+  ///
+  /// In en, this message translates to:
+  /// **'Welding and fabrication'**
+  String get typeWelding;
+
+  /// No description provided for @typeInterior.
+  ///
+  /// In en, this message translates to:
+  /// **'Interior and false ceiling'**
+  String get typeInterior;
+
+  /// No description provided for @typeSolar.
+  ///
+  /// In en, this message translates to:
+  /// **'Solar and inverter'**
+  String get typeSolar;
+
+  /// No description provided for @typeSecurityGuard.
+  ///
+  /// In en, this message translates to:
+  /// **'Security guards'**
+  String get typeSecurityGuard;
+
+  /// No description provided for @ownerChooseType.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your work'**
+  String get ownerChooseType;
+
+  /// No description provided for @ownerSearchType.
+  ///
+  /// In en, this message translates to:
+  /// **'Search: electrician, doctor, AC, mason...'**
+  String get ownerSearchType;
+
+  /// No description provided for @ownerPickServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap everything you do. You can change this later.'**
+  String get ownerPickServices;
+
+  /// No description provided for @ownerSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get ownerSelectAll;
+
+  /// No description provided for @ownerClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get ownerClearAll;
+
+  /// No description provided for @ownerSamePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Usual price for all (₹)'**
+  String get ownerSamePrice;
+
+  /// No description provided for @ownerSamePriceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Fills in every service. Change any of them below.'**
+  String get ownerSamePriceHelp;
+
+  /// No description provided for @ownerPickOneService.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one service.'**
+  String get ownerPickOneService;
+
+  /// No description provided for @ownerChoosePdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a PDF file'**
+  String get ownerChoosePdf;
+
+  /// No description provided for @ownerAddFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get ownerAddFile;
+
+  /// No description provided for @ownerDocumentsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'A clear photo or a PDF. Files can be up to 5 MB.'**
+  String get ownerDocumentsHelp;
+
+  /// No description provided for @ownerDocNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add: {document}'**
+  String ownerDocNeeded(String document);
+
+  /// No description provided for @ownerReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports and profit'**
+  String get ownerReports;
+
+  /// No description provided for @reportDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get reportDaily;
+
+  /// No description provided for @reportWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get reportWeekly;
+
+  /// No description provided for @reportMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get reportMonthly;
+
+  /// No description provided for @reportYearly.
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get reportYearly;
+
+  /// No description provided for @reportYearlyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'April to March, India\'s financial year'**
+  String get reportYearlyHelp;
+
+  /// No description provided for @reportProfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit'**
+  String get reportProfit;
+
+  /// No description provided for @reportLoss.
+  ///
+  /// In en, this message translates to:
+  /// **'Loss'**
+  String get reportLoss;
+
+  /// No description provided for @reportUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Up {percent}% on the period before'**
+  String reportUp(String percent);
+
+  /// No description provided for @reportDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Down {percent}% on the period before'**
+  String reportDown(String percent);
+
+  /// No description provided for @reportBookingsDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 booking completed} other{{count} bookings completed}}'**
+  String reportBookingsDone(int count);
+
+  /// No description provided for @reportCustomersPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers paid'**
+  String get reportCustomersPaid;
+
+  /// No description provided for @reportCash.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid in cash'**
+  String get reportCash;
+
+  /// No description provided for @reportOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid online'**
+  String get reportOnline;
+
+  /// No description provided for @reportCommission.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission and GST'**
+  String get reportCommission;
+
+  /// No description provided for @reportEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'You earned from bookings'**
+  String get reportEarned;
+
+  /// No description provided for @reportOtherIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'Other income'**
+  String get reportOtherIncome;
+
+  /// No description provided for @reportExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get reportExpenses;
+
+  /// No description provided for @reportTips.
+  ///
+  /// In en, this message translates to:
+  /// **'Tips (not in profit)'**
+  String get reportTips;
+
+  /// No description provided for @reportAddExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Add expense'**
+  String get reportAddExpense;
+
+  /// No description provided for @reportAddIncome.
+  ///
+  /// In en, this message translates to:
+  /// **'Add income'**
+  String get reportAddIncome;
+
+  /// No description provided for @reportRecordedOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit counts only what is recorded here. Add your expenses and outside income for a true figure.'**
+  String get reportRecordedOnly;
+
+  /// No description provided for @reportBreakdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Profit by date'**
+  String get reportBreakdown;
+
+  /// No description provided for @reportEntries.
+  ///
+  /// In en, this message translates to:
+  /// **'What you added'**
+  String get reportEntries;
+
+  /// No description provided for @reportRemoveEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get reportRemoveEntry;
+
+  /// No description provided for @reportSendNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Send me this report now'**
+  String get reportSendNow;
+
+  /// No description provided for @reportSentTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to: {channels}'**
+  String reportSentTo(String channels);
+
+  /// No description provided for @reportSentAppOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s in your notifications. Email and WhatsApp aren\'t set up or are turned off.'**
+  String get reportSentAppOnly;
+
+  /// No description provided for @reportAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get reportAmount;
+
+  /// No description provided for @reportNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get reportNote;
+
+  /// No description provided for @reportSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report settings'**
+  String get reportSettingsTitle;
+
+  /// No description provided for @reportWhich.
+  ///
+  /// In en, this message translates to:
+  /// **'Which reports'**
+  String get reportWhich;
+
+  /// No description provided for @reportWhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Where to send them'**
+  String get reportWhere;
+
+  /// No description provided for @reportEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get reportEmail;
+
+  /// No description provided for @reportWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp'**
+  String get reportWhatsApp;
+
+  /// No description provided for @reportWhatsAppConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'By turning this on, you agree to get reports on WhatsApp on your number. Turn it off any time.'**
+  String get reportWhatsAppConsent;
+
+  /// No description provided for @entryMaterials.
+  ///
+  /// In en, this message translates to:
+  /// **'Materials'**
+  String get entryMaterials;
+
+  /// No description provided for @entrySpareParts.
+  ///
+  /// In en, this message translates to:
+  /// **'Spare parts'**
+  String get entrySpareParts;
+
+  /// No description provided for @entryTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel and fuel'**
+  String get entryTravel;
+
+  /// No description provided for @entryRent.
+  ///
+  /// In en, this message translates to:
+  /// **'Rent'**
+  String get entryRent;
+
+  /// No description provided for @entryStaff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff pay'**
+  String get entryStaff;
+
+  /// No description provided for @entryTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get entryTools;
+
+  /// No description provided for @entryBills.
+  ///
+  /// In en, this message translates to:
+  /// **'Bills'**
+  String get entryBills;
+
+  /// No description provided for @entryMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Advertising'**
+  String get entryMarketing;
+
+  /// No description provided for @entryOutsideWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Work outside the app'**
+  String get entryOutsideWork;
+
+  /// No description provided for @entryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get entryOther;
 }
 
 class _AppLocalizationsDelegate

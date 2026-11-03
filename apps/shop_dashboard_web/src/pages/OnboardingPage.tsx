@@ -11,12 +11,14 @@ import {
   downloadDocument,
   fileProblem,
   getDocuments,
+  getVerificationChecklist,
   getPayoutDetails,
   isValidGstin,
   submitForReview,
   uploadDocument,
   type DocumentType,
   type ShopDocument,
+  type TradeDocument,
 } from '../services/kycService';
 import { apiErrorMessage } from '../services/format';
 import { useToast } from '../components/Toast';
@@ -37,13 +39,22 @@ export interface ChecklistItem {
 }
 
 /** What the owner still has to do; the required items match shop_service's submit check. */
-export function onboardingChecklist(shop: Shop, documents: ShopDocument[], hasPayout: boolean): ChecklistItem[] {
+export function onboardingChecklist(
+  shop: Shop,
+  documents: ShopDocument[],
+  hasPayout: boolean,
+  tradeDocuments: TradeDocument[] = [],
+): ChecklistItem[] {
   const has = (type: string) => documents.some((d) => d.type === type);
   const items: ChecklistItem[] = [
     { id: 'legal', label: 'Legal business name', done: !!shop.legalName, required: true },
     { id: 'pan', label: 'PAN card uploaded', done: has('PAN'), required: true },
   ];
   if (shop.gstin) items.push({ id: 'gst', label: 'GST certificate uploaded (you gave a GSTIN)', done: has('GST'), required: true });
+  for (const doc of tradeDocuments) {
+    // Done as soon as it is uploaded here, without asking the server again.
+    items.push({ id: doc.type, label: doc.required ? doc.label : `${doc.label} (recommended)`, done: has(doc.type), required: doc.required });
+  }
   items.push(
     { id: 'photo', label: 'Shop photo (helps customers find you)', done: has('SHOP_PHOTO'), required: false },
     { id: 'payout', label: 'Payout details, so we can pay you', done: hasPayout, required: false },
@@ -241,6 +252,7 @@ export default function OnboardingPage() {
   const shop = useSelector((state: RootState) => state.auth.shop);
   const [documents, setDocuments] = useState<ShopDocument[]>([]);
   const [hasPayout, setHasPayout] = useState(false);
+  const [tradeDocuments, setTradeDocuments] = useState<TradeDocument[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -255,6 +267,9 @@ export default function OnboardingPage() {
     getPayoutDetails(shopId)
       .then((d) => live && setHasPayout(!!d))
       .catch(() => undefined);
+    getVerificationChecklist(shopId)
+      .then((list) => live && setTradeDocuments(list))
+      .catch(() => undefined);
     return () => {
       live = false;
     };
@@ -262,7 +277,7 @@ export default function OnboardingPage() {
 
   if (!shop) return null;
   const status = verificationOf(shop);
-  const checklist = onboardingChecklist(shop, documents, hasPayout);
+  const checklist = onboardingChecklist(shop, documents, hasPayout, tradeDocuments);
   const ready = checklist.every((i) => !i.required || i.done);
   const waiting = status === 'PENDING_REVIEW' && !!shop.submittedAt;
 

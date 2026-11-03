@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from app.routers.money import router as money_router
 from app.routers.packages import internal_router as packages_internal_router
 from app.routers.packages import router as packages_router
 from app.routers.payments import router as payments_router
+from app.routers.reports import router as reports_router
 
 logger = structlog.get_logger()
 
@@ -21,7 +23,17 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("payment_service_starting", service="payment_service")
+    worker = None
+    if settings.REPORTS_ENABLED:
+        from app.core.reports import run_forever
+        from app.database import AsyncSessionLocal
+
+        worker = asyncio.create_task(run_forever(AsyncSessionLocal))
     yield
+    if worker is not None:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
     logger.info("payment_service_stopping", service="payment_service")
 
 
@@ -41,6 +53,7 @@ app.add_middleware(
 )
 
 app.include_router(money_router, prefix="/api/v1", tags=["earnings"])
+app.include_router(reports_router, prefix="/api/v1", tags=["reports"])
 app.include_router(money_admin_router, prefix="/api/v1", tags=["admin-payments"])
 app.include_router(payments_router, prefix="/api/v1", tags=["payments"])
 app.include_router(loyalty_router, prefix="/api/v1", tags=["loyalty"])

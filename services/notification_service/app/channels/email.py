@@ -1,3 +1,4 @@
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -26,15 +27,26 @@ class EmailChannel:
         self.from_email = from_email
         self.from_name = from_name
 
-    async def send(self, to_email: str, subject: str, body: str, html_body: str = None) -> bool:
+    async def send(
+        self, to_email: str, subject: str, body: str, html_body: str = None, attachment: tuple[str, str] = None
+    ) -> bool:
+        """[attachment] is a CSV's (file name, text)."""
         try:
-            msg = MIMEMultipart("alternative")
+            text = MIMEMultipart("alternative")
+            text.attach(MIMEText(body, "plain"))
+            if html_body:
+                text.attach(MIMEText(html_body, "html"))
+            if attachment:
+                msg = MIMEMultipart("mixed")
+                msg.attach(text)
+                part = MIMEApplication(attachment[1].encode("utf-8"), _subtype="csv")
+                part.add_header("Content-Disposition", "attachment", filename=attachment[0])
+                msg.attach(part)
+            else:
+                msg = text
             msg["Subject"] = subject
             msg["From"] = f"{self.from_name} <{self.from_email}>"
             msg["To"] = to_email
-            msg.attach(MIMEText(body, "plain"))
-            if html_body:
-                msg.attach(MIMEText(html_body, "html"))
             await aiosmtplib.send(
                 msg,
                 hostname=self.host,

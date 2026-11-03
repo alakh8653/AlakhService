@@ -2370,7 +2370,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerReplace => 'बदलें';
 
   @override
-  String get ownerAddPhoto => 'फ़ोटो जोड़ें';
+  String get ownerAddPhoto => 'जोड़ें';
 
   @override
   String get ownerTakePhoto => 'फ़ोटो खींचें';
@@ -2741,4 +2741,210 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get typeTaxLegal => 'टैक्स और कानूनी मदद';
+
+  @override
+  String get typeConstruction => 'निर्माण और राजमिस्त्री';
+
+  @override
+  String get typeWelding => 'वेल्डिंग और फ़ैब्रिकेशन';
+
+  @override
+  String get typeInterior => 'इंटीरियर और फ़ॉल्स सीलिंग';
+
+  @override
+  String get typeSolar => 'सोलर और इन्वर्टर';
+
+  @override
+  String get typeSecurityGuard => 'सिक्योरिटी गार्ड';
+
+  @override
+  String get ownerChooseType => 'अपना काम चुनें';
+
+  @override
+  String get ownerSearchType =>
+      'खोजें: इलेक्ट्रीशियन, डॉक्टर, एसी, राजमिस्त्री...';
+
+  @override
+  String get ownerPickServices =>
+      'आप जो भी काम करते हैं, उन सब पर टैप करें। बाद में बदल सकते हैं।';
+
+  @override
+  String get ownerSelectAll => 'सभी चुनें';
+
+  @override
+  String get ownerClearAll => 'सभी हटाएँ';
+
+  @override
+  String get ownerSamePrice => 'सबके लिए सामान्य दाम (₹)';
+
+  @override
+  String get ownerSamePriceHelp =>
+      'यह हर सेवा में भर जाएगा। नीचे किसी को भी बदल सकते हैं।';
+
+  @override
+  String get ownerPickOneService => 'कम से कम एक सेवा चुनें।';
+
+  @override
+  String get ownerChoosePdf => 'PDF फ़ाइल चुनें';
+
+  @override
+  String get ownerAddFile => 'जोड़ें';
+
+  @override
+  String get ownerDocumentsHelp =>
+      'साफ़ फ़ोटो या PDF। फ़ाइल 5 MB तक हो सकती है।';
+
+  @override
+  String ownerDocNeeded(String document) {
+    return 'कृपया जोड़ें: $document';
+  }
+
+  @override
+  String get ownerReports => 'रिपोर्ट और मुनाफ़ा';
+
+  @override
+  String get reportDaily => 'रोज़ाना';
+
+  @override
+  String get reportWeekly => 'साप्ताहिक';
+
+  @override
+  String get reportMonthly => 'मासिक';
+
+  @override
+  String get reportYearly => 'वार्षिक';
+
+  @override
+  String get reportYearlyHelp => 'अप्रैल से मार्च, भारत का वित्त वर्ष';
+
+  @override
+  String get reportProfit => 'मुनाफ़ा';
+
+  @override
+  String get reportLoss => 'घाटा';
+
+  @override
+  String reportUp(String percent) {
+    return 'पिछली अवधि से $percent% ज़्यादा';
+  }
+
+  @override
+  String reportDown(String percent) {
+    return 'पिछली अवधि से $percent% कम';
+  }
+
+  @override
+  String reportBookingsDone(int count) {
+    return '$count बुकिंग पूरी हुईं';
+  }
+
+  @override
+  String get reportCustomersPaid => 'ग्राहकों ने दिया';
+
+  @override
+  String get reportCash => 'नकद मिला';
+
+  @override
+  String get reportOnline => 'ऑनलाइन मिला';
+
+  @override
+  String get reportCommission => 'कमीशन और GST';
+
+  @override
+  String get reportEarned => 'बुकिंग से आपकी कमाई';
+
+  @override
+  String get reportOtherIncome => 'अन्य आय';
+
+  @override
+  String get reportExpenses => 'खर्च';
+
+  @override
+  String get reportTips => 'टिप (मुनाफ़े में नहीं)';
+
+  @override
+  String get reportAddExpense => 'खर्च जोड़ें';
+
+  @override
+  String get reportAddIncome => 'आय जोड़ें';
+
+  @override
+  String get reportRecordedOnly =>
+      'मुनाफ़े में सिर्फ़ यहाँ दर्ज रकम गिनी जाती है। सही आँकड़े के लिए अपने खर्च और बाहर की आय जोड़ें।';
+
+  @override
+  String get reportBreakdown => 'तारीख़ के अनुसार मुनाफ़ा';
+
+  @override
+  String get reportEntries => 'आपने जो जोड़ा';
+
+  @override
+  String get reportRemoveEntry => 'हटाएँ';
+
+  @override
+  String get reportSendNow => 'यह रिपोर्ट अभी भेजें';
+
+  @override
+  String reportSentTo(String channels) {
+    return 'भेजी गई: $channels';
+  }
+
+  @override
+  String get reportSentAppOnly =>
+      'यह आपकी सूचनाओं में है। ईमेल और WhatsApp सेट नहीं हैं या बंद हैं।';
+
+  @override
+  String get reportAmount => 'रकम';
+
+  @override
+  String get reportNote => 'नोट (ज़रूरी नहीं)';
+
+  @override
+  String get reportSettingsTitle => 'रिपोर्ट सेटिंग';
+
+  @override
+  String get reportWhich => 'कौन सी रिपोर्ट';
+
+  @override
+  String get reportWhere => 'कहाँ भेजें';
+
+  @override
+  String get reportEmail => 'ईमेल';
+
+  @override
+  String get reportWhatsApp => 'WhatsApp';
+
+  @override
+  String get reportWhatsAppConsent =>
+      'इसे चालू करके आप अपने नंबर पर WhatsApp से रिपोर्ट पाने के लिए सहमत होते हैं। इसे कभी भी बंद कर सकते हैं।';
+
+  @override
+  String get entryMaterials => 'सामान';
+
+  @override
+  String get entrySpareParts => 'स्पेयर पार्ट्स';
+
+  @override
+  String get entryTravel => 'आना-जाना और ईंधन';
+
+  @override
+  String get entryRent => 'किराया';
+
+  @override
+  String get entryStaff => 'स्टाफ़ का वेतन';
+
+  @override
+  String get entryTools => 'औज़ार';
+
+  @override
+  String get entryBills => 'बिल';
+
+  @override
+  String get entryMarketing => 'विज्ञापन';
+
+  @override
+  String get entryOutsideWork => 'ऐप के बाहर का काम';
+
+  @override
+  String get entryOther => 'अन्य';
 }

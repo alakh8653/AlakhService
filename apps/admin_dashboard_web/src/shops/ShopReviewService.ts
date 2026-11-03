@@ -19,6 +19,13 @@ export const DOCUMENT_LABELS: Record<string, string> = {
   UDYAM: 'Udyam registration',
   BANK_PROOF: 'Bank proof',
   SHOP_PHOTO: 'Shop photo',
+  PROFESSIONAL_REGISTRATION: 'Council registration certificate',
+  TRADE_LICENCE: 'Licence',
+  QUALIFICATION: 'Degree or training certificate',
+  DRIVING_LICENCE: 'Driving licence',
+  FOOD_LICENCE: 'FSSAI registration or licence',
+  POLICE_VERIFICATION: 'Police verification certificate',
+  WORK_PHOTO: 'Photos of work',
 };
 
 export const documentLabel = (type: string) => DOCUMENT_LABELS[type] ?? type;
@@ -163,6 +170,20 @@ export async function approveShop(id: string): Promise<AdminShop> {
 export async function rejectShop(id: string, reason: string): Promise<AdminShop> {
   const { data } = await adminApiClient.post<ShopRecord>(`/admin/shops/${encodeURIComponent(id)}/reject`, { reason });
   return toShop(data);
+}
+
+/** What this shop's type of work has to show, and how to check it. */
+export interface TradeDocument {
+  type: string;
+  label: string;
+  required: boolean;
+  done: boolean;
+  admin_check: string | null;
+}
+
+export async function getVerificationChecklist(shopId: string): Promise<TradeDocument[]> {
+  const { data } = await adminApiClient.get<TradeDocument[]>(`/shops/${encodeURIComponent(shopId)}/verification-checklist`);
+  return data;
 }
 
 /**

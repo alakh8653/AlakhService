@@ -12,8 +12,36 @@ from app.core.kyc import (
 )
 from app.schemas.hours import DayHours, WeeklyHoursUpdate
 
-DOCUMENT_TYPES = ("PAN", "GST", "AADHAAR", "UDYAM", "BANK_PROOF", "SHOP_PHOTO")
-DocumentType = Literal["PAN", "GST", "AADHAAR", "UDYAM", "BANK_PROOF", "SHOP_PHOTO"]
+DOCUMENT_TYPES = (
+    "PAN",
+    "GST",
+    "AADHAAR",
+    "UDYAM",
+    "BANK_PROOF",
+    "SHOP_PHOTO",
+    "PROFESSIONAL_REGISTRATION",
+    "TRADE_LICENCE",
+    "QUALIFICATION",
+    "DRIVING_LICENCE",
+    "FOOD_LICENCE",
+    "POLICE_VERIFICATION",
+    "WORK_PHOTO",
+)
+DocumentType = Literal[
+    "PAN",
+    "GST",
+    "AADHAAR",
+    "UDYAM",
+    "BANK_PROOF",
+    "SHOP_PHOTO",
+    "PROFESSIONAL_REGISTRATION",
+    "TRADE_LICENCE",
+    "QUALIFICATION",
+    "DRIVING_LICENCE",
+    "FOOD_LICENCE",
+    "POLICE_VERIFICATION",
+    "WORK_PHOTO",
+]
 VerificationStatus = Literal["PENDING_REVIEW", "APPROVED", "REJECTED"]
 
 
@@ -139,6 +167,16 @@ class ShopDocumentResponse(BaseModel):
     @property
     def uploaded(self) -> bool:
         return bool(self.storage_key)
+
+
+class ChecklistItem(BaseModel):
+    """A document the shop's type of work asks for, and whether it has been added."""
+
+    type: DocumentType
+    label: str
+    required: bool
+    done: bool
+    admin_check: Optional[str] = None
 
 
 class ReviewDecision(BaseModel):

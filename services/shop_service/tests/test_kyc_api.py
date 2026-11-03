@@ -468,3 +468,59 @@ async def test_the_catalog_is_told_with_the_internal_key_and_the_id_escaped():
     reporter = Reporter("http://admin", "http://notify", INTERNAL_KEY, httpx.MockTransport(handler), "http://catalog")
     await reporter.sync_listing("../x", True)
     assert seen == [(b"/internal/shops/%2E%2E%2Fx/listing", INTERNAL_KEY, b'{"listed":true}')]
+
+
+# What each type of work has to show
+
+
+async def clinic_with_pan(client):
+    shop = await new_shop(client, legal_name="Dr Asha Rao", category="clinic")
+    assert (await add_link(client, shop["id"])).status_code == 201
+    return shop
+
+
+@pytest.mark.asyncio
+async def test_a_doctor_cannot_be_submitted_without_the_medical_council_certificate(client):
+    shop = await clinic_with_pan(client)
+    url = f"/api/v1/shops/{shop['id']}/submit-for-review"
+    refused = await client.post(url, headers=OWNER)
+    assert refused.status_code == 409
+    assert "Medical Council registration certificate" in refused.json()["detail"]
+
+    assert (await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")).status_code == 201
+    assert (await client.post(url, headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_an_electrician_is_only_recommended_a_licence_since_the_rules_differ_by_state(client):
+    shop = await new_shop(client, legal_name="Ravi Kumar", category="electrical")
+    assert (await add_link(client, shop["id"])).status_code == 201
+    url = f"/api/v1/shops/{shop['id']}/verification-checklist"
+    items = (await client.get(url, headers=OWNER)).json()
+    assert [(i["type"], i["required"]) for i in items] == [("TRADE_LICENCE", False), ("WORK_PHOTO", False)]
+    assert (await client.post(f"/api/v1/shops/{shop['id']}/submit-for-review", headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_the_checklist_shows_what_is_done_and_only_admins_get_the_note_on_checking_it(client):
+    shop = await clinic_with_pan(client)
+    await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
+    url = f"/api/v1/shops/{shop['id']}/verification-checklist"
+    mine = (await client.get(url, headers=OWNER)).json()[0]
+    assert (mine["required"], mine["done"], mine["admin_check"]) == (True, True, None)
+    assert "NMC register" in (await client.get(url, headers=ADMIN)).json()[0]["admin_check"]
+    assert (await client.get(url, headers=OTHER)).status_code in (403, 404)
+
+
+@pytest.mark.asyncio
+async def test_an_approved_salon_cannot_turn_itself_into_a_clinic_without_the_certificate(client):
+    shop = await ready_for_review(client)
+    assert (await client.post(f"/api/v1/admin/shops/{shop['id']}/approve", headers=ADMIN)).status_code == 200
+    url = f"/api/v1/shops/{shop['id']}"
+    refused = await client.put(url, json={"category": "clinic"}, headers=OWNER)
+    assert refused.status_code == 409
+    assert "Medical Council" in refused.json()["detail"]
+    # A move to work that needs no certificate is their own business.
+    assert (await client.put(url, json={"category": "beauty"}, headers=OWNER)).status_code == 200
+    await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
+    assert (await client.put(url, json={"category": "clinic"}, headers=OWNER)).status_code == 200

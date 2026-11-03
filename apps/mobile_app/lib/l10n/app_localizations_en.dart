@@ -2389,7 +2389,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ownerReplace => 'Replace';
 
   @override
-  String get ownerAddPhoto => 'Add photo';
+  String get ownerAddPhoto => 'Add';
 
   @override
   String get ownerTakePhoto => 'Take a photo';
@@ -2760,4 +2760,215 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get typeTaxLegal => 'Tax and legal help';
+
+  @override
+  String get typeConstruction => 'Construction and masons';
+
+  @override
+  String get typeWelding => 'Welding and fabrication';
+
+  @override
+  String get typeInterior => 'Interior and false ceiling';
+
+  @override
+  String get typeSolar => 'Solar and inverter';
+
+  @override
+  String get typeSecurityGuard => 'Security guards';
+
+  @override
+  String get ownerChooseType => 'Choose your work';
+
+  @override
+  String get ownerSearchType => 'Search: electrician, doctor, AC, mason...';
+
+  @override
+  String get ownerPickServices =>
+      'Tap everything you do. You can change this later.';
+
+  @override
+  String get ownerSelectAll => 'Select all';
+
+  @override
+  String get ownerClearAll => 'Clear all';
+
+  @override
+  String get ownerSamePrice => 'Usual price for all (₹)';
+
+  @override
+  String get ownerSamePriceHelp =>
+      'Fills in every service. Change any of them below.';
+
+  @override
+  String get ownerPickOneService => 'Choose at least one service.';
+
+  @override
+  String get ownerChoosePdf => 'Choose a PDF file';
+
+  @override
+  String get ownerAddFile => 'Add';
+
+  @override
+  String get ownerDocumentsHelp =>
+      'A clear photo or a PDF. Files can be up to 5 MB.';
+
+  @override
+  String ownerDocNeeded(String document) {
+    return 'Please add: $document';
+  }
+
+  @override
+  String get ownerReports => 'Reports and profit';
+
+  @override
+  String get reportDaily => 'Daily';
+
+  @override
+  String get reportWeekly => 'Weekly';
+
+  @override
+  String get reportMonthly => 'Monthly';
+
+  @override
+  String get reportYearly => 'Yearly';
+
+  @override
+  String get reportYearlyHelp => 'April to March, India\'s financial year';
+
+  @override
+  String get reportProfit => 'Profit';
+
+  @override
+  String get reportLoss => 'Loss';
+
+  @override
+  String reportUp(String percent) {
+    return 'Up $percent% on the period before';
+  }
+
+  @override
+  String reportDown(String percent) {
+    return 'Down $percent% on the period before';
+  }
+
+  @override
+  String reportBookingsDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bookings completed',
+      one: '1 booking completed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reportCustomersPaid => 'Customers paid';
+
+  @override
+  String get reportCash => 'Paid in cash';
+
+  @override
+  String get reportOnline => 'Paid online';
+
+  @override
+  String get reportCommission => 'Commission and GST';
+
+  @override
+  String get reportEarned => 'You earned from bookings';
+
+  @override
+  String get reportOtherIncome => 'Other income';
+
+  @override
+  String get reportExpenses => 'Expenses';
+
+  @override
+  String get reportTips => 'Tips (not in profit)';
+
+  @override
+  String get reportAddExpense => 'Add expense';
+
+  @override
+  String get reportAddIncome => 'Add income';
+
+  @override
+  String get reportRecordedOnly =>
+      'Profit counts only what is recorded here. Add your expenses and outside income for a true figure.';
+
+  @override
+  String get reportBreakdown => 'Profit by date';
+
+  @override
+  String get reportEntries => 'What you added';
+
+  @override
+  String get reportRemoveEntry => 'Remove';
+
+  @override
+  String get reportSendNow => 'Send me this report now';
+
+  @override
+  String reportSentTo(String channels) {
+    return 'Sent to: $channels';
+  }
+
+  @override
+  String get reportSentAppOnly =>
+      'It\'s in your notifications. Email and WhatsApp aren\'t set up or are turned off.';
+
+  @override
+  String get reportAmount => 'Amount';
+
+  @override
+  String get reportNote => 'Note (optional)';
+
+  @override
+  String get reportSettingsTitle => 'Report settings';
+
+  @override
+  String get reportWhich => 'Which reports';
+
+  @override
+  String get reportWhere => 'Where to send them';
+
+  @override
+  String get reportEmail => 'Email';
+
+  @override
+  String get reportWhatsApp => 'WhatsApp';
+
+  @override
+  String get reportWhatsAppConsent =>
+      'By turning this on, you agree to get reports on WhatsApp on your number. Turn it off any time.';
+
+  @override
+  String get entryMaterials => 'Materials';
+
+  @override
+  String get entrySpareParts => 'Spare parts';
+
+  @override
+  String get entryTravel => 'Travel and fuel';
+
+  @override
+  String get entryRent => 'Rent';
+
+  @override
+  String get entryStaff => 'Staff pay';
+
+  @override
+  String get entryTools => 'Tools';
+
+  @override
+  String get entryBills => 'Bills';
+
+  @override
+  String get entryMarketing => 'Advertising';
+
+  @override
+  String get entryOutsideWork => 'Work outside the app';
+
+  @override
+  String get entryOther => 'Other';
 }

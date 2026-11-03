@@ -33,9 +33,7 @@ async def _owned_shop(db: AsyncSession, shop_id: str, caller: Caller):
 
 async def _schedule(db: AsyncSession, shop) -> ShopSchedule:
     schedule = await hours_service.get_schedule(db, shop.id)
-    return schedule.model_copy(
-        update={"accepting_bookings": is_public(shop), "guarantee_days": _guarantee_days(shop)}
-    )
+    return schedule.model_copy(update={"accepting_bookings": is_public(shop), "guarantee_days": _guarantee_days(shop)})
 
 
 def _guarantee_days(shop) -> int:

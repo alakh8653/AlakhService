@@ -248,6 +248,11 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(l10n.statusPendingHelp, style: AppTextStyles.body2.themed(context)),
           ),
+        if (booking.status == BookingStatus.cancelled && (booking.cancellationReason ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(l10n.cancelledBecause(booking.cancellationReason!), style: AppTextStyles.body2.themed(context)),
+          ),
         if (booking.status == BookingStatus.cancelled)
           Padding(
             padding: const EdgeInsets.only(top: 4),

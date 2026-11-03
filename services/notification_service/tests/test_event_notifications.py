@@ -123,6 +123,12 @@ def test_messages_fill_in_what_is_known():
         render("booking.cancelled", "shop", {"booking_number": "BK-1", "scheduled_at": "12 Oct"})[0]
         == "Booking cancelled"
     )
+    # The customer is told why, and the sentence still reads well when there is no reason.
+    cancelled = {"booking_number": "BK-1", "scheduled_at": "12 Oct"}
+    assert render("booking.cancelled", "customer", {**cancelled, "reason": "Closed today"})[1] == (
+        "Booking BK-1 for 12 Oct was cancelled. Closed today"
+    )
+    assert render("booking.cancelled", "customer", cancelled)[1] == "Booking BK-1 for 12 Oct was cancelled."
     assert render("payment.completed", "shop", {"amount": "499.00"})[1] == "A customer paid ₹499.00 for a booking."
     assert render("nothing.happened", None, {}) is None
     assert render("booking.ready_by", "customer", {"booking_number": "BK-1", "ready_by": "18 Oct, 05:00 PM"}) == (

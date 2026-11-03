@@ -62,6 +62,18 @@ void main() {
     expect(adapter.requests.where((r) => r.path.endsWith('/payments/p1/invoice')), hasLength(1));
   });
 
+  testWidgets('a cancelled booking says why, and says nothing when no reason was given', (tester) async {
+    final adapter = server({...booking('b3', 'CANCELLED', future), 'cancellation_reason': 'Closed today'});
+    await tester.pumpWidget(details(adapter, 'b3'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reason: Closed today'), findsOneWidget);
+
+    await tester.pumpWidget(Container());
+    await tester.pumpWidget(details(server(booking('b4', 'CANCELLED', future)), 'b4'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Reason:'), findsNothing);
+  });
+
   testWidgets('an unpaid booking has no invoice, and cancelling explains the refund policy', (tester) async {
     final adapter = server({...booking('b2', 'CONFIRMED', future), 'payment_status': 'UNPAID'});
     await tester.pumpWidget(details(adapter, 'b2'));

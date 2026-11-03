@@ -103,6 +103,9 @@ class Booking extends Equatable {
   /// The professional the customer asked for, if anyone.
   final String? preferredStaffName;
 
+  /// Why it was cancelled, in the words of whoever cancelled it.
+  final String? cancellationReason;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -128,6 +131,7 @@ class Booking extends Equatable {
     this.rescheduleCount = 0,
     this.pointsDiscount = 0,
     this.preferredStaffName,
+    this.cancellationReason,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);

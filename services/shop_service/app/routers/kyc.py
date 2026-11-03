@@ -18,7 +18,14 @@ from app.core.exceptions import ShopNotFoundError
 from app.core.reporting import Reporter, get_reporter, request_origin
 from app.core.storage import LocalDocumentStorage, StorageDisabled, get_storage, sniff_content_type
 from app.database import get_db
-from app.dependencies import Caller, ensure_owner, require_caller
+from app.dependencies import (
+    Caller,
+    ShopBookingCanceller,
+    cancel_bookings_made_meanwhile,
+    ensure_owner,
+    get_shop_booking_canceller,
+    require_caller,
+)
 from app.models.shop import PENDING_REVIEW, VERIFICATION_STATUSES, Shop
 from app.schemas.shop import (
     AdminShopList,
@@ -324,9 +331,12 @@ async def reject_shop(
     db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_admin),
     reporter: Reporter = Depends(get_reporter),
+    cancel_bookings: ShopBookingCanceller = Depends(get_shop_booking_canceller),
 ):
     shop = await _admin_shop(db, shop_id)
     old = shop.verification_status
+    # First, so that an outage leaves the shop as it was and the admin can try again.
+    await cancel_bookings(shop_id, "rejected")
     shop = await kyc_service.reject(db, shop, caller.user_id, decision.reason)
     background.add_task(
         reporter.audit,
@@ -344,4 +354,6 @@ async def reject_shop(
         {"shop_id": shop.id, "shop_name": shop.name, "reason": decision.reason},
     )
     background.add_task(reporter.sync_listing, shop.id, False)
+    # Once more now the shop is closed, for a booking made while this request was running.
+    background.add_task(cancel_bookings_made_meanwhile, cancel_bookings, shop.id, "rejected")
     return shop

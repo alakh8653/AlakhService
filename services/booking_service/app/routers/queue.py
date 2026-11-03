@@ -17,6 +17,7 @@ from fastapi.websockets import WebSocketDisconnect
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.websockets import WebSocketDisconnected
 
 from app.core import availability, live_queue, payments, queue_ops, risk
 from app.core import queue_engine as qe
@@ -514,7 +515,8 @@ async def _live(websocket: WebSocket, shop_id: str, view: str, build) -> None:
         while True:
             if await websocket.receive_text() == "ping":
                 await websocket.send_json({"type": "pong"})
-    except WebSocketDisconnect:
+    # Also when the client left before the first frame could be sent: Starlette then raises the other one.
+    except (WebSocketDisconnect, WebSocketDisconnected):
         pass
     finally:
         hub.leave(shop_id, view, websocket)

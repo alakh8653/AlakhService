@@ -23,7 +23,7 @@ from app.core import availability, queue_hub, trust
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup
 from app.core.fsm import BookingStatus
 from app.core.names import FALLBACK, NameLookup, get_name_lookup
-from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
+from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
 from app.core.privacy import present
 from app.database import get_db
 from app.dependencies import (
@@ -268,7 +268,12 @@ async def request_rework(
         current_user["sub"],
         lookup_owner,
         roles=("shop",),
-        extra={"rework": True, "rework_of": original.id, "original_booking_number": original.booking_number},
+        extra={
+            "rework": True,
+            "rework_of": original.id,
+            "original_booking_number": original.booking_number,
+            "rework_line": f"Free fix under your guarantee for booking {original.booking_number}: no charge.",
+        },
     )
     return await present(rework, current_user, lookup_names)
 
@@ -386,7 +391,7 @@ async def raise_sos(
         "booking_id": booking.id,
         "booking_number": booking.booking_number,
         "role": role,
-        "raised_at": now.isoformat(),
+        "raised_at": when(now),
         "lat": body.lat,
         "lng": body.lng,
         "location": f"{body.lat:.5f}, {body.lng:.5f}" if body.lat is not None and body.lng is not None else "unknown",

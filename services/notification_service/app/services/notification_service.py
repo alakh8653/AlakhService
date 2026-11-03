@@ -17,7 +17,7 @@ from app.channels.whatsapp import MSG91WhatsAppChannel
 from app.config import settings
 from app.core import reports
 from app.core.contact import fetch_contact
-from app.core.events import CRITICAL_EVENTS, QUIET_HOURS_HELD, SHOP_EMAIL_EVENTS, render_sms
+from app.core.events import ADMIN_EMAIL_EVENTS, CRITICAL_EVENTS, QUIET_HOURS_HELD, SHOP_EMAIL_EVENTS, render_sms
 from app.core.events import render as render_event
 from app.core.exceptions import NotificationNotFoundError, TemplateNotFoundError
 from app.models.notification import DeviceToken, Notification, NotificationPreference, NotificationTemplate
@@ -116,23 +116,29 @@ class NotificationService:
 
         - A shop owner hears about every new booking, and the outcome of the shop's review, by email:
           the shop dashboard has no push.
+        - Admins get every SOS (ADMIN_EMAIL_EVENTS) by email as well as push.
         - Critical booking events (CRITICAL_EVENTS) go by SMS, or else email, to anyone with no push device.
 
         Messages go to the recipient's OWN phone/email and never contain anyone else's (events.scrub).
         """
         shop_email = event in SHOP_EMAIL_EVENTS and role == "shop"
-        if not shop_email and (pushed or event not in CRITICAL_EVENTS):
+        admin_email = event in ADMIN_EMAIL_EVENTS and role == "admin"
+        if not shop_email and not admin_email and (pushed or event not in CRITICAL_EVENTS):
             return None
         contact = await fetch_contact(user_id)
         if not contact:
+            if admin_email:
+                log.error("admin_alert_undelivered", notify_event=event, user_id=user_id)
             return None
-        if not shop_email and contact.get("phone"):
+        if not shop_email and not admin_email and contact.get("phone"):
             text = render_sms(event, data)
             if text and await self.send_sms(contact["phone"], text, event):
                 return "sms"
         if contact.get("email"):
             email_body = f"{body}\n\n"
-            if shop_email:
+            if admin_email:
+                email_body += "See the alert under Safety in the admin dashboard.\n"
+            elif shop_email:
                 action = "Please confirm or decline it" if event == "booking.created" else "See the details"
                 email_body += f"{action} in your shop dashboard"
                 email_body += f": {settings.SHOP_DASHBOARD_URL}\n" if settings.SHOP_DASHBOARD_URL else ".\n"
@@ -141,7 +147,9 @@ class NotificationService:
             email_body += "\nThis is an automatic message from AlakhService; replies are not read.\n"
             if await self.send_email(contact["email"], f"AlakhService: {title}", email_body):
                 return "email"
-        log.info("notification_fallback_undelivered", notify_event=event, user_id=user_id)
+        (log.error if admin_email else log.info)(
+            "notification_fallback_undelivered", notify_event=event, user_id=user_id
+        )
         return None
 
     async def check_quiet_hours(self, db: AsyncSession, user_id: str) -> bool:

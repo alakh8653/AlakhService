@@ -17,19 +17,25 @@ import '../bloc/auth_state.dart';
 import 'login_page.dart' show isTopRoute;
 import 'otp_verification_page.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../shop_owner/data/shop_owner_api.dart';
 
 class RegisterPage extends StatefulWidget {
   /// Where the current Terms version and links come from; the build's own when left out.
   final LegalApi? legalApi;
   final LinkOpener? open;
 
-  const RegisterPage({super.key, this.legalApi, this.open});
+  /// Starts with "I provide services" chosen, for someone who came to join as a provider.
+  final bool offersServices;
+
+  const RegisterPage({super.key, this.legalApi, this.open, this.offersServices = false});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  // Offering services leads to setting up a business after the account is verified.
+  late bool _offersServices = widget.offersServices;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -60,6 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
   void _onRegister() {
     if (context.read<AuthBloc>().state is AuthLoading) return;
     if (_formKey.currentState?.validate() ?? false) {
+      OwnerIntent.save(_offersServices);
       context.read<AuthBloc>().add(
             RegisterRequested(
               name: _nameController.text.trim(),
@@ -107,7 +114,27 @@ class _RegisterPageState extends State<RegisterPage> {
                 const SizedBox(height: 8),
                 Text(l10n.registerSubtitle,
                     style: AppTextStyles.body2.themed(context)),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                Text(l10n.registerWhy, style: AppTextStyles.body1),
+                const SizedBox(height: 8),
+                _RoleChoice(
+                  key: const ValueKey('role-customer'),
+                  icon: Icons.search,
+                  title: l10n.registerAsCustomer,
+                  subtitle: l10n.registerAsCustomerHelp,
+                  selected: !_offersServices,
+                  onTap: () => setState(() => _offersServices = false),
+                ),
+                const SizedBox(height: 8),
+                _RoleChoice(
+                  key: const ValueKey('role-provider'),
+                  icon: Icons.storefront_outlined,
+                  title: l10n.registerAsProvider,
+                  subtitle: l10n.registerAsProviderHelp,
+                  selected: _offersServices,
+                  onTap: () => setState(() => _offersServices = true),
+                ),
+                const SizedBox(height: 24),
                 CustomTextField(
                   controller: _nameController,
                   label: l10n.fullName,
@@ -154,7 +181,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Provider accounts are set up by a shop or an admin, so sign-up is for customers.
                 Text(
                   l10n.registerCodeNote,
                   style: AppTextStyles.caption.themed(context),
@@ -251,4 +277,63 @@ class _LinkButton extends StatelessWidget {
         ),
         child: Text(label),
       );
+}
+
+/// One of the two reasons to join, as a big card that is easy to tap.
+class _RoleChoice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RoleChoice({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.primary : context.palette.muted.withValues(alpha: 0.4),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: selected ? AppColors.primary : context.palette.muted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTextStyles.body1),
+                    Text(subtitle, style: AppTextStyles.caption.themed(context)),
+                  ],
+                ),
+              ),
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                color: selected ? AppColors.primary : context.palette.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

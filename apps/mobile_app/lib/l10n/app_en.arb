@@ -360,7 +360,7 @@
       }
     }
   },
-  "bookingRequestedBody": "The shop will confirm it shortly. We'll notify you, and you can pay once it's confirmed.",
+  "bookingRequestedBody": "The shop needs to accept your request. We'll notify you, and you can pay once it's confirmed.",
   "viewMyBookings": "View my bookings",
   "couponApplied": "{code} applied: {percent}% off, you save {saving}",
   "@couponApplied": {
@@ -396,7 +396,7 @@
   "explainPickup": "We collect your item from your address, service it and bring it back. You'll be told at each step.",
   "explainAtShop": "You go to the shop at the time you choose. See \"How to get there\" on your booking.",
   "myBookings": "My Bookings",
-  "statusPending": "Awaiting confirmation",
+  "statusPending": "Waiting for the shop",
   "statusConfirmed": "Confirmed",
   "statusAssigned": "Provider assigned",
   "statusEnRoute": "Provider on the way",
@@ -1413,5 +1413,182 @@
         "type": "int"
       }
     }
-  }
+  },
+  "registerWhy": "Why are you joining?",
+  "registerAsCustomer": "I want to book services",
+  "registerAsCustomerHelp": "Find a salon, electrician, doctor and more",
+  "registerAsProvider": "I provide services",
+  "registerAsProviderHelp": "Get bookings for your shop, or for the work you do on your own",
+  "locationWhyBusiness": "Your location puts your business on the map so nearby customers can find it. It is saved once and not tracked.",
+  "ownerOfferServices": "Offer your services",
+  "ownerSetupTitle": "Set up your business",
+  "ownerStepOf": "Step {step} of {total}",
+  "@ownerStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "ownerStepBusiness": "About your business",
+  "ownerStepServices": "What do you offer?",
+  "ownerStepHours": "When do you work?",
+  "ownerBusinessName": "Your name or business name",
+  "ownerBusinessNameHelp": "Customers see this. If you work alone, your own name is fine.",
+  "ownerCategory": "Type of work",
+  "ownerWhereDoYouWork": "Where do you do the work?",
+  "ownerAtMyShop": "At my shop",
+  "ownerAtCustomersHome": "At the customer's home",
+  "ownerChooseWhere": "Choose at least one place you do the work.",
+  "ownerCity": "City",
+  "ownerShopAddress": "Shop address",
+  "ownerAreaYouServe": "Area you serve (optional)",
+  "ownerPhone": "Phone for customers",
+  "ownerUseLocation": "Use my current location",
+  "ownerLocationSaved": "Location added",
+  "ownerLocationFailed": "Could not get your location. You can carry on without it.",
+  "ownerRequired": "Please fill this in",
+  "ownerEnterNumber": "Enter a number",
+  "ownerServicesHelp": "Add what customers can book. You can add more later.",
+  "ownerServiceName": "Service name",
+  "ownerServiceNameHint": "e.g. Haircut, Fan repair",
+  "ownerPrice": "Price",
+  "ownerMinutes": "Minutes it takes",
+  "ownerAddAnotherService": "Add another service",
+  "ownerOpenDays": "Days you work",
+  "ownerOpensAt": "From",
+  "ownerClosesAt": "To",
+  "ownerHoursInvalid": "Choose at least one day, and an end time after the start time.",
+  "ownerFinishSetup": "Save and continue",
+  "ownerVerificationTitle": "Verification and payouts",
+  "ownerStatusApproved": "Your business is verified and customers can book you.",
+  "ownerStatusRejected": "Your details need a change: {reason}",
+  "@ownerStatusRejected": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "ownerStatusInReview": "We are checking your details. Customers can book you once this is done.",
+  "ownerStatusNotSubmitted": "Customers can find and book you after we verify these details.",
+  "ownerBannerFinish": "Finish verification so customers can book you",
+  "ownerAboutYou": "About you",
+  "ownerLegalName": "Name as on your PAN",
+  "ownerLegalNameHelp": "Your own name, or your company's if the PAN is the company's.",
+  "ownerLegalAddress": "Your address (optional)",
+  "ownerGstin": "GSTIN (optional)",
+  "ownerGstinHelp": "Only if your business is registered for GST.",
+  "ownerDocuments": "Documents",
+  "ownerDocPan": "PAN card",
+  "ownerDocGst": "GST certificate",
+  "ownerDocAadhaar": "Aadhaar card",
+  "ownerDocShopPhoto": "Photo of your shop or work",
+  "ownerUploaded": "Added",
+  "ownerNeeded": "Needed",
+  "ownerOptional": "Optional",
+  "ownerReplace": "Replace",
+  "ownerAddPhoto": "Add photo",
+  "ownerTakePhoto": "Take a photo",
+  "ownerChoosePhoto": "Choose from gallery",
+  "ownerPhotoFailed": "Could not read that photo. Please try again.",
+  "ownerPanNeeded": "Please add a photo of your PAN card.",
+  "ownerGstNeeded": "You gave a GSTIN, so please add a photo of your GST certificate.",
+  "ownerPayouts": "Where should we send your money?",
+  "ownerPayoutsHelp": "For bookings customers pay for online. You can add this later.",
+  "ownerUpi": "UPI",
+  "ownerBankAccount": "Bank account",
+  "ownerUpiId": "UPI ID",
+  "ownerAccountName": "Account holder's name",
+  "ownerAccountNumber": "Account number",
+  "ownerIfsc": "IFSC code",
+  "ownerPayoutSaved": "Saved: {account}. Fill in below to change it.",
+  "@ownerPayoutSaved": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "ownerSubmit": "Submit for verification",
+  "ownerSubmitAgain": "Submit again",
+  "ownerSubmitted": "We will check your details and tell you the result. Customers can book you once you are verified.",
+  "ownerDetailsSaved": "Details saved",
+  "ownerDoItLater": "I'll do this later",
+  "ownerNewRequests": "New requests ({count})",
+  "@ownerNewRequests": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ownerNoRequests": "No new requests right now. They appear here on their own.",
+  "ownerComingUp": "Coming up",
+  "ownerNothingAhead": "Nothing booked yet.",
+  "ownerManage": "Manage",
+  "ownerLiveLine": "Today's live line",
+  "ownerMyServices": "My services",
+  "ownerOpeningHours": "Working hours",
+  "ownerAccept": "Accept",
+  "ownerDecline": "Decline",
+  "ownerDeclineTitle": "Decline this booking?",
+  "ownerCancelTitle": "Cancel this booking?",
+  "ownerCancelBooking": "Cancel booking",
+  "ownerRefundNote": "The customer is told and gets back anything paid online.",
+  "ownerReasonLabel": "Reason (for your own records)",
+  "ownerDefaultReason": "Not available at this time",
+  "ownerCustomerArrived": "Customer arrived",
+  "ownerGoMyself": "I will do this job",
+  "ownerOnTheWay": "I'm on the way",
+  "ownerOnTheWayToCollect": "On the way to collect",
+  "ownerPickedUp": "Item picked up",
+  "ownerStartWork": "Start work",
+  "ownerStartService": "Start service",
+  "ownerSendBack": "Send it back",
+  "ownerDelivered": "Delivered",
+  "ownerComplete": "Mark complete",
+  "ownerMessage": "Message",
+  "ownerAService": "Service",
+  "ownerHomeVisit": "Home visit",
+  "ownerPickupDrop": "Pickup and drop",
+  "ownerAddService": "Add a service",
+  "ownerNoServices": "Nothing here yet. Add what customers can book.",
+  "ownerMinutesShort": "{minutes} min",
+  "@ownerMinutesShort": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "ownerHoursSimplified": "Your saved hours include breaks or differ by day. Saving here replaces them with one set of hours.",
+  "categorySalon": "Salon",
+  "categoryBeauty": "Beauty parlour",
+  "categorySpa": "Spa",
+  "categoryClinic": "Doctor / clinic",
+  "categoryVehicleRepair": "Car and bike repair",
+  "categoryElectronicsRepair": "Laptop and phone repair",
+  "categoryApplianceRepair": "AC and appliance repair",
+  "categoryCleaning": "Cleaning",
+  "categoryPlumbing": "Plumbing",
+  "categoryElectrical": "Electrical",
+  "categoryRepair": "Other repairs",
+  "categoryOffice": "Office / appointments",
+  "categoryOther": "Other",
+  "loginJoinAsProvider": "Have a shop or offer a service? Join here",
+  "modeSwitchToBusiness": "Switch to my business",
+  "modeSwitchToBooking": "Switch to booking services",
+  "statusPendingHelp": "The shop has your request and needs to accept it. We'll notify you. If they don't reply in time, the request is cancelled.",
+  "statusCancelledHelp": "Any refund due reaches your account in 5–7 working days.",
+  "ownerNeedsYourAnswer": "Needs your answer",
+  "ownerPaid": "Paid",
+  "ownerNotPaid": "Not paid yet",
+  "ownerRefunded": "Refunded",
+  "ownerPartlyRefunded": "Partly refunded",
+  "ownerBeforeSending": "Before sending, you need:",
+  "ownerSubmittedTitle": "Sent for verification"
 }

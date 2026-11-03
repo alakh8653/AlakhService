@@ -3,8 +3,10 @@ import 'package:alakh_service/core/network/token_store.dart';
 import 'package:alakh_service/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:alakh_service/features/auth/presentation/pages/register_page.dart';
 import 'package:alakh_service/features/legal/data/legal_api.dart';
+import 'package:alakh_service/features/shop_owner/data/shop_owner_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_adapter.dart';
 import 'auth_flow_test.dart' show FakeAuth, app, blocFor;
@@ -34,6 +36,39 @@ void main() {
           'grievance_url': 'https://legal.test/grievance',
         },
       ));
+
+  testWidgets('sign-up asks why they are joining, and remembers someone who offers services', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = FakeAuth();
+    await tester.pumpWidget(app(blocFor(repo), home: RegisterPage(legalApi: legalFrom(current))));
+    await tester.pumpAndSettle();
+    expect(find.text('I want to book services'), findsOneWidget);
+    final provider = find.byKey(const ValueKey('role-provider'));
+    await tester.ensureVisible(provider);
+    await tester.tap(provider);
+    await tester.pumpAndSettle();
+    await fillForm(tester);
+    await tester.tap(find.byType(Checkbox));
+    await submit(tester);
+    expect(repo.calls, isNotEmpty);
+    expect(await OwnerIntent.read(), isTrue);
+  });
+
+  testWidgets('coming from Join as a provider, the provider choice is already made', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = FakeAuth();
+    await tester.pumpWidget(
+      app(blocFor(repo), home: RegisterPage(legalApi: legalFrom(current), offersServices: true)),
+    );
+    await tester.pumpAndSettle();
+    await fillForm(tester);
+    await tester.ensureVisible(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox));
+    await submit(tester);
+    expect(repo.calls, isNotEmpty);
+    expect(await OwnerIntent.read(), isTrue);
+  });
 
   testWidgets('sign-up needs the Terms ticked', (tester) async {
     final repo = FakeAuth();

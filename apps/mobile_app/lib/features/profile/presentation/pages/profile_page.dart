@@ -28,11 +28,21 @@ class ProfilePage extends StatefulWidget {
   final VoidCallback onOpenBookings;
   final VoidCallback onOpenNotifications;
 
+  /// Set when the user has no business yet: starts setting one up.
+  final VoidCallback? onOfferServices;
+
+  /// For owners: moves between the business and booking sides of the app.
+  final String? switchModeLabel;
+  final VoidCallback? onSwitchMode;
+
   const ProfilePage({
     super.key,
     required this.user,
     required this.onOpenBookings,
     required this.onOpenNotifications,
+    this.onOfferServices,
+    this.switchModeLabel,
+    this.onSwitchMode,
   });
 
   @override
@@ -104,6 +114,18 @@ class _ProfilePageState extends State<ProfilePage> {
             if (user.phone.isNotEmpty) Text(displayPhone(user.phone), style: AppTextStyles.body2.themed(context)),
             if (user.email != null) Text(user.email!, style: AppTextStyles.body2.themed(context)),
             const SizedBox(height: 24),
+            if (widget.onSwitchMode != null)
+              _ProfileMenuItem(
+                icon: Icons.swap_horiz,
+                label: widget.switchModeLabel ?? '',
+                onTap: widget.onSwitchMode!,
+              ),
+            if (widget.onOfferServices != null)
+              _ProfileMenuItem(
+                icon: Icons.storefront_outlined,
+                label: l10n.ownerOfferServices,
+                onTap: widget.onOfferServices!,
+              ),
             _ProfileMenuItem(icon: Icons.edit_outlined, label: l10n.editProfile, onTap: _editProfile),
             _ProfileMenuItem(icon: Icons.history, label: l10n.myBookings, onTap: widget.onOpenBookings),
             _ProfileMenuItem(

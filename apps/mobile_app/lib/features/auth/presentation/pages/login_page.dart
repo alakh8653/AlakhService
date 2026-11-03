@@ -192,6 +192,18 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                     ),
+                    const SizedBox(height: 8),
+                    // A provider's way in, on the first screen after installing the app.
+                    OutlinedButton.icon(
+                      key: const ValueKey('join-as-provider'),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      icon: const Icon(Icons.storefront_outlined),
+                      label: Text(l10n.loginJoinAsProvider, textAlign: TextAlign.center),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RegisterPage(offersServices: true)),
+                      ),
+                    ),
                   ],
                 ),
               ),

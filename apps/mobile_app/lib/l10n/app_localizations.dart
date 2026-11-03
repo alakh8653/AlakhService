@@ -1313,7 +1313,7 @@ abstract class AppLocalizations {
   /// No description provided for @bookingRequestedBody.
   ///
   /// In en, this message translates to:
-  /// **'The shop will confirm it shortly. We\'ll notify you, and you can pay once it\'s confirmed.'**
+  /// **'The shop needs to accept your request. We\'ll notify you, and you can pay once it\'s confirmed.'**
   String get bookingRequestedBody;
 
   /// No description provided for @viewMyBookings.
@@ -1409,7 +1409,7 @@ abstract class AppLocalizations {
   /// No description provided for @statusPending.
   ///
   /// In en, this message translates to:
-  /// **'Awaiting confirmation'**
+  /// **'Waiting for the shop'**
   String get statusPending;
 
   /// No description provided for @statusConfirmed.
@@ -3805,6 +3805,840 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Running about {minutes} min behind your booked time'**
   String homeArrivalLate(int minutes);
+
+  /// No description provided for @registerWhy.
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you joining?'**
+  String get registerWhy;
+
+  /// No description provided for @registerAsCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'I want to book services'**
+  String get registerAsCustomer;
+
+  /// No description provided for @registerAsCustomerHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Find a salon, electrician, doctor and more'**
+  String get registerAsCustomerHelp;
+
+  /// No description provided for @registerAsProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'I provide services'**
+  String get registerAsProvider;
+
+  /// No description provided for @registerAsProviderHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Get bookings for your shop, or for the work you do on your own'**
+  String get registerAsProviderHelp;
+
+  /// No description provided for @locationWhyBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Your location puts your business on the map so nearby customers can find it. It is saved once and not tracked.'**
+  String get locationWhyBusiness;
+
+  /// No description provided for @ownerOfferServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer your services'**
+  String get ownerOfferServices;
+
+  /// No description provided for @ownerSetupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your business'**
+  String get ownerSetupTitle;
+
+  /// No description provided for @ownerStepOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {step} of {total}'**
+  String ownerStepOf(int step, int total);
+
+  /// No description provided for @ownerStepBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'About your business'**
+  String get ownerStepBusiness;
+
+  /// No description provided for @ownerStepServices.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you offer?'**
+  String get ownerStepServices;
+
+  /// No description provided for @ownerStepHours.
+  ///
+  /// In en, this message translates to:
+  /// **'When do you work?'**
+  String get ownerStepHours;
+
+  /// No description provided for @ownerBusinessName.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name or business name'**
+  String get ownerBusinessName;
+
+  /// No description provided for @ownerBusinessNameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers see this. If you work alone, your own name is fine.'**
+  String get ownerBusinessNameHelp;
+
+  /// No description provided for @ownerCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Type of work'**
+  String get ownerCategory;
+
+  /// No description provided for @ownerWhereDoYouWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Where do you do the work?'**
+  String get ownerWhereDoYouWork;
+
+  /// No description provided for @ownerAtMyShop.
+  ///
+  /// In en, this message translates to:
+  /// **'At my shop'**
+  String get ownerAtMyShop;
+
+  /// No description provided for @ownerAtCustomersHome.
+  ///
+  /// In en, this message translates to:
+  /// **'At the customer\'s home'**
+  String get ownerAtCustomersHome;
+
+  /// No description provided for @ownerChooseWhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one place you do the work.'**
+  String get ownerChooseWhere;
+
+  /// No description provided for @ownerCity.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get ownerCity;
+
+  /// No description provided for @ownerShopAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop address'**
+  String get ownerShopAddress;
+
+  /// No description provided for @ownerAreaYouServe.
+  ///
+  /// In en, this message translates to:
+  /// **'Area you serve (optional)'**
+  String get ownerAreaYouServe;
+
+  /// No description provided for @ownerPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone for customers'**
+  String get ownerPhone;
+
+  /// No description provided for @ownerUseLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my current location'**
+  String get ownerUseLocation;
+
+  /// No description provided for @ownerLocationSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Location added'**
+  String get ownerLocationSaved;
+
+  /// No description provided for @ownerLocationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not get your location. You can carry on without it.'**
+  String get ownerLocationFailed;
+
+  /// No description provided for @ownerRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill this in'**
+  String get ownerRequired;
+
+  /// No description provided for @ownerEnterNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number'**
+  String get ownerEnterNumber;
+
+  /// No description provided for @ownerServicesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add what customers can book. You can add more later.'**
+  String get ownerServicesHelp;
+
+  /// No description provided for @ownerServiceName.
+  ///
+  /// In en, this message translates to:
+  /// **'Service name'**
+  String get ownerServiceName;
+
+  /// No description provided for @ownerServiceNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Haircut, Fan repair'**
+  String get ownerServiceNameHint;
+
+  /// No description provided for @ownerPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get ownerPrice;
+
+  /// No description provided for @ownerMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'Minutes it takes'**
+  String get ownerMinutes;
+
+  /// No description provided for @ownerAddAnotherService.
+  ///
+  /// In en, this message translates to:
+  /// **'Add another service'**
+  String get ownerAddAnotherService;
+
+  /// No description provided for @ownerOpenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Days you work'**
+  String get ownerOpenDays;
+
+  /// No description provided for @ownerOpensAt.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get ownerOpensAt;
+
+  /// No description provided for @ownerClosesAt.
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get ownerClosesAt;
+
+  /// No description provided for @ownerHoursInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one day, and an end time after the start time.'**
+  String get ownerHoursInvalid;
+
+  /// No description provided for @ownerFinishSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and continue'**
+  String get ownerFinishSetup;
+
+  /// No description provided for @ownerVerificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification and payouts'**
+  String get ownerVerificationTitle;
+
+  /// No description provided for @ownerStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Your business is verified and customers can book you.'**
+  String get ownerStatusApproved;
+
+  /// No description provided for @ownerStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Your details need a change: {reason}'**
+  String ownerStatusRejected(String reason);
+
+  /// No description provided for @ownerStatusInReview.
+  ///
+  /// In en, this message translates to:
+  /// **'We are checking your details. Customers can book you once this is done.'**
+  String get ownerStatusInReview;
+
+  /// No description provided for @ownerStatusNotSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers can find and book you after we verify these details.'**
+  String get ownerStatusNotSubmitted;
+
+  /// No description provided for @ownerBannerFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish verification so customers can book you'**
+  String get ownerBannerFinish;
+
+  /// No description provided for @ownerAboutYou.
+  ///
+  /// In en, this message translates to:
+  /// **'About you'**
+  String get ownerAboutYou;
+
+  /// No description provided for @ownerLegalName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name as on your PAN'**
+  String get ownerLegalName;
+
+  /// No description provided for @ownerLegalNameHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Your own name, or your company\'s if the PAN is the company\'s.'**
+  String get ownerLegalNameHelp;
+
+  /// No description provided for @ownerLegalAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Your address (optional)'**
+  String get ownerLegalAddress;
+
+  /// No description provided for @ownerGstin.
+  ///
+  /// In en, this message translates to:
+  /// **'GSTIN (optional)'**
+  String get ownerGstin;
+
+  /// No description provided for @ownerGstinHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only if your business is registered for GST.'**
+  String get ownerGstinHelp;
+
+  /// No description provided for @ownerDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get ownerDocuments;
+
+  /// No description provided for @ownerDocPan.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN card'**
+  String get ownerDocPan;
+
+  /// No description provided for @ownerDocGst.
+  ///
+  /// In en, this message translates to:
+  /// **'GST certificate'**
+  String get ownerDocGst;
+
+  /// No description provided for @ownerDocAadhaar.
+  ///
+  /// In en, this message translates to:
+  /// **'Aadhaar card'**
+  String get ownerDocAadhaar;
+
+  /// No description provided for @ownerDocShopPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo of your shop or work'**
+  String get ownerDocShopPhoto;
+
+  /// No description provided for @ownerUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Added'**
+  String get ownerUploaded;
+
+  /// No description provided for @ownerNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Needed'**
+  String get ownerNeeded;
+
+  /// No description provided for @ownerOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get ownerOptional;
+
+  /// No description provided for @ownerReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get ownerReplace;
+
+  /// No description provided for @ownerAddPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Add photo'**
+  String get ownerAddPhoto;
+
+  /// No description provided for @ownerTakePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a photo'**
+  String get ownerTakePhoto;
+
+  /// No description provided for @ownerChoosePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from gallery'**
+  String get ownerChoosePhoto;
+
+  /// No description provided for @ownerPhotoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read that photo. Please try again.'**
+  String get ownerPhotoFailed;
+
+  /// No description provided for @ownerPanNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add a photo of your PAN card.'**
+  String get ownerPanNeeded;
+
+  /// No description provided for @ownerGstNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'You gave a GSTIN, so please add a photo of your GST certificate.'**
+  String get ownerGstNeeded;
+
+  /// No description provided for @ownerPayouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Where should we send your money?'**
+  String get ownerPayouts;
+
+  /// No description provided for @ownerPayoutsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'For bookings customers pay for online. You can add this later.'**
+  String get ownerPayoutsHelp;
+
+  /// No description provided for @ownerUpi.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI'**
+  String get ownerUpi;
+
+  /// No description provided for @ownerBankAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank account'**
+  String get ownerBankAccount;
+
+  /// No description provided for @ownerUpiId.
+  ///
+  /// In en, this message translates to:
+  /// **'UPI ID'**
+  String get ownerUpiId;
+
+  /// No description provided for @ownerAccountName.
+  ///
+  /// In en, this message translates to:
+  /// **'Account holder\'s name'**
+  String get ownerAccountName;
+
+  /// No description provided for @ownerAccountNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Account number'**
+  String get ownerAccountNumber;
+
+  /// No description provided for @ownerIfsc.
+  ///
+  /// In en, this message translates to:
+  /// **'IFSC code'**
+  String get ownerIfsc;
+
+  /// No description provided for @ownerPayoutSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved: {account}. Fill in below to change it.'**
+  String ownerPayoutSaved(String account);
+
+  /// No description provided for @ownerSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit for verification'**
+  String get ownerSubmit;
+
+  /// No description provided for @ownerSubmitAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit again'**
+  String get ownerSubmitAgain;
+
+  /// No description provided for @ownerSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'We will check your details and tell you the result. Customers can book you once you are verified.'**
+  String get ownerSubmitted;
+
+  /// No description provided for @ownerDetailsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Details saved'**
+  String get ownerDetailsSaved;
+
+  /// No description provided for @ownerDoItLater.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ll do this later'**
+  String get ownerDoItLater;
+
+  /// No description provided for @ownerNewRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'New requests ({count})'**
+  String ownerNewRequests(int count);
+
+  /// No description provided for @ownerNoRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'No new requests right now. They appear here on their own.'**
+  String get ownerNoRequests;
+
+  /// No description provided for @ownerComingUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming up'**
+  String get ownerComingUp;
+
+  /// No description provided for @ownerNothingAhead.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing booked yet.'**
+  String get ownerNothingAhead;
+
+  /// No description provided for @ownerManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get ownerManage;
+
+  /// No description provided for @ownerLiveLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s live line'**
+  String get ownerLiveLine;
+
+  /// No description provided for @ownerMyServices.
+  ///
+  /// In en, this message translates to:
+  /// **'My services'**
+  String get ownerMyServices;
+
+  /// No description provided for @ownerOpeningHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Working hours'**
+  String get ownerOpeningHours;
+
+  /// No description provided for @ownerAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get ownerAccept;
+
+  /// No description provided for @ownerDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get ownerDecline;
+
+  /// No description provided for @ownerDeclineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline this booking?'**
+  String get ownerDeclineTitle;
+
+  /// No description provided for @ownerCancelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this booking?'**
+  String get ownerCancelTitle;
+
+  /// No description provided for @ownerCancelBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel booking'**
+  String get ownerCancelBooking;
+
+  /// No description provided for @ownerRefundNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The customer is told and gets back anything paid online.'**
+  String get ownerRefundNote;
+
+  /// No description provided for @ownerReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (for your own records)'**
+  String get ownerReasonLabel;
+
+  /// No description provided for @ownerDefaultReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available at this time'**
+  String get ownerDefaultReason;
+
+  /// No description provided for @ownerCustomerArrived.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer arrived'**
+  String get ownerCustomerArrived;
+
+  /// No description provided for @ownerGoMyself.
+  ///
+  /// In en, this message translates to:
+  /// **'I will do this job'**
+  String get ownerGoMyself;
+
+  /// No description provided for @ownerOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on the way'**
+  String get ownerOnTheWay;
+
+  /// No description provided for @ownerOnTheWayToCollect.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way to collect'**
+  String get ownerOnTheWayToCollect;
+
+  /// No description provided for @ownerPickedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Item picked up'**
+  String get ownerPickedUp;
+
+  /// No description provided for @ownerStartWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Start work'**
+  String get ownerStartWork;
+
+  /// No description provided for @ownerStartService.
+  ///
+  /// In en, this message translates to:
+  /// **'Start service'**
+  String get ownerStartService;
+
+  /// No description provided for @ownerSendBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Send it back'**
+  String get ownerSendBack;
+
+  /// No description provided for @ownerDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get ownerDelivered;
+
+  /// No description provided for @ownerComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark complete'**
+  String get ownerComplete;
+
+  /// No description provided for @ownerMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get ownerMessage;
+
+  /// No description provided for @ownerAService.
+  ///
+  /// In en, this message translates to:
+  /// **'Service'**
+  String get ownerAService;
+
+  /// No description provided for @ownerHomeVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Home visit'**
+  String get ownerHomeVisit;
+
+  /// No description provided for @ownerPickupDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup and drop'**
+  String get ownerPickupDrop;
+
+  /// No description provided for @ownerAddService.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a service'**
+  String get ownerAddService;
+
+  /// No description provided for @ownerNoServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet. Add what customers can book.'**
+  String get ownerNoServices;
+
+  /// No description provided for @ownerMinutesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String ownerMinutesShort(int minutes);
+
+  /// No description provided for @ownerHoursSimplified.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved hours include breaks or differ by day. Saving here replaces them with one set of hours.'**
+  String get ownerHoursSimplified;
+
+  /// No description provided for @categorySalon.
+  ///
+  /// In en, this message translates to:
+  /// **'Salon'**
+  String get categorySalon;
+
+  /// No description provided for @categoryBeauty.
+  ///
+  /// In en, this message translates to:
+  /// **'Beauty parlour'**
+  String get categoryBeauty;
+
+  /// No description provided for @categorySpa.
+  ///
+  /// In en, this message translates to:
+  /// **'Spa'**
+  String get categorySpa;
+
+  /// No description provided for @categoryClinic.
+  ///
+  /// In en, this message translates to:
+  /// **'Doctor / clinic'**
+  String get categoryClinic;
+
+  /// No description provided for @categoryVehicleRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'Car and bike repair'**
+  String get categoryVehicleRepair;
+
+  /// No description provided for @categoryElectronicsRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'Laptop and phone repair'**
+  String get categoryElectronicsRepair;
+
+  /// No description provided for @categoryApplianceRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'AC and appliance repair'**
+  String get categoryApplianceRepair;
+
+  /// No description provided for @categoryCleaning.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaning'**
+  String get categoryCleaning;
+
+  /// No description provided for @categoryPlumbing.
+  ///
+  /// In en, this message translates to:
+  /// **'Plumbing'**
+  String get categoryPlumbing;
+
+  /// No description provided for @categoryElectrical.
+  ///
+  /// In en, this message translates to:
+  /// **'Electrical'**
+  String get categoryElectrical;
+
+  /// No description provided for @categoryRepair.
+  ///
+  /// In en, this message translates to:
+  /// **'Other repairs'**
+  String get categoryRepair;
+
+  /// No description provided for @categoryOffice.
+  ///
+  /// In en, this message translates to:
+  /// **'Office / appointments'**
+  String get categoryOffice;
+
+  /// No description provided for @categoryOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get categoryOther;
+
+  /// No description provided for @loginJoinAsProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a shop or offer a service? Join here'**
+  String get loginJoinAsProvider;
+
+  /// No description provided for @modeSwitchToBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to my business'**
+  String get modeSwitchToBusiness;
+
+  /// No description provided for @modeSwitchToBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to booking services'**
+  String get modeSwitchToBooking;
+
+  /// No description provided for @statusPendingHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop has your request and needs to accept it. We\'ll notify you. If they don\'t reply in time, the request is cancelled.'**
+  String get statusPendingHelp;
+
+  /// No description provided for @statusCancelledHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Any refund due reaches your account in 5–7 working days.'**
+  String get statusCancelledHelp;
+
+  /// No description provided for @ownerNeedsYourAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs your answer'**
+  String get ownerNeedsYourAnswer;
+
+  /// No description provided for @ownerPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get ownerPaid;
+
+  /// No description provided for @ownerNotPaid.
+  ///
+  /// In en, this message translates to:
+  /// **'Not paid yet'**
+  String get ownerNotPaid;
+
+  /// No description provided for @ownerRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get ownerRefunded;
+
+  /// No description provided for @ownerPartlyRefunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Partly refunded'**
+  String get ownerPartlyRefunded;
+
+  /// No description provided for @ownerBeforeSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Before sending, you need:'**
+  String get ownerBeforeSending;
+
+  /// No description provided for @ownerSubmittedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent for verification'**
+  String get ownerSubmittedTitle;
 }
 
 class _AppLocalizationsDelegate

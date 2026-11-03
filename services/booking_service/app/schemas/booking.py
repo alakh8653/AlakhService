@@ -126,6 +126,8 @@ class BookingResponse(BaseModel):
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
+    # Why it was cancelled, in the words of whoever cancelled it (see app/core/privacy.py).
+    cancellation_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

@@ -2500,7 +2500,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The customer is told and gets back anything paid online.';
 
   @override
-  String get ownerReasonLabel => 'Reason (for your own records)';
+  String get ownerReasonLabel => 'Reason (the customer will see this)';
 
   @override
   String get ownerDefaultReason => 'Not available at this time';
@@ -2618,6 +2618,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get statusCancelledHelp =>
       'Any refund due reaches your account in 5–7 working days.';
+
+  @override
+  String cancelledBecause(String reason) {
+    return 'Reason: $reason';
+  }
 
   @override
   String get ownerNeedsYourAnswer => 'Needs your answer';

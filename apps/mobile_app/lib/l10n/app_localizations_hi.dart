@@ -2481,7 +2481,7 @@ class AppLocalizationsHi extends AppLocalizations {
       'ग्राहक को बताया जाएगा और ऑनलाइन दिया पैसा वापस मिलेगा।';
 
   @override
-  String get ownerReasonLabel => 'कारण (आपके रिकॉर्ड के लिए)';
+  String get ownerReasonLabel => 'कारण (ग्राहक इसे देखेंगे)';
 
   @override
   String get ownerDefaultReason => 'इस समय उपलब्ध नहीं';
@@ -2599,6 +2599,11 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get statusCancelledHelp =>
       'जो भी रिफ़ंड बनता है, वह 5–7 कार्यदिवसों में आपके खाते में आ जाएगा।';
+
+  @override
+  String cancelledBecause(String reason) {
+    return 'कारण: $reason';
+  }
 
   @override
   String get ownerNeedsYourAnswer => 'आपके जवाब का इंतज़ार';

@@ -29,7 +29,7 @@ from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, 
 from app.core.packages import PackageUnusable, PackageWallet, get_package_wallet
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.core.points import PointsWallet, get_points_wallet
-from app.core.privacy import present, present_history, present_page
+from app.core.privacy import masked, present, present_history, present_page
 from app.database import get_db
 from app.dependencies import (
     CouponPricer,
@@ -640,7 +640,15 @@ async def cancel_booking(
     queue_hub.hub.poke(booking.shop_id)
     background.add_task(payments.deliver_now, session_factory, payment_client, queued.id)
     background.add_task(waitlist.tell, notifier, waiting)
-    background.add_task(notify_booking, notifier, snapshot(booking), "booking.cancelled", user_id, lookup_owner)
+    background.add_task(
+        notify_booking,
+        notifier,
+        snapshot(booking),
+        "booking.cancelled",
+        user_id,
+        lookup_owner,
+        extra={"reason": masked(booking.cancellation_reason)},
+    )
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)
 

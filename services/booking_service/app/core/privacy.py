@@ -3,7 +3,8 @@
 A shop (its owner and the provider doing the job) sees the customer as a display name ("Ravi S."),
 never their phone, email or full name; free text the customer wrote has contact details hidden; and
 the customer's saved address only for a home visit or pickup, while the booking is still open.
-The customer and admins see the booking as it is.
+The customer and admins see the booking as it is, except that the customer gets the reason a booking was
+cancelled with contact details hidden too: the shop wrote it.
 """
 
 from typing import Iterable, List, Optional
@@ -26,15 +27,17 @@ def sees_everything(booking, user: dict) -> bool:
     return user.get("role") == "admin" or booking.customer_id == user.get("sub")
 
 
-def _masked(text: Optional[str]) -> Optional[str]:
+def masked(text: Optional[str]) -> Optional[str]:
     return mask_contact(text).text if text else text
 
 
 def shape(booking, user: dict, display_name: str) -> BookingResponse:
     out = BookingResponse.model_validate(booking).model_copy(update={"customer_display_name": display_name})
+    if user.get("role") != "admin":
+        out = out.model_copy(update={"cancellation_reason": masked(out.cancellation_reason)})
     if sees_everything(booking, user):
         return out
-    hidden = {"notes": _masked(out.notes), "item_description": _masked(out.item_description)}
+    hidden = {"notes": masked(out.notes), "item_description": masked(out.item_description)}
     if booking.service_mode == AT_SHOP or booking.status in CLOSED_STATUSES:
         hidden["address_id"] = None
     return out.model_copy(update=hidden)
@@ -62,4 +65,4 @@ def present_history(entries: Iterable, booking, user: dict) -> List[BookingStatu
     out = [BookingStatusHistoryResponse.model_validate(e) for e in entries]
     if user.get("role") == "admin":
         return out
-    return [e.model_copy(update={"reason": _masked(e.reason)}) for e in out]
+    return [e.model_copy(update={"reason": masked(e.reason)}) for e in out]

@@ -4373,7 +4373,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerReasonLabel.
   ///
   /// In en, this message translates to:
-  /// **'Reason (for your own records)'**
+  /// **'Reason (the customer will see this)'**
   String get ownerReasonLabel;
 
   /// No description provided for @ownerDefaultReason.
@@ -4597,6 +4597,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Any refund due reaches your account in 5–7 working days.'**
   String get statusCancelledHelp;
+
+  /// No description provided for @cancelledBecause.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason: {reason}'**
+  String cancelledBecause(String reason);
 
   /// No description provided for @ownerNeedsYourAnswer.
   ///

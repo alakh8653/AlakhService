@@ -9,6 +9,7 @@ from typing import Awaitable, Callable, Optional
 from urllib.parse import quote
 
 import httpx
+import structlog
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -16,6 +17,7 @@ from jose import JWTError, jwt
 from app.config import settings
 
 bearer = HTTPBearer(auto_error=False)
+log = structlog.get_logger()
 
 
 def path_segment(value: str) -> str:
@@ -87,15 +89,16 @@ async def fetch_booking(booking_id: str, caller: Caller) -> Optional[dict]:
     return resp.json()
 
 
-async def cancel_shop_bookings(shop_id: str) -> None:
+async def cancel_shop_bookings(shop_id: str, because: str = "removed") -> None:
     """Has booking_service cancel and refund what has not started at this shop. Raises when it refuses
-    (a booking is being served) or cannot be reached: then the shop must stay."""
+    (removing a shop while a booking is being served) or cannot be reached: then the shop must stay as it is."""
     if not settings.INTERNAL_API_KEY:
         return
     async with httpx.AsyncClient(base_url=settings.BOOKING_SERVICE_URL, timeout=30.0) as client:
         try:
             resp = await client.post(
                 f"/internal/bookings/shops/{path_segment(shop_id)}/cancel-upcoming",
+                params={"because": because},
                 headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
             )
         except httpx.HTTPError as exc:
@@ -106,11 +109,21 @@ async def cancel_shop_bookings(shop_id: str) -> None:
         raise HTTPException(status_code=503, detail="Booking service unavailable")
 
 
-ShopBookingCanceller = Callable[[str], Awaitable[None]]
+ShopBookingCanceller = Callable[..., Awaitable[None]]
 
 
 def get_shop_booking_canceller() -> ShopBookingCanceller:
     return cancel_shop_bookings
+
+
+async def cancel_bookings_made_meanwhile(
+    cancel_bookings: ShopBookingCanceller, shop_id: str, because: str = "removed"
+) -> None:
+    """The second pass, once the shop is closed. The shop's fate is already decided, so a failure is only logged."""
+    try:
+        await cancel_bookings(shop_id, because)
+    except HTTPException as e:
+        log.warning("shop_closed_second_cancel_failed", shop_id=shop_id, because=because, detail=e.detail)
 
 
 BookingLookup = Callable[[str, Caller], Awaitable[Optional[dict]]]

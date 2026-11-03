@@ -14,6 +14,7 @@ from app.core.kyc import gstin_check_character, mask_account_number, normalise_g
 from app.core.reporting import get_reporter
 from app.core.storage import LocalDocumentStorage, get_storage
 from app.database import Base, get_db
+from app.dependencies import get_shop_booking_canceller
 from app.main import app
 from tests.test_staff_api import ADMIN, OTHER, OWNER, auth
 
@@ -39,6 +40,10 @@ class FakeReporter:
         self.listings.append((shop_id, listed))
 
 
+async def no_bookings_to_cancel(shop_id, because="removed"):
+    pass
+
+
 @pytest.fixture
 def reporter():
     return FakeReporter()
@@ -60,6 +65,7 @@ async def client(tmp_path, reporter, monkeypatch):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_storage] = lambda: LocalDocumentStorage(str(tmp_path / "docs"))
     app.dependency_overrides[get_reporter] = lambda: reporter
+    app.dependency_overrides[get_shop_booking_canceller] = lambda: no_bookings_to_cancel
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()

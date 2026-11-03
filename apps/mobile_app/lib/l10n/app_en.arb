@@ -1539,7 +1539,7 @@
   "ownerCancelTitle": "Cancel this booking?",
   "ownerCancelBooking": "Cancel booking",
   "ownerRefundNote": "The customer is told and gets back anything paid online.",
-  "ownerReasonLabel": "Reason (for your own records)",
+  "ownerReasonLabel": "Reason (the customer will see this)",
   "ownerDefaultReason": "Not available at this time",
   "ownerCustomerArrived": "Customer arrived",
   "ownerGoMyself": "I will do this job",
@@ -1584,6 +1584,12 @@
   "modeSwitchToBooking": "Switch to booking services",
   "statusPendingHelp": "The shop has your request and needs to accept it. We'll notify you. If they don't reply in time, the request is cancelled.",
   "statusCancelledHelp": "Any refund due reaches your account in 5–7 working days.",
+  "cancelledBecause": "Reason: {reason}",
+  "@cancelledBecause": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
   "ownerNeedsYourAnswer": "Needs your answer",
   "ownerPaid": "Paid",
   "ownerNotPaid": "Not paid yet",

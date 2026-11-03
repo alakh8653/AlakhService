@@ -201,7 +201,10 @@ export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForRevie
             onDecided(updated);
           }}
         >
-          <p>The shop stays hidden from customers. The owner sees your reason and can fix it and submit again.</p>
+          <p>
+            The shop stays hidden from customers. Bookings that have not started are cancelled and refunded in full;
+            one being served right now can finish. The owner sees your reason and can fix it and submit again.
+          </p>
         </ConfirmDialog>
       )}
     </article>

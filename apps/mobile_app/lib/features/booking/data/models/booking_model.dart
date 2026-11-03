@@ -29,6 +29,7 @@ class BookingModel extends Booking {
     super.rescheduleCount,
     super.pointsDiscount,
     super.preferredStaffName,
+    super.cancellationReason,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -62,6 +63,7 @@ class BookingModel extends Booking {
       rescheduleCount: (json['reschedule_count'] as int?) ?? 0,
       pointsDiscount: ((json['points_discount'] as num?) ?? 0) / 100,
       preferredStaffName: json['preferred_staff_name'] as String?,
+      cancellationReason: json['cancellation_reason'] as String?,
     );
   }
 

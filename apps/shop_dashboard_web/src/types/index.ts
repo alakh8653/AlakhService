@@ -45,8 +45,33 @@ export interface Booking {
   /** The staff member the customer asked for (shop staff id and display name), if anyone. */
   preferredStaffId?: string | null;
   preferredStaffName?: string | null;
+  /** Extra charges the customer approved (minor units), and the request still waiting on them, if any. */
+  extrasCents?: number;
+  pendingQuoteId?: string | null;
+  /** A free fix: the earlier booking this one redoes at no cost (the shop's guarantee). */
+  reworkOf?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A line of extra charges the shop asks the customer to approve. */
+export interface ExtraItem {
+  description: string;
+  amountCents: number;
+}
+
+export type QuoteStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+/** Extra charges asked for during a job: they count only once the customer approves them. */
+export interface ExtrasQuote {
+  id: string;
+  bookingId: string;
+  status: QuoteStatus;
+  items: ExtraItem[];
+  totalCents: number;
+  note: string | null;
+  createdAt: string;
+  decidedAt: string | null;
 }
 
 export interface Service {
@@ -124,6 +149,9 @@ export interface Shop {
   ratingCount: number;
   isActive: boolean;
   isVerified: boolean;
+  verifiedAt?: string | null;
+  /** Days after a job in which the customer may ask for a free fix (0 to 90; 7 when not set). */
+  guaranteeDays?: number;
   createdAt: string;
   /** KYC review: a new shop is hidden from customers until approved. Missing on older responses. */
   verificationStatus?: VerificationStatus;

@@ -3,10 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MapPin, ExternalLink } from 'lucide-react';
+import { MapPin, ExternalLink, ShieldCheck } from 'lucide-react';
 import type { AppDispatch, RootState } from '../state/store';
 import { setShop } from '../state/authSlice';
 import { updateShop } from '../services/shopService';
+import { DEFAULT_GUARANTEE_DAYS, GUARANTEE_HELP, MAX_GUARANTEE_DAYS, guaranteeDaysField } from '../services/guarantee';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import { useToast } from '../components/Toast';
 import { SHOP_CATEGORIES } from '../services/categories';
@@ -31,6 +32,8 @@ const schema = z.object({
   // Where customers get directions to; both or neither.
   latitude: coordinate(90),
   longitude: coordinate(180),
+  // Free-fix guarantee: days after a job in which the customer may ask for a free fix.
+  guaranteeDays: guaranteeDaysField,
 }).refine((v) => (v.latitude === '') === (v.longitude === ''), {
   message: 'Enter both latitude and longitude, or neither',
   path: ['longitude'],
@@ -102,6 +105,7 @@ export default function SettingsPage() {
       email: shop.email ?? '',
       latitude: shop.latitude === null ? '' : String(shop.latitude),
       longitude: shop.longitude === null ? '' : String(shop.longitude),
+      guaranteeDays: String(shop.guaranteeDays ?? DEFAULT_GUARANTEE_DAYS),
     });
   }, [shop, reset]);
 
@@ -119,6 +123,7 @@ export default function SettingsPage() {
         email: values.email || null,
         latitude: values.latitude === '' ? null : Number(values.latitude),
         longitude: values.longitude === '' ? null : Number(values.longitude),
+        guarantee_days: Number(values.guaranteeDays),
       });
       dispatch(setShop(updated));
       toast('Shop details saved.');
@@ -212,6 +217,26 @@ export default function SettingsPage() {
               <span className="sr-only">(opens in a new tab)</span>
             </a>
           )}
+        </fieldset>
+        <fieldset className="border-t border-gray-100 pt-4">
+          <legend className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+            <ShieldCheck size={16} aria-hidden /> Service guarantee
+          </legend>
+          <label htmlFor="guaranteeDays" className="block text-sm text-gray-700 mt-2 mb-1">Free-fix guarantee (days)</label>
+          <input
+            id="guaranteeDays"
+            type="number"
+            min={0}
+            max={MAX_GUARANTEE_DAYS}
+            inputMode="numeric"
+            {...a11y('guaranteeDays')}
+            {...register('guaranteeDays')}
+            className={`${inputClass} max-w-32`}
+          />
+          {fieldError('guaranteeDays')}
+          <p className="text-xs text-gray-600 mt-1">
+            {GUARANTEE_HELP} Customers see it on your shop.
+          </p>
         </fieldset>
         <div className="flex items-center gap-3">
           <button type="submit" disabled={isSubmitting} className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">

@@ -96,9 +96,11 @@ class ShopUpdate(BaseModel):
     legal_name: Optional[str] = Field(default=None, max_length=200)
     legal_address: Optional[str] = Field(default=None, max_length=500)
     gstin: Optional[str] = None
+    # The free-fix period after a completed booking (0: none).
+    guarantee_days: Optional[int] = Field(default=None, ge=0, le=90)
 
     # Only for a value sent explicitly (defaults are not validated); null clears the other fields.
-    _required = field_validator("name", "category", "is_active")(not_null)
+    _required = field_validator("name", "category", "is_active", "guarantee_days")(not_null)
     _gstin = field_validator("gstin")(valid_gstin)
     _blank = field_validator("legal_name", "legal_address")(blank_to_none)
 
@@ -132,6 +134,9 @@ class ShopResponse(BaseModel):
     gstin: Optional[str] = None
     submitted_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
+    # Public: when the shop was approved (shown with the "Verified" badge), and its free-fix period.
+    verified_at: Optional[datetime] = None
+    guarantee_days: int = 7
 
     # What the apps show next to a shop ("4.6 (128)"), so lists need no extra call per shop.
     @computed_field

@@ -58,6 +58,10 @@ class Shop(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_by = Column(String, nullable=True)
+    # When an admin approved it (the "Verified" badge); cleared when it is rejected or sent back for review.
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    # Days after a completed booking in which the customer can ask for a free fix (rework), 0-90.
+    guarantee_days = Column(Integer, nullable=False, default=7, server_default="7")
 
 
 class ShopWorkPhoto(Base):

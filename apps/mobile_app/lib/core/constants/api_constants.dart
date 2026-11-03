@@ -49,6 +49,10 @@ class ApiConstants {
   static String bookingMessagesRead(String id) => '$bookings/$id/messages/read';
   static String bookingCall(String id) => '$bookings/$id/call';
   static const String assignedBookings = '$bookings/assigned';
+  // Customer trust: the free fix, sharing a visit, and SOS.
+  static String bookingRework(String id) => '$bookings/$id/rework';
+  static String bookingShare(String id) => '$bookings/$id/share';
+  static String bookingSos(String id) => '$bookings/$id/sos';
   static const String disputes = '$apiVersion/disputes';
   /// Bookable times of a service on a day (?service_id=&date=YYYY-MM-DD); public.
   static const String availability = '$apiVersion/availability';

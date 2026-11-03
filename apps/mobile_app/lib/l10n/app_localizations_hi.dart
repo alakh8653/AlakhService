@@ -3163,4 +3163,139 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get profilePhotoHidden => 'जाँच तक छिपी है';
+
+  @override
+  String get startCodeTitle => 'आपका शुरू करने का कोड';
+
+  @override
+  String get startCodeHelp =>
+      'यह कोड तभी बताएँ जब प्रोफ़ेशनल आपके पास पहुँच जाए';
+
+  @override
+  String get startJobTitle => 'काम शुरू करें';
+
+  @override
+  String get startCodeAsk =>
+      'ग्राहक से 4 अंकों का शुरू करने का कोड पूछें। इसके बिना काम शुरू नहीं होगा।';
+
+  @override
+  String get startCodeLabel => '4 अंकों का कोड';
+
+  @override
+  String get startCodeWrong => 'ग्राहक से 4 अंकों का शुरू करने का कोड पूछें';
+
+  @override
+  String get startCodeTooMany =>
+      'कई बार गलत कोड डाला गया। 15 मिनट रुककर फिर कोशिश करें।';
+
+  @override
+  String get startCodeStart => 'शुरू करें';
+
+  @override
+  String get guaranteeField => 'मुफ़्त सुधार की गारंटी (दिन)';
+
+  @override
+  String get guaranteeHelp =>
+      'काम के बाद कुछ गड़बड़ हो तो ग्राहक इतने दिनों में मुफ़्त सुधार माँग सकता है। 0 का मतलब कोई गारंटी नहीं।';
+
+  @override
+  String get guaranteeInvalid => '0 से 90 तक की संख्या डालें';
+
+  @override
+  String get guaranteeTitle => 'मुफ़्त सुधार की गारंटी';
+
+  @override
+  String get guaranteeSaved => 'गारंटी सेव हो गई';
+
+  @override
+  String guaranteeUntil(String date) {
+    return '$date तक मुफ़्त सुधार की गारंटी';
+  }
+
+  @override
+  String guaranteeEnded(String date) {
+    return 'मुफ़्त सुधार की गारंटी $date को खत्म हो गई';
+  }
+
+  @override
+  String get reworkRequest => 'मुफ़्त सुधार माँगें';
+
+  @override
+  String get reworkTitle => 'मुफ़्त सुधार का अनुरोध';
+
+  @override
+  String get reworkExplain =>
+      'दुकान को बताएँ कि क्या गड़बड़ हुई। वे वापस आकर बिना पैसे लिए ठीक करेंगे।';
+
+  @override
+  String get reworkReason => 'क्या गड़बड़ हुई?';
+
+  @override
+  String get reworkReasonShort => 'कम से कम 10 अक्षर लिखें';
+
+  @override
+  String get reworkPreferred => 'पसंद का समय (ज़रूरी नहीं)';
+
+  @override
+  String get reworkPickTime => 'समय चुनें';
+
+  @override
+  String get reworkSend => 'अनुरोध भेजें';
+
+  @override
+  String get reworkSent => 'मुफ़्त सुधार का अनुरोध दुकान को भेज दिया गया';
+
+  @override
+  String get reworkOpen => 'मुफ़्त सुधार वाली बुकिंग देखें';
+
+  @override
+  String get reworkOf => 'यह पिछली बुकिंग का मुफ़्त सुधार है';
+
+  @override
+  String get reworkOpenOriginal => 'पहली बुकिंग देखें';
+
+  @override
+  String get freeFixLabel => 'मुफ़्त सुधार';
+
+  @override
+  String get shareVisit => 'विज़िट की जानकारी शेयर करें';
+
+  @override
+  String shareVisitText(String url) {
+    return 'मेरी AlakhService विज़िट लाइव देखें: $url';
+  }
+
+  @override
+  String get shareVisitFailed => 'शेयर लिंक नहीं बन सका। फिर से कोशिश करें।';
+
+  @override
+  String get sosButton => 'SOS';
+
+  @override
+  String get sosTitle => 'SOS अलर्ट भेजें?';
+
+  @override
+  String get sosBody =>
+      'हमारी सुरक्षा टीम को तुरंत अलर्ट मिलेगा, और हो सके तो आपकी लोकेशन भी। इसे सिर्फ़ आपात स्थिति में इस्तेमाल करें।';
+
+  @override
+  String get sosSend => 'SOS भेजें';
+
+  @override
+  String get sosSent => 'हमारी सुरक्षा टीम को अलर्ट भेज दिया गया है।';
+
+  @override
+  String get sosFailed =>
+      'हम अपनी टीम को अलर्ट नहीं भेज सके। अगर आप खतरे में हैं तो अभी 112 पर कॉल करें।';
+
+  @override
+  String sosCall(String number) {
+    return '$number पर कॉल करें';
+  }
+
+  @override
+  String get close => 'बंद करें';
+
+  @override
+  String get verified => 'सत्यापित';
 }

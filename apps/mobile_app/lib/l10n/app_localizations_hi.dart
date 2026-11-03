@@ -2247,7 +2247,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerAreaYouServe => 'आपका कार्य क्षेत्र (वैकल्पिक)';
 
   @override
-  String get ownerPhone => 'ग्राहकों के लिए फ़ोन नंबर';
+  String get ownerPhone =>
+      'दुकान का फ़ोन (केवल Alakh सहायता के लिए; ग्राहकों को नहीं दिखता)';
 
   @override
   String get ownerUseLocation => 'मेरी मौजूदा लोकेशन लें';

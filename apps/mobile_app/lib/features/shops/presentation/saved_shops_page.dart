@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/errors/exceptions.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
@@ -110,6 +111,49 @@ class _SavedShopsPageState extends State<SavedShopsPage> {
 }
 
 /// What a saved shop offers now; each opens the service, to book it.
+/// Where a link its owner shared lands: the business's services, once its name is known. A business that
+/// has gone, or is not public, says so rather than showing an empty page.
+class SharedShopPage extends StatefulWidget {
+  final String shopId;
+  final SavedShopsApi? api;
+
+  const SharedShopPage({super.key, required this.shopId, this.api});
+
+  @override
+  State<SharedShopPage> createState() => _SharedShopPageState();
+}
+
+class _SharedShopPageState extends State<SharedShopPage> {
+  late final SavedShopsApi _api = widget.api ?? sl<SavedShopsApi>();
+  SavedShop? _shop;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final shop = await _api.shop(widget.shopId);
+      if (mounted) setState(() => _shop = shop);
+    } on ServerException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shop = _shop;
+    if (shop != null) return ShopServicesPage(shop: shop, api: _api);
+    return Scaffold(
+      appBar: AppBar(),
+      body: _error == null ? const LoadingIndicator() : Center(child: Text(_error!, textAlign: TextAlign.center)),
+    );
+  }
+}
+
 class ShopServicesPage extends StatefulWidget {
   final SavedShop shop;
   final SavedShopsApi? api;

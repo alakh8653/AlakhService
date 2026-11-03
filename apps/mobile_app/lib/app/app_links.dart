@@ -20,6 +20,22 @@ class BookingTarget extends AppTarget {
   String toString() => 'BookingTarget($bookingId, chat: $chat)';
 }
 
+/// A business's page, from the link its owner shared.
+class ShopTarget extends AppTarget {
+  final String shopId;
+
+  const ShopTarget(this.shopId);
+
+  @override
+  bool operator ==(Object other) => other is ShopTarget && other.shopId == shopId;
+
+  @override
+  int get hashCode => shopId.hashCode;
+
+  @override
+  String toString() => 'ShopTarget($shopId)';
+}
+
 /// Choosing a new password with an emailed reset token.
 class ResetPasswordTarget extends AppTarget {
   final String token;
@@ -42,7 +58,7 @@ class ResetPasswordTarget extends AppTarget {
 /// placeholder below. PLACEHOLDER: replace before release.
 const String appLinkDomain = String.fromEnvironment('APP_LINK_DOMAIN', defaultValue: 'alakhservice.in');
 
-/// What an app link opens: https://{domain}/b/{booking_id} or /reset-password?token=...
+/// What an app link opens: https://{domain}/b/{booking_id}, /s/{shop_id} or /reset-password?token=...
 /// Other hosts (the OS only hands the app verified ones) and unknown paths give null.
 AppTarget? parseAppLink(Uri uri) {
   if (uri.scheme != 'https' && uri.scheme != 'http') return null;
@@ -50,6 +66,7 @@ AppTarget? parseAppLink(Uri uri) {
   if (host != appLinkDomain && host != 'www.$appLinkDomain') return null;
   final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
   if (segments.length == 2 && segments[0] == 'b' && _isId(segments[1])) return BookingTarget(segments[1]);
+  if (segments.length == 2 && segments[0] == 's' && _isId(segments[1])) return ShopTarget(segments[1]);
   if (segments.length == 1 && segments[0] == 'reset-password') {
     final token = uri.queryParameters['token'];
     if (token != null && token.isNotEmpty) return ResetPasswordTarget(token);

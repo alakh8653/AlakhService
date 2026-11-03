@@ -43,6 +43,16 @@ class SavedShopsApi {
 
   SavedShopsApi(this.apiClient);
 
+  /// One business, to open from a link its owner shared.
+  Future<SavedShop> shop(String shopId) async {
+    try {
+      final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.shop(shopId));
+      return SavedShop.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   Future<List<SavedShop>> list() async {
     try {
       final response = await apiClient.get<List<dynamic>>(ApiConstants.favoriteShops);

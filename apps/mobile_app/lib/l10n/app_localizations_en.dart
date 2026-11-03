@@ -2972,4 +2972,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryOther => 'Other';
+
+  @override
+  String get ownerDaysOff => 'Days off';
+
+  @override
+  String get ownerDaysOffHelp =>
+      'Customers can\'t book on these days. Bookings you already have stay, so please cancel or move those yourself.';
+
+  @override
+  String get ownerOffToday => 'Off today';
+
+  @override
+  String get ownerOffTomorrow => 'Off tomorrow';
+
+  @override
+  String get ownerOffPick => 'Choose a date';
+
+  @override
+  String get ownerNoDaysOff => 'No days off coming up.';
+
+  @override
+  String get ownerReviews => 'Customer reviews';
+
+  @override
+  String get ownerNoReviews =>
+      'No reviews yet. They appear here after customers rate a finished job.';
+
+  @override
+  String get ownerReply => 'Reply';
+
+  @override
+  String get ownerEditReply => 'Edit reply';
+
+  @override
+  String get ownerReplyHelp => 'Everyone can read your reply.';
+
+  @override
+  String get ownerCustomers => 'My customers';
+
+  @override
+  String get ownerNoCustomers =>
+      'Customers appear here after their first finished booking.';
+
+  @override
+  String ownerCustomersSummary(int total, int back) {
+    return '$total customers, $back came back';
+  }
+
+  @override
+  String ownerCustomerLine(int visits, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      visits,
+      locale: localeName,
+      other: '$visits visits',
+      one: '1 visit',
+    );
+    return '$_temp0, last on $date';
+  }
+
+  @override
+  String get ownerShare => 'Share my business';
+
+  @override
+  String get ownerShareHelp =>
+      'Send this to your customers and groups. They can book you directly from the link.';
+
+  @override
+  String ownerShareMessage(String name, String link) {
+    return 'Book $name on AlakhService: $link';
+  }
+
+  @override
+  String get ownerShareWhatsApp => 'Share on WhatsApp';
+
+  @override
+  String get ownerShareCopy => 'Copy message';
+
+  @override
+  String get ownerShareCopied => 'Copied. You can paste it anywhere.';
+
+  @override
+  String get ownerShareFailed =>
+      'Could not open WhatsApp. Use Copy message instead.';
+
+  @override
+  String get ownerShareNotYet =>
+      'You can share your link once your business is approved.';
 }

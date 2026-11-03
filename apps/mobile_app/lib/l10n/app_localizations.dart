@@ -5251,6 +5251,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other'**
   String get entryOther;
+
+  /// No description provided for @ownerDaysOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Days off'**
+  String get ownerDaysOff;
+
+  /// No description provided for @ownerDaysOffHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers can\'t book on these days. Bookings you already have stay, so please cancel or move those yourself.'**
+  String get ownerDaysOffHelp;
+
+  /// No description provided for @ownerOffToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get ownerOffToday;
+
+  /// No description provided for @ownerOffTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Off tomorrow'**
+  String get ownerOffTomorrow;
+
+  /// No description provided for @ownerOffPick.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a date'**
+  String get ownerOffPick;
+
+  /// No description provided for @ownerNoDaysOff.
+  ///
+  /// In en, this message translates to:
+  /// **'No days off coming up.'**
+  String get ownerNoDaysOff;
+
+  /// No description provided for @ownerReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer reviews'**
+  String get ownerReviews;
+
+  /// No description provided for @ownerNoReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'No reviews yet. They appear here after customers rate a finished job.'**
+  String get ownerNoReviews;
+
+  /// No description provided for @ownerReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get ownerReply;
+
+  /// No description provided for @ownerEditReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit reply'**
+  String get ownerEditReply;
+
+  /// No description provided for @ownerReplyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone can read your reply.'**
+  String get ownerReplyHelp;
+
+  /// No description provided for @ownerCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'My customers'**
+  String get ownerCustomers;
+
+  /// No description provided for @ownerNoCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers appear here after their first finished booking.'**
+  String get ownerNoCustomers;
+
+  /// No description provided for @ownerCustomersSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} customers, {back} came back'**
+  String ownerCustomersSummary(int total, int back);
+
+  /// No description provided for @ownerCustomerLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{visits, plural, =1{1 visit} other{{visits} visits}}, last on {date}'**
+  String ownerCustomerLine(int visits, String date);
+
+  /// No description provided for @ownerShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my business'**
+  String get ownerShare;
+
+  /// No description provided for @ownerShareHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this to your customers and groups. They can book you directly from the link.'**
+  String get ownerShareHelp;
+
+  /// No description provided for @ownerShareMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Book {name} on AlakhService: {link}'**
+  String ownerShareMessage(String name, String link);
+
+  /// No description provided for @ownerShareWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Share on WhatsApp'**
+  String get ownerShareWhatsApp;
+
+  /// No description provided for @ownerShareCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy message'**
+  String get ownerShareCopy;
+
+  /// No description provided for @ownerShareCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied. You can paste it anywhere.'**
+  String get ownerShareCopied;
+
+  /// No description provided for @ownerShareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open WhatsApp. Use Copy message instead.'**
+  String get ownerShareFailed;
+
+  /// No description provided for @ownerShareNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'You can share your link once your business is approved.'**
+  String get ownerShareNotYet;
 }
 
 class _AppLocalizationsDelegate

@@ -19,6 +19,10 @@
 		rewrite * /open-app.html
 		file_server
 	}
+	handle /s/* {
+		rewrite * /open-app.html
+		file_server
+	}
 	handle /reset-password* {
 		rewrite * /reset-password.html
 		file_server

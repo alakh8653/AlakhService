@@ -217,6 +217,23 @@ class ChecklistItem {
       );
 }
 
+/// Someone served by this business, by display name only.
+class ShopCustomer {
+  final String name;
+  final int visits;
+  final double spent;
+  final DateTime lastVisit;
+
+  const ShopCustomer({required this.name, required this.visits, required this.spent, required this.lastVisit});
+
+  factory ShopCustomer.fromJson(Map<String, dynamic> j) => ShopCustomer(
+        name: j['name'] as String,
+        visits: (j['visits'] as num).toInt(),
+        spent: (j['spent'] as num).toDouble(),
+        lastVisit: DateTime.parse(j['last_visit'] as String).toLocal(),
+      );
+}
+
 /// One day's, or for a year one month's, figures in a report.
 class ReportLine {
   final String label;
@@ -616,6 +633,34 @@ class ShopOwnerApi {
         final response =
             await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/submit-for-review');
         return OwnerShop.fromJson(response.data!);
+      });
+
+  // Days off, reviews and customers
+
+  Future<List<DateTime>> daysOff(String shopId) => _call(() async {
+        final data = (await apiClient.get<Map<String, dynamic>>(ApiConstants.shopHours(shopId))).data!;
+        return ((data['holidays'] as List<dynamic>?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((h) => DateTime.parse(h['date'] as String))
+            .toList()
+          ..sort();
+      });
+
+  Future<void> addDayOff(String shopId, String day) => _call(() async {
+        await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/holidays', data: {'date': day});
+      });
+
+  Future<void> removeDayOff(String shopId, String day) => _call(() async {
+        await apiClient.delete<void>('${ApiConstants.shop(shopId)}/holidays/$day');
+      });
+
+  Future<void> replyToReview(String shopId, String reviewId, String text) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/reviews/$reviewId/reply', data: {'text': text});
+      });
+
+  Future<List<ShopCustomer>> customers(String shopId) => _call(() async {
+        final data = (await apiClient.get<List<dynamic>>('${ApiConstants.bookings}/shop/$shopId/customers')).data!;
+        return data.cast<Map<String, dynamic>>().map(ShopCustomer.fromJson).toList();
       });
 
   // Reports

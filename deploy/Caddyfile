@@ -160,6 +160,11 @@ shop.{$DOMAIN} {
 		rewrite * /open-app.html
 		file_server
 	}
+	handle /s/* {
+		header Cache-Control "no-cache"
+		rewrite * /open-app.html
+		file_server
+	}
 	handle /reset-password* {
 		# The token is in the query string: never cache this page.
 		header Cache-Control "no-store"

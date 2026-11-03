@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../shared/service_types.dart';
 import '../../../../shared/utils/format.dart';
 import '../../../../shared/widgets/service_card.dart';
 import '../../../auth/domain/entities/user.dart';
@@ -15,11 +16,15 @@ import '../../../services/domain/entities/service_entity.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
 import '../../../../l10n/l10n.dart';
+import 'all_services_page.dart';
 import 'home_widgets.dart';
 
 class HomePage extends StatefulWidget {
   final User user;
   final ValueChanged<String> onSearch;
+
+  /// Shows the providers of a type of service.
+  final ValueChanged<ServiceType>? onOpenType;
 
   /// Opens the notifications; the unread badge is refreshed when it completes.
   final Future<void> Function() onOpenNotifications;
@@ -32,6 +37,7 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.user,
     required this.onSearch,
+    this.onOpenType,
     required this.onOpenNotifications,
     required this.onOpenBookings,
     this.serviceRepository,
@@ -44,24 +50,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Everyday needs: visits (salon, parlour, doctor, offices), repairs with pickup & drop, and home services.
-  static const List<_ServiceCategory> _categories = [
-    // The query is in English whatever the app's language, as the catalogue is.
-    _ServiceCategory(icon: Icons.content_cut, label: _haircut, query: 'Haircut'),
-    _ServiceCategory(icon: Icons.face_retouching_natural, label: _beauty, query: 'Beauty'),
-    _ServiceCategory(icon: Icons.medical_services, label: _doctor, query: 'Doctor'),
-    _ServiceCategory(icon: Icons.event_available, label: _office, query: 'Appointment'),
-    _ServiceCategory(icon: Icons.car_repair, label: _car, query: 'Car'),
-    _ServiceCategory(icon: Icons.two_wheeler, label: _bike, query: 'Bike'),
-    _ServiceCategory(icon: Icons.devices, label: _devices, query: 'Repair'),
-    _ServiceCategory(icon: Icons.ac_unit, label: _ac, query: 'AC'),
-    _ServiceCategory(icon: Icons.cleaning_services, label: _cleaning, query: 'Cleaning'),
-    _ServiceCategory(icon: Icons.plumbing, label: _plumbing, query: 'Plumbing'),
-    _ServiceCategory(icon: Icons.electrical_services, label: _electrical, query: 'Electrical'),
-    _ServiceCategory(icon: Icons.carpenter, label: _carpentry, query: 'Carpentry'),
-    _ServiceCategory(icon: Icons.pest_control, label: _pest, query: 'Pest Control'),
-    _ServiceCategory(icon: Icons.handyman, label: _handyman, query: 'Handyman'),
-  ];
+  void _openType(ServiceType type) {
+    final open = widget.onOpenType;
+    open != null ? open(type) : widget.onSearch(type.label(context.l10n));
+  }
 
   late Future<List<ServiceEntity>> _popular;
   // The customer's soonest booking that is still ahead or under way, if any.
@@ -241,10 +233,21 @@ class _HomePageState extends State<HomePage> {
             crossAxisSpacing: 8,
             mainAxisExtent: 88 + 18 * scale,
           ),
-          itemCount: _categories.length,
+          itemCount: homeServiceTypeIds.length + 1,
           itemBuilder: (context, index) {
-            final cat = _categories[index];
-            return ServiceCategoryCard(icon: cat.icon, label: cat.label(context.l10n), onTap: () => widget.onSearch(cat.query));
+            if (index == homeServiceTypeIds.length) {
+              return ServiceCategoryCard(
+                key: const ValueKey('all-services'),
+                icon: Icons.apps,
+                label: context.l10n.allServices,
+                onTap: () => Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(builder: (_) => AllServicesPage(onPick: _openType)),
+                ),
+              );
+            }
+            final type = serviceTypeById(homeServiceTypeIds[index])!;
+            return ServiceCategoryCard(icon: type.icon, label: type.label(context.l10n), onTap: () => _openType(type));
           },
         );
       },
@@ -296,28 +299,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-class _ServiceCategory {
-  final IconData icon;
-  final String Function(AppLocalizations) label;
-
-  /// What tapping it searches for.
-  final String query;
-
-  const _ServiceCategory({required this.icon, required this.label, required this.query});
-}
-
-String _haircut(AppLocalizations l) => l.catHaircut;
-String _beauty(AppLocalizations l) => l.catBeauty;
-String _doctor(AppLocalizations l) => l.catDoctor;
-String _office(AppLocalizations l) => l.catOffice;
-String _car(AppLocalizations l) => l.catCar;
-String _bike(AppLocalizations l) => l.catBike;
-String _devices(AppLocalizations l) => l.catDevices;
-String _ac(AppLocalizations l) => l.catAc;
-String _cleaning(AppLocalizations l) => l.catCleaning;
-String _plumbing(AppLocalizations l) => l.catPlumbing;
-String _electrical(AppLocalizations l) => l.catElectrical;
-String _carpentry(AppLocalizations l) => l.catCarpentry;
-String _pest(AppLocalizations l) => l.catPest;
-String _handyman(AppLocalizations l) => l.catHandyman;

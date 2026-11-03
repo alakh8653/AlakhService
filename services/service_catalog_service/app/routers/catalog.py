@@ -8,9 +8,11 @@ from app.core.exceptions import ServiceListingNotFoundError
 from app.database import get_db
 from app.dependencies import (
     Caller,
+    CategoryLookup,
     ListedLookup,
     OwnerLookup,
     ensure_shop_owner,
+    get_shop_category_lookup,
     get_shop_listed_lookup,
     get_shop_owner_lookup,
     require_admin,
@@ -45,10 +47,11 @@ async def list_services(
     limit: int = Query(20, ge=1, le=200),
     shop_id: Optional[str] = None,
     include_inactive: bool = False,
+    category: Optional[str] = None,
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await catalog_service.list_services(
-        db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive
+        db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive, category=category
     )
 
 
@@ -59,9 +62,12 @@ async def create_service(
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_listed: ListedLookup = Depends(get_shop_listed_lookup),
+    lookup_category: CategoryLookup = Depends(get_shop_category_lookup),
 ):
     await ensure_shop_owner(data.shop_id, caller, lookup_owner)
-    return await catalog_service.create_service(db, data, shop_listed=await lookup_listed(data.shop_id))
+    return await catalog_service.create_service(
+        db, data, shop_listed=await lookup_listed(data.shop_id), shop_category=await lookup_category(data.shop_id)
+    )
 
 
 @router.get("/services/search", response_model=List[ServiceListingResponse])
@@ -100,6 +106,7 @@ async def update_service(
 
 class ShopListing(BaseModel):
     listed: bool
+    category: Optional[str] = None
 
 
 internal_router = APIRouter(dependencies=[Depends(require_internal)])
@@ -107,7 +114,9 @@ internal_router = APIRouter(dependencies=[Depends(require_internal)])
 
 @internal_router.post("/internal/shops/{shop_id}/listing")
 async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = Depends(get_db, scope="function")):
-    """shop_service: the shop was approved, rejected, or switched on or off."""
+    """shop_service: the shop was approved, rejected, or switched on or off, or changed its type of work."""
+    if data.category:
+        await catalog_service.set_shop_category(db, shop_id, data.category)
     return {
         "shop_id": shop_id,
         "listed": data.listed,

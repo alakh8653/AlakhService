@@ -92,12 +92,15 @@ class Reporter:
             "notify",
         )
 
-    async def sync_listing(self, shop_id: str, listed: bool) -> None:
-        """Customers see a shop's services only while it is approved and switched on."""
+    async def sync_listing(self, shop_id: str, listed: bool, category: Optional[str] = None) -> None:
+        """Customers see a shop's services only while it is approved and switched on, under its type of work."""
         if not self.catalog_url:
             return
         await self._post(
-            self.catalog_url, f"/internal/shops/{path_segment(shop_id)}/listing", {"listed": listed}, "listing"
+            self.catalog_url,
+            f"/internal/shops/{path_segment(shop_id)}/listing",
+            {"listed": listed, **({"category": category} if category else {})},
+            "listing",
         )
 
 

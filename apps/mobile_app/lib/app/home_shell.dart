@@ -18,6 +18,7 @@ import '../features/shop_owner/data/shop_owner_api.dart';
 import '../features/shop_owner/presentation/owner_home_page.dart';
 import '../features/shop_owner/presentation/shop_setup_page.dart';
 import '../l10n/l10n.dart';
+import '../shared/service_types.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 import 'shell_navigation.dart';
 
@@ -133,12 +134,14 @@ class _HomeShellState extends State<HomeShell> {
   HomeTab get _firstTab => _inBusiness ? HomeTab.shop : HomeTab.home;
   List<HomeTab> get _tabs => visibleTabs(businessMode: _businessMode, ownsShop: _shop != null, hasJobs: _showJobs);
   String? _serviceQuery;
+  ServiceType? _serviceType;
   // Bumped on every visit so a tab reloads its data when shown again.
   int _visit = 0;
 
-  void _select(HomeTab tab, {String? query}) => setState(() {
+  void _select(HomeTab tab, {String? query, ServiceType? type}) => setState(() {
         _tab = tab;
         _serviceQuery = query;
+        _serviceType = type;
         _visit++;
       });
 
@@ -151,6 +154,7 @@ class _HomeShellState extends State<HomeShell> {
         return HomePage(
           user: widget.user,
           onSearch: (query) => _select(HomeTab.services, query: query),
+          onOpenType: (type) => _select(HomeTab.services, type: type),
           onOpenNotifications: _openNotifications,
           onOpenBookings: () => _select(HomeTab.bookings),
         );
@@ -158,7 +162,7 @@ class _HomeShellState extends State<HomeShell> {
         return BlocProvider<ServiceBloc>(
           key: ValueKey('services-$_visit'),
           create: (_) => sl<ServiceBloc>(),
-          child: ServiceListPage(initialQuery: _serviceQuery),
+          child: ServiceListPage(initialQuery: _serviceQuery, type: _serviceType),
         );
       case HomeTab.bookings:
         return BlocProvider<BookingBloc>(

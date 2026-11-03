@@ -52,12 +52,17 @@ class CatalogService:
         return list(result.scalars().all())
 
     async def create_service(
-        self, db: AsyncSession, data: ServiceListingCreate, shop_listed: bool = True
+        self,
+        db: AsyncSession,
+        data: ServiceListingCreate,
+        shop_listed: bool = True,
+        shop_category: Optional[str] = None,
     ) -> ServiceListing:
         service = ServiceListing(
             id=str(uuid.uuid4()),
             category_id=data.category_id,
             shop_id=data.shop_id,
+            shop_category=shop_category,
             name=data.name,
             description=data.description,
             price_cents=data.price_cents,
@@ -91,6 +96,7 @@ class CatalogService:
         limit: int = 20,
         shop_id: Optional[str] = None,
         include_inactive: bool = False,
+        category: Optional[str] = None,
     ) -> List[ServiceListing]:
         query = select(ServiceListing)
         if shop_id:
@@ -100,6 +106,8 @@ class CatalogService:
             query = query.where(ServiceListing.shop_listed == True)
         if not include_inactive:
             query = query.where(ServiceListing.is_active == True)
+        if category:
+            query = query.where(ServiceListing.shop_category == category)
         result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
@@ -118,7 +126,7 @@ class CatalogService:
     ) -> List[ServiceListing]:
         base = select(ServiceListing).where(ServiceListing.is_active == True, ServiceListing.shop_listed == True)
         if category:
-            base = base.where(ServiceListing.category_id == category)
+            base = base.where(or_(ServiceListing.shop_category == category, ServiceListing.category_id == category))
         if q:
             await self._ensure_index(db)
             # Only listings that contain a query term, best match first.
@@ -149,6 +157,14 @@ class CatalogService:
         _index_listing(service)
         log.info("service_updated", service_id=service_id)
         return service
+
+    async def set_shop_category(self, db: AsyncSession, shop_id: str, category: str) -> None:
+        """Files every service of a shop under its type of work."""
+        await db.execute(
+            update(ServiceListing)
+            .where(ServiceListing.shop_id == shop_id, ServiceListing.shop_category.is_distinct_from(category))
+            .values(shop_category=category)
+        )
 
     async def set_shop_listed(self, db: AsyncSession, shop_id: str, listed: bool) -> int:
         """Shows or hides every service of a shop in browsing and search. Returns how many changed."""

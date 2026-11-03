@@ -25,7 +25,12 @@ async def test_customers_never_get_a_shops_phone_or_email(client):  # noqa: F811
     shop_id = created.json()["id"]
     await approve(client, shop_id)
 
-    for headers in ({}, OTHER, {"Authorization": "Bearer not-a-token"}):
+    # A bad token gets nothing at all, so no contact details either.
+    assert (
+        await client.get(f"/api/v1/shops/{shop_id}", headers={"Authorization": "Bearer not-a-token"})
+    ).status_code == 401
+
+    for headers in ({}, OTHER):
         one = (await client.get(f"/api/v1/shops/{shop_id}", headers=headers)).json()
         listed = (await client.get("/api/v1/shops", headers=headers)).json()
         found = (await client.get("/api/v1/shops/search", params={"city": "Pune"}, headers=headers)).json()

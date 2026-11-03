@@ -2639,4 +2639,120 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ownerSubmittedTitle => 'Sent for verification';
+
+  @override
+  String get allServices => 'All services';
+
+  @override
+  String get ownerTapToAdd => 'Tap to add, or type your own:';
+
+  @override
+  String servicesShowingType(String type) {
+    return 'Showing: $type';
+  }
+
+  @override
+  String get groupBeauty => 'Beauty and grooming';
+
+  @override
+  String get groupHealth => 'Health and care';
+
+  @override
+  String get groupHomeRepairs => 'Home repairs';
+
+  @override
+  String get groupHomeHelp => 'Home help';
+
+  @override
+  String get groupVehicles => 'Vehicles';
+
+  @override
+  String get groupLearning => 'Learning and fitness';
+
+  @override
+  String get groupEvents => 'Events and functions';
+
+  @override
+  String get groupOther => 'Other services';
+
+  @override
+  String get typeMehndi => 'Mehndi artist';
+
+  @override
+  String get typeTailoring => 'Tailor';
+
+  @override
+  String get typeDentist => 'Dentist';
+
+  @override
+  String get typePhysiotherapy => 'Physiotherapy';
+
+  @override
+  String get typeHomeNursing => 'Nurse at home';
+
+  @override
+  String get typeLabTests => 'Lab tests';
+
+  @override
+  String get typePetCare => 'Pet care and vet';
+
+  @override
+  String get typeCarpentry => 'Carpenter';
+
+  @override
+  String get typeWaterPurifier => 'RO and water purifier';
+
+  @override
+  String get typePainting => 'Painter';
+
+  @override
+  String get typePestControl => 'Pest control';
+
+  @override
+  String get typeDomesticHelp => 'House help';
+
+  @override
+  String get typeCook => 'Cook';
+
+  @override
+  String get typeCareGiver => 'Elder and baby care';
+
+  @override
+  String get typeLaundry => 'Laundry and ironing';
+
+  @override
+  String get typeGardening => 'Gardener';
+
+  @override
+  String get typePackersMovers => 'Packers and movers';
+
+  @override
+  String get typeCarWash => 'Car and bike wash';
+
+  @override
+  String get typeDriver => 'Driver';
+
+  @override
+  String get typeTutor => 'Tutor';
+
+  @override
+  String get typeFitness => 'Yoga and fitness';
+
+  @override
+  String get typeMusicDance => 'Music and dance classes';
+
+  @override
+  String get typePhotography => 'Photographer';
+
+  @override
+  String get typeCatering => 'Caterer';
+
+  @override
+  String get typeEventDecor => 'Decorator';
+
+  @override
+  String get typePriest => 'Pandit and puja';
+
+  @override
+  String get typeTaxLegal => 'Tax and legal help';
 }

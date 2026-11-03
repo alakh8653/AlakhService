@@ -2620,4 +2620,120 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get ownerSubmittedTitle => 'सत्यापन के लिए भेज दिया';
+
+  @override
+  String get allServices => 'सभी सेवाएँ';
+
+  @override
+  String get ownerTapToAdd => 'जोड़ने के लिए छुएँ, या खुद लिखें:';
+
+  @override
+  String servicesShowingType(String type) {
+    return 'दिखा रहे हैं: $type';
+  }
+
+  @override
+  String get groupBeauty => 'सौंदर्य और ग्रूमिंग';
+
+  @override
+  String get groupHealth => 'स्वास्थ्य और देखभाल';
+
+  @override
+  String get groupHomeRepairs => 'घर की मरम्मत';
+
+  @override
+  String get groupHomeHelp => 'घर के काम में मदद';
+
+  @override
+  String get groupVehicles => 'गाड़ियाँ';
+
+  @override
+  String get groupLearning => 'पढ़ाई और फ़िटनेस';
+
+  @override
+  String get groupEvents => 'कार्यक्रम और समारोह';
+
+  @override
+  String get groupOther => 'अन्य सेवाएँ';
+
+  @override
+  String get typeMehndi => 'मेहंदी कलाकार';
+
+  @override
+  String get typeTailoring => 'दर्ज़ी';
+
+  @override
+  String get typeDentist => 'दाँतों के डॉक्टर';
+
+  @override
+  String get typePhysiotherapy => 'फ़िज़ियोथेरेपी';
+
+  @override
+  String get typeHomeNursing => 'घर पर नर्स';
+
+  @override
+  String get typeLabTests => 'लैब जाँच';
+
+  @override
+  String get typePetCare => 'पालतू जानवरों की देखभाल';
+
+  @override
+  String get typeCarpentry => 'बढ़ई';
+
+  @override
+  String get typeWaterPurifier => 'RO और वॉटर प्यूरीफ़ायर';
+
+  @override
+  String get typePainting => 'पेंटर';
+
+  @override
+  String get typePestControl => 'कीट नियंत्रण';
+
+  @override
+  String get typeDomesticHelp => 'घरेलू सहायक';
+
+  @override
+  String get typeCook => 'रसोइया';
+
+  @override
+  String get typeCareGiver => 'बुज़ुर्ग और बच्चों की देखभाल';
+
+  @override
+  String get typeLaundry => 'कपड़े धोना और इस्त्री';
+
+  @override
+  String get typeGardening => 'माली';
+
+  @override
+  String get typePackersMovers => 'पैकर्स और मूवर्स';
+
+  @override
+  String get typeCarWash => 'कार और बाइक धुलाई';
+
+  @override
+  String get typeDriver => 'ड्राइवर';
+
+  @override
+  String get typeTutor => 'ट्यूटर';
+
+  @override
+  String get typeFitness => 'योग और फ़िटनेस';
+
+  @override
+  String get typeMusicDance => 'संगीत और नृत्य कक्षाएँ';
+
+  @override
+  String get typePhotography => 'फ़ोटोग्राफ़र';
+
+  @override
+  String get typeCatering => 'कैटरर';
+
+  @override
+  String get typeEventDecor => 'डेकोरेटर';
+
+  @override
+  String get typePriest => 'पंडित और पूजा';
+
+  @override
+  String get typeTaxLegal => 'टैक्स और कानूनी मदद';
 }

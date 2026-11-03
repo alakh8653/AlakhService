@@ -4639,6 +4639,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sent for verification'**
   String get ownerSubmittedTitle;
+
+  /// No description provided for @allServices.
+  ///
+  /// In en, this message translates to:
+  /// **'All services'**
+  String get allServices;
+
+  /// No description provided for @ownerTapToAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to add, or type your own:'**
+  String get ownerTapToAdd;
+
+  /// No description provided for @servicesShowingType.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing: {type}'**
+  String servicesShowingType(String type);
+
+  /// No description provided for @groupBeauty.
+  ///
+  /// In en, this message translates to:
+  /// **'Beauty and grooming'**
+  String get groupBeauty;
+
+  /// No description provided for @groupHealth.
+  ///
+  /// In en, this message translates to:
+  /// **'Health and care'**
+  String get groupHealth;
+
+  /// No description provided for @groupHomeRepairs.
+  ///
+  /// In en, this message translates to:
+  /// **'Home repairs'**
+  String get groupHomeRepairs;
+
+  /// No description provided for @groupHomeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Home help'**
+  String get groupHomeHelp;
+
+  /// No description provided for @groupVehicles.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicles'**
+  String get groupVehicles;
+
+  /// No description provided for @groupLearning.
+  ///
+  /// In en, this message translates to:
+  /// **'Learning and fitness'**
+  String get groupLearning;
+
+  /// No description provided for @groupEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'Events and functions'**
+  String get groupEvents;
+
+  /// No description provided for @groupOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other services'**
+  String get groupOther;
+
+  /// No description provided for @typeMehndi.
+  ///
+  /// In en, this message translates to:
+  /// **'Mehndi artist'**
+  String get typeMehndi;
+
+  /// No description provided for @typeTailoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Tailor'**
+  String get typeTailoring;
+
+  /// No description provided for @typeDentist.
+  ///
+  /// In en, this message translates to:
+  /// **'Dentist'**
+  String get typeDentist;
+
+  /// No description provided for @typePhysiotherapy.
+  ///
+  /// In en, this message translates to:
+  /// **'Physiotherapy'**
+  String get typePhysiotherapy;
+
+  /// No description provided for @typeHomeNursing.
+  ///
+  /// In en, this message translates to:
+  /// **'Nurse at home'**
+  String get typeHomeNursing;
+
+  /// No description provided for @typeLabTests.
+  ///
+  /// In en, this message translates to:
+  /// **'Lab tests'**
+  String get typeLabTests;
+
+  /// No description provided for @typePetCare.
+  ///
+  /// In en, this message translates to:
+  /// **'Pet care and vet'**
+  String get typePetCare;
+
+  /// No description provided for @typeCarpentry.
+  ///
+  /// In en, this message translates to:
+  /// **'Carpenter'**
+  String get typeCarpentry;
+
+  /// No description provided for @typeWaterPurifier.
+  ///
+  /// In en, this message translates to:
+  /// **'RO and water purifier'**
+  String get typeWaterPurifier;
+
+  /// No description provided for @typePainting.
+  ///
+  /// In en, this message translates to:
+  /// **'Painter'**
+  String get typePainting;
+
+  /// No description provided for @typePestControl.
+  ///
+  /// In en, this message translates to:
+  /// **'Pest control'**
+  String get typePestControl;
+
+  /// No description provided for @typeDomesticHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'House help'**
+  String get typeDomesticHelp;
+
+  /// No description provided for @typeCook.
+  ///
+  /// In en, this message translates to:
+  /// **'Cook'**
+  String get typeCook;
+
+  /// No description provided for @typeCareGiver.
+  ///
+  /// In en, this message translates to:
+  /// **'Elder and baby care'**
+  String get typeCareGiver;
+
+  /// No description provided for @typeLaundry.
+  ///
+  /// In en, this message translates to:
+  /// **'Laundry and ironing'**
+  String get typeLaundry;
+
+  /// No description provided for @typeGardening.
+  ///
+  /// In en, this message translates to:
+  /// **'Gardener'**
+  String get typeGardening;
+
+  /// No description provided for @typePackersMovers.
+  ///
+  /// In en, this message translates to:
+  /// **'Packers and movers'**
+  String get typePackersMovers;
+
+  /// No description provided for @typeCarWash.
+  ///
+  /// In en, this message translates to:
+  /// **'Car and bike wash'**
+  String get typeCarWash;
+
+  /// No description provided for @typeDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver'**
+  String get typeDriver;
+
+  /// No description provided for @typeTutor.
+  ///
+  /// In en, this message translates to:
+  /// **'Tutor'**
+  String get typeTutor;
+
+  /// No description provided for @typeFitness.
+  ///
+  /// In en, this message translates to:
+  /// **'Yoga and fitness'**
+  String get typeFitness;
+
+  /// No description provided for @typeMusicDance.
+  ///
+  /// In en, this message translates to:
+  /// **'Music and dance classes'**
+  String get typeMusicDance;
+
+  /// No description provided for @typePhotography.
+  ///
+  /// In en, this message translates to:
+  /// **'Photographer'**
+  String get typePhotography;
+
+  /// No description provided for @typeCatering.
+  ///
+  /// In en, this message translates to:
+  /// **'Caterer'**
+  String get typeCatering;
+
+  /// No description provided for @typeEventDecor.
+  ///
+  /// In en, this message translates to:
+  /// **'Decorator'**
+  String get typeEventDecor;
+
+  /// No description provided for @typePriest.
+  ///
+  /// In en, this message translates to:
+  /// **'Pandit and puja'**
+  String get typePriest;
+
+  /// No description provided for @typeTaxLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Tax and legal help'**
+  String get typeTaxLegal;
 }
 
 class _AppLocalizationsDelegate

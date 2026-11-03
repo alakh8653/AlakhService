@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/service_types.dart';
 import '../../../../shared/widgets/loading_indicator.dart';
 import '../../../../shared/widgets/service_card.dart';
 import '../../../../shared/widgets/error_widget.dart';
@@ -19,10 +20,13 @@ class ServiceListPage extends StatefulWidget {
   /// Search to run on open (e.g. a category picked on the home screen).
   final String? initialQuery;
 
+  /// Shows only this type of service (a tile picked on the home screen).
+  final ServiceType? type;
+
   /// How long typing must pause before searching, so each keystroke isn't a request.
   final Duration debounce;
 
-  const ServiceListPage({super.key, this.initialQuery, this.debounce = const Duration(milliseconds: 350)});
+  const ServiceListPage({super.key, this.initialQuery, this.type, this.debounce = const Duration(milliseconds: 350)});
 
   @override
   State<ServiceListPage> createState() => _ServiceListPageState();
@@ -33,6 +37,7 @@ class _ServiceListPageState extends State<ServiceListPage> {
   Timer? _debounce;
 
   String get _query => _searchController.text.trim();
+  late ServiceType? _type = widget.type;
 
   @override
   void initState() {
@@ -50,7 +55,9 @@ class _ServiceListPageState extends State<ServiceListPage> {
 
   void _search() {
     _debounce?.cancel();
-    context.read<ServiceBloc>().add(_query.isEmpty ? const LoadServices() : SearchServices(query: _query));
+    context.read<ServiceBloc>().add(
+          _query.isEmpty ? LoadServices(category: _type?.id) : SearchServices(query: _query, category: _type?.id),
+        );
   }
 
   void _onChanged(String _) {
@@ -99,6 +106,22 @@ class _ServiceListPageState extends State<ServiceListPage> {
               onSubmitted: (_) => _search(),
             ),
           ),
+          if (_type case final type?)
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  key: const ValueKey('service-type-filter'),
+                  avatar: Icon(type.icon, size: 18),
+                  label: Text(l10n.servicesShowingType(type.label(l10n))),
+                  onDeleted: () {
+                    setState(() => _type = null);
+                    _search();
+                  },
+                ),
+              ),
+            ),
           Expanded(
             child: BlocBuilder<ServiceBloc, ServiceState>(
               builder: (context, state) {

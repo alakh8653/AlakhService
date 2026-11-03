@@ -129,9 +129,10 @@ async def update_shop(
                     status_code=409,
                     detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
                 )
+        was_category = shop.category
         shop = await shop_service.update_shop(db, shop_id, data)
-        if is_public(shop) != was_public:  # switched on or off
-            background.add_task(reporter.sync_listing, shop.id, is_public(shop))
+        if is_public(shop) != was_public or shop.category != was_category:  # switched on or off, or new type
+            background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category)
         return shop
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

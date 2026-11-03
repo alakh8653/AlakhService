@@ -556,9 +556,16 @@ make prod-deploy
 
 ## Android release (Play Store)
 
-The app finds the API through the `API_BASE_URL` build setting
-(`apps/mobile_app/lib/core/constants/api_constants.dart`). Without it the app uses
-`https://api.alakhservice.com`, so **always pass your own** when building a release.
+The app takes these build settings (`--dart-define`). **Always pass all five** when building a release;
+without them it uses placeholders, e.g. a support phone of `+910000000000`:
+
+| Setting | Value |
+|---|---|
+| `API_BASE_URL` | `https://api.<DOMAIN>` |
+| `LEGAL_BASE_URL` | `https://<DOMAIN>` (Terms, Privacy, Refunds, Grievance) |
+| `APP_LINK_DOMAIN` | `<DOMAIN>` (links that open the app; also set it in `apps/mobile_app/app_links.xcconfig`) |
+| `SUPPORT_EMAIL` | your support email, shown in Help & Support |
+| `SUPPORT_PHONE` | your support phone, e.g. `+919876543210` |
 
 **1. Create the upload keystore (once, keep it forever).** You need Java 17 (or Android Studio):
 
@@ -585,11 +592,15 @@ then:
 ```bash
 cd apps/mobile_app
 flutter pub get
+# Your values, once per shell:
+DEFINES="--dart-define=API_BASE_URL=https://api.alakhservice.in --dart-define=LEGAL_BASE_URL=https://alakhservice.in \
+  --dart-define=APP_LINK_DOMAIN=alakhservice.in --dart-define=SUPPORT_EMAIL=support@alakhservice.in \
+  --dart-define=SUPPORT_PHONE=+919876543210"
 # Play Store wants an App Bundle (.aab); also set GOOGLE_MAPS_API_KEY if you use maps
-flutter build appbundle --release --dart-define=API_BASE_URL=https://api.alakhservice.in
+flutter build appbundle --release $DEFINES
 # output: build/app/outputs/bundle/release/app-release.aab
 # or an APK to install directly on phones:
-flutter build apk --release --dart-define=API_BASE_URL=https://api.alakhservice.in
+flutter build apk --release $DEFINES
 ```
 
 Before each new upload, raise `version:` in `apps/mobile_app/pubspec.yaml` (e.g. `1.0.1+2`; the
@@ -606,14 +617,15 @@ repository **secrets** exist (*Settings → Secrets and variables → Actions �
 | `ANDROID_KEY_ALIAS` | `upload` |
 | `ANDROID_KEY_PASSWORD` | the key password |
 
-and this repository **variable** (*... → Variables*): `API_BASE_URL` = `https://api.<DOMAIN>`.
+and these repository **variables** (*... → Variables*), with the values from the table above:
+`API_BASE_URL`, `LEGAL_BASE_URL`, `APP_LINK_DOMAIN`, `SUPPORT_EMAIL` and `SUPPORT_PHONE`.
 The signed APK is attached to each run as the `android-apk` artifact. (CI builds an APK, handy for
 testers; build the `.aab` for the Play Store locally as above.)
 
 **4. Publish.** In the [Play Console](https://play.google.com/console): create the app, upload the
 `.aab` to **Internal testing** first, fill in the store listing, content rating, and the **Data
-safety** form (the app collects name, phone number, email, location for bookings, and payment
-info handled by Razorpay), and a privacy-policy URL. Promote to production when testers are happy.
+safety** form, and a privacy-policy URL. Ready-to-paste texts and the data safety answers are in
+[launch/PLAY_STORE_LISTING.md](launch/PLAY_STORE_LISTING.md). Promote to production when testers are happy.
 
 ---
 

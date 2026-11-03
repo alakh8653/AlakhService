@@ -15,6 +15,7 @@ from app.routers.extra_charges import router as extra_charges_router
 from app.routers.home_visits import router as home_visits_router
 from app.routers.internal import router as internal_router
 from app.routers.queue import router as queue_router
+from app.routers.trust import router as trust_router
 from app.routers.waitlist import router as waitlist_router
 
 logger = structlog.get_logger()
@@ -71,6 +72,7 @@ app.include_router(availability_router, prefix="/api/v1", tags=["availability"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
 app.include_router(extra_charges_router, prefix="/api/v1", tags=["extra charges"])
 app.include_router(waitlist_router, prefix="/api/v1", tags=["waitlist"])
+app.include_router(trust_router, prefix="/api/v1", tags=["trust"])
 app.include_router(internal_router, tags=["internal"])
 
 

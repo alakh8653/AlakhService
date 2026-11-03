@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, waitlist
+from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, trust, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import FALLBACK, NameLookup, get_name_lookup
@@ -489,9 +489,16 @@ async def update_status(
     user_id = current_user.get("sub")
     if update_data.status == BookingStatus.ASSIGNED.value:
         raise HTTPException(status_code=400, detail="Use POST /bookings/{id}/assign to assign a provider")
-    previous_status = await _authorize_transition(db, booking_id, update_data.status, current_user, lookup_owner)
+    previous_status, parties = await _authorize_with_parties(
+        db, booking_id, update_data.status, current_user, lookup_owner
+    )
     now = live_queue._utc(clock())
     current = await booking_service.get_booking(db, booking_id)
+    if update_data.status == BookingStatus.COMPLETED.value and current.pending_quote_id:
+        raise HTTPException(status_code=409, detail=trust.UNANSWERED_EXTRAS_MESSAGE)
+    # A home visit starts, and a pickup is collected, only with the code the customer gives at the door.
+    if ADMIN not in parties and trust.needs_start_code(current, update_data.status):
+        await trust.check_start_code(db, booking_id, update_data.start_code, now)
     at_shop = current.service_mode == AT_SHOP and bool(current.shop_id)
     starting = at_shop and update_data.status == BookingStatus.IN_PROGRESS.value
     team, spots = [], {}
@@ -509,6 +516,9 @@ async def update_status(
             await db.flush()
         elif at_shop and booking.status == BookingStatus.COMPLETED.value:
             await queue_ops.finish_service(db, booking, now)
+        if booking.status == BookingStatus.COMPLETED.value:
+            trust.stamp_guarantee(booking, await _guarantee_days(lookup_schedule, booking.shop_id), now)
+            await db.flush()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except IntegrityError as e:
@@ -538,6 +548,14 @@ async def update_status(
     )
     _report_risk_after(background, booking, previous_status, user_id)
     return await present(booking, current_user, lookup_names)
+
+
+async def _guarantee_days(lookup_schedule, shop_id: Optional[str]) -> int:
+    """The shop's free-fix period (shop_service's hours lookup); the default when it cannot say."""
+    try:
+        return trust.guarantee_days_of(await lookup_schedule(shop_id) if shop_id else None)
+    except HTTPException:
+        return trust.DEFAULT_GUARANTEE_DAYS
 
 
 async def _arrival_line(db, booking, now: datetime, lookup_location) -> Optional[dict]:

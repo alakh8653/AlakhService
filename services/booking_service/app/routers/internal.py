@@ -1,20 +1,23 @@
 """What other services tell booking_service (X-Internal-Key, never via the gateway)."""
 
+import json
+from datetime import datetime, timezone
+
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import payments, queue_hub
+from app.core import payments, queue_hub, trust
 from app.core.fsm import BookingStatus
 from app.core.internal import require_internal
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
 from app.core.privacy import masked
 from app.database import get_db
-from app.dependencies import forget_shop_schedule, get_shop_owner_lookup
+from app.dependencies import forget_shop_schedule, get_schedule_lookup, get_shop_owner_lookup
 from app.models.booking import Booking
-from app.routers.bookings import manager
+from app.routers.bookings import _guarantee_days, manager
 from app.schemas.booking import DisputeResolution, PaymentStatusUpdate
 from app.services.booking_service import booking_service
 
@@ -51,11 +54,27 @@ async def set_payment_status(
 ):
     """payment_service reports how the booking's payment stands; shown on the booking."""
     booking = await _booking(db, booking_id)
-    if booking.payment_status != body.payment_status:
-        booking.payment_status = body.payment_status
+    status = body.payment_status
+    meta = booking._meta()
+    paid = body.paid_cents
+    if paid is None and status == "PAID":
+        paid = booking.total_amount  # an older payment_service: PAID means paid in full
+    if paid is not None and meta.get("paid_cents") != paid:
+        meta["paid_cents"] = paid
+        booking.metadata_json = json.dumps(meta)
         await db.flush()
-        log.info("booking_payment_status", booking_id=booking_id, payment_status=body.payment_status)
-    return {"booking_id": booking.id, "payment_status": booking.payment_status}
+    # Approved extra charges raised the total above what was paid: the balance is still to pay.
+    if status == "PAID" and paid is not None and paid < booking.total_amount:
+        status = "PARTIALLY_PAID"
+    if booking.payment_status != status:
+        booking.payment_status = status
+        await db.flush()
+        log.info("booking_payment_status", booking_id=booking_id, payment_status=status)
+    return {
+        "booking_id": booking.id,
+        "payment_status": booking.payment_status,
+        "balance_due_cents": booking.balance_due_cents,
+    }
 
 
 @router.post("/{booking_id}/resolve-dispute")
@@ -68,6 +87,7 @@ async def resolve_dispute(
     lookup_owner=Depends(get_shop_owner_lookup),
     payment_client: PaymentClient = Depends(get_payment_client),
     session_factory=Depends(get_session_factory),
+    lookup_schedule=Depends(get_schedule_lookup),
 ):
     """A dispute was resolved: the booking is COMPLETED again (the shop keeps the money) or REFUNDED.
 
@@ -81,6 +101,10 @@ async def resolve_dispute(
     booking = await booking_service.transition_status(
         db, booking_id, body.outcome, SYSTEM, f"Dispute resolved: {body.outcome.lower()}"
     )
+    if booking.status == BookingStatus.COMPLETED.value and booking.guarantee_until is None:
+        days = await _guarantee_days(lookup_schedule, booking.shop_id)
+        trust.stamp_guarantee(booking, days, datetime.now(timezone.utc))
+        await db.flush()
     queued = await payments.enqueue(db, booking, payments.COMPLETED) if body.outcome == "COMPLETED" else None
     await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status})
     await db.commit()

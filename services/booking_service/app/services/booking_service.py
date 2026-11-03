@@ -8,8 +8,9 @@ import structlog
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import trust
 from app.core.availability import CAPACITY_STATUSES, Span
-from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
+from app.core.fsm import AT_HOME, PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
 
@@ -75,6 +76,8 @@ class BookingService:
             metadata_json=metadata_json,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
+            # Given by the customer to the professional at the door: the work starts only with it.
+            start_code=trust.new_start_code() if booking_data.service_mode in (AT_HOME, PICKUP_DROP) else None,
             created_at=now,
             updated_at=now,
         )
@@ -402,6 +405,8 @@ class BookingService:
     async def cancel_booking(self, db: AsyncSession, booking_id: str, user_id: str, reason: str) -> Booking:
         booking = await self.transition_status(db, booking_id, BookingStatus.CANCELLED.value, user_id, reason)
         booking.cancellation_reason = reason
+        # Extra charges still waiting for an answer are closed: nothing more is charged.
+        await trust.withdraw_pending_quote(db, booking, user_id, datetime.now(timezone.utc))
         # Set explicitly so the column's server-side onupdate does not expire it after the flush.
         booking.updated_at = datetime.now(timezone.utc)
         await db.flush()

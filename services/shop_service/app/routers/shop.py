@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
 from app.core.reporting import Reporter, get_reporter
+from app.core.trades import required_for
 from app.database import get_db
 from app.dependencies import (
     BookingLookup,
@@ -21,6 +22,7 @@ from app.dependencies import (
     require_caller,
 )
 from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
+from app.services.kyc_service import kyc_service
 from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
@@ -107,6 +109,16 @@ async def get_shop(
 LOCKED_WHEN_APPROVED = ("legal_name", "gstin")
 
 
+async def _keep_credentials_honest(db: AsyncSession, shop, category: Optional[str], caller: Caller) -> None:
+    """An approved salon cannot turn itself into a clinic without the registration a clinic needs."""
+    if caller.is_admin or not category or category == shop.category or shop.verification_status != "APPROVED":
+        return
+    have = {d.type for d in await kyc_service.list_documents(db, shop.id)}
+    missing = [c.label for c in required_for(category) if c.type not in have]
+    if missing:
+        raise HTTPException(status_code=409, detail="This type of work needs: " + ", ".join(missing))
+
+
 @router.put("/shops/{shop_id}", response_model=ShopResponse)
 async def update_shop(
     shop_id: str,
@@ -129,6 +141,7 @@ async def update_shop(
                     detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
                 )
         was_category = shop.category
+        await _keep_credentials_honest(db, shop, changes.get("category"), caller)
         shop = await shop_service.update_shop(db, shop_id, data)
         if is_public(shop) != was_public or shop.category != was_category:  # switched on or off, or new type
             background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category)

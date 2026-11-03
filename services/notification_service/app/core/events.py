@@ -49,6 +49,10 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Booking {booking_number} is complete. Tap to rate your experience.",
     ),
     ("booking.completed", None): ("Booking completed", "Booking {booking_number} is complete."),
+    ("shop.report", None): (
+        "Your report is ready",
+        "Your report for {label} is ready. Open Reports to see your profit.",
+    ),
     ("booking.cancelled", "customer"): (
         "Booking cancelled",
         "Booking {booking_number} for {scheduled_at} was cancelled. {reason}",

@@ -17,6 +17,7 @@ from app.config import settings
 from app.core.exceptions import ShopNotFoundError
 from app.core.reporting import Reporter, get_reporter, request_origin
 from app.core.storage import LocalDocumentStorage, StorageDisabled, get_storage, sniff_content_type
+from app.core.trades import credentials_for
 from app.database import get_db
 from app.dependencies import (
     Caller,
@@ -29,6 +30,7 @@ from app.dependencies import (
 from app.models.shop import PENDING_REVIEW, VERIFICATION_STATUSES, Shop
 from app.schemas.shop import (
     AdminShopList,
+    ChecklistItem,
     DocumentType,
     PayoutDetailsIn,
     PayoutDetailsOut,
@@ -77,6 +79,25 @@ def _safe_file_name(name: Optional[str]) -> Optional[str]:
 # Documents
 
 
+@router.get("/shops/{shop_id}/verification-checklist", response_model=List[ChecklistItem])
+async def verification_checklist(
+    shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
+):
+    """The documents this shop's type of work asks for, beyond the PAN everyone gives, for the owner and admins."""
+    shop = await managed_shop(shop_id, db, caller)
+    have = {d.type for d in await kyc_service.list_documents(db, shop_id)}
+    return [
+        ChecklistItem(
+            type=c.type,
+            label=c.label,
+            required=c.required,
+            done=c.type in have,
+            admin_check=c.admin_check if caller.is_admin else None,
+        )
+        for c in credentials_for(shop.category)
+    ]
+
+
 @router.get("/shops/{shop_id}/documents", response_model=List[ShopDocumentResponse])
 async def list_documents(
     shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
@@ -104,7 +125,7 @@ async def add_document_link(
 async def upload_document(
     shop_id: str,
     request: Request,
-    type: DocumentType = Query(..., description="PAN, GST, AADHAAR, UDYAM, BANK_PROOF or SHOP_PHOTO"),
+    type: DocumentType = Query(..., description="One of DOCUMENT_TYPES"),
     file_name: Optional[str] = Query(None, max_length=255),
     db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),

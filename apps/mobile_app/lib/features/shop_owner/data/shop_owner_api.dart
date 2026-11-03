@@ -200,6 +200,165 @@ List<OwnerAction> ownerActions(String status, String mode) {
 }
 
 /// One picked document, ready to upload.
+/// A document this type of work asks for (shop_service's verification checklist).
+class ChecklistItem {
+  final String type;
+  final String label;
+  final bool required;
+  final bool done;
+
+  const ChecklistItem({required this.type, required this.label, required this.required, required this.done});
+
+  factory ChecklistItem.fromJson(Map<String, dynamic> j) => ChecklistItem(
+        type: j['type'] as String,
+        label: j['label'] as String,
+        required: j['required'] as bool? ?? false,
+        done: j['done'] as bool? ?? false,
+      );
+}
+
+/// One day's, or for a year one month's, figures in a report.
+class ReportLine {
+  final String label;
+  final double profit;
+
+  const ReportLine(this.label, this.profit);
+}
+
+/// A day's, week's, month's or financial year's profit and loss (payment_service), in rupees.
+class ShopReport {
+  final String label;
+  final String from;
+  final String to;
+  final int bookings;
+  final double gross;
+  final double cash;
+  final double online;
+  final double commission;
+  final double gst;
+  final double earned;
+  final double otherIncome;
+  final double expenses;
+  final double profit;
+  final double tips;
+  final double? profitChangePercent;
+  final List<ReportLine> breakdown;
+
+  const ShopReport({
+    required this.label,
+    required this.from,
+    required this.to,
+    required this.bookings,
+    required this.gross,
+    required this.cash,
+    required this.online,
+    required this.commission,
+    required this.gst,
+    required this.earned,
+    required this.otherIncome,
+    required this.expenses,
+    required this.profit,
+    required this.tips,
+    this.profitChangePercent,
+    this.breakdown = const [],
+  });
+
+  factory ShopReport.fromJson(Map<String, dynamic> j) {
+    double n(String key) => (j[key] as num?)?.toDouble() ?? 0;
+    return ShopReport(
+      label: j['label'] as String,
+      from: j['from'] as String,
+      to: j['to'] as String,
+      bookings: (j['bookings'] as num?)?.toInt() ?? 0,
+      gross: n('gross'),
+      cash: n('cash'),
+      online: n('online'),
+      commission: n('commission'),
+      gst: n('gst'),
+      earned: n('earned'),
+      otherIncome: n('other_income'),
+      expenses: n('expenses'),
+      profit: n('profit'),
+      tips: n('tips'),
+      profitChangePercent: (j['profit_change_percent'] as num?)?.toDouble(),
+      breakdown: ((j['breakdown'] as List<dynamic>?) ?? const [])
+          .cast<Map<String, dynamic>>()
+          .map((b) => ReportLine(b['label'] as String, (b['profit'] as num).toDouble()))
+          .toList(),
+    );
+  }
+}
+
+/// An expense or outside income the owner wrote down.
+class CashEntry {
+  final String id;
+  final String kind;
+  final String category;
+  final double amount;
+  final String onDate;
+  final String? note;
+
+  const CashEntry({
+    required this.id,
+    required this.kind,
+    required this.category,
+    required this.amount,
+    required this.onDate,
+    this.note,
+  });
+
+  factory CashEntry.fromJson(Map<String, dynamic> j) => CashEntry(
+        id: j['id'] as String,
+        kind: j['kind'] as String,
+        category: j['category'] as String,
+        amount: (j['amount'] as num).toDouble(),
+        onDate: j['on_date'] as String,
+        note: j['note'] as String?,
+      );
+}
+
+/// Which reports reach the owner, and where.
+class ReportSettings {
+  final bool daily, weekly, monthly, yearly, email, whatsapp;
+
+  const ReportSettings({
+    required this.daily,
+    required this.weekly,
+    required this.monthly,
+    required this.yearly,
+    required this.email,
+    required this.whatsapp,
+  });
+
+  factory ReportSettings.fromJson(Map<String, dynamic> j) => ReportSettings(
+        daily: j['daily'] as bool,
+        weekly: j['weekly'] as bool,
+        monthly: j['monthly'] as bool,
+        yearly: j['yearly'] as bool,
+        email: j['email'] as bool,
+        whatsapp: j['whatsapp'] as bool,
+      );
+
+  Map<String, Object> toJson() => {
+        'daily': daily,
+        'weekly': weekly,
+        'monthly': monthly,
+        'yearly': yearly,
+        'email': email,
+        'whatsapp': whatsapp,
+      };
+
+  ReportSettings copyWith({bool? daily, bool? weekly, bool? monthly, bool? yearly, bool? email, bool? whatsapp}) =>
+      ReportSettings(
+        daily: daily ?? this.daily,
+        weekly: weekly ?? this.weekly,
+        monthly: monthly ?? this.monthly,
+        yearly: yearly ?? this.yearly,
+        email: email ?? this.email,
+        whatsapp: whatsapp ?? this.whatsapp,
+      );
+}
+
 class PickedDocument {
   final Uint8List bytes;
   final String contentType;
@@ -405,6 +564,12 @@ class ShopOwnerApi {
         return data.cast<Map<String, dynamic>>().map((d) => d['type'] as String).toSet();
       });
 
+  /// The documents this shop's type of work asks for, beyond the PAN everyone gives.
+  Future<List<ChecklistItem>> checklist(String shopId) => _call(() async {
+        final data = (await apiClient.get<List<dynamic>>('${ApiConstants.shop(shopId)}/verification-checklist')).data!;
+        return data.cast<Map<String, dynamic>>().map(ChecklistItem.fromJson).toList();
+      });
+
   /// The raw file is the request body, as shop_service expects.
   Future<void> uploadDocument(String shopId, String type, PickedDocument file) => _call(() async {
         await apiClient.post<Map<String, dynamic>>(
@@ -451,6 +616,55 @@ class ShopOwnerApi {
         final response =
             await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/submit-for-review');
         return OwnerShop.fromJson(response.data!);
+      });
+
+  // Reports
+
+  static String _money(String shopId) => '${ApiConstants.apiVersion}/payments/shops/$shopId';
+
+  Future<ShopReport> report(String shopId, String period) => _call(() async {
+        final data = (await apiClient.get<Map<String, dynamic>>('${_money(shopId)}/report',
+                queryParameters: {'period': period}))
+            .data!;
+        return ShopReport.fromJson(data);
+      });
+
+  Future<List<CashEntry>> cashEntries(String shopId, String from, String to) => _call(() async {
+        final data = (await apiClient.get<List<dynamic>>('${_money(shopId)}/cash-entries',
+                queryParameters: {'from': from, 'to': to}))
+            .data!;
+        return data.cast<Map<String, dynamic>>().map(CashEntry.fromJson).toList();
+      });
+
+  Future<void> addCashEntry(String shopId, String kind, String category, double amount, {String? note}) =>
+      _call(() async {
+        await apiClient.post<Map<String, dynamic>>('${_money(shopId)}/cash-entries', data: {
+          'kind': kind,
+          'category': category,
+          'amount': amount,
+          if (note != null && note.isNotEmpty) 'note': note,
+        });
+      });
+
+  Future<void> deleteCashEntry(String shopId, String entryId) => _call(() async {
+        await apiClient.delete<void>('${_money(shopId)}/cash-entries/$entryId');
+      });
+
+  /// Where it went: 'app', and 'email' or 'whatsapp' when those really sent.
+  Future<List<String>> sendReport(String shopId, String period) => _call(() async {
+        final data = (await apiClient.post<Map<String, dynamic>>('${_money(shopId)}/report/send',
+                queryParameters: {'period': period}))
+            .data!;
+        return (data['sent_to'] as List<dynamic>).cast<String>();
+      });
+
+  Future<ReportSettings> reportSettings(String shopId) => _call(() async {
+        return ReportSettings.fromJson(
+            (await apiClient.get<Map<String, dynamic>>('${_money(shopId)}/report-settings')).data!);
+      });
+
+  Future<void> saveReportSettings(String shopId, ReportSettings settings) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${_money(shopId)}/report-settings', data: settings.toJson());
       });
 
   // Bookings

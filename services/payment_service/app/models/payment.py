@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -12,7 +13,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     text,
+    true,
 )
 from sqlalchemy.sql import func
 
@@ -174,7 +177,7 @@ class ShopEarning(Base):
     # Paid by the platform for the customer's points: the shop earns as if the customer paid it.
     platform_discount_cents = Column(Integer, nullable=False, default=0, server_default="0")
     payout_id = Column(String, ForeignKey("payouts.id"), nullable=True, index=True)
-    completed_at = Column(DateTime(timezone=True), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
 
@@ -294,4 +297,50 @@ class PackageRedemption(Base):
     booking_id = Column(String, nullable=False, unique=True)
     visit_value_cents = Column(Integer, nullable=False)
     status = Column(String(10), nullable=False, default="USED")  # USED, RETURNED
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class ShopCashEntry(Base):
+    """An expense or outside income the owner wrote down, for their profit and loss. No money moves."""
+
+    __tablename__ = "shop_cash_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, nullable=False)
+    kind = Column(String(10), nullable=False)  # EXPENSE or INCOME
+    category = Column(String(20), nullable=False)
+    amount_cents = Column(BigInteger, nullable=False)
+    on_date = Column(Date, nullable=False, index=True)
+    note = Column(String(200), nullable=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    __table_args__ = (Index("ix_shop_cash_entries_shop_date", "shop_id", "on_date"),)
+
+
+class ShopReportPreference(Base):
+    """Which reports a shop's owner gets and where. No row means the defaults (report_service)."""
+
+    __tablename__ = "shop_report_preferences"
+
+    shop_id = Column(String, primary_key=True)
+    daily = Column(Boolean, nullable=False, default=True, server_default=true())
+    weekly = Column(Boolean, nullable=False, default=True, server_default=true())
+    monthly = Column(Boolean, nullable=False, default=True, server_default=true())
+    yearly = Column(Boolean, nullable=False, default=True, server_default=true())
+    email = Column(Boolean, nullable=False, default=True, server_default=true())
+    whatsapp = Column(Boolean, nullable=False, default=False, server_default=false())
+    # When the owner agreed to get reports on WhatsApp, which WhatsApp requires us to be able to show.
+    whatsapp_consent_at = Column(DateTime(timezone=True), nullable=True)
+    updated_by = Column(String, nullable=True)
+
+
+class ShopReportDelivery(Base):
+    """A scheduled report that went out, so that it goes out once."""
+
+    __tablename__ = "shop_report_deliveries"
+
+    shop_id = Column(String, primary_key=True)
+    period = Column(String(10), primary_key=True)
+    period_start = Column(Date, primary_key=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

@@ -29,6 +29,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ShopSetupPage = lazy(() => import('./pages/ShopSetupPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const EarningsPage = lazy(() => import('./pages/EarningsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const PackagesPage = lazy(() => import('./pages/PackagesPage'));
 const LiveLinePage = lazy(() => import('./pages/LiveLinePage'));
 const BoardPage = lazy(() => import('./pages/BoardPage'));
@@ -100,6 +101,7 @@ function ProtectedLayout() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/earnings" element={<EarningsPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

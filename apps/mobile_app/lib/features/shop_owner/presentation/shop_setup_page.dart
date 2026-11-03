@@ -36,7 +36,9 @@ Future<({double latitude, double longitude})?> _deviceLocation(BuildContext cont
 class _ServiceDraft {
   final name = TextEditingController();
   final price = TextEditingController();
-  final minutes = TextEditingController(text: '30');
+  final TextEditingController minutes;
+
+  _ServiceDraft(int usualMinutes) : minutes = TextEditingController(text: '$usualMinutes');
 
   void dispose() {
     name.dispose();
@@ -66,7 +68,8 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
   final _city = TextEditingController();
   final _address = TextEditingController();
   late final _phone = TextEditingController(text: widget.user.phone);
-  final List<_ServiceDraft> _drafts = [_ServiceDraft()];
+  final _samePrice = TextEditingController();
+  final List<_ServiceDraft> _drafts = [];
   // Nothing chosen for them: a default here would quietly list an electrician as a salon.
   String? _category;
   bool _atShop = false;
@@ -88,6 +91,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
     _city.dispose();
     _address.dispose();
     _phone.dispose();
+    _samePrice.dispose();
     for (final draft in _drafts) {
       draft.dispose();
     }
@@ -119,6 +123,10 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
       setState(() => _error = context.l10n.ownerChooseWhere);
       return;
     }
+    if (_step == 1 && _drafts.isEmpty) {
+      setState(() => _error = context.l10n.ownerPickOneService);
+      return;
+    }
     setState(() {
       _error = null;
       _step++;
@@ -127,22 +135,56 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
 
   List<String> get _modes => [if (_atShop) modeAtShop, if (_atHome) modeAtHome];
 
-  /// Common services for their type of work that they have not added yet.
-  List<String> get _suggestions {
-    final added = {for (final d in _drafts) d.name.text.trim().toLowerCase()};
-    return [
-      for (final name in serviceTypeById(_category ?? '')?.suggestions ?? const <String>[])
-        if (!added.contains(name.toLowerCase())) name,
-    ];
+  ServiceType? get _type => serviceTypeById(_category ?? '');
+
+  List<String> get _suggestions => _type?.suggestions ?? const [];
+
+  _ServiceDraft _newDraft({String name = ''}) => _ServiceDraft(usualMinutes(_type))
+    ..name.text = name
+    ..price.text = _samePrice.text.trim();
+
+  int _draftIndex(String name) =>
+      _drafts.indexWhere((d) => d.name.text.trim().toLowerCase() == name.toLowerCase());
+
+  void _toggle(String name, bool on) {
+    setState(() {
+      _error = null;
+      final at = _draftIndex(name);
+      if (on && at < 0) _drafts.add(_newDraft(name: name));
+      // What the server already has stays.
+      if (!on && at >= _servicesSaved) _drafts.removeAt(at).dispose();
+    });
   }
 
-  void _addSuggestion(String name) {
+  bool get _allSelected => _suggestions.isNotEmpty && _suggestions.every((name) => _draftIndex(name) >= 0);
+
+  void _selectAll(bool on) {
+    for (final name in _suggestions) {
+      _toggle(name, on);
+    }
+  }
+
+  void _applySamePrice(String value) {
     setState(() {
-      // Into the first empty form, so the first tap does not leave a blank one behind.
-      final empty = _drafts.skip(_servicesSaved).where((d) => d.name.text.trim().isEmpty);
-      final draft = empty.isNotEmpty ? empty.first : (_ServiceDraft()..name.text = '');
-      if (empty.isEmpty) _drafts.add(draft);
-      draft.name.text = name;
+      for (final draft in _drafts.skip(_servicesSaved)) {
+        draft.price.text = value.trim();
+      }
+    });
+  }
+
+  Future<void> _chooseType() async {
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _TypePicker(),
+    );
+    if (chosen == null || chosen == _category || !mounted) return;
+    setState(() {
+      _category = chosen;
+      // The last type's services are not this one's.
+      while (_drafts.length > _servicesSaved) {
+        _drafts.removeLast().dispose();
+      }
     });
   }
 
@@ -211,15 +253,22 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
               validator: (v) => (v ?? '').trim().isEmpty ? l10n.ownerRequired : null,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
+            FormField<String>(
+              key: ValueKey('type-${_category ?? ''}'),
               initialValue: _category,
-              isExpanded: true,
-              decoration: InputDecoration(labelText: l10n.ownerCategory),
               validator: (value) => value == null ? l10n.ownerRequired : null,
-              items: [
-                for (final type in serviceTypes) DropdownMenuItem(value: type.id, child: Text(type.label(l10n))),
-              ],
-              onChanged: (value) => setState(() => _category = value),
+              builder: (field) => InkWell(
+                key: const ValueKey('pick-type'),
+                onTap: _chooseType,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: l10n.ownerCategory,
+                    errorText: field.errorText,
+                    suffixIcon: const Icon(Icons.search),
+                  ),
+                  child: Text(_type?.label(l10n) ?? l10n.ownerChooseType),
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Text(l10n.ownerWhereDoYouWork, style: AppTextStyles.body2.themed(context)),
@@ -275,23 +324,40 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.ownerServicesHelp, style: AppTextStyles.body2.themed(context)),
+            Text(l10n.ownerPickServices, style: AppTextStyles.body2.themed(context)),
             const SizedBox(height: 12),
             if (_suggestions.isNotEmpty) ...[
-              Text(l10n.ownerTapToAdd, style: AppTextStyles.caption.themed(context)),
-              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('select-all-services'),
+                  icon: Icon(_allSelected ? Icons.deselect : Icons.select_all),
+                  label: Text(_allSelected ? l10n.ownerClearAll : l10n.ownerSelectAll),
+                  onPressed: () => _selectAll(!_allSelected),
+                ),
+              ),
               Wrap(
                 spacing: 8,
                 children: [
                   for (final name in _suggestions)
-                    ActionChip(
-                      avatar: const Icon(Icons.add, size: 16),
+                    FilterChip(
                       label: Text(name),
-                      onPressed: () => _addSuggestion(name),
+                      selected: _draftIndex(name) >= 0,
+                      onSelected: (on) => _toggle(name, on),
                     ),
                 ],
               ),
               const SizedBox(height: 12),
+            ],
+            if (_drafts.isNotEmpty) ...[
+              CustomTextField(
+                controller: _samePrice,
+                label: l10n.ownerSamePrice,
+                helper: l10n.ownerSamePriceHelp,
+                keyboardType: TextInputType.number,
+                onChanged: _applySamePrice,
+              ),
+              const SizedBox(height: 16),
             ],
             for (var i = 0; i < _drafts.length; i++) ...[
               ServiceFields(
@@ -300,7 +366,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
                 price: _drafts[i].price,
                 minutes: _drafts[i].minutes,
                 readOnly: i < _servicesSaved,
-                onRemove: i > 0 && i >= _servicesSaved
+                onRemove: i >= _servicesSaved
                     ? () => setState(() => _drafts.removeAt(i).dispose())
                     : null,
               ),
@@ -309,7 +375,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
             TextButton.icon(
               icon: const Icon(Icons.add),
               label: Text(l10n.ownerAddAnotherService),
-              onPressed: () => setState(() => _drafts.add(_ServiceDraft())),
+              onPressed: () => setState(() => _drafts.add(_newDraft())),
             ),
           ],
         ),
@@ -439,6 +505,73 @@ class ServiceFields extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Every kind of work, grouped, with a search, because nobody should have to scroll past fifty to find theirs.
+class _TypePicker extends StatefulWidget {
+  const _TypePicker();
+
+  @override
+  State<_TypePicker> createState() => _TypePickerState();
+}
+
+class _TypePickerState extends State<_TypePicker> {
+  String _query = '';
+
+  bool _matches(ServiceType type, AppLocalizations l10n) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    // By what they do too: "AC" finds appliance repair, "mason" finds construction.
+    return type.label(l10n).toLowerCase().contains(q) ||
+        type.id.replaceAll('_', ' ').contains(q) ||
+        type.suggestions.any((name) => name.toLowerCase().contains(q));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final found = serviceTypes.where((type) => _matches(type, l10n)).toList();
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.85,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.viewInsetsOf(context).bottom),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.ownerChooseType, style: AppTextStyles.heading3),
+              const SizedBox(height: 8),
+              TextField(
+                key: const ValueKey('search-type'),
+                decoration: InputDecoration(hintText: l10n.ownerSearchType, prefixIcon: const Icon(Icons.search)),
+                onChanged: (value) => setState(() => _query = value),
+              ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final group in ServiceGroup.values)
+                      if (found.any((type) => type.group == group)) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 4),
+                          child: Text(serviceGroupLabel(group, l10n), style: AppTextStyles.caption.themed(context)),
+                        ),
+                        for (final type in found.where((t) => t.group == group))
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(type.icon),
+                            title: Text(type.label(l10n), style: AppTextStyles.body1),
+                            onTap: () => Navigator.pop(context, type.id),
+                          ),
+                      ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

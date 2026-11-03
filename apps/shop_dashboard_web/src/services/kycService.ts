@@ -4,7 +4,21 @@ import type { Shop } from '../types';
 
 // Onboarding (shop_service): KYC documents, payout details and submitting the shop for review.
 
-export const DOCUMENT_TYPES = ['PAN', 'GST', 'AADHAAR', 'UDYAM', 'BANK_PROOF', 'SHOP_PHOTO'] as const;
+export const DOCUMENT_TYPES = [
+  'PAN',
+  'GST',
+  'AADHAAR',
+  'UDYAM',
+  'BANK_PROOF',
+  'SHOP_PHOTO',
+  'PROFESSIONAL_REGISTRATION',
+  'TRADE_LICENCE',
+  'QUALIFICATION',
+  'DRIVING_LICENCE',
+  'FOOD_LICENCE',
+  'POLICE_VERIFICATION',
+  'WORK_PHOTO',
+] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_LABELS: Record<DocumentType, string> = {
@@ -14,7 +28,27 @@ export const DOCUMENT_LABELS: Record<DocumentType, string> = {
   UDYAM: 'Udyam registration',
   BANK_PROOF: 'Bank proof (cancelled cheque or passbook)',
   SHOP_PHOTO: 'Shop photo',
+  PROFESSIONAL_REGISTRATION: 'Council registration certificate',
+  TRADE_LICENCE: 'Licence',
+  QUALIFICATION: 'Degree or training certificate',
+  DRIVING_LICENCE: 'Driving licence',
+  FOOD_LICENCE: 'FSSAI registration or licence',
+  POLICE_VERIFICATION: 'Police verification certificate',
+  WORK_PHOTO: 'Photos of your work',
 };
+
+/** A document this shop's type of work asks for, beyond the PAN everyone gives. */
+export interface TradeDocument {
+  type: DocumentType;
+  label: string;
+  required: boolean;
+  done: boolean;
+}
+
+export async function getVerificationChecklist(shopId: string): Promise<TradeDocument[]> {
+  const { data } = await apiClient.get<TradeDocument[]>(`/shops/${encodeURIComponent(shopId)}/verification-checklist`);
+  return data;
+}
 
 /** What shop_service accepts (it checks the file's bytes too). */
 export const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];

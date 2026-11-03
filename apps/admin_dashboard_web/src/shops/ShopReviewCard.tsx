@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CheckCircle2, ExternalLink, FileText, XCircle } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
@@ -14,6 +14,8 @@ import {
   type ShopDocument,
   type ShopForReview,
   type VerificationStatus,
+  getVerificationChecklist,
+  type TradeDocument,
 } from './ShopReviewService';
 
 const STATUS_CLASS: Record<VerificationStatus, string> = {
@@ -110,6 +112,17 @@ function Detail({ term, value }: { term: string; value: string | null | undefine
 export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForReview; onDecided: (shop: AdminShop) => void }) {
   const notify = useToast();
   const [action, setAction] = useState<'approve' | 'reject' | null>(null);
+  const [needed, setNeeded] = useState<TradeDocument[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    getVerificationChecklist(shop.id)
+      .then((list) => live && setNeeded(list.filter((d) => d.required)))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [shop.id]);
   const headingId = `shop-${shop.id}`;
 
   return (
@@ -137,6 +150,20 @@ export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForRevie
       </dl>
       {shop.status === 'REJECTED' && shop.rejectionReason && (
         <p className="text-sm text-red-800 bg-red-50 rounded-lg px-3 py-2">Rejected: {shop.rejectionReason}</p>
+      )}
+
+      {needed.length > 0 && (
+        <section aria-label={`Needed for this type of work, ${shop.name}`} className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="font-semibold">Needed for this type of work</p>
+          <ul className="list-disc ml-5">
+            {needed.map((d) => (
+              <li key={d.type}>
+                {d.label}: {d.done ? 'uploaded' : 'missing'}
+                {d.admin_check ? `. ${d.admin_check}.` : ''}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <section aria-label={`Documents of ${shop.name}`}>

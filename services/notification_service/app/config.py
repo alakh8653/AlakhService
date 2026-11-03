@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     MSG91_AUTH_KEY: str = ""
     MSG91_SENDER_ID: str = ""
     MSG91_API_URL: str = "https://api.msg91.com/api/v2/sendsms"
+    # WhatsApp through MSG91, for reports (docs/WHATSAPP_REPORTS.md). Without a number and template none is sent.
+    MSG91_WHATSAPP_NUMBER: str = ""
+    MSG91_WHATSAPP_TEMPLATE_REPORT: str = ""
+    MSG91_WHATSAPP_NAMESPACE: str = ""
+    MSG91_WHATSAPP_LANGUAGE: str = "en"
+    MSG91_WHATSAPP_API_URL: str = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
     MSG91_TEMPLATE_BOOKING_CONFIRMED: str = ""
     MSG91_TEMPLATE_BOOKING_CANCELLED: str = ""
     MSG91_TEMPLATE_BOOKING_REMINDER: str = ""

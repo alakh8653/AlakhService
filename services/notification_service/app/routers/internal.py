@@ -51,3 +51,26 @@ async def notify_event(
                 notif.channel == "push",
             )
     return {"created": created}
+
+
+class ShopReport(BaseModel):
+    user_id: str
+    shop_name: str = ""
+    email: bool = True
+    whatsapp: bool = False
+    report: Dict[str, Any]
+    csv: str = ""
+
+
+@router.post("/internal/notifications/report")
+async def send_shop_report(
+    body: ShopReport, db: AsyncSession = Depends(get_db, scope="function"), redis=Depends(get_redis)
+):
+    """A shop's report: in the app, and to the owner's email and WhatsApp as they chose. Says where it went."""
+    data = {"label": body.report.get("label"), "period": body.report.get("period"), "profit": body.report.get("profit")}
+    await notification_service.notify_event(db, redis, body.user_id, "shop.report", "shop", data)
+    await db.commit()
+    sent = await notification_service.deliver_report(
+        body.user_id, body.shop_name, body.report, body.csv, body.email, body.whatsapp
+    )
+    return {"sent_to": ["app", *sent]}

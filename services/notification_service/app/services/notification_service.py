@@ -13,7 +13,9 @@ from app.channels.in_app import InAppChannel
 from app.channels.msg91 import MSG91SMSChannel
 from app.channels.push import FCMChannel
 from app.channels.sms import TwilioSMSChannel
+from app.channels.whatsapp import MSG91WhatsAppChannel
 from app.config import settings
+from app.core import reports
 from app.core.contact import fetch_contact
 from app.core.events import CRITICAL_EVENTS, QUIET_HOURS_HELD, SHOP_EMAIL_EVENTS, render_sms
 from app.core.events import render as render_event
@@ -71,6 +73,41 @@ class NotificationService:
         if not settings.SMTP_HOST:
             return False
         return await self._get_email().send(to_email, subject, body)
+
+    def _get_whatsapp(self) -> MSG91WhatsAppChannel:
+        return MSG91WhatsAppChannel(
+            settings.MSG91_AUTH_KEY,
+            settings.MSG91_WHATSAPP_NUMBER,
+            settings.MSG91_WHATSAPP_TEMPLATE_REPORT,
+            settings.MSG91_WHATSAPP_NAMESPACE,
+            settings.MSG91_WHATSAPP_LANGUAGE,
+            settings.MSG91_WHATSAPP_API_URL,
+        )
+
+    async def deliver_report(
+        self, user_id: str, shop_name: str, report: dict, csv: str, email: bool, whatsapp: bool
+    ) -> List[str]:
+        """Sends a shop's report to its owner's OWN email and WhatsApp. Returns where it actually went."""
+        contact = await fetch_contact(user_id)
+        if not contact:
+            return []
+        sent = []
+        if email and contact.get("email") and settings.SMTP_HOST:
+            attachment = (f"alakhservice-report-{report.get('period')}-{report.get('from')}.csv", csv)
+            if await self._get_email().send(
+                contact["email"],
+                reports.subject(report, shop_name),
+                reports.text_body(report, shop_name),
+                reports.html_body(report, shop_name),
+                attachment,
+            ):
+                sent.append("email")
+        if whatsapp and contact.get("phone"):
+            if await self._get_whatsapp().send(contact["phone"], reports.whatsapp_values(report, shop_name)):
+                sent.append("whatsapp")
+        if not sent:
+            log.info("shop_report_undelivered", user_id=user_id, wanted_email=email, wanted_whatsapp=whatsapp)
+        return sent
 
     async def deliver_fallback(
         self, user_id: str, event: str, role: Optional[str], title: str, body: str, data: dict, pushed: bool

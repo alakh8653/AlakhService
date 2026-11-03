@@ -5,6 +5,7 @@ import 'package:alakh_service/core/network/token_store.dart';
 import 'package:alakh_service/features/auth/domain/entities/user.dart';
 import 'package:alakh_service/features/shop_line/data/shop_line_api.dart';
 import 'package:alakh_service/features/shop_owner/data/shop_owner_api.dart';
+import 'package:alakh_service/shared/service_types.dart';
 import 'package:alakh_service/features/shop_owner/presentation/owner_home_page.dart';
 import 'package:alakh_service/features/shop_owner/presentation/shop_setup_page.dart';
 import 'package:alakh_service/features/shop_owner/presentation/verification_page.dart';
@@ -157,20 +158,21 @@ void main() {
         if (r.path.endsWith('/staff')) return (status: 201, body: {'id': 'st1'});
         if (r.path.endsWith('/hours')) return (status: 200, body: {'configured': true, 'weekly': []});
         if (r.path.endsWith('/documents')) return (status: 200, body: <Object>[]);
+        if (r.path.endsWith('/verification-checklist')) return (status: 200, body: <Object>[]);
         if (r.path.endsWith('/payout-details')) return (status: 404, body: {'detail': 'No payout details yet'});
         return (status: 200, body: shopJson(status: 'PENDING_REVIEW', submitted: null));
       });
     });
 
     Future<void> pumpSetup(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1200, 3000);
+      tester.view.physicalSize = const Size(1200, 12000);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(MaterialApp(home: ShopSetupPage(user: user, api: apiWith(adapter))));
       await tester.pumpAndSettle();
     }
 
     Future<void> chooseCategory(WidgetTester tester) async {
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byKey(const ValueKey('pick-type')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Electrical').last);
       await tester.pumpAndSettle();
@@ -181,7 +183,7 @@ void main() {
       await tapText(tester, "At the customer's home");
       await enter(tester, 'City', 'Bengaluru');
       await tapText(tester, 'Continue');
-      await enter(tester, 'Service name', 'Fan repair');
+      await tapText(tester, 'Fan repair');
       await enter(tester, 'Price', '250');
       await tapText(tester, 'Continue');
       expect(find.text('When do you work?'), findsOneWidget);
@@ -222,6 +224,58 @@ void main() {
       expect(find.text('What do you offer?'), findsNothing);
     });
 
+    testWidgets('anyone finds their work by searching for what they do', (tester) async {
+      await pumpSetup(tester);
+      await tester.tap(find.byKey(const ValueKey('pick-type')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('search-type')), 'mason');
+      await tester.pumpAndSettle();
+      expect(find.text('Construction and masons'), findsOneWidget);
+      expect(find.text('Electrical'), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('search-type')), 'ac service');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('AC and appliance repair'));
+      await tester.pumpAndSettle();
+      expect(find.text('AC and appliance repair'), findsOneWidget);
+    });
+
+    testWidgets('select all, one price for all, and nothing has to be typed but the price', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await tapText(tester, "At the customer's home");
+      await enter(tester, 'City', 'Bengaluru');
+      await tapText(tester, 'Continue');
+
+      // Nothing chosen yet: it says so.
+      await tapText(tester, 'Continue');
+      expect(find.text('Choose at least one service.'), findsOneWidget);
+
+      final count = serviceTypeById('electrical')!.suggestions.length;
+      await tapText(tester, 'Select all');
+      await enter(tester, 'Usual price for all (₹)', '300');
+      await tapText(tester, 'Continue');
+      await tapText(tester, 'Save and continue');
+      final saved = adapter.requests.where((r) => r.path.endsWith('/services') && r.method == 'POST').toList();
+      expect(saved, hasLength(count));
+      expect(saved.every((r) => r.data['price_cents'] == 30000), isTrue);
+      // Work at the customer's place starts at an hour.
+      expect(saved.first.data['duration_minutes'], 60);
+    });
+
+    testWidgets('tapping a service again takes it off, and changing the work clears them', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await tapText(tester, "At the customer's home");
+      await enter(tester, 'City', 'Bengaluru');
+      await tapText(tester, 'Continue');
+      await tester.tap(find.widgetWithText(FilterChip, 'Fan repair'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ServiceFields), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilterChip, 'Fan repair'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ServiceFields), findsNothing);
+    });
+
     testWidgets('a shop needs an address', (tester) async {
       await pumpSetup(tester);
       await chooseCategory(tester);
@@ -244,9 +298,14 @@ void main() {
   });
 
   group('verification', () {
-    FakeAdapter verificationAdapter({List<Map<String, String>> documents = const [], Map<String, Object?>? shop}) {
+    FakeAdapter verificationAdapter({
+      List<Map<String, String>> documents = const [],
+      Map<String, Object?>? shop,
+      List<Map<String, Object>> checklist = const [],
+    }) {
       final uploaded = [...documents];
       return FakeAdapter((RequestOptions r) {
+        if (r.path.endsWith('/verification-checklist')) return (status: 200, body: checklist);
         if (r.path.endsWith('/documents/upload')) {
           uploaded.add({'type': r.queryParameters['type'] as String});
           return (status: 201, body: {'id': 'd1'});
@@ -259,7 +318,7 @@ void main() {
     }
 
     Future<void> pump(WidgetTester tester, FakeAdapter adapter) async {
-      tester.view.physicalSize = const Size(1200, 3300);
+      tester.view.physicalSize = const Size(1200, 6000);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(MaterialApp(
         home: Builder(
@@ -274,6 +333,7 @@ void main() {
                       api: apiWith(adapter),
                       pickDocument: (_) async =>
                           PickedDocument(Uint8List.fromList([255, 216, 255]), 'image/jpeg', 'pan.jpg'),
+                      pickPdf: () async => PickedDocument(Uint8List.fromList([37, 80, 68, 70]), 'application/pdf', 'cert.pdf'),
                     ),
                   ),
                 ),
@@ -299,7 +359,7 @@ void main() {
       // The message clears by itself and is not in the way afterwards.
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.descendant(of: find.byKey(const ValueKey('document-PAN')), matching: find.text('Add photo')));
+      await tester.tap(find.descendant(of: find.byKey(const ValueKey('document-PAN')), matching: find.text('Add')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Take a photo'));
       await tester.pumpAndSettle();
@@ -316,6 +376,44 @@ void main() {
       expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isTrue);
       // Nobody is left wondering whether it went.
       expect(find.text('Sent for verification'), findsOneWidget);
+    });
+
+    testWidgets('a doctor is asked for the council certificate, and it can be a PDF', (tester) async {
+      final adapter = verificationAdapter(
+        documents: [
+          {'type': 'PAN'},
+        ],
+        checklist: [
+          {
+            'type': 'PROFESSIONAL_REGISTRATION',
+            'label': 'Medical Council registration certificate',
+            'required': true,
+            'done': false,
+          },
+          {'type': 'WORK_PHOTO', 'label': 'Photos of your work', 'required': false, 'done': false},
+        ],
+      );
+      await pump(tester, adapter);
+      await enter(tester, 'Name as on your PAN', 'Dr Asha Rao');
+      await enter(tester, 'UPI ID', 'asha@upi');
+      await tapText(tester, 'Submit for verification');
+      expect(find.text('Please add: Medical Council registration certificate'), findsNWidgets(2));
+      expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isFalse);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(of: find.byKey(const ValueKey('document-PROFESSIONAL_REGISTRATION')), matching: find.text('Add')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose a PDF file'));
+      await tester.pumpAndSettle();
+      final upload = adapter.requests.firstWhere((r) => r.path.endsWith('/documents/upload'));
+      expect(upload.queryParameters['type'], 'PROFESSIONAL_REGISTRATION');
+      expect(upload.contentType, 'application/pdf');
+
+      await tapText(tester, 'Submit for verification');
+      expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isTrue);
     });
 
     testWidgets('what is left is listed at the top until it is done', (tester) async {
@@ -357,7 +455,7 @@ void main() {
     late bool refuseActions;
 
     Future<void> pumpHome(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1200, 3000);
+      tester.view.physicalSize = const Size(1200, 12000);
       addTearDown(tester.view.resetPhysicalSize);
       adapter = FakeAdapter((RequestOptions r) {
         if (refuseActions && r.path.endsWith('/status')) return (status: 409, body: {'detail': 'That slot is taken'});

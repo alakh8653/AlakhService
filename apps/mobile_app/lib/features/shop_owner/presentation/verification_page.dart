@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -28,6 +29,16 @@ Future<PickedDocument?> pickDocumentPhoto(ImageSource source) async {
   return PickedDocument(await file.readAsBytes(), type, file.name);
 }
 
+/// Picks a PDF; null when the person backs out.
+typedef PickPdf = Future<PickedDocument?> Function();
+
+Future<PickedDocument?> pickDocumentPdf() async {
+  final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: const ['pdf']);
+  if (picked.isEmpty) return null;
+  final file = picked.single;
+  return PickedDocument(await file.readAsBytes(), 'application/pdf', file.name);
+}
+
 /// Who runs the business, proof of it, and where to send their money; then the admins review it. Photos
 /// come straight from the camera, since most people here will not have scans.
 class VerificationPage extends StatefulWidget {
@@ -35,14 +46,23 @@ class VerificationPage extends StatefulWidget {
   final bool firstTime;
   final ShopOwnerApi? api;
   final PickDocument? pickDocument;
+  final PickPdf? pickPdf;
 
-  const VerificationPage({super.key, required this.shopId, this.firstTime = false, this.api, this.pickDocument});
+  const VerificationPage({
+    super.key,
+    required this.shopId,
+    this.firstTime = false,
+    this.api,
+    this.pickDocument,
+    this.pickPdf,
+  });
 
   @override
   State<VerificationPage> createState() => _VerificationPageState();
 }
 
 class _VerificationPageState extends State<VerificationPage> {
+  static const _pdf = 'pdf';
   late final ShopOwnerApi _api = widget.api ?? sl<ShopOwnerApi>();
   final _form = GlobalKey<FormState>();
   final _legalName = TextEditingController();
@@ -54,6 +74,7 @@ class _VerificationPageState extends State<VerificationPage> {
   final _ifsc = TextEditingController();
   OwnerShop? _shop;
   Set<String> _documents = {};
+  List<ChecklistItem> _checklist = const [];
   PayoutDetails? _payout;
   String _payoutMethod = 'UPI';
   String? _uploading;
@@ -83,6 +104,7 @@ class _VerificationPageState extends State<VerificationPage> {
     try {
       final shop = await _api.shop(widget.shopId);
       final documents = await _api.documentTypes(widget.shopId);
+      final checklist = await _api.checklist(widget.shopId);
       final payout = await _api.payoutDetails(widget.shopId);
       if (!mounted) return;
       _legalName.text = shop.legalName ?? '';
@@ -91,6 +113,7 @@ class _VerificationPageState extends State<VerificationPage> {
       setState(() {
         _shop = shop;
         _documents = documents;
+        _checklist = checklist;
         _payout = payout;
         _payoutMethod = payout?.method ?? 'UPI';
       });
@@ -103,7 +126,8 @@ class _VerificationPageState extends State<VerificationPage> {
 
   Future<void> _upload(String type) async {
     final l10n = context.l10n;
-    final source = await showModalBottomSheet<ImageSource>(
+    // A photo source, or _pdf.
+    final source = await showModalBottomSheet<Object>(
       context: context,
       builder: (sheet) => SafeArea(
         child: Column(
@@ -119,6 +143,11 @@ class _VerificationPageState extends State<VerificationPage> {
               title: Text(l10n.ownerChoosePhoto),
               onTap: () => Navigator.pop(sheet, ImageSource.gallery),
             ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: Text(l10n.ownerChoosePdf),
+              onTap: () => Navigator.pop(sheet, _pdf),
+            ),
           ],
         ),
       ),
@@ -129,7 +158,9 @@ class _VerificationPageState extends State<VerificationPage> {
       _error = null;
     });
     try {
-      final file = await (widget.pickDocument ?? pickDocumentPhoto)(source);
+      final file = source == _pdf
+          ? await (widget.pickPdf ?? pickDocumentPdf)()
+          : await (widget.pickDocument ?? pickDocumentPhoto)(source as ImageSource);
       if (file == null) return;
       await _api.uploadDocument(widget.shopId, type, file);
       if (mounted) setState(() => _documents = {..._documents, type});
@@ -155,6 +186,12 @@ class _VerificationPageState extends State<VerificationPage> {
     if (!_documents.contains('PAN')) {
       _blocked(l10n.ownerPanNeeded);
       return;
+    }
+    for (final item in _checklist) {
+      if (item.required && !_documents.contains(item.type)) {
+        _blocked(l10n.ownerDocNeeded(item.label));
+        return;
+      }
     }
     final gstin = _gstin.text.trim();
     if (gstin.isNotEmpty && !_documents.contains('GST')) {
@@ -334,8 +371,12 @@ class _VerificationPageState extends State<VerificationPage> {
                           ),
                           const SizedBox(height: 24),
                           Text(l10n.ownerDocuments, style: AppTextStyles.heading3),
+                          Text(l10n.ownerDocumentsHelp, style: AppTextStyles.caption.themed(context)),
                           _document('PAN', l10n.ownerDocPan, required: true),
+                          for (final item in _checklist.where((i) => i.required))
+                            _document(item.type, item.label, required: true),
                           if (_gstin.text.trim().isNotEmpty) _document('GST', l10n.ownerDocGst, required: true),
+                          for (final item in _checklist.where((i) => !i.required)) _document(item.type, item.label),
                           _document('AADHAAR', l10n.ownerDocAadhaar),
                           _document('SHOP_PHOTO', l10n.ownerDocShopPhoto),
                           const SizedBox(height: 24),

@@ -69,8 +69,8 @@ void main() {
     expect(picked?.id, 'carpentry');
   });
 
-  testWidgets('setup suggests services for the type of work, and they go into the form', (tester) async {
-    tester.view.physicalSize = const Size(1200, 3000);
+  testWidgets('setup offers the services of that type of work to tap on and off', (tester) async {
+    tester.view.physicalSize = const Size(1200, 6000);
     addTearDown(tester.view.resetPhysicalSize);
     final adapter = FakeAdapter((RequestOptions r) => (status: 200, body: <String, Object?>{}));
     final user = User(id: 'u1', name: 'Ravi', phone: '+919876543210', role: 'user', isVerified: true, createdAt: DateTime(2026));
@@ -78,7 +78,7 @@ void main() {
       home: ShopSetupPage(user: user, api: ShopOwnerApi(ApiClient(dio: fakeDio(adapter), tokens: MemoryTokenStore()))),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byKey(const ValueKey('pick-type')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Salon').last);
     await tester.pumpAndSettle();
@@ -90,15 +90,17 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Haircut'), findsOneWidget);
-    await tester.tap(find.text('Haircut'));
+    // Tapped on and off again, with no form until something is chosen.
+    expect(find.widgetWithText(FilterChip, 'Haircut'), findsOneWidget);
+    expect(find.byType(ServiceFields), findsNothing);
+    await tester.tap(find.widgetWithText(FilterChip, 'Haircut'));
     await tester.pumpAndSettle();
-    // In the empty form rather than beside it, and no longer offered.
-    expect(find.byType(TextFormField), findsNWidgets(3));
-    expect(find.widgetWithText(ActionChip, 'Haircut'), findsNothing);
-    await tester.tap(find.text('Beard trim'));
+    expect(find.byType(ServiceFields), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilterChip, 'Beard trim'));
     await tester.pumpAndSettle();
-    // A second one gets its own form: as many as they like.
-    expect(find.byType(TextFormField), findsNWidgets(6));
+    expect(find.byType(ServiceFields), findsNWidgets(2));
+    await tester.tap(find.widgetWithText(FilterChip, 'Haircut'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ServiceFields), findsOneWidget);
   });
 }

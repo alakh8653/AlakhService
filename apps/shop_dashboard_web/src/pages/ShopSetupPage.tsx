@@ -6,10 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import { SHOP_CATEGORIES } from '../services/categories';
+import OtherTypesField from '../components/OtherTypesField';
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter your shop name'),
   category: z.string().min(1, 'Choose a category'),
+  extraCategories: z.array(z.string()),
   city: z.string().trim().min(2, 'Enter your city'),
   address: z.string().trim().optional(),
   phone: z
@@ -32,13 +34,20 @@ export default function ShopSetupPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { category: '' } });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { category: '', extraCategories: [] } });
+  const [category, extraCategories] = watch(['category', 'extraCategories']);
 
   const onSubmit = async (values: FormData) => {
     try {
       setServerError(null);
-      await createShop({ ...values, phone: values.phone ? normalizePhone(values.phone) : undefined });
+      await createShop({
+        ...values,
+        extraCategories: values.extraCategories.filter((type) => type !== values.category),
+        phone: values.phone ? normalizePhone(values.phone) : undefined,
+      });
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setServerError(apiErrorMessage(err, 'Could not create your shop'));
@@ -71,6 +80,9 @@ export default function ShopSetupPage() {
             </select>
             {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
           </div>
+          {category && (
+            <OtherTypesField main={category} value={extraCategories} onChange={(types) => setValue('extraCategories', types)} />
+          )}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City</label>

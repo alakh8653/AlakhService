@@ -73,7 +73,7 @@ class _VerificationPageState extends State<VerificationPage> {
   final _accountNumber = TextEditingController();
   final _ifsc = TextEditingController();
   OwnerShop? _shop;
-  Set<String> _documents = {};
+  List<String> _documents = const [];
   List<ChecklistItem> _checklist = const [];
   PayoutDetails? _payout;
   String _payoutMethod = 'UPI';
@@ -163,7 +163,7 @@ class _VerificationPageState extends State<VerificationPage> {
           : await (widget.pickDocument ?? pickDocumentPhoto)(source as ImageSource);
       if (file == null) return;
       await _api.uploadDocument(widget.shopId, type, file);
-      if (mounted) setState(() => _documents = {..._documents, type});
+      if (mounted) setState(() => _documents = [..._documents, type]);
     } on ServerException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -187,8 +187,9 @@ class _VerificationPageState extends State<VerificationPage> {
       _blocked(l10n.ownerPanNeeded);
       return;
     }
+    final waiting = documentsWaiting(_checklist, _documents);
     for (final item in _checklist) {
-      if (item.required && !_documents.contains(item.type)) {
+      if (item.required && waiting.contains(item)) {
         _blocked(l10n.ownerDocNeeded(item.label));
         return;
       }
@@ -282,23 +283,34 @@ class _VerificationPageState extends State<VerificationPage> {
         ),
       );
 
-  Widget _document(String type, String label, {bool required = false}) {
+  Widget _checklistDocument(ChecklistItem item, Set<ChecklistItem> waiting) => _document(
+        item.type,
+        item.label,
+        required: item.required,
+        done: !waiting.contains(item),
+        // Two items can be the same kind of document, and a key must say which.
+        key: _checklist.where((i) => i.type == item.type).length > 1
+            ? ValueKey('document-${item.type}-${item.label}')
+            : null,
+      );
+
+  Widget _document(String type, String label, {bool required = false, bool? done, Key? key}) {
     final l10n = context.l10n;
-    final done = _documents.contains(type);
+    final uploaded = done ?? _documents.contains(type);
     return ListTile(
-      key: ValueKey('document-$type'),
+      key: key ?? ValueKey('document-$type'),
       contentPadding: EdgeInsets.zero,
       leading: Icon(
-        done ? Icons.check_circle : Icons.badge_outlined,
-        color: done ? AppColors.success : context.palette.muted,
+        uploaded ? Icons.check_circle : Icons.badge_outlined,
+        color: uploaded ? AppColors.success : context.palette.muted,
       ),
       title: Text(label, style: AppTextStyles.body1),
-      subtitle: Text(done ? l10n.ownerUploaded : (required ? l10n.ownerNeeded : l10n.ownerOptional)),
+      subtitle: Text(uploaded ? l10n.ownerUploaded : (required ? l10n.ownerNeeded : l10n.ownerOptional)),
       trailing: _uploading == type
           ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
           : TextButton(
               onPressed: _uploading == null ? () => _upload(type) : null,
-              child: Text(done ? l10n.ownerReplace : l10n.ownerAddPhoto),
+              child: Text(uploaded ? l10n.ownerReplace : l10n.ownerAddPhoto),
             ),
     );
   }
@@ -308,6 +320,7 @@ class _VerificationPageState extends State<VerificationPage> {
     final l10n = context.l10n;
     final shop = _shop;
     final payout = _payout;
+    final waiting = documentsWaiting(_checklist, _documents);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.ownerVerificationTitle)),
       body: _loading
@@ -373,10 +386,9 @@ class _VerificationPageState extends State<VerificationPage> {
                           Text(l10n.ownerDocuments, style: AppTextStyles.heading3),
                           Text(l10n.ownerDocumentsHelp, style: AppTextStyles.caption.themed(context)),
                           _document('PAN', l10n.ownerDocPan, required: true),
-                          for (final item in _checklist.where((i) => i.required))
-                            _document(item.type, item.label, required: true),
+                          for (final item in _checklist.where((i) => i.required)) _checklistDocument(item, waiting),
                           if (_gstin.text.trim().isNotEmpty) _document('GST', l10n.ownerDocGst, required: true),
-                          for (final item in _checklist.where((i) => !i.required)) _document(item.type, item.label),
+                          for (final item in _checklist.where((i) => !i.required)) _checklistDocument(item, waiting),
                           _document('AADHAAR', l10n.ownerDocAadhaar),
                           _document('SHOP_PHOTO', l10n.ownerDocShopPhoto),
                           const SizedBox(height: 24),

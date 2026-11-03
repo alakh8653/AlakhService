@@ -48,6 +48,8 @@ export interface AdminShop {
   ownerId: string;
   name: string;
   category: string;
+  /** Other types of work beside the main one; the checklist covers them all. */
+  extraCategories: string[];
   city: string | null;
   address: string | null;
   phone: string | null;
@@ -85,6 +87,7 @@ interface ShopRecord {
   owner_id: string;
   name: string;
   category: string;
+  extra_categories?: string[];
   city?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -119,6 +122,7 @@ const toShop = (r: ShopRecord): AdminShop => ({
   ownerId: r.owner_id,
   name: r.name,
   category: r.category,
+  extraCategories: r.extra_categories ?? [],
   city: r.city ?? null,
   address: r.address ?? null,
   phone: r.phone ?? null,

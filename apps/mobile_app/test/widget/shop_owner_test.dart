@@ -7,6 +7,7 @@ import 'package:alakh_service/features/shop_line/data/shop_line_api.dart';
 import 'package:alakh_service/features/shop_owner/data/shop_owner_api.dart';
 import 'package:alakh_service/shared/service_types.dart';
 import 'package:alakh_service/features/shop_owner/presentation/owner_home_page.dart';
+import 'package:alakh_service/features/shop_owner/presentation/owner_settings_pages.dart';
 import 'package:alakh_service/features/shop_owner/presentation/shop_setup_page.dart';
 import 'package:alakh_service/features/shop_owner/presentation/verification_page.dart';
 import 'package:alakh_service/shared/widgets/custom_text_field.dart';
@@ -276,6 +277,135 @@ void main() {
       expect(find.byType(ServiceFields), findsNothing);
     });
 
+    Future<void> addType(WidgetTester tester, String name) async {
+      await tester.tap(find.byKey(const ValueKey('add-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> toServices(WidgetTester tester) async {
+      await tapText(tester, "At the customer's home");
+      await enter(tester, 'City', 'Bengaluru');
+      await tapText(tester, 'Continue');
+    }
+
+    testWidgets('an electrician who is also a plumber lists services under both', (tester) async {
+      await pumpSetup(tester);
+      expect(find.byKey(const ValueKey('add-type')), findsNothing);
+      await chooseCategory(tester);
+      await addType(tester, 'Plumbing');
+      await toServices(tester);
+      await tester.tap(find.widgetWithText(FilterChip, 'Fan repair'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilterChip, 'Tap repair'));
+      await tester.pumpAndSettle();
+      await enter(tester, 'Usual price for all (₹)', '250');
+      await tapText(tester, 'Continue');
+      await tapText(tester, 'Save and continue');
+
+      final shop = adapter.requests.firstWhere((r) => r.path.endsWith('/shops') && r.method == 'POST');
+      expect(shop.data['category'], 'electrical');
+      expect(shop.data['extra_categories'], ['plumbing']);
+      final services = adapter.requests.where((r) => r.path.endsWith('/services') && r.method == 'POST').toList();
+      expect({for (final s in services) s.data['name']: s.data['service_type']}, {
+        'Fan repair': 'electrical',
+        'Tap repair': 'plumbing',
+      });
+    });
+
+    testWidgets('a provider with one type sends no type, as before', (tester) async {
+      await pumpSetup(tester);
+      await fillToLastStep(tester);
+      await tapText(tester, 'Save and continue');
+      final shop = adapter.requests.firstWhere((r) => r.path.endsWith('/shops') && r.method == 'POST');
+      expect(shop.data.containsKey('extra_categories'), isFalse);
+      final service = adapter.requests.firstWhere((r) => r.path.endsWith('/services') && r.method == 'POST');
+      expect(service.data.containsKey('service_type'), isFalse);
+    });
+
+    testWidgets('each type of work needs a service, or nobody browsing it would find them', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await addType(tester, 'Plumbing');
+      await toServices(tester);
+      await tester.tap(find.widgetWithText(FilterChip, 'Fan repair'));
+      await tester.pumpAndSettle();
+      await enter(tester, 'Usual price for all (₹)', '250');
+      await tapText(tester, 'Continue');
+      expect(find.text('Choose at least one service for Plumbing, or take it off.'), findsOneWidget);
+      expect(find.text('When do you work?'), findsNothing);
+    });
+
+    testWidgets('a type already chosen is not offered again, and taking one off clears its services', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await addType(tester, 'Plumbing');
+      await tester.tap(find.byKey(const ValueKey('add-type')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(ListTile, 'Electrical'), findsNothing);
+      expect(find.widgetWithText(ListTile, 'Plumbing'), findsNothing);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      await toServices(tester);
+      await tester.tap(find.widgetWithText(FilterChip, 'Tap repair'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ServiceFields), findsOneWidget);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byType(InputChip), matching: find.byTooltip('Delete')));
+      await tester.pumpAndSettle();
+      await tapText(tester, 'Continue');
+      expect(find.byType(ServiceFields), findsNothing);
+      expect(find.widgetWithText(FilterChip, 'Tap repair'), findsNothing);
+    });
+
+    testWidgets('making an added type the main one keeps its services and lists it once', (tester) async {
+      await pumpSetup(tester);
+      await chooseCategory(tester);
+      await addType(tester, 'Plumbing');
+      await toServices(tester);
+      await tester.tap(find.widgetWithText(FilterChip, 'Tap repair'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('pick-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Plumbing').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(InputChip), findsNothing);
+      await tapText(tester, 'Continue');
+      expect(find.byType(ServiceFields), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Fan repair'), findsNothing);
+    });
+
+    testWidgets('changing the types after a failure tells the server before adding services', (tester) async {
+      failServicesOnce = true;
+      await pumpSetup(tester);
+      await fillToLastStep(tester);
+      await tapText(tester, 'Save and continue');
+      expect(find.text('Try again'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await addType(tester, 'Plumbing');
+      await tapText(tester, 'Continue');
+      await tester.tap(find.widgetWithText(FilterChip, 'Tap repair'));
+      await tester.pumpAndSettle();
+      await enter(tester, 'Usual price for all (₹)', '250');
+      await tapText(tester, 'Continue');
+      await tapText(tester, 'Save and continue');
+
+      expect(adapter.requests.where((r) => r.path.endsWith('/shops') && r.method == 'POST'), hasLength(1));
+      final put = adapter.requests.firstWhere((r) => r.path.endsWith('/shops/s1') && r.method == 'PUT');
+      expect(put.data, {'category': 'electrical', 'extra_categories': ['plumbing']});
+      final services = adapter.requests.where((r) => r.path.endsWith('/services') && r.method == 'POST').toList();
+      expect(services.last.data['service_type'], 'plumbing');
+    });
+
     testWidgets('a shop needs an address', (tester) async {
       await pumpSetup(tester);
       await chooseCategory(tester);
@@ -294,6 +424,48 @@ void main() {
       await tapText(tester, 'Save and continue');
       expect(adapter.requests.where((r) => r.path.endsWith('/shops') && r.method == 'POST'), hasLength(1));
       expect(find.text('Verification and payouts'), findsOneWidget);
+    });
+  });
+
+  group('adding a service later', () {
+    Future<FakeAdapter> openAdd(WidgetTester tester, List<String> extras) async {
+      final adapter = FakeAdapter((r) {
+        if (r.path.endsWith('/services') && r.method == 'POST') {
+          return (status: 201, body: {'id': 'svc2', 'name': 'Tap repair', 'price_cents': 25000});
+        }
+        if (r.path.endsWith('/services')) return (status: 200, body: <Object>[]);
+        return (status: 200, body: {...shopJson(), 'category': 'electrical', 'extra_categories': extras});
+      });
+      tester.view.physicalSize = const Size(1200, 3000);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(MaterialApp(home: OwnerServicesPage(shopId: 's1', api: apiWith(adapter))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add a service'));
+      await tester.pumpAndSettle();
+      await enter(tester, 'Service name', 'Tap repair');
+      await enter(tester, 'Price', '250');
+      return adapter;
+    }
+
+    Map<String, dynamic> sent(FakeAdapter adapter) =>
+        adapter.requests.firstWhere((r) => r.path.endsWith('/services') && r.method == 'POST').data
+            as Map<String, dynamic>;
+
+    testWidgets('a business with several types says which it goes under', (tester) async {
+      final adapter = await openAdd(tester, ['plumbing']);
+      await tester.tap(find.byKey(const ValueKey('service-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Plumbing').last);
+      await tester.pumpAndSettle();
+      await tapText(tester, 'Save');
+      expect(sent(adapter)['service_type'], 'plumbing');
+    });
+
+    testWidgets('a business with one type is not asked', (tester) async {
+      final adapter = await openAdd(tester, []);
+      expect(find.byKey(const ValueKey('service-type')), findsNothing);
+      await tapText(tester, 'Save');
+      expect(sent(adapter).containsKey('service_type'), isFalse);
     });
   });
 
@@ -412,6 +584,36 @@ void main() {
       expect(upload.queryParameters['type'], 'PROFESSIONAL_REGISTRATION');
       expect(upload.contentType, 'application/pdf');
 
+      await tapText(tester, 'Submit for verification');
+      expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isTrue);
+    });
+
+    testWidgets('a doctor who is also a dentist shows a registration from each council', (tester) async {
+      final adapter = verificationAdapter(
+        documents: [
+          {'type': 'PAN'},
+          {'type': 'PROFESSIONAL_REGISTRATION'},
+        ],
+        checklist: [
+          {'type': 'PROFESSIONAL_REGISTRATION', 'label': 'Medical Council certificate', 'required': true, 'done': true},
+          {'type': 'PROFESSIONAL_REGISTRATION', 'label': 'Dental Council certificate', 'required': true, 'done': false},
+        ],
+      );
+      await pump(tester, adapter);
+      expect(find.text('Medical Council certificate'), findsWidgets);
+      await enter(tester, 'Name as on your PAN', 'Dr Asha Rao');
+      await enter(tester, 'UPI ID', 'asha@upi');
+      await tapText(tester, 'Submit for verification');
+      expect(find.text('Please add: Dental Council certificate'), findsNWidgets(2));
+      expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isFalse);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      final second = find.byKey(const ValueKey('document-PROFESSIONAL_REGISTRATION-Dental Council certificate'));
+      await tester.tap(find.descendant(of: second, matching: find.text('Add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choose a PDF file'));
+      await tester.pumpAndSettle();
       await tapText(tester, 'Submit for verification');
       expect(adapter.requests.any((r) => r.path.endsWith('/submit-for-review')), isTrue);
     });

@@ -8,13 +8,13 @@ from app.core.exceptions import ServiceListingNotFoundError
 from app.database import get_db
 from app.dependencies import (
     Caller,
-    CategoryLookup,
     ListedLookup,
     OwnerLookup,
+    TypesLookup,
     ensure_shop_owner,
-    get_shop_category_lookup,
     get_shop_listed_lookup,
     get_shop_owner_lookup,
+    get_shop_types_lookup,
     require_admin,
     require_caller,
     require_internal,
@@ -29,6 +29,15 @@ from app.schemas.catalog import (
 from app.services.catalog_service import catalog_service
 
 router = APIRouter()
+
+
+def _ensure_shop_does(service_type: Optional[str], shop_types: List[str]) -> None:
+    """A service only goes under a type the shop chose, and so has shown the documents for."""
+    if service_type is None or service_type in shop_types:
+        return
+    if not shop_types:
+        raise HTTPException(status_code=503, detail="Shop service unavailable")
+    raise HTTPException(status_code=422, detail="Add this type of work to your shop first")
 
 
 @router.get("/categories", response_model=List[CategoryResponse])
@@ -62,11 +71,16 @@ async def create_service(
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
     lookup_listed: ListedLookup = Depends(get_shop_listed_lookup),
-    lookup_category: CategoryLookup = Depends(get_shop_category_lookup),
+    lookup_types: TypesLookup = Depends(get_shop_types_lookup),
 ):
     await ensure_shop_owner(data.shop_id, caller, lookup_owner)
+    shop_types = await lookup_types(data.shop_id)
+    _ensure_shop_does(data.service_type, shop_types)
     return await catalog_service.create_service(
-        db, data, shop_listed=await lookup_listed(data.shop_id), shop_category=await lookup_category(data.shop_id)
+        db,
+        data,
+        shop_listed=await lookup_listed(data.shop_id),
+        shop_category=shop_types[0] if shop_types else None,
     )
 
 
@@ -95,10 +109,13 @@ async def update_service(
     db: AsyncSession = Depends(get_db, scope="function"),
     caller: Caller = Depends(require_caller),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
+    lookup_types: TypesLookup = Depends(get_shop_types_lookup),
 ):
     try:
         listing = await catalog_service.get_service(db, service_id)
         await ensure_shop_owner(listing.shop_id, caller, lookup_owner)
+        if data.service_type is not None:
+            _ensure_shop_does(data.service_type, await lookup_types(listing.shop_id))
         return await catalog_service.update_service(db, service_id, data)
     except ServiceListingNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -107,6 +124,8 @@ async def update_service(
 class ShopListing(BaseModel):
     listed: bool
     category: Optional[str] = None
+    # Sent with the category; services under a type the shop no longer has go back under its main type.
+    extra_categories: Optional[List[str]] = None
 
 
 internal_router = APIRouter(dependencies=[Depends(require_internal)])
@@ -116,7 +135,7 @@ internal_router = APIRouter(dependencies=[Depends(require_internal)])
 async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = Depends(get_db, scope="function")):
     """shop_service: the shop was approved, rejected, or switched on or off, or changed its type of work."""
     if data.category:
-        await catalog_service.set_shop_category(db, shop_id, data.category)
+        await catalog_service.set_shop_category(db, shop_id, data.category, data.extra_categories)
     return {
         "shop_id": shop_id,
         "listed": data.listed,

@@ -55,6 +55,31 @@ describe('onboarding checklist', () => {
   });
 });
 
+describe('onboarding checklist with more than one type of work', () => {
+  const trade = (type: string, label: string, required = true) => ({ type, label, required, done: false }) as kyc.TradeDocument;
+  const clinic = trade('PROFESSIONAL_REGISTRATION', 'Medical Council registration');
+  const dentist = trade('PROFESSIONAL_REGISTRATION', 'Dental Council registration');
+  const doc = (type: string) => ({ ...pan, type }) as kyc.ShopDocument;
+  const named = (docs: kyc.ShopDocument[], needed: kyc.TradeDocument[]) =>
+    onboardingChecklist({ ...shop, legalName: 'Asha Rao' }, [pan, ...docs], false, needed).filter((i) => i.label.endsWith('registration'));
+
+  it('asks for one document per type of work, even of the same kind', () => {
+    const needed = [clinic, dentist];
+    expect(named([], needed).map((i) => i.done)).toEqual([false, false]);
+    expect(named([doc('PROFESSIONAL_REGISTRATION')], needed).map((i) => i.done)).toEqual([true, false]);
+    expect(named([doc('PROFESSIONAL_REGISTRATION'), doc('PROFESSIONAL_REGISTRATION')], needed).map((i) => i.done)).toEqual([true, true]);
+    expect(new Set(named([], needed).map((i) => i.id)).size).toBe(2);
+  });
+
+  it('counts a document for what is required before what is recommended', () => {
+    const wireman = trade('TRADE_LICENCE', 'Wireman licence', false);
+    const pest = trade('TRADE_LICENCE', 'Pest control licence');
+    const waiting = kyc.documentsWaiting([wireman, pest], [doc('TRADE_LICENCE')]);
+    expect(waiting.has(pest)).toBe(false);
+    expect(waiting.has(wireman)).toBe(true);
+  });
+});
+
 describe('OnboardingPage', () => {
   it('blocks submitting until the required items are done, then submits', async () => {
     vi.spyOn(kyc, 'getDocuments').mockResolvedValue([pan]);

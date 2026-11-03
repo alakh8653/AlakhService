@@ -17,7 +17,9 @@ class Shop(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     owner_id = Column(String, nullable=False, index=True)
     name = Column(String, nullable=False)
+    # The main type of work; extra_categories holds any others, comma-separated.
     category = Column(String, nullable=False, index=True)
+    extra_categories = Column(String(500), default="", server_default="", nullable=False)
     description = Column(Text, nullable=True)
     rating_avg = Column(Float, default=0.0, nullable=False)
     rating_count = Column(Integer, default=0, nullable=False)

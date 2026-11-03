@@ -6,7 +6,8 @@ import '../l10n/l10n.dart';
 enum ServiceGroup { beauty, health, homeRepairs, homeHelp, vehicles, learning, events, other }
 
 /// A kind of work people book: what a business says it does, and what customers browse by. The id is the
-/// shop's category on the server; every service of the shop is found under it, whatever it is called.
+/// shop's category on the server; its services are found under it, whatever they are called. A shop can add
+/// other types beside it, up to [maxOtherTypes].
 class ServiceType {
   final String id;
   final IconData icon;
@@ -85,6 +86,9 @@ int usualMinutes(ServiceType? type) => switch (type?.group) {
       ServiceGroup.homeRepairs || ServiceGroup.homeHelp || ServiceGroup.vehicles || ServiceGroup.events => 60,
       _ => 30,
     };
+
+/// How many other types of work a shop can add beside its main one; shop_service's limit too.
+const maxOtherTypes = 4;
 
 ServiceType? serviceTypeById(String id) {
   for (final type in serviceTypes) {

@@ -6,7 +6,7 @@ be reached without going through the gateway.
 
 import hmac
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, List, Optional
 
 import httpx
 from fastapi import Depends, Header, HTTPException
@@ -83,22 +83,28 @@ async def fetch_shop_listed(shop_id: str) -> bool:
 ListedLookup = Callable[[str], Awaitable[bool]]
 
 
-async def fetch_shop_category(shop_id: str) -> Optional[str]:
-    """The shop's type of work. Best effort: shop_service sends it again with the regular listing sync."""
+async def fetch_shop_types(shop_id: str) -> List[str]:
+    """The shop's types of work, its main one first; empty when unknown.
+
+    Best effort: shop_service sends the main one again with the regular listing sync.
+    """
     key = settings.INTERNAL_API_KEY
     try:
         async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=3.0) as client:
             resp = await client.get(f"/api/v1/shops/{shop_id}", headers={"X-Internal-Key": key} if key else {})
     except httpx.HTTPError:
-        return None
-    return resp.json().get("category") if resp.status_code == 200 else None
+        return []
+    if resp.status_code != 200:
+        return []
+    shop = resp.json()
+    return [shop["category"], *(shop.get("extra_categories") or [])] if shop.get("category") else []
 
 
-CategoryLookup = Callable[[str], Awaitable[Optional[str]]]
+TypesLookup = Callable[[str], Awaitable[List[str]]]
 
 
-def get_shop_category_lookup() -> CategoryLookup:
-    return fetch_shop_category
+def get_shop_types_lookup() -> TypesLookup:
+    return fetch_shop_types
 
 
 def get_shop_listed_lookup() -> ListedLookup:

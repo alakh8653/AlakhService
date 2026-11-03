@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/l10n.dart';
+import '../../../shared/service_types.dart';
 import '../../../shared/utils/format.dart';
 import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/loading_indicator.dart';
@@ -123,8 +124,31 @@ class _AddServicePageState extends State<_AddServicePage> {
   final _name = TextEditingController();
   final _price = TextEditingController();
   final _minutes = TextEditingController(text: '30');
+  // The business's types of work; only asked about when there is more than one.
+  List<String> _types = const [];
+  String? _serviceType;
   bool _saving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTypes();
+  }
+
+  Future<void> _loadTypes() async {
+    try {
+      final types = (await widget.api.shop(widget.shopId)).types;
+      if (mounted && types.length > 1) {
+        setState(() {
+          _types = types;
+          _serviceType = types.first;
+        });
+      }
+    } on ServerException {
+      // Then it goes under the main type, which is where it would have gone anyway.
+    }
+  }
 
   @override
   void dispose() {
@@ -147,6 +171,7 @@ class _AddServicePageState extends State<_AddServicePage> {
         priceCents: int.parse(_price.text.trim()) * 100,
         durationMinutes: int.parse(_minutes.text.trim()),
         modes: widget.modes.isEmpty ? const [modeAtShop] : widget.modes,
+        serviceType: _serviceType,
       );
       if (mounted) Navigator.pop(context, true);
     } on ServerException catch (e) {
@@ -168,6 +193,19 @@ class _AddServicePageState extends State<_AddServicePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_types.length > 1) ...[
+                DropdownButtonFormField<String>(
+                  key: const ValueKey('service-type'),
+                  initialValue: _serviceType,
+                  decoration: InputDecoration(labelText: l10n.ownerCategory),
+                  items: [
+                    for (final id in _types)
+                      DropdownMenuItem(value: id, child: Text(serviceTypeById(id)?.label(l10n) ?? id)),
+                  ],
+                  onChanged: (id) => setState(() => _serviceType = id),
+                ),
+                const SizedBox(height: 16),
+              ],
               ServiceFields(name: _name, price: _price, minutes: _minutes),
               if (_error != null) ...[
                 const SizedBox(height: 12),

@@ -9,6 +9,7 @@ const shop: service.ShopForReview = {
   ownerId: 'o1',
   name: 'Glow Salon',
   category: 'salon',
+  extraCategories: ['spa'],
   city: 'Pune',
   address: '12 MG Road',
   phone: '+919876543210',
@@ -44,6 +45,7 @@ describe('ShopsPage', () => {
     renderPage();
     const card = await screen.findByRole('article', { name: 'Glow Salon' });
     expect(within(card).getByText('Glow Salon Pvt Ltd')).toBeInTheDocument();
+    expect(within(card).getByText(/salon, spa/)).toBeInTheDocument();
     expect(within(card).getByText('27AAPFU0939F1ZV')).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: 'View PAN card (pan.pdf)' })).toBeInTheDocument();
     const link = within(card).getByRole('link', { name: 'Open GST certificate (external link)' });

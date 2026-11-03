@@ -4,6 +4,7 @@ import { Plus, Pencil, Home, Package, Store } from 'lucide-react';
 import type { RootState } from '../state/store';
 import { useShopServices } from '../hooks/useShopServices';
 import { createService, updateService } from '../services/shopService';
+import { categoryLabel } from '../services/categories';
 import { apiErrorMessage, formatMoney, toMinorUnits } from '../services/format';
 import Dialog from '../components/Dialog';
 import Switch from '../components/Switch';
@@ -18,10 +19,13 @@ export interface ServiceValues {
   modes: ServiceMode[];
   homeVisitFee: number;
   pickupFee: number;
+  serviceType?: string;
 }
 
 interface ServiceFormProps {
   initial?: Service;
+  /** The shop's types of work, its main one first. */
+  types: string[];
   onSubmit: (values: ServiceValues) => Promise<void>;
   onClose: () => void;
 }
@@ -39,7 +43,8 @@ type Field = 'name' | 'price' | 'duration' | 'modes' | 'homeFee' | 'pickupFee';
 const input =
   'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 aria-[invalid=true]:border-red-400';
 
-function ServiceForm({ initial, onSubmit, onClose }: ServiceFormProps) {
+function ServiceForm({ initial, types, onSubmit, onClose }: ServiceFormProps) {
+  const [serviceType, setServiceType] = useState(initial?.serviceType && types.includes(initial.serviceType) ? initial.serviceType : types[0]);
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [price, setPrice] = useState(initial ? String(initial.priceCents / 100) : '');
@@ -84,6 +89,8 @@ function ServiceForm({ initial, onSubmit, onClose }: ServiceFormProps) {
         modes: ordered,
         homeVisitFee: homeFeeValue,
         pickupFee: pickupFeeValue,
+        // A shop with one type of work has nothing to choose, and its services simply follow the shop.
+        serviceType: types.length > 1 ? serviceType : undefined,
       });
       onClose();
     } catch (err) {
@@ -114,6 +121,18 @@ function ServiceForm({ initial, onSubmit, onClose }: ServiceFormProps) {
           </label>
           {err('name')}
         </div>
+        {types.length > 1 && (
+          <label className="sm:col-span-2 text-sm font-medium text-gray-700">
+            Type of work
+            <select value={serviceType} onChange={(e) => setServiceType(e.target.value)} className={`${input} bg-white`}>
+              {types.map((type) => (
+                <option key={type} value={type}>
+                  {categoryLabel(type)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700">
           Price (₹)
@@ -192,7 +211,9 @@ function priceLine(s: Service) {
 }
 
 export default function ServicesPage() {
-  const shopId = useSelector((state: RootState) => state.auth.shop?.id);
+  const shop = useSelector((state: RootState) => state.auth.shop);
+  const shopId = shop?.id;
+  const types = shop?.category ? [shop.category, ...(shop.extraCategories ?? [])] : [];
   const { services, setServices, isLoading, error: loadError } = useShopServices();
   const [editing, setEditing] = useState<Service | 'new' | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -222,6 +243,7 @@ export default function ServicesPage() {
       serviceModes: values.modes,
       homeVisitFeeCents: toMinorUnits(values.homeVisitFee),
       pickupFeeCents: toMinorUnits(values.pickupFee),
+      serviceType: values.serviceType,
     };
     if (editing === 'new') {
       if (!shopId) return;
@@ -255,6 +277,7 @@ export default function ServicesPage() {
         <ServiceForm
           key={editing === 'new' ? 'new' : editing.id}
           initial={editing === 'new' ? undefined : editing}
+          types={types}
           onSubmit={save}
           onClose={() => setEditing(null)}
         />
@@ -284,6 +307,11 @@ export default function ServicesPage() {
                 </p>
                 {s.description && <p className="text-xs text-gray-500 mt-0.5">{s.description}</p>}
                 <p className="flex flex-wrap gap-1.5 mt-1">
+                  {types.length > 1 && (
+                    <span className="text-xs text-indigo-800 bg-indigo-50 rounded-full px-2 py-0.5">
+                      {categoryLabel(s.serviceType && types.includes(s.serviceType) ? s.serviceType : types[0])}
+                    </span>
+                  )}
                   {s.serviceModes.map((m) => {
                     const Icon = MODE_ICONS[m];
                     return (

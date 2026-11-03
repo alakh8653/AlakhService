@@ -2785,6 +2785,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerPickOneService => 'कम से कम एक सेवा चुनें।';
 
   @override
+  String ownerPickServiceFor(String type) {
+    return '$type के लिए कम से कम एक सेवा चुनें, या उसे हटा दें।';
+  }
+
+  @override
+  String get ownerAddAnotherType => 'एक और काम जोड़ें';
+
+  @override
+  String get ownerOtherTypesHelp =>
+      'ग्राहक आपको हर काम के तहत ढूँढ पाएँगे। हर काम के लिए अलग कागज़ात लग सकते हैं।';
+
+  @override
   String get ownerChoosePdf => 'PDF फ़ाइल चुनें';
 
   @override

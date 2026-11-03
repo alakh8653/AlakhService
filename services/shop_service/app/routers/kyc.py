@@ -17,7 +17,7 @@ from app.config import settings
 from app.core.exceptions import ShopNotFoundError
 from app.core.reporting import Reporter, get_reporter, request_origin
 from app.core.storage import LocalDocumentStorage, StorageDisabled, get_storage, sniff_content_type
-from app.core.trades import credentials_for
+from app.core.trades import credentials_for, not_shown
 from app.database import get_db
 from app.dependencies import (
     Caller,
@@ -41,7 +41,7 @@ from app.schemas.shop import (
     ShopReviewItem,
 )
 from app.services.kyc_service import ReviewStateError, kyc_service
-from app.services.shop_service import is_public, shop_service
+from app.services.shop_service import is_public, shop_categories, shop_service
 
 router = APIRouter()
 
@@ -83,18 +83,19 @@ def _safe_file_name(name: Optional[str]) -> Optional[str]:
 async def verification_checklist(
     shop_id: str, db: AsyncSession = Depends(get_db, scope="function"), caller: Caller = Depends(require_caller)
 ):
-    """The documents this shop's type of work asks for, beyond the PAN everyone gives, for the owner and admins."""
+    """The documents this shop's types of work ask for, beyond the PAN everyone gives, for the owner and admins."""
     shop = await managed_shop(shop_id, db, caller)
-    have = {d.type for d in await kyc_service.list_documents(db, shop_id)}
+    credentials = credentials_for(*shop_categories(shop))
+    missing = not_shown(credentials, [d.type for d in await kyc_service.list_documents(db, shop_id)])
     return [
         ChecklistItem(
             type=c.type,
             label=c.label,
             required=c.required,
-            done=c.type in have,
+            done=c not in missing,
             admin_check=c.admin_check if caller.is_admin else None,
         )
-        for c in credentials_for(shop.category)
+        for c in credentials
     ]
 
 

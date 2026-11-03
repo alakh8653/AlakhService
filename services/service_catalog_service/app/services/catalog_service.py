@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ServiceListingNotFoundError
@@ -30,6 +30,14 @@ def _index_listing(service: ServiceListing) -> None:
     for word in service.name.lower().split():
         if len(word) >= 2:
             _bk_tree.add(word)
+
+
+def _filed_under(category: str):
+    """Services of this type of work: their own type, or the shop's main type when they have none."""
+    return or_(
+        ServiceListing.service_type == category,
+        and_(ServiceListing.service_type.is_(None), ServiceListing.shop_category == category),
+    )
 
 
 class CatalogService:
@@ -63,6 +71,7 @@ class CatalogService:
             category_id=data.category_id,
             shop_id=data.shop_id,
             shop_category=shop_category,
+            service_type=data.service_type,
             name=data.name,
             description=data.description,
             price_cents=data.price_cents,
@@ -107,7 +116,7 @@ class CatalogService:
         if not include_inactive:
             query = query.where(ServiceListing.is_active == True)
         if category:
-            query = query.where(ServiceListing.shop_category == category)
+            query = query.where(_filed_under(category))
         result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
         return list(result.scalars().all())
 
@@ -126,7 +135,7 @@ class CatalogService:
     ) -> List[ServiceListing]:
         base = select(ServiceListing).where(ServiceListing.is_active == True, ServiceListing.shop_listed == True)
         if category:
-            base = base.where(or_(ServiceListing.shop_category == category, ServiceListing.category_id == category))
+            base = base.where(or_(_filed_under(category), ServiceListing.category_id == category))
         if q:
             await self._ensure_index(db)
             # Only listings that contain a query term, best match first.
@@ -158,13 +167,23 @@ class CatalogService:
         log.info("service_updated", service_id=service_id)
         return service
 
-    async def set_shop_category(self, db: AsyncSession, shop_id: str, category: str) -> None:
-        """Files every service of a shop under its type of work."""
+    async def set_shop_category(
+        self, db: AsyncSession, shop_id: str, category: str, extra_categories: Optional[List[str]] = None
+    ) -> None:
+        """Files every service of a shop under its main type of work, unless it has another type of the shop's."""
         await db.execute(
             update(ServiceListing)
             .where(ServiceListing.shop_id == shop_id, ServiceListing.shop_category.is_distinct_from(category))
             .values(shop_category=category)
         )
+        if extra_categories is not None:
+            await db.execute(
+                update(ServiceListing)
+                .where(
+                    ServiceListing.shop_id == shop_id, ServiceListing.service_type.not_in([category, *extra_categories])
+                )
+                .values(service_type=None)
+            )
 
     async def set_shop_listed(self, db: AsyncSession, shop_id: str, listed: bool) -> int:
         """Shows or hides every service of a shop in browsing and search. Returns how many changed."""

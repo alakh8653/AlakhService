@@ -29,6 +29,7 @@ import '../../../shops/presentation/shop_profile_section.dart';
 import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final ServiceEntity service;
@@ -289,6 +290,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                             style: AppTextStyles.body2.themed(context),
                           ),
                         ),
+                        if (shop.isVerified) ...[const SizedBox(width: 6), const VerifiedBadge()],
                       ],
                     ),
                   ],

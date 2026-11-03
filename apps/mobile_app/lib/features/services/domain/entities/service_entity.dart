@@ -35,6 +35,9 @@ class ServiceEntity extends Equatable {
   final double homeVisitFee;
   final double pickupFee;
 
+  /// The shop doing the work has been verified by the platform.
+  final bool shopVerified;
+
   const ServiceEntity({
     required this.id,
     required this.name,
@@ -52,6 +55,7 @@ class ServiceEntity extends Equatable {
     this.serviceModes = const [ServiceMode.atShop],
     this.homeVisitFee = 0,
     this.pickupFee = 0,
+    this.shopVerified = false,
   });
 
   /// The extra charge for delivering it in [mode].

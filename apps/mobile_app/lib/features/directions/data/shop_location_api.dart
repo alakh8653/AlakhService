@@ -20,6 +20,7 @@ class ShopLocationApi {
         address: [shop['address'], shop['city']].whereType<String>().where((p) => p.trim().isNotEmpty).join(', '),
         latitude: (shop['latitude'] as num?)?.toDouble(),
         longitude: (shop['longitude'] as num?)?.toDouble(),
+        isVerified: shop['is_verified'] == true,
       );
     } on DioException catch (e) {
       throw toServerException(e);

@@ -14,6 +14,7 @@ class SavedShop {
   final String? city;
   final double rating;
   final int ratingCount;
+  final bool isVerified;
 
   const SavedShop({
     required this.id,
@@ -22,6 +23,7 @@ class SavedShop {
     this.city,
     this.rating = 0,
     this.ratingCount = 0,
+    this.isVerified = false,
   });
 
   factory SavedShop.fromJson(Map<String, dynamic> json) => SavedShop(
@@ -31,6 +33,7 @@ class SavedShop {
         city: json['city'] as String?,
         rating: ((json['rating_avg'] as num?) ?? 0).toDouble(),
         ratingCount: (json['rating_count'] as int?) ?? 0,
+        isVerified: json['is_verified'] == true,
       );
 }
 

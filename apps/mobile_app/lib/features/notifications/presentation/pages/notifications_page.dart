@@ -8,12 +8,16 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../booking/presentation/pages/booking_details_page.dart';
 import '../../data/notifications_api.dart';
 
 class NotificationsPage extends StatefulWidget {
   final NotificationsApi? notificationsApi;
 
-  const NotificationsPage({super.key, this.notificationsApi});
+  /// Opens the booking a notification is about (its details by default; replaceable in tests).
+  final void Function(BuildContext context, String bookingId)? openBooking;
+
+  const NotificationsPage({super.key, this.notificationsApi, this.openBooking});
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -58,7 +62,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> _open(AppNotification n) async {
     await _markRead(n);
-    if (mounted && _aboutBookings(n)) ShellNavigation.show(context, ShellTab.bookings);
+    if (!mounted) return;
+    // About one booking (extra charges to approve, a status change): straight to it.
+    final bookingId = n.bookingId;
+    if (bookingId != null) {
+      final open = widget.openBooking ??
+          (context, id) => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => BookingDetailsPage(bookingId: id)));
+      open(context, bookingId);
+      return;
+    }
+    if (_aboutBookings(n)) ShellNavigation.show(context, ShellTab.bookings);
   }
 
   Future<void> _markRead(AppNotification n) async {

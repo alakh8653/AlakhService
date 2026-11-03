@@ -1446,7 +1446,7 @@
   "ownerCity": "City",
   "ownerShopAddress": "Shop address",
   "ownerAreaYouServe": "Area you serve (optional)",
-  "ownerPhone": "Phone for customers",
+  "ownerPhone": "Shop phone (for Alakh support only; customers never see it)",
   "ownerUseLocation": "Use my current location",
   "ownerLocationSaved": "Location added",
   "ownerLocationFailed": "Could not get your location. You can carry on without it.",

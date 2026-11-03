@@ -3941,7 +3941,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerPhone.
   ///
   /// In en, this message translates to:
-  /// **'Phone for customers'**
+  /// **'Shop phone (for Alakh support only; customers never see it)'**
   String get ownerPhone;
 
   /// No description provided for @ownerUseLocation.

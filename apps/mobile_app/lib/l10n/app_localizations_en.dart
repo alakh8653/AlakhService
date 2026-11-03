@@ -2265,7 +2265,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ownerAreaYouServe => 'Area you serve (optional)';
 
   @override
-  String get ownerPhone => 'Phone for customers';
+  String get ownerPhone =>
+      'Shop phone (for Alakh support only; customers never see it)';
 
   @override
   String get ownerUseLocation => 'Use my current location';

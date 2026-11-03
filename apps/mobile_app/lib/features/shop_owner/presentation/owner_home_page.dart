@@ -18,6 +18,7 @@ import '../../shop_line/presentation/shop_line_page.dart';
 import '../data/shop_owner_api.dart';
 import 'owner_reports_page.dart';
 import 'owner_settings_pages.dart';
+import 'owner_tools_pages.dart';
 import 'verification_page.dart';
 
 /// The owner's home on the phone: new requests with big Accept and Decline buttons, then the work ahead,
@@ -344,6 +345,10 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               () => ShopLinePage(shop: widget.shop, api: widget.lineApi),
             ),
             _link(Icons.bar_chart, l10n.ownerReports, () => OwnerReportsPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.share_outlined, l10n.ownerShare, () => OwnerSharePage(shop: shop)),
+            _link(Icons.event_busy_outlined, l10n.ownerDaysOff, () => OwnerDaysOffPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.star_outline, l10n.ownerReviews, () => OwnerReviewsPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.people_outline, l10n.ownerCustomers, () => OwnerCustomersPage(shopId: _shopId, api: widget.api)),
             _link(Icons.content_cut, l10n.ownerMyServices, () => OwnerServicesPage(shopId: _shopId, api: widget.api)),
             _link(Icons.schedule, l10n.ownerOpeningHours, () => OwnerHoursPage(shopId: _shopId, api: widget.api)),
             _link(

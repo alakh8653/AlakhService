@@ -2948,4 +2948,85 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get entryOther => 'अन्य';
+
+  @override
+  String get ownerDaysOff => 'छुट्टी के दिन';
+
+  @override
+  String get ownerDaysOffHelp =>
+      'इन दिनों ग्राहक बुक नहीं कर सकते। जो बुकिंग पहले से हैं वे बनी रहेंगी, उन्हें आप खुद रद्द करें या बदलें।';
+
+  @override
+  String get ownerOffToday => 'आज छुट्टी';
+
+  @override
+  String get ownerOffTomorrow => 'कल छुट्टी';
+
+  @override
+  String get ownerOffPick => 'तारीख़ चुनें';
+
+  @override
+  String get ownerNoDaysOff => 'आगे कोई छुट्टी नहीं है।';
+
+  @override
+  String get ownerReviews => 'ग्राहकों की समीक्षाएँ';
+
+  @override
+  String get ownerNoReviews =>
+      'अभी कोई समीक्षा नहीं। काम पूरा होने पर ग्राहक की रेटिंग यहाँ दिखेगी।';
+
+  @override
+  String get ownerReply => 'जवाब दें';
+
+  @override
+  String get ownerEditReply => 'जवाब बदलें';
+
+  @override
+  String get ownerReplyHelp => 'आपका जवाब सभी पढ़ सकते हैं।';
+
+  @override
+  String get ownerCustomers => 'मेरे ग्राहक';
+
+  @override
+  String get ownerNoCustomers =>
+      'पहली बुकिंग पूरी होने पर ग्राहक यहाँ दिखेंगे।';
+
+  @override
+  String ownerCustomersSummary(int total, int back) {
+    return '$total ग्राहक, $back दोबारा आए';
+  }
+
+  @override
+  String ownerCustomerLine(int visits, String date) {
+    return '$visits बार आए, पिछली बार $date';
+  }
+
+  @override
+  String get ownerShare => 'अपना व्यवसाय शेयर करें';
+
+  @override
+  String get ownerShareHelp =>
+      'इसे अपने ग्राहकों और ग्रुप में भेजें। वे लिंक से सीधे आपको बुक कर सकते हैं।';
+
+  @override
+  String ownerShareMessage(String name, String link) {
+    return 'AlakhService पर $name को बुक करें: $link';
+  }
+
+  @override
+  String get ownerShareWhatsApp => 'WhatsApp पर शेयर करें';
+
+  @override
+  String get ownerShareCopy => 'संदेश कॉपी करें';
+
+  @override
+  String get ownerShareCopied => 'कॉपी हो गया। इसे कहीं भी पेस्ट कर सकते हैं।';
+
+  @override
+  String get ownerShareFailed =>
+      'WhatsApp नहीं खुला। इसकी जगह संदेश कॉपी करें।';
+
+  @override
+  String get ownerShareNotYet =>
+      'व्यवसाय मंज़ूर होने पर आप अपना लिंक शेयर कर सकते हैं।';
 }

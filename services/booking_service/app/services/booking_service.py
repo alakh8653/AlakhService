@@ -246,6 +246,26 @@ class BookingService:
         )
         return {"items": list(result.scalars().all()), "total": total, "page": page, "per_page": per_page}
 
+    async def shop_customers(self, db: AsyncSession, shop_id: str, limit: int = 200) -> list:
+        """Each customer's completed bookings at this shop. Walk-ins have no account, so they are left out."""
+        result = await db.execute(
+            select(
+                Booking.customer_id,
+                func.count().label("visits"),
+                func.sum(Booking.total_amount).label("spent"),
+                func.max(Booking.scheduled_at).label("last_visit"),
+            )
+            .where(
+                Booking.shop_id == shop_id,
+                Booking.status == BookingStatus.COMPLETED.value,
+                Booking.customer_id.notlike("walk-in:%"),
+            )
+            .group_by(Booking.customer_id)
+            .order_by(func.max(Booking.scheduled_at).desc())
+            .limit(limit)
+        )
+        return list(result.all())
+
     async def shop_summary(
         self, db: AsyncSession, shop_id: str, date_from: date, date_to: date, top_n: int = 5
     ) -> dict:

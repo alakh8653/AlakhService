@@ -24,7 +24,7 @@ from app.config import settings
 from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, waitlist
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
-from app.core.names import NameLookup, get_name_lookup
+from app.core.names import FALLBACK, NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
 from app.core.packages import PackageUnusable, PackageWallet, get_package_wallet
 from app.core.payments import PaymentClient, get_payment_client, get_session_factory
@@ -295,7 +295,8 @@ async def _ensure_bookable(
     schedule = availability.Schedule.from_shop_service(await lookup_schedule(shop_id) if shop_id else None)
     if not schedule.accepting_bookings:
         raise HTTPException(status_code=409, detail=availability.NOT_ACCEPTING_MESSAGE)
-    if not schedule.configured:
+    # Without hours there is still a day off to respect (availability.booking_problem).
+    if not schedule.configured and not schedule.holidays:
         return
     await booking_service.hold_shop_capacity(db, shop_id)
     start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
@@ -368,6 +369,29 @@ async def shop_booking_summary(
     if date_from > date_to or (date_to - date_from).days > 366:
         raise HTTPException(status_code=400, detail="Invalid date range (max 366 days)")
     return await booking_service.shop_summary(db, shop_id, date_from, date_to)
+
+
+@router.get("/bookings/shop/{shop_id}/customers")
+async def shop_customers(
+    shop_id: str = Depends(require_shop_access),
+    db: AsyncSession = Depends(get_db, scope="function"),
+    lookup_names: NameLookup = Depends(get_name_lookup),
+):
+    """Who has been served, most recent first. By display name only: no id, phone or email to contact them by."""
+    rows = await booking_service.shop_customers(db, shop_id)
+    try:
+        names = await lookup_names({r.customer_id for r in rows})
+    except Exception:  # never refuse the list for want of a name
+        names = {}
+    return [
+        {
+            "name": names.get(r.customer_id, FALLBACK),
+            "visits": r.visits,
+            "spent": round((r.spent or 0) / 100, 2),
+            "last_visit": r.last_visit,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/bookings/tracking/{provider_id}")

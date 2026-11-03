@@ -297,7 +297,7 @@ every new booking to the shop owner (the shop dashboard has no push notification
    Apple Team ID (when the iOS app ships).
 
 The files are mounted into Caddy, so after editing them on the server they are live at once (no rebuild).
-Links `https://<DOMAIN>/b/<booking id>` and `https://<DOMAIN>/reset-password?token=...` open the app
+Links `https://<DOMAIN>/b/<booking id>`, `https://<DOMAIN>/s/<shop id>` and `https://<DOMAIN>/reset-password?token=...` open the app
 when it is installed, and otherwise show a short "get the app" page (the reset page can also reset the
 password in the browser).
 

@@ -8,10 +8,11 @@ payment_service can make it.
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Callable, List, Optional
+from typing import Awaitable, Callable, List, Optional
 
 import httpx
 import structlog
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -110,6 +111,31 @@ class PaymentClient:
 
 def get_payment_client() -> PaymentClient:
     return PaymentClient(settings.PAYMENT_SERVICE_URL, settings.INTERNAL_API_KEY)
+
+
+OpenPaymentCloser = Callable[[str], Awaitable[bool]]
+
+
+async def close_open_payments(booking_id: str) -> bool:
+    """Before a booking's price changes: payment_service closes checkouts started at the old price. Says whether
+    the booking turned out to be paid already. Raises when it cannot be asked, so that the price stays."""
+    if not settings.INTERNAL_API_KEY:
+        return False
+    try:
+        async with httpx.AsyncClient(base_url=settings.PAYMENT_SERVICE_URL, timeout=10.0) as client:
+            resp = await client.post(
+                f"/internal/payments/booking/{path_segment(booking_id)}/close-open",
+                headers={"X-Internal-Key": settings.INTERNAL_API_KEY},
+            )
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=503, detail="Please try again in a minute") from e
+    if resp.status_code != 200:
+        raise HTTPException(status_code=503, detail="Please try again in a minute")
+    return bool(resp.json().get("paid"))
+
+
+def get_open_payment_closer() -> OpenPaymentCloser:
+    return close_open_payments
 
 
 SessionFactory = Callable[[], AsyncSession]

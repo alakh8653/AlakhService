@@ -35,6 +35,10 @@ def shape(booking, user: dict, display_name: str) -> BookingResponse:
     out = BookingResponse.model_validate(booking).model_copy(update={"customer_display_name": display_name})
     if user.get("role") != "admin":
         out = out.model_copy(update={"cancellation_reason": masked(out.cancellation_reason)})
+    if booking.status in CLOSED_STATUSES:  # a request left unanswered ends with the booking
+        out = out.model_copy(
+            update={"pending_extra_id": None, "pending_extra_amount": None, "pending_extra_reason": None}
+        )
     if sees_everything(booking, user):
         return out
     hidden = {"notes": masked(out.notes), "item_description": masked(out.item_description)}

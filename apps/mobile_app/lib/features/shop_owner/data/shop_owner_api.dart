@@ -119,6 +119,14 @@ class OwnerBooking {
   /// UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
   final String paymentStatus;
 
+  /// An extra charge waiting for the customer's answer.
+  final String? pendingExtraId;
+  final int? pendingExtraCents;
+  final String? pendingExtraReason;
+
+  /// Of [totalCents], what the customer agreed to on top.
+  final int extraCents;
+
   const OwnerBooking({
     required this.id,
     required this.number,
@@ -130,6 +138,10 @@ class OwnerBooking {
     this.totalCents = 0,
     this.notes,
     this.paymentStatus = 'UNPAID',
+    this.pendingExtraId,
+    this.pendingExtraCents,
+    this.pendingExtraReason,
+    this.extraCents = 0,
   });
 
   factory OwnerBooking.fromJson(Map<String, dynamic> j) => OwnerBooking(
@@ -143,8 +155,16 @@ class OwnerBooking {
         totalCents: (j['total_amount'] as num?)?.toInt() ?? 0,
         notes: j['notes'] as String?,
         paymentStatus: j['payment_status'] as String? ?? 'UNPAID',
+        pendingExtraId: j['pending_extra_id'] as String?,
+        pendingExtraCents: (j['pending_extra_amount'] as num?)?.toInt(),
+        pendingExtraReason: j['pending_extra_reason'] as String?,
+        extraCents: (j['extra_amount'] as num?)?.toInt() ?? 0,
       );
 }
+
+/// Statuses in which booking_service takes an extra charge: from when a provider can have seen the job until it
+/// is finished.
+const extraChargeStatuses = {'CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'PICKED_UP', 'IN_PROGRESS', 'OUT_FOR_DELIVERY'};
 
 /// What the owner may do next with a booking.
 enum OwnerAction { accept, decline, customerArrived, goMyself, onTheWay, onTheWayToCollect, pickedUp, startWork, start, sendBack, delivered, complete, cancel }

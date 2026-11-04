@@ -106,6 +106,14 @@ class Booking extends Equatable {
   /// Why it was cancelled, in the words of whoever cancelled it.
   final String? cancellationReason;
 
+  /// Of [totalAmount], what the customer agreed to pay on top after the provider saw the job (rupees).
+  final double extraAmount;
+
+  /// An extra charge waiting for the customer's answer: its id, how much (rupees) and why.
+  final String? pendingExtraId;
+  final double? pendingExtraAmount;
+  final String? pendingExtraReason;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -132,6 +140,10 @@ class Booking extends Equatable {
     this.pointsDiscount = 0,
     this.preferredStaffName,
     this.cancellationReason,
+    this.extraAmount = 0,
+    this.pendingExtraId,
+    this.pendingExtraAmount,
+    this.pendingExtraReason,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);

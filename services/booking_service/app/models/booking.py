@@ -34,6 +34,12 @@ class Booking(Base):
     notes = Column(Text, nullable=True)
     cancellation_reason = Column(Text, nullable=True)
     total_amount = Column(Integer, nullable=False)  # in cents
+    # Of total_amount, what the customer agreed to pay on top after the provider saw the job.
+    extra_amount = Column(Integer, default=0, server_default="0", nullable=False)
+    # The extra charge waiting for the customer's answer, with its reason's contact details hidden.
+    pending_extra_id = Column(String, nullable=True)
+    pending_extra_amount = Column(Integer, nullable=True)
+    pending_extra_reason = Column(Text, nullable=True)
     metadata_json = Column("metadata", Text, nullable=True)
     # From the Idempotency-Key header: a retry of the same request finds this booking instead of making
     # another. Unique per customer, so of two requests racing with one key exactly one can insert.
@@ -138,6 +144,22 @@ class BookingStatusHistory(Base):
     changed_by = Column(String, nullable=False)
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+
+class BookingExtraCharge(Base):
+    """What a provider asked for on top of the price, and the customer's answer. See routers/extra_charges.py."""
+
+    __tablename__ = "booking_extra_charges"
+
+    id = Column(String, primary_key=True)
+    booking_id = Column(String, ForeignKey("bookings.id"), nullable=False, index=True)
+    amount_cents = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=False)
+    status = Column(String(12), nullable=False)  # PENDING, APPROVED, DECLINED, WITHDRAWN, EXPIRED
+    requested_by = Column(String, nullable=False)
+    decided_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    decided_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class BookingAssignment(Base):

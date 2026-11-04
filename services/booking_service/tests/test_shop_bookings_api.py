@@ -65,6 +65,8 @@ class RecordingNotifier:
         elif event == "booking.rescheduled":
             # SQLite hands back naive datetimes; they are stored as UTC.
             assert when(stored.scheduled_at.replace(tzinfo=timezone.utc)) == data["scheduled_at"]
+        elif event.startswith("booking.extra_"):  # the status does not change
+            pass
         elif event == "booking.no_show":
             assert stored.status == "CANCELLED" and stored.cancellation_reason == "No-show"
         else:

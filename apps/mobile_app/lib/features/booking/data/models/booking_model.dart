@@ -30,6 +30,10 @@ class BookingModel extends Booking {
     super.pointsDiscount,
     super.preferredStaffName,
     super.cancellationReason,
+    super.extraAmount,
+    super.pendingExtraId,
+    super.pendingExtraAmount,
+    super.pendingExtraReason,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -64,6 +68,10 @@ class BookingModel extends Booking {
       pointsDiscount: ((json['points_discount'] as num?) ?? 0) / 100,
       preferredStaffName: json['preferred_staff_name'] as String?,
       cancellationReason: json['cancellation_reason'] as String?,
+      extraAmount: ((json['extra_amount'] as num?) ?? 0) / 100,
+      pendingExtraId: json['pending_extra_id'] as String?,
+      pendingExtraAmount: json['pending_extra_amount'] == null ? null : (json['pending_extra_amount'] as num) / 100,
+      pendingExtraReason: json['pending_extra_reason'] as String?,
     );
   }
 

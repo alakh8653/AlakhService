@@ -3029,4 +3029,79 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get ownerShareNotYet =>
       'व्यवसाय मंज़ूर होने पर आप अपना लिंक शेयर कर सकते हैं।';
+
+  @override
+  String get extraTitle => 'अतिरिक्त शुल्क की मंज़ूरी';
+
+  @override
+  String extraLine(String amount, String reason) {
+    return '$amount और: $reason';
+  }
+
+  @override
+  String extraNewTotal(String total) {
+    return 'मंज़ूर करने पर नया कुल: $total';
+  }
+
+  @override
+  String get extraHelp =>
+      'दाम तभी बदलेगा जब आप मंज़ूर करेंगे। मना करने पर दाम वही रहेगा।';
+
+  @override
+  String get extraApprove => 'मंज़ूर करें';
+
+  @override
+  String get extraDecline => 'मना करें';
+
+  @override
+  String extraConfirmTitle(String amount) {
+    return '$amount और देने हैं?';
+  }
+
+  @override
+  String get extraConfirmBody => 'यह आपकी बुकिंग के दाम में जुड़ जाएगा।';
+
+  @override
+  String get extraConfirmYes => 'हाँ, मंज़ूर है';
+
+  @override
+  String extraIncluded(String amount) {
+    return 'इसमें आपका मंज़ूर किया $amount अतिरिक्त शामिल है';
+  }
+
+  @override
+  String get extraAdd => 'अतिरिक्त शुल्क जोड़ें';
+
+  @override
+  String get extraOwnerHelp =>
+      'दाम बदलने से पहले ग्राहक को ऐप में इसे मंज़ूर करना होगा।';
+
+  @override
+  String get extraHowMuch => 'कितना और';
+
+  @override
+  String get extraChooseReason => 'कृपया चुनें कि यह किसके लिए है।';
+
+  @override
+  String get extraReasonParts => 'स्पेयर पार्ट्स';
+
+  @override
+  String get extraReasonWork => 'अतिरिक्त काम';
+
+  @override
+  String get extraReasonMaterial => 'सामान';
+
+  @override
+  String get extraReasonOther => 'कुछ और';
+
+  @override
+  String get extraSend => 'ग्राहक को भेजें';
+
+  @override
+  String extraWaiting(String amount, String reason) {
+    return 'ग्राहक के जवाब का इंतज़ार: $amount और ($reason)';
+  }
+
+  @override
+  String get extraTakeBack => 'वापस लें';
 }

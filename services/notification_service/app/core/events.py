@@ -49,6 +49,18 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Booking {booking_number} is complete. Tap to rate your experience.",
     ),
     ("booking.completed", None): ("Booking completed", "Booking {booking_number} is complete."),
+    ("booking.extra_requested", "customer"): (
+        "Extra charge to approve",
+        "Your provider asks for {amount} more on booking {booking_number}: {reason}. Open the app to approve or decline.",
+    ),
+    ("booking.extra_approved", None): (
+        "Extra charge approved",
+        "The customer approved {amount} more on booking {booking_number}. The new total is {new_total}.",
+    ),
+    ("booking.extra_declined", None): (
+        "Extra charge declined",
+        "The customer declined {amount} more on booking {booking_number}. The price stays as it was.",
+    ),
     ("shop.report", None): (
         "Your report is ready",
         "Your report for {label} is ready. Open Reports to see your profit.",

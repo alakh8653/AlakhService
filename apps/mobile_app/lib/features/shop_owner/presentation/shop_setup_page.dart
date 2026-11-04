@@ -14,6 +14,7 @@ import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../../../shared/widgets/location_rationale.dart';
 import '../data/shop_owner_api.dart';
+import 'owner_guarantee_page.dart';
 import 'verification_page.dart';
 import 'week_hours_editor.dart';
 
@@ -69,6 +70,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
   final _address = TextEditingController();
   late final _phone = TextEditingController(text: widget.user.phone);
   final _samePrice = TextEditingController();
+  final _guaranteeDays = TextEditingController(text: '${OwnerShop.defaultGuaranteeDays}');
   final List<_ServiceDraft> _drafts = [];
   // Nothing chosen for them: a default here would quietly list an electrician as a salon.
   String? _category;
@@ -92,6 +94,7 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
     _address.dispose();
     _phone.dispose();
     _samePrice.dispose();
+    _guaranteeDays.dispose();
     for (final draft in _drafts) {
       draft.dispose();
     }
@@ -193,6 +196,11 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
       setState(() => _error = context.l10n.ownerHoursInvalid);
       return;
     }
+    final guaranteeError = GuaranteeDaysField.validate(_guaranteeDays.text, context.l10n);
+    if (guaranteeError != null) {
+      setState(() => _error = guaranteeError);
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -220,6 +228,11 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
         );
       }
       await _api.saveHours(shopId, _hours);
+      try {
+        await _api.saveGuaranteeDays(shopId, int.parse(_guaranteeDays.text.trim()));
+      } on ServerException {
+        // A server without the guarantee keeps its default; the owner can set it later in settings.
+      }
       await _api.ensureOwnerIsStaff(shopId, widget.user.id, widget.user.name, phone: widget.user.phone);
       await OwnerIntent.save(true);
       if (!mounted) return;
@@ -411,7 +424,14 @@ class _ShopSetupPageState extends State<ShopSetupPage> {
               switch (_step) {
                 0 => _businessStep(l10n),
                 1 => _servicesStep(l10n),
-                _ => WeekHoursEditor(hours: _hours, onChanged: (hours) => setState(() => _hours = hours)),
+                _ => Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      WeekHoursEditor(hours: _hours, onChanged: (hours) => setState(() => _hours = hours)),
+                      const SizedBox(height: 20),
+                      GuaranteeDaysField(controller: _guaranteeDays),
+                    ],
+                  ),
               },
               if (_error != null) ...[
                 const SizedBox(height: 12),

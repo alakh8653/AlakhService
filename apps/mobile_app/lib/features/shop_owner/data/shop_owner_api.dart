@@ -49,6 +49,11 @@ class OwnerShop {
   final String? legalAddress;
   final String? gstin;
 
+  /// Days after completion in which a customer may ask for a free fix (0 to 90).
+  final int guaranteeDays;
+
+  static const defaultGuaranteeDays = 7;
+
   const OwnerShop({
     required this.id,
     required this.name,
@@ -58,6 +63,7 @@ class OwnerShop {
     this.legalName,
     this.legalAddress,
     this.gstin,
+    this.guaranteeDays = defaultGuaranteeDays,
   });
 
   bool get approved => verificationStatus == 'APPROVED';
@@ -73,6 +79,7 @@ class OwnerShop {
         legalName: j['legal_name'] as String?,
         legalAddress: j['legal_address'] as String?,
         gstin: j['gstin'] as String?,
+        guaranteeDays: (j['guarantee_days'] as num?)?.toInt() ?? defaultGuaranteeDays,
       );
 }
 
@@ -127,6 +134,12 @@ class OwnerBooking {
   /// Of [totalCents], what the customer agreed to on top.
   final int extraCents;
 
+  /// Who does the job, and the booking this one fixes for free.
+  final String? providerId;
+  final String? reworkOf;
+
+  bool get isFreeFix => reworkOf != null;
+
   const OwnerBooking({
     required this.id,
     required this.number,
@@ -142,6 +155,8 @@ class OwnerBooking {
     this.pendingExtraCents,
     this.pendingExtraReason,
     this.extraCents = 0,
+    this.providerId,
+    this.reworkOf,
   });
 
   factory OwnerBooking.fromJson(Map<String, dynamic> j) => OwnerBooking(
@@ -159,6 +174,8 @@ class OwnerBooking {
         pendingExtraCents: (j['pending_extra_amount'] as num?)?.toInt(),
         pendingExtraReason: j['pending_extra_reason'] as String?,
         extraCents: (j['extra_amount'] as num?)?.toInt() ?? 0,
+        providerId: j['provider_id']?.toString(),
+        reworkOf: (j['rework_of'] ?? (j['metadata'] is Map ? (j['metadata'] as Map)['rework_of'] : null))?.toString(),
       );
 }
 
@@ -595,6 +612,11 @@ class ShopOwnerApi {
         });
       });
 
+  /// The free-fix guarantee in days (0 to 90), public on the shop.
+  Future<void> saveGuaranteeDays(String shopId, int days) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>(ApiConstants.shop(shopId), data: {'guarantee_days': days});
+      });
+
   /// The types of document already uploaded (PAN, GST, AADHAAR, UDYAM, BANK_PROOF or SHOP_PHOTO).
   Future<Set<String>> documentTypes(String shopId) => _call(() async {
         final data = (await apiClient.get<List<dynamic>>('${ApiConstants.shop(shopId)}/documents')).data!;
@@ -777,8 +799,12 @@ class ShopOwnerApi {
         return items;
       });
 
-  Future<void> setStatus(String bookingId, String status) => _call(() async {
-        await apiClient.put<Map<String, dynamic>>('${ApiConstants.bookings}/$bookingId/status', data: {'status': status});
+  /// Starting work at the customer's takes their 4-digit [startCode].
+  Future<void> setStatus(String bookingId, String status, {String? startCode}) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>(
+          '${ApiConstants.bookings}/$bookingId/status',
+          data: {'status': status, if (startCode != null) 'start_code': startCode},
+        );
       });
 
   /// Refunded in full, as a cancellation by the shop.

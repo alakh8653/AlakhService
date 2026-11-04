@@ -121,8 +121,7 @@ describe('route table', () => {
   });
 
   it('sends customer-trust routes to booking_service: shared visits public to read, SOS list to admins', () => {
-    for (const path of ['/api/v1/bookings/b1/extras', '/api/v1/bookings/b1/extras/q1/approve',
-      '/api/v1/bookings/b1/rework', '/api/v1/bookings/b1/share', '/api/v1/bookings/b1/sos']) {
+    for (const path of ['/api/v1/bookings/b1/rework', '/api/v1/bookings/b1/share', '/api/v1/bookings/b1/sos']) {
       const route = findRoute(path)!;
       expect(route.upstream).toBe('booking');
       expect(requiredAccess(route, 'POST')).toBe('user');

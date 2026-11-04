@@ -149,7 +149,7 @@ async def test_payment_status_is_set_by_payment_service_and_shown(http):
     ).status_code == 404
     assert (await http.get("/api/v1/bookings/bk-4", headers=auth("c3"))).json()["payment_status"] == "UNPAID"
     done = await http.post(url, json={"payment_status": "PAID"}, headers=INTERNAL)
-    assert done.json() == {"booking_id": "bk-4", "payment_status": "PAID", "balance_due_cents": 0}
+    assert done.json() == {"booking_id": "bk-4", "payment_status": "PAID"}
     assert (await http.get("/api/v1/bookings/bk-4", headers=auth("c3"))).json()["payment_status"] == "PAID"
     shop_view = (await http.get("/api/v1/bookings/shop/shop-1", headers=auth("owner-1"))).json()
     assert {b["id"]: b["payment_status"] for b in shop_view["items"]}["bk-4"] == "PAID"

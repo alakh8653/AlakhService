@@ -126,18 +126,13 @@ class BookingResponse(BaseModel):
     preferred_staff_name: Optional[str] = None
     # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
     reschedule_count: int = 0
-    # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service), or PARTIALLY_PAID
-    # when approved extra charges raised a paid booking's total: balance_due_cents is then left to pay.
+    # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
     # Of total_amount, what the customer agreed to on top; and any extra charge waiting for their answer.
     extra_amount: int = 0
     pending_extra_id: Optional[str] = None
     pending_extra_amount: Optional[int] = None
     pending_extra_reason: Optional[str] = None
-    # Extra charges the customer approved (included in total_amount), and the quote awaiting their answer.
-    extras_cents: int = 0
-    balance_due_cents: int = 0
-    pending_quote_id: Optional[str] = None
     # Home visits and pickups: the code the customer gives the professional to start. Only the customer
     # (and admins) see it; it is null for everyone else.
     start_code: Optional[str] = None
@@ -253,8 +248,6 @@ class ShopBookingSummary(BaseModel):
 
 class PaymentStatusUpdate(BaseModel):
     payment_status: Literal["UNPAID", "PAID", "REFUNDED", "PARTIALLY_REFUNDED"]
-    # What the booking's payments add up to; PAID for less than the booking's total reads PARTIALLY_PAID.
-    paid_cents: Optional[int] = Field(default=None, ge=0)
 
 
 class DisputeResolution(BaseModel):

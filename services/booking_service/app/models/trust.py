@@ -1,46 +1,10 @@
-"""Customer trust: extra charges the customer must approve, shared visit links, and SOS alerts."""
+"""Customer trust: shared visit links and SOS alerts."""
 
-import json
 import uuid
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, String, Text
 
 from app.database import Base
-
-PENDING, APPROVED, DECLINED = "PENDING", "APPROVED", "DECLINED"
-
-
-class ExtraChargeQuote(Base):
-    """Extra work the shop or its provider wants to charge for: nothing is added until the customer approves."""
-
-    __tablename__ = "extra_charge_quotes"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    booking_id = Column(String, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, index=True)
-    status = Column(String(10), nullable=False, default=PENDING)
-    # [{"description": ..., "amount_cents": ...}], descriptions with contact details hidden.
-    items_json = Column("items", Text, nullable=False)
-    total_cents = Column(Integer, nullable=False)
-    note = Column(Text, nullable=True)
-    requested_by = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False)
-    decided_at = Column(DateTime(timezone=True), nullable=True)
-    decided_by = Column(String, nullable=True)
-
-    __table_args__ = (
-        # One quote waits for an answer at a time: a second one is refused, even when two race.
-        Index(
-            "uq_extra_charge_quotes_one_pending",
-            "booking_id",
-            unique=True,
-            postgresql_where=text("status = 'PENDING'"),
-            sqlite_where=text("status = 'PENDING'"),
-        ),
-    )
-
-    @property
-    def items(self) -> list:
-        return json.loads(self.items_json)
 
 
 class BookingShare(Base):

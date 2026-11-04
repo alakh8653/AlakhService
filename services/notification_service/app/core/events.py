@@ -13,16 +13,6 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "New booking",
         "{service_name} booked for {scheduled_at}. Booking {booking_number}. {rework_line}",
     ),
-    # Extra charges the shop or its provider asks for: nothing is added until the customer approves.
-    ("booking.extras_requested", "customer"): (
-        "Approve extra charges?",
-        "The shop asks for ₹{total} more for booking {booking_number}. Nothing is charged unless you "
-        "approve it in the app.",
-    ),
-    ("booking.extras_decided", None): (
-        "Extra charges {decision}",
-        "The customer {decision} the extra charges of ₹{total} for booking {booking_number}.",
-    ),
     # A customer or provider asked for help during a booking: every admin, by push and email.
     ("safety.sos", None): (
         "SOS: someone needs help",
@@ -214,9 +204,7 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
 }
 
 # Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
-SHOP_EMAIL_EVENTS = frozenset(
-    {"booking.created", "booking.rescheduled", "booking.extras_decided", "shop.approved", "shop.rejected"}
-)
+SHOP_EMAIL_EVENTS = frozenset({"booking.created", "booking.rescheduled", "shop.approved", "shop.rejected"})
 
 # Alerts every admin gets by email as well as push, whether or not they have the app.
 ADMIN_EMAIL_EVENTS = frozenset({"safety.sos"})

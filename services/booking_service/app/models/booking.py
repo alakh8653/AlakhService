@@ -1,7 +1,6 @@
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.sql import func
@@ -47,8 +46,7 @@ class Booking(Base):
     idempotency_key = Column(String(128), nullable=True)
     # Short hash of the request that made the booking: the same key with a different request is refused.
     request_hash = Column(String(32), nullable=True)
-    # How its payment stands, as payment_service reports it: UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED;
-    # PARTIALLY_PAID once approved extra charges raise a paid booking's total above what was paid.
+    # How its payment stands, as payment_service reports it: UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
     payment_status = Column(String(20), default="UNPAID", server_default="UNPAID", nullable=False)
     # Set when the reminder worker has sent each reminder, so each goes out once across replicas.
     reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
@@ -77,8 +75,6 @@ class Booking(Base):
     start_code = Column(String(4), nullable=True)
     start_code_tries = Column(Integer, default=0, server_default="0", nullable=False)
     start_code_tries_since = Column(DateTime(timezone=True), nullable=True)
-    # The extra-charges quote waiting for the customer's answer, if any (app/models/trust.py).
-    pending_quote_id = Column(String, nullable=True)
     # Until when the customer can ask for a free fix (the shop's guarantee_days after completion).
     guarantee_until = Column(DateTime(timezone=True), nullable=True)
     # A free fix: the booking it redoes (one per original), and on the original, the fix booked for it.
@@ -143,23 +139,6 @@ class Booking(Base):
     def reschedule_count(self) -> int:
         """How many times the customer has moved the booking to another time."""
         return self._meta().get("reschedule_count", 0)
-
-    @property
-    def extras_cents(self) -> int:
-        """Extra charges the customer approved (included in total_amount)."""
-        return self._meta().get("extras_cents", 0)
-
-    @property
-    def paid_cents(self) -> Optional[int]:
-        """What was paid online so far, as payment_service last reported it (None: not reported)."""
-        return self._meta().get("paid_cents")
-
-    @property
-    def balance_due_cents(self) -> int:
-        """What is left to pay online after approved extras raised a paid booking's total."""
-        if self.payment_status != "PARTIALLY_PAID":
-            return 0
-        return max(self.total_amount - (self.paid_cents or 0), 0)
 
     @property
     def list_price(self) -> int:

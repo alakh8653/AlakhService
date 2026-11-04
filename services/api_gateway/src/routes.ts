@@ -59,8 +59,8 @@ export const ROUTES: Route[] = [
     access: 'public',
     publicMethods: READ_ONLY,
   },
-  // Extra charges (/bookings/{id}/extras), free fixes (/rework), share links (/share) and SOS (/sos) are
-  // booking routes too; booking_service checks who is on the booking.
+  // Free fixes (/bookings/{id}/rework), share links (/share) and SOS (/sos) are booking routes too;
+  // booking_service checks who is on the booking.
   // A visit the customer shared: no account needed (rate-limited per client, see app.ts), no contact details.
   { prefix: '/api/v1/public/shares', upstream: 'booking', access: 'public', publicMethods: READ_ONLY },
   // A customer's waitlist for full days.

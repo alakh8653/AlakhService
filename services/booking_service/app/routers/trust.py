@@ -1,8 +1,6 @@
-"""Customer trust endpoints: extra charges, free fixes, shared visits and SOS (see app/core/trust.py).
+"""Customer trust endpoints: free fixes, shared visits and SOS (see app/core/trust.py).
 
 Who may do what:
-- extra charges: the shop owner or the assigned provider asks; the customer (or an admin) answers; the
-  parties and admins read them;
 - free fix, share link: the customer;
 - SOS: the customer or the assigned provider; admins list the alerts.
 Anyone uninvolved is told the booking does not exist, as everywhere else.
@@ -10,7 +8,7 @@ Anyone uninvolved is told the booking does not exist, as everywhere else.
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Awaitable, Callable, List, Optional
+from typing import Awaitable, Callable, Optional
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -20,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core import availability, home_visits, queue_hub, trust
-from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup
+from app.core.access import CUSTOMER, PROVIDER, OwnerLookup
 from app.core.fsm import AT_HOME, BookingStatus
 from app.core.names import FALLBACK, NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
@@ -39,13 +37,11 @@ from app.dependencies import (
     get_shop_owner_lookup,
 )
 from app.models.booking import Booking
-from app.models.trust import APPROVED, DECLINED, SosAlert
-from app.routers.bookings import _ensure_bookable, _visible_booking, manager
+from app.models.trust import SosAlert
+from app.routers.bookings import _ensure_bookable, _visible_booking
 from app.schemas.booking import BookingCreate, BookingResponse
 from app.schemas.trust import (
     PublicShare,
-    QuoteCreate,
-    QuoteResponse,
     ReworkRequest,
     ShareResponse,
     SosAlertList,
@@ -64,128 +60,6 @@ NOTIFY_BATCH = 20
 def _now(clock: Callable[[], datetime]) -> datetime:
     at = clock()
     return at.astimezone(timezone.utc) if at.tzinfo else at.replace(tzinfo=timezone.utc)
-
-
-def _quote(q) -> QuoteResponse:
-    return QuoteResponse(
-        id=q.id,
-        booking_id=q.booking_id,
-        status=q.status,
-        items=q.items,
-        total_cents=q.total_cents,
-        note=q.note,
-        created_at=q.created_at,
-        decided_at=q.decided_at,
-    )
-
-
-# ------------------------------------------------------------------------------------------ extra charges
-
-
-@router.post("/bookings/{booking_id}/extras", response_model=QuoteResponse, status_code=201)
-async def request_extras(
-    booking_id: str,
-    body: QuoteCreate,
-    background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db, scope="function"),
-    current_user: dict = Depends(get_current_user),
-    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
-    notifier: Notifier = Depends(get_notifier),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """The shop or its provider asks the customer to approve extra charges; nothing is added until then."""
-    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
-    if not parties & {SHOP_OWNER, PROVIDER}:
-        raise HTTPException(status_code=403, detail="Only the shop or its provider can ask for extra charges")
-    try:
-        quote = await trust.create_quote(
-            db, booking, [i.model_dump() for i in body.items], body.note, current_user["sub"], _now(clock)
-        )
-        await db.commit()
-    except IntegrityError as e:  # another quote was asked for at the same moment
-        await db.rollback()
-        raise HTTPException(status_code=409, detail=trust.UNANSWERED_EXTRAS_MESSAGE) from e
-    await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status, "extras": "requested"})
-    background.add_task(
-        notify_booking,
-        notifier,
-        snapshot(booking),
-        "booking.extras_requested",
-        current_user["sub"],
-        lookup_owner,
-        roles=("customer",),
-        extra={"quote_id": quote.id, "total": trust.rupees(quote.total_cents)},
-    )
-    return _quote(quote)
-
-
-@router.get("/bookings/{booking_id}/extras", response_model=List[QuoteResponse])
-async def list_extras(
-    booking_id: str,
-    db: AsyncSession = Depends(get_db, scope="function"),
-    current_user: dict = Depends(get_current_user),
-    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
-):
-    """The booking's extra-charge quotes, newest first (its parties and admins)."""
-    await _visible_booking(db, booking_id, current_user, lookup_owner)
-    return [_quote(q) for q in await trust.list_quotes(db, booking_id)]
-
-
-async def _decide(booking_id, quote_id, decision, background, db, current_user, lookup_owner, notifier, clock):
-    booking, parties = await _visible_booking(db, booking_id, current_user, lookup_owner)
-    if not parties & {CUSTOMER, ADMIN}:
-        raise HTTPException(status_code=403, detail="Only the customer can answer extra charges")
-    quote, changed = await trust.decide_quote(db, booking_id, quote_id, decision, current_user["sub"], _now(clock))
-    if not changed:
-        return _quote(quote)
-    await db.commit()
-    await manager.broadcast(booking_id, {"booking_id": booking_id, "status": booking.status, "extras": decision})
-    background.add_task(
-        notify_booking,
-        notifier,
-        snapshot(booking),
-        "booking.extras_decided",
-        current_user["sub"],
-        lookup_owner,
-        roles=("shop", "provider"),
-        extra={
-            "quote_id": quote.id,
-            "decision": decision.lower(),
-            "total": trust.rupees(quote.total_cents),
-            "booking_total": trust.rupees(booking.total_amount),
-        },
-    )
-    return _quote(quote)
-
-
-@router.post("/bookings/{booking_id}/extras/{quote_id}/approve", response_model=QuoteResponse)
-async def approve_extras(
-    booking_id: str,
-    quote_id: str,
-    background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db, scope="function"),
-    current_user: dict = Depends(get_current_user),
-    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
-    notifier: Notifier = Depends(get_notifier),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """The customer agrees: the extras are added to the booking's total (a paid booking then has a balance)."""
-    return await _decide(booking_id, quote_id, APPROVED, background, db, current_user, lookup_owner, notifier, clock)
-
-
-@router.post("/bookings/{booking_id}/extras/{quote_id}/decline", response_model=QuoteResponse)
-async def decline_extras(
-    booking_id: str,
-    quote_id: str,
-    background: BackgroundTasks,
-    db: AsyncSession = Depends(get_db, scope="function"),
-    current_user: dict = Depends(get_current_user),
-    lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
-    notifier: Notifier = Depends(get_notifier),
-    clock: Callable[[], datetime] = Depends(get_clock),
-):
-    """The customer says no: the price stays as it was."""
-    return await _decide(booking_id, quote_id, DECLINED, background, db, current_user, lookup_owner, notifier, clock)
 
 
 # ------------------------------------------------------------------------------------------ free fix

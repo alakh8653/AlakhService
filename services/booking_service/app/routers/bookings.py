@@ -494,8 +494,6 @@ async def update_status(
     )
     now = live_queue._utc(clock())
     current = await booking_service.get_booking(db, booking_id)
-    if update_data.status == BookingStatus.COMPLETED.value and current.pending_quote_id:
-        raise HTTPException(status_code=409, detail=trust.UNANSWERED_EXTRAS_MESSAGE)
     # A home visit starts, and a pickup is collected, only with the code the customer gives at the door.
     if ADMIN not in parties and trust.needs_start_code(current, update_data.status):
         await trust.check_start_code(db, booking_id, update_data.start_code, now)

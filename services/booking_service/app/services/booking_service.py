@@ -405,8 +405,6 @@ class BookingService:
     async def cancel_booking(self, db: AsyncSession, booking_id: str, user_id: str, reason: str) -> Booking:
         booking = await self.transition_status(db, booking_id, BookingStatus.CANCELLED.value, user_id, reason)
         booking.cancellation_reason = reason
-        # Extra charges still waiting for an answer are closed: nothing more is charged.
-        await trust.withdraw_pending_quote(db, booking, user_id, datetime.now(timezone.utc))
         # Set explicitly so the column's server-side onupdate does not expire it after the flush.
         booking.updated_at = datetime.now(timezone.utc)
         await db.flush()

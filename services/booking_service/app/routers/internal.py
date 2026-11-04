@@ -1,6 +1,5 @@
 """What other services tell booking_service (X-Internal-Key, never via the gateway)."""
 
-import json
 from datetime import datetime, timezone
 
 import structlog
@@ -54,27 +53,11 @@ async def set_payment_status(
 ):
     """payment_service reports how the booking's payment stands; shown on the booking."""
     booking = await _booking(db, booking_id)
-    status = body.payment_status
-    meta = booking._meta()
-    paid = body.paid_cents
-    if paid is None and status == "PAID":
-        paid = booking.total_amount  # an older payment_service: PAID means paid in full
-    if paid is not None and meta.get("paid_cents") != paid:
-        meta["paid_cents"] = paid
-        booking.metadata_json = json.dumps(meta)
+    if booking.payment_status != body.payment_status:
+        booking.payment_status = body.payment_status
         await db.flush()
-    # Approved extra charges raised the total above what was paid: the balance is still to pay.
-    if status == "PAID" and paid is not None and paid < booking.total_amount:
-        status = "PARTIALLY_PAID"
-    if booking.payment_status != status:
-        booking.payment_status = status
-        await db.flush()
-        log.info("booking_payment_status", booking_id=booking_id, payment_status=status)
-    return {
-        "booking_id": booking.id,
-        "payment_status": booking.payment_status,
-        "balance_due_cents": booking.balance_due_cents,
-    }
+        log.info("booking_payment_status", booking_id=booking_id, payment_status=body.payment_status)
+    return {"booking_id": booking.id, "payment_status": booking.payment_status}
 
 
 @router.post("/{booking_id}/resolve-dispute")

@@ -15,6 +15,7 @@ import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/booking/data/availability_api.dart';
 import '../../features/booking/data/booking_queue_api.dart';
 import '../../features/booking/data/extra_charge_api.dart';
+import '../../features/shops/data/shop_profile_api.dart';
 import '../../features/booking/data/home_arrival_api.dart';
 import '../../features/shop_line/data/shop_line_api.dart';
 import '../../features/shop_owner/data/shop_owner_api.dart';
@@ -148,6 +149,7 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   sl.registerLazySingleton(() => ShopOwnerApi(sl()));
   sl.registerLazySingleton(() => HomeArrivalApi(sl()));
   sl.registerLazySingleton(() => ExtraChargeApi(sl()));
+  sl.registerLazySingleton(() => ShopProfileApi(sl()));
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
   sl.registerLazySingleton(() => SavedShopsApi(sl()));
   sl.registerLazySingleton(() => TeamApi(sl()));

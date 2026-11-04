@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
@@ -83,7 +83,9 @@ class ShopCreate(BaseModel):
 class ShopUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=1000)
+    years_experience: Optional[int] = Field(default=None, ge=0, le=70)
+    languages: Optional[List[Annotated[str, Field(max_length=30)]]] = Field(default=None, max_length=12)
     city: Optional[str] = None
     address: Optional[str] = None
     phone: Optional[str] = None
@@ -109,6 +111,8 @@ class ShopResponse(BaseModel):
     name: str
     category: str
     description: Optional[str] = None
+    years_experience: Optional[int] = None
+    languages: Optional[List[str]] = None
     rating_avg: float
     rating_count: int
     is_active: bool

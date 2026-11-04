@@ -902,5 +902,17 @@
   "extraReasonOther": "कुछ और",
   "extraSend": "ग्राहक को भेजें",
   "extraWaiting": "ग्राहक के जवाब का इंतज़ार: {amount} और ({reason})",
-  "extraTakeBack": "वापस लें"
+  "extraTakeBack": "वापस लें",
+  "profileTitle": "मेरी प्रोफ़ाइल और काम की फ़ोटो",
+  "profileHelp": "बुक करने से पहले ग्राहक इसे देखते हैं। इससे उन्हें आपको चुनने में मदद मिलती है।",
+  "profileYearsLabel": "कितने साल का अनुभव",
+  "profileLanguagesLabel": "आप कौन सी भाषाएँ बोलते हैं",
+  "profileAboutLabel": "आपके बारे में (ज़रूरी नहीं)",
+  "profileAboutHelp": "अपना फ़ोन नंबर न लिखें: वह ग्राहकों से छिपा दिया जाएगा।",
+  "profileSaved": "सेव हो गया। ग्राहक इसे देख सकते हैं।",
+  "profilePhotosTitle": "आपके काम की फ़ोटो",
+  "profilePhotosHelp": "पूरे हुए काम दिखाएँ। ग्राहकों के चेहरे या दस्तावेज़ न दिखाएँ। हम फ़ोटो से जगह की जानकारी हटा देते हैं।",
+  "profileAddPhoto": "फ़ोटो जोड़ें",
+  "profileAboutTitle": "इस प्रदाता के बारे में",
+  "profileYears": "{years} साल का अनुभव"
 }

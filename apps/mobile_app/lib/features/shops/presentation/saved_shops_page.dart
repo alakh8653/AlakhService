@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/di/injection_container.dart';
 import '../../../core/errors/exceptions.dart';
+import '../data/shop_profile_api.dart';
+import 'shop_profile_section.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
@@ -201,15 +203,20 @@ class _ShopServicesPageState extends State<ShopServicesPage> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: services.length,
+                  itemCount: services.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) => ServiceCard(
-                    service: services[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ServiceDetailPage(service: services[i])),
-                    ),
-                  ),
+                  // First what the business says of itself, for someone arriving from a shared link.
+                  itemBuilder: (context, i) => i == 0
+                      ? (sl.isRegistered<ShopProfileApi>()
+                          ? ShopProfileSection(shopId: widget.shop.id, api: sl<ShopProfileApi>())
+                          : const SizedBox.shrink())
+                      : ServiceCard(
+                          service: services[i - 1],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ServiceDetailPage(service: services[i - 1])),
+                          ),
+                        ),
                 ),
     );
   }

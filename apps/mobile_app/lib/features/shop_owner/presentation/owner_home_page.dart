@@ -18,6 +18,7 @@ import '../../chat/presentation/booking_chat_page.dart';
 import '../../shop_line/data/shop_line_api.dart';
 import '../../shop_line/presentation/shop_line_page.dart';
 import '../data/shop_owner_api.dart';
+import 'owner_profile_page.dart';
 import 'owner_reports_page.dart';
 import 'owner_settings_pages.dart';
 import 'owner_tools_pages.dart';
@@ -407,6 +408,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               () => ShopLinePage(shop: widget.shop, api: widget.lineApi),
             ),
             _link(Icons.bar_chart, l10n.ownerReports, () => OwnerReportsPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.badge_outlined, l10n.profileTitle, () => OwnerProfilePage(shopId: _shopId, api: widget.api)),
             _link(Icons.share_outlined, l10n.ownerShare, () => OwnerSharePage(shop: shop)),
             _link(Icons.event_busy_outlined, l10n.ownerDaysOff, () => OwnerDaysOffPage(shopId: _shopId, api: widget.api)),
             _link(Icons.star_outline, l10n.ownerReviews, () => OwnerReviewsPage(shopId: _shopId, api: widget.api)),

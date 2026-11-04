@@ -117,6 +117,8 @@ export const UPLOAD_PATHS: RegExp[] = [
   /^\/api\/v1\/users\/me\/avatar$/,
   // A shop's KYC document (shop_service caps it at DOCUMENT_MAX_BYTES, 5 MB by default).
   /^\/api\/v1\/shops\/[^/]+\/documents\/upload$/,
+  // A photo of a shop's work (shop_service caps it the same way).
+  /^\/api\/v1\/shops\/[^/]+\/photos$/,
 ];
 
 export function isUpload(path: string): boolean {

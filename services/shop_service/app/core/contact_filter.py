@@ -1,7 +1,5 @@
 """Hides contact details people write to each other, so a customer and a shop stay on the platform.
 
-A copy of booking_service's app/core/contact_filter.py (services share no code); keep the two in step.
-
 Phone numbers (Indian formats: +91, a leading 0, 10 digits from 6-9, digits spaced or dashed apart, or
 spelled out as words), email addresses, UPI handles ("ravi@okaxis") and messaging-app links or names
 (WhatsApp, Telegram) are replaced with MASK. What was found is returned too, so the message can be

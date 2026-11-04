@@ -1931,7 +1931,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileTitle.
   ///
   /// In en, this message translates to:
-  /// **'Profile'**
+  /// **'My profile and work photos'**
   String get profileTitle;
 
   /// No description provided for @editProfile.
@@ -5515,6 +5515,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Take back'**
   String get extraTakeBack;
+
+  /// No description provided for @profileHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers see this before they book. It helps them choose you.'**
+  String get profileHelp;
+
+  /// No description provided for @profileYearsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Years of experience'**
+  String get profileYearsLabel;
+
+  /// No description provided for @profileLanguagesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages you speak'**
+  String get profileLanguagesLabel;
+
+  /// No description provided for @profileAboutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'About you (optional)'**
+  String get profileAboutLabel;
+
+  /// No description provided for @profileAboutHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t add your phone number: it will be hidden from customers.'**
+  String get profileAboutHelp;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Customers can see this.'**
+  String get profileSaved;
+
+  /// No description provided for @profilePhotosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos of your work'**
+  String get profilePhotosTitle;
+
+  /// No description provided for @profilePhotosHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Show finished jobs. Don\'t show customers\' faces or documents. We remove location details from photos.'**
+  String get profilePhotosHelp;
+
+  /// No description provided for @profileAddPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo'**
+  String get profileAddPhoto;
+
+  /// No description provided for @profileAboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About this provider'**
+  String get profileAboutTitle;
+
+  /// No description provided for @profileYears.
+  ///
+  /// In en, this message translates to:
+  /// **'{years, plural, =1{1 year of experience} other{{years} years of experience}}'**
+  String profileYears(int years);
 }
 
 class _AppLocalizationsDelegate

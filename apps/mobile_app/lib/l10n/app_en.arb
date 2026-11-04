@@ -1761,5 +1761,18 @@
   "extraSend": "Send to customer",
   "extraWaiting": "Waiting for the customer: {amount} more ({reason})",
   "@extraWaiting": {"placeholders": {"amount": {"type": "String"}, "reason": {"type": "String"}}},
-  "extraTakeBack": "Take back"
+  "extraTakeBack": "Take back",
+  "profileTitle": "My profile and work photos",
+  "profileHelp": "Customers see this before they book. It helps them choose you.",
+  "profileYearsLabel": "Years of experience",
+  "profileLanguagesLabel": "Languages you speak",
+  "profileAboutLabel": "About you (optional)",
+  "profileAboutHelp": "Don't add your phone number: it will be hidden from customers.",
+  "profileSaved": "Saved. Customers can see this.",
+  "profilePhotosTitle": "Photos of your work",
+  "profilePhotosHelp": "Show finished jobs. Don't show customers' faces or documents. We remove location details from photos.",
+  "profileAddPhoto": "Add a photo",
+  "profileAboutTitle": "About this provider",
+  "profileYears": "{years, plural, =1{1 year of experience} other{{years} years of experience}}",
+  "@profileYears": {"placeholders": {"years": {"type": "int"}}}
 }

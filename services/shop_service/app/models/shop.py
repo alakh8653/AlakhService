@@ -1,6 +1,18 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -19,6 +31,9 @@ class Shop(Base):
     name = Column(String, nullable=False)
     category = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
+    # What customers see before booking (with photos in ShopWorkPhoto).
+    years_experience = Column(Integer, nullable=True)
+    languages = Column(JSON, nullable=True)
     rating_avg = Column(Float, default=0.0, nullable=False)
     rating_count = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -43,6 +58,18 @@ class Shop(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_by = Column(String, nullable=True)
+
+
+class ShopWorkPhoto(Base):
+    """A photo of the business's work, public once the shop is. Cleaned on the way in: see app/core/photos.py."""
+
+    __tablename__ = "shop_work_photos"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_key = Column(String, nullable=False)
+    caption = Column(String(120), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class ShopDocument(Base):

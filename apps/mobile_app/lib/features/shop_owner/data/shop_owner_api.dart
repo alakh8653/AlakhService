@@ -655,6 +655,34 @@ class ShopOwnerApi {
         return OwnerShop.fromJson(response.data!);
       });
 
+  // What customers see before booking
+
+  Future<void> saveProfile(String shopId, {required String about, int? yearsExperience, required List<String> languages}) =>
+      _call(() async {
+        await apiClient.put<Map<String, dynamic>>(ApiConstants.shop(shopId), data: {
+          'description': about,
+          'years_experience': yearsExperience,
+          'languages': languages,
+        });
+      });
+
+  /// The raw image is the request body, as shop_service expects.
+  Future<void> addWorkPhoto(String shopId, PickedDocument file) => _call(() async {
+        await apiClient.post<Map<String, dynamic>>(
+          '${ApiConstants.shop(shopId)}/photos',
+          data: Stream<List<int>>.fromIterable([file.bytes]),
+          options: Options(
+            contentType: file.contentType,
+            headers: {Headers.contentLengthHeader: file.bytes.length},
+            sendTimeout: const Duration(minutes: 2),
+          ),
+        );
+      });
+
+  Future<void> deleteWorkPhoto(String shopId, String photoId) => _call(() async {
+        await apiClient.delete<void>('${ApiConstants.shop(shopId)}/photos/$photoId');
+      });
+
   // Days off, reviews and customers
 
   Future<List<DateTime>> daysOff(String shopId) => _call(() async {

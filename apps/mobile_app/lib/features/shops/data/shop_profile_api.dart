@@ -11,12 +11,16 @@ class WorkPhoto {
   final String url;
   final String? caption;
 
-  const WorkPhoto({required this.id, required this.url, this.caption});
+  /// Only its owner ever sees a hidden photo.
+  final bool isHidden;
+
+  const WorkPhoto({required this.id, required this.url, this.caption, this.isHidden = false});
 
   factory WorkPhoto.fromJson(Map<String, dynamic> j) => WorkPhoto(
         id: j['id'] as String,
         url: '${ApiConstants.baseUrl}${j['url']}',
         caption: j['caption'] as String?,
+        isHidden: j['is_hidden'] as bool? ?? false,
       );
 }
 
@@ -36,6 +40,15 @@ class ShopProfileApi {
   final ApiClient apiClient;
 
   ShopProfileApi(this.apiClient);
+
+  /// Flags a photo for an admin to look at.
+  Future<void> reportPhoto(String shopId, String photoId, String reason) async {
+    try {
+      await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/photos/$photoId/report', data: {'reason': reason});
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
 
   Future<ShopProfile> profile(String shopId) async {
     try {

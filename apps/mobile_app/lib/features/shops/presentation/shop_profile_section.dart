@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/errors/exceptions.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/l10n.dart';
@@ -28,12 +29,44 @@ class _ShopProfileSectionState extends State<ShopProfileSection> {
     }).catchError((Object _) {});
   }
 
+  Future<void> _report(BuildContext context, WorkPhoto photo) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialog) => SimpleDialog(
+        title: Text(l10n.photoReportTitle),
+        children: [
+          for (final option in [l10n.photoReportPrivate, l10n.photoReportOffensive, l10n.photoReportFake, l10n.photoReportContact])
+            SimpleDialogOption(onPressed: () => Navigator.pop(dialog, option), child: Text(option)),
+        ],
+      ),
+    );
+    if (reason == null) return;
+    try {
+      await widget.api.reportPhoto(widget.shopId, photo.id, reason);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.photoReported)));
+    } on ServerException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   void _open(WorkPhoto photo) {
     Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: photo.caption == null ? null : Text(photo.caption!)),
+        builder: (page) => Scaffold(
+          appBar: AppBar(
+            title: photo.caption == null ? null : Text(photo.caption!),
+            actions: [
+              IconButton(
+                key: const ValueKey('report-photo'),
+                icon: const Icon(Icons.flag_outlined),
+                tooltip: page.l10n.photoReportTitle,
+                onPressed: () => _report(page, photo),
+              ),
+            ],
+          ),
           backgroundColor: Colors.black,
           body: Center(child: InteractiveViewer(child: Image.network(photo.url, errorBuilder: _missing))),
         ),

@@ -3178,4 +3178,25 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get photoReportTitle => 'Report this photo';
+
+  @override
+  String get photoReportPrivate => 'It shows someone\'s private details';
+
+  @override
+  String get photoReportOffensive => 'It is offensive';
+
+  @override
+  String get photoReportFake => 'It is not this provider\'s work';
+
+  @override
+  String get photoReportContact => 'It shows a phone number or contact';
+
+  @override
+  String get photoReported => 'Thanks. We will check this photo.';
+
+  @override
+  String get profilePhotoHidden => 'Hidden while we check';
 }

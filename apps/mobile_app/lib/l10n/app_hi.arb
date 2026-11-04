@@ -914,5 +914,12 @@
   "profilePhotosHelp": "पूरे हुए काम दिखाएँ। ग्राहकों के चेहरे या दस्तावेज़ न दिखाएँ। हम फ़ोटो से जगह की जानकारी हटा देते हैं।",
   "profileAddPhoto": "फ़ोटो जोड़ें",
   "profileAboutTitle": "इस प्रदाता के बारे में",
-  "profileYears": "{years} साल का अनुभव"
+  "profileYears": "{years} साल का अनुभव",
+  "photoReportTitle": "इस फ़ोटो की शिकायत करें",
+  "photoReportPrivate": "इसमें किसी की निजी जानकारी दिख रही है",
+  "photoReportOffensive": "यह आपत्तिजनक है",
+  "photoReportFake": "यह इस प्रदाता का काम नहीं है",
+  "photoReportContact": "इसमें फ़ोन नंबर या संपर्क दिख रहा है",
+  "photoReported": "धन्यवाद। हम इस फ़ोटो की जाँच करेंगे।",
+  "profilePhotoHidden": "जाँच तक छिपी है"
 }

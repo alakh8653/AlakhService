@@ -227,6 +227,21 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
                                 ),
                               ),
                             ),
+                            if (photo.isHidden)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  color: AppColors.error,
+                                  padding: const EdgeInsets.all(2),
+                                  child: Text(
+                                    l10n.profilePhotoHidden,
+                                    textAlign: TextAlign.center,
+                                    style: AppTextStyles.caption.copyWith(color: Colors.white),
+                                  ),
+                                ),
+                              ),
                             Positioned(
                               top: 0,
                               right: 0,

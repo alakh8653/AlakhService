@@ -1931,7 +1931,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileTitle.
   ///
   /// In en, this message translates to:
-  /// **'My profile and work photos'**
+  /// **'Profile'**
   String get profileTitle;
 
   /// No description provided for @editProfile.
@@ -5515,6 +5515,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Take back'**
   String get extraTakeBack;
+
+  /// No description provided for @ownerProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My profile and work photos'**
+  String get ownerProfileTitle;
 
   /// No description provided for @profileHelp.
   ///

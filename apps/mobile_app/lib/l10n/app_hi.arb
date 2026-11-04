@@ -903,7 +903,7 @@
   "extraSend": "ग्राहक को भेजें",
   "extraWaiting": "ग्राहक के जवाब का इंतज़ार: {amount} और ({reason})",
   "extraTakeBack": "वापस लें",
-  "profileTitle": "मेरी प्रोफ़ाइल और काम की फ़ोटो",
+  "ownerProfileTitle": "मेरी प्रोफ़ाइल और काम की फ़ोटो",
   "profileHelp": "बुक करने से पहले ग्राहक इसे देखते हैं। इससे उन्हें आपको चुनने में मदद मिलती है।",
   "profileYearsLabel": "कितने साल का अनुभव",
   "profileLanguagesLabel": "आप कौन सी भाषाएँ बोलते हैं",

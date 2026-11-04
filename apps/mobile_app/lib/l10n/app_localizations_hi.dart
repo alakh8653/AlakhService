@@ -1050,7 +1050,7 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get profileTitle => 'मेरी प्रोफ़ाइल और काम की फ़ोटो';
+  String get profileTitle => 'प्रोफ़ाइल';
 
   @override
   String get editProfile => 'प्रोफ़ाइल बदलें';
@@ -3104,6 +3104,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get extraTakeBack => 'वापस लें';
+
+  @override
+  String get ownerProfileTitle => 'मेरी प्रोफ़ाइल और काम की फ़ोटो';
 
   @override
   String get profileHelp =>

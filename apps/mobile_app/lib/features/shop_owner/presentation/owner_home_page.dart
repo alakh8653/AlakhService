@@ -436,7 +436,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               () => ShopLinePage(shop: widget.shop, api: widget.lineApi),
             ),
             _link(Icons.bar_chart, l10n.ownerReports, () => OwnerReportsPage(shopId: _shopId, api: widget.api)),
-            _link(Icons.badge_outlined, l10n.profileTitle, () => OwnerProfilePage(shopId: _shopId, api: widget.api)),
+            _link(Icons.badge_outlined, l10n.ownerProfileTitle, () => OwnerProfilePage(shopId: _shopId, api: widget.api)),
             _link(Icons.share_outlined, l10n.ownerShare, () => OwnerSharePage(shop: shop)),
             _link(Icons.event_busy_outlined, l10n.ownerDaysOff, () => OwnerDaysOffPage(shopId: _shopId, api: widget.api)),
             _link(Icons.star_outline, l10n.ownerReviews, () => OwnerReviewsPage(shopId: _shopId, api: widget.api)),

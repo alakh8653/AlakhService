@@ -1762,7 +1762,7 @@
   "extraWaiting": "Waiting for the customer: {amount} more ({reason})",
   "@extraWaiting": {"placeholders": {"amount": {"type": "String"}, "reason": {"type": "String"}}},
   "extraTakeBack": "Take back",
-  "profileTitle": "My profile and work photos",
+  "ownerProfileTitle": "My profile and work photos",
   "profileHelp": "Customers see this before they book. It helps them choose you.",
   "profileYearsLabel": "Years of experience",
   "profileLanguagesLabel": "Languages you speak",

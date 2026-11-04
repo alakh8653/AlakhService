@@ -1067,7 +1067,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileTitle => 'My profile and work photos';
+  String get profileTitle => 'Profile';
 
   @override
   String get editProfile => 'Edit Profile';
@@ -3134,6 +3134,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get extraTakeBack => 'Take back';
+
+  @override
+  String get ownerProfileTitle => 'My profile and work photos';
 
   @override
   String get profileHelp =>

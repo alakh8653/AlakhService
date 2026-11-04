@@ -1050,7 +1050,7 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get profileTitle => 'प्रोफ़ाइल';
+  String get profileTitle => 'मेरी प्रोफ़ाइल और काम की फ़ोटो';
 
   @override
   String get editProfile => 'प्रोफ़ाइल बदलें';
@@ -3104,4 +3104,42 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get extraTakeBack => 'वापस लें';
+
+  @override
+  String get profileHelp =>
+      'बुक करने से पहले ग्राहक इसे देखते हैं। इससे उन्हें आपको चुनने में मदद मिलती है।';
+
+  @override
+  String get profileYearsLabel => 'कितने साल का अनुभव';
+
+  @override
+  String get profileLanguagesLabel => 'आप कौन सी भाषाएँ बोलते हैं';
+
+  @override
+  String get profileAboutLabel => 'आपके बारे में (ज़रूरी नहीं)';
+
+  @override
+  String get profileAboutHelp =>
+      'अपना फ़ोन नंबर न लिखें: वह ग्राहकों से छिपा दिया जाएगा।';
+
+  @override
+  String get profileSaved => 'सेव हो गया। ग्राहक इसे देख सकते हैं।';
+
+  @override
+  String get profilePhotosTitle => 'आपके काम की फ़ोटो';
+
+  @override
+  String get profilePhotosHelp =>
+      'पूरे हुए काम दिखाएँ। ग्राहकों के चेहरे या दस्तावेज़ न दिखाएँ। हम फ़ोटो से जगह की जानकारी हटा देते हैं।';
+
+  @override
+  String get profileAddPhoto => 'फ़ोटो जोड़ें';
+
+  @override
+  String get profileAboutTitle => 'इस प्रदाता के बारे में';
+
+  @override
+  String profileYears(int years) {
+    return '$years साल का अनुभव';
+  }
 }

@@ -1067,7 +1067,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileTitle => 'Profile';
+  String get profileTitle => 'My profile and work photos';
 
   @override
   String get editProfile => 'Edit Profile';
@@ -3134,4 +3134,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get extraTakeBack => 'Take back';
+
+  @override
+  String get profileHelp =>
+      'Customers see this before they book. It helps them choose you.';
+
+  @override
+  String get profileYearsLabel => 'Years of experience';
+
+  @override
+  String get profileLanguagesLabel => 'Languages you speak';
+
+  @override
+  String get profileAboutLabel => 'About you (optional)';
+
+  @override
+  String get profileAboutHelp =>
+      'Don\'t add your phone number: it will be hidden from customers.';
+
+  @override
+  String get profileSaved => 'Saved. Customers can see this.';
+
+  @override
+  String get profilePhotosTitle => 'Photos of your work';
+
+  @override
+  String get profilePhotosHelp =>
+      'Show finished jobs. Don\'t show customers\' faces or documents. We remove location details from photos.';
+
+  @override
+  String get profileAddPhoto => 'Add a photo';
+
+  @override
+  String get profileAboutTitle => 'About this provider';
+
+  @override
+  String profileYears(int years) {
+    String _temp0 = intl.Intl.pluralLogic(
+      years,
+      locale: localeName,
+      other: '$years years of experience',
+      one: '1 year of experience',
+    );
+    return '$_temp0';
+  }
 }

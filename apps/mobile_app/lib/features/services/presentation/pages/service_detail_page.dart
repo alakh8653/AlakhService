@@ -24,6 +24,8 @@ import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../../reviews/data/reviews_api.dart';
 import '../../../reviews/presentation/reviews_widgets.dart';
 import '../../../shops/data/saved_shops_api.dart';
+import '../../../shops/data/shop_profile_api.dart';
+import '../../../shops/presentation/shop_profile_section.dart';
 import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
 import '../../../../l10n/l10n.dart';
@@ -371,6 +373,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     ),
                   ],
                   if (atShop) PackageOffers(serviceId: service.id, servicePrice: service.basePrice, api: widget.packagesApi),
+                  if (service.shopId != null && sl.isRegistered<ShopProfileApi>())
+                    ShopProfileSection(shopId: service.shopId!, api: sl<ShopProfileApi>()),
                   if (_reviewsApi != null && _summary != null) ...[
                     const SizedBox(height: 24),
                     ReviewsSection(shopId: service.shopId!, api: _reviewsApi!, summary: _summary, shopName: shop?.name),

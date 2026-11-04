@@ -113,7 +113,7 @@ void main() {
     expect(find.text('यह कोड तभी बताएँ जब प्रोफ़ेशनल आपके पास पहुँच जाए'), findsOneWidget);
     expect(find.text('सत्यापित'), findsOneWidget);
     final hi = lookupAppLocalizations(const Locale('hi'));
-    expect(hi.extrasTitle, 'दुकान अतिरिक्त शुल्क माँग रही है');
+    expect(hi.reworkTitle, 'मुफ़्त सुधार का अनुरोध');
     expect(hi.sosCall('112'), '112 पर कॉल करें');
   });
 }

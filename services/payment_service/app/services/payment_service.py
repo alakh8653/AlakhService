@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import redis.asyncio as aioredis
 import structlog
@@ -555,6 +555,18 @@ class PaymentService:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def close_open_payments(self, db: AsyncSession, booking_id: str) -> Tuple[bool, int]:
+        """(whether the booking is paid, how many unfinished checkouts were closed)."""
+        payments = await self.payments_for_booking(db, booking_id)
+        if any(p.status in PAID_STATUSES for p in payments):
+            return True, 0
+        open_ones = [p for p in payments if p.status == "PENDING"]
+        for payment in open_ones:
+            payment.status = "FAILED"
+            payment.updated_at = datetime.now(timezone.utc)
+        await db.flush()
+        return False, len(open_ones)
 
     async def payments_for_booking(self, db: AsyncSession, booking_id: str, purpose: str = BOOKING) -> List[Payment]:
         """The booking's own payments (by default), or with purpose TIP its tips."""

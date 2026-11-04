@@ -126,6 +126,11 @@ class BookingResponse(BaseModel):
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
+    # Of total_amount, what the customer agreed to on top; and any extra charge waiting for their answer.
+    extra_amount: int = 0
+    pending_extra_id: Optional[str] = None
+    pending_extra_amount: Optional[int] = None
+    pending_extra_reason: Optional[str] = None
     # Why it was cancelled, in the words of whoever cancelled it (see app/core/privacy.py).
     cancellation_reason: Optional[str] = None
     created_at: datetime

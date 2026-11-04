@@ -3059,4 +3059,79 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get ownerShareNotYet =>
       'You can share your link once your business is approved.';
+
+  @override
+  String get extraTitle => 'Extra charge to approve';
+
+  @override
+  String extraLine(String amount, String reason) {
+    return '$amount more: $reason';
+  }
+
+  @override
+  String extraNewTotal(String total) {
+    return 'New total if you approve: $total';
+  }
+
+  @override
+  String get extraHelp =>
+      'The price changes only if you approve. If you decline, it stays as it was.';
+
+  @override
+  String get extraApprove => 'Approve';
+
+  @override
+  String get extraDecline => 'Decline';
+
+  @override
+  String extraConfirmTitle(String amount) {
+    return 'Pay $amount more?';
+  }
+
+  @override
+  String get extraConfirmBody => 'This will be added to your booking\'s price.';
+
+  @override
+  String get extraConfirmYes => 'Yes, approve';
+
+  @override
+  String extraIncluded(String amount) {
+    return 'Includes $amount extra you approved';
+  }
+
+  @override
+  String get extraAdd => 'Add extra charge';
+
+  @override
+  String get extraOwnerHelp =>
+      'The customer must approve this in the app before the price changes.';
+
+  @override
+  String get extraHowMuch => 'How much more';
+
+  @override
+  String get extraChooseReason => 'Please choose what it is for.';
+
+  @override
+  String get extraReasonParts => 'Spare parts';
+
+  @override
+  String get extraReasonWork => 'Extra work';
+
+  @override
+  String get extraReasonMaterial => 'Materials';
+
+  @override
+  String get extraReasonOther => 'Something else';
+
+  @override
+  String get extraSend => 'Send to customer';
+
+  @override
+  String extraWaiting(String amount, String reason) {
+    return 'Waiting for the customer: $amount more ($reason)';
+  }
+
+  @override
+  String get extraTakeBack => 'Take back';
 }

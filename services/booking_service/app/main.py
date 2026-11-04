@@ -11,6 +11,7 @@ from app.core.observability import install_observability
 from app.routers.availability import router as availability_router
 from app.routers.bookings import router as bookings_router
 from app.routers.chat import router as chat_router
+from app.routers.extra_charges import router as extra_charges_router
 from app.routers.home_visits import router as home_visits_router
 from app.routers.internal import router as internal_router
 from app.routers.queue import router as queue_router
@@ -68,6 +69,7 @@ app.include_router(queue_router, prefix="/api/v1", tags=["queue"])
 app.include_router(home_visits_router, prefix="/api/v1", tags=["home visits"])
 app.include_router(availability_router, prefix="/api/v1", tags=["availability"])
 app.include_router(chat_router, prefix="/api/v1", tags=["chat"])
+app.include_router(extra_charges_router, prefix="/api/v1", tags=["extra charges"])
 app.include_router(waitlist_router, prefix="/api/v1", tags=["waitlist"])
 app.include_router(internal_router, tags=["internal"])
 

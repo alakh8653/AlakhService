@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../booking/data/extra_charge_api.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../core/theme/app_colors.dart';
@@ -28,6 +30,7 @@ class OwnerHomePage extends StatefulWidget {
   final User user;
   final ShopOwnerApi? api;
   final ShopLineApi? lineApi;
+  final ExtraChargeApi? extraChargeApi;
   final Duration refreshEvery;
 
   /// Moves to the side of the app for booking services.
@@ -39,6 +42,7 @@ class OwnerHomePage extends StatefulWidget {
     required this.user,
     this.api,
     this.lineApi,
+    this.extraChargeApi,
     this.refreshEvery = const Duration(seconds: 30),
     this.onSwitchToBooking,
   });
@@ -88,6 +92,63 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     } on ServerException catch (e) {
       if (mounted) setState(() => _error = e.message);
     }
+  }
+
+  ExtraChargeApi get _extraApi => widget.extraChargeApi ?? sl<ExtraChargeApi>();
+
+  Future<void> _extraCharge(OwnerBooking booking, Future<void> Function() change) async {
+    setState(() => _busy = booking.id);
+    try {
+      await change();
+      await _load();
+    } on ServerException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _askExtra(OwnerBooking booking) async {
+    final asked = await showDialog<({int cents, String reason})>(
+      context: context,
+      builder: (_) => const _ExtraChargeDialog(),
+    );
+    if (asked == null || !mounted) return;
+    await _extraCharge(booking, () => _extraApi.ask(booking.id, asked.cents, asked.reason));
+  }
+
+  Widget _extraSection(OwnerBooking booking, AppLocalizations l10n) {
+    final pending = booking.pendingExtraId;
+    if (pending != null) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              l10n.extraWaiting(rupees((booking.pendingExtraCents ?? 0) / 100), booking.pendingExtraReason ?? ''),
+              style: AppTextStyles.body2.copyWith(color: AppColors.warning),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _extraCharge(booking, () => _extraApi.withdraw(booking.id, pending)),
+            child: Text(l10n.extraTakeBack),
+          ),
+        ],
+      );
+    }
+    final canAsk = extraChargeStatuses.contains(booking.status) && booking.paymentStatus == 'UNPAID';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (booking.extraCents > 0)
+          Text(l10n.extraIncluded(rupees(booking.extraCents / 100)), style: AppTextStyles.caption.themed(context)),
+        if (canAsk)
+          TextButton.icon(
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(l10n.extraAdd),
+            onPressed: () => _askExtra(booking),
+          ),
+      ],
+    );
   }
 
   Future<String?> _askReason(OwnerAction action) => showDialog<String>(
@@ -214,6 +275,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               const SizedBox(height: 4),
               Text(booking.notes!, style: AppTextStyles.caption.themed(context)),
             ],
+            if (!isRequest) _extraSection(booking, l10n),
             const SizedBox(height: 12),
             if (busy)
               const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
@@ -359,6 +421,93 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// How much more and why, in a tap and a number. Keeps its own text controller, which has to outlive the dialog's
+/// closing animation.
+class _ExtraChargeDialog extends StatefulWidget {
+  const _ExtraChargeDialog();
+
+  @override
+  State<_ExtraChargeDialog> createState() => _ExtraChargeDialogState();
+}
+
+class _ExtraChargeDialogState extends State<_ExtraChargeDialog> {
+  final _amount = TextEditingController();
+  final _other = TextEditingController();
+  String? _reason;
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _other.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final l10n = context.l10n;
+    final rupeesEntered = int.tryParse(_amount.text.trim()) ?? 0;
+    final other = _other.text.trim();
+    final reason = _reason == l10n.extraReasonOther ? other : _reason;
+    if (rupeesEntered <= 0) {
+      setState(() => _error = l10n.ownerEnterNumber);
+    } else if (reason == null || reason.length < 3) {
+      setState(() => _error = l10n.extraChooseReason);
+    } else {
+      Navigator.pop(context, (cents: rupeesEntered * 100, reason: reason));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.extraAdd),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.extraOwnerHelp),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final reason in [l10n.extraReasonParts, l10n.extraReasonWork, l10n.extraReasonMaterial, l10n.extraReasonOther])
+                  ChoiceChip(
+                    label: Text(reason),
+                    selected: _reason == reason,
+                    onSelected: (_) => setState(() => _reason = reason),
+                  ),
+              ],
+            ),
+            if (_reason == l10n.extraReasonOther)
+              TextField(
+                controller: _other,
+                maxLength: 200,
+                decoration: InputDecoration(labelText: l10n.ownerReasonLabel),
+              ),
+            TextField(
+              key: const ValueKey('extra-amount'),
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(labelText: l10n.extraHowMuch, prefixText: '₹ '),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: AppTextStyles.body2.copyWith(color: AppColors.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.notNow)),
+        FilledButton(onPressed: _send, child: Text(l10n.extraSend)),
+      ],
     );
   }
 }

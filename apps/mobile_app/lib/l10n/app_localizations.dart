@@ -5389,6 +5389,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You can share your link once your business is approved.'**
   String get ownerShareNotYet;
+
+  /// No description provided for @extraTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra charge to approve'**
+  String get extraTitle;
+
+  /// No description provided for @extraLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} more: {reason}'**
+  String extraLine(String amount, String reason);
+
+  /// No description provided for @extraNewTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'New total if you approve: {total}'**
+  String extraNewTotal(String total);
+
+  /// No description provided for @extraHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The price changes only if you approve. If you decline, it stays as it was.'**
+  String get extraHelp;
+
+  /// No description provided for @extraApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get extraApprove;
+
+  /// No description provided for @extraDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get extraDecline;
+
+  /// No description provided for @extraConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay {amount} more?'**
+  String extraConfirmTitle(String amount);
+
+  /// No description provided for @extraConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will be added to your booking\'s price.'**
+  String get extraConfirmBody;
+
+  /// No description provided for @extraConfirmYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, approve'**
+  String get extraConfirmYes;
+
+  /// No description provided for @extraIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Includes {amount} extra you approved'**
+  String extraIncluded(String amount);
+
+  /// No description provided for @extraAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add extra charge'**
+  String get extraAdd;
+
+  /// No description provided for @extraOwnerHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The customer must approve this in the app before the price changes.'**
+  String get extraOwnerHelp;
+
+  /// No description provided for @extraHowMuch.
+  ///
+  /// In en, this message translates to:
+  /// **'How much more'**
+  String get extraHowMuch;
+
+  /// No description provided for @extraChooseReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose what it is for.'**
+  String get extraChooseReason;
+
+  /// No description provided for @extraReasonParts.
+  ///
+  /// In en, this message translates to:
+  /// **'Spare parts'**
+  String get extraReasonParts;
+
+  /// No description provided for @extraReasonWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra work'**
+  String get extraReasonWork;
+
+  /// No description provided for @extraReasonMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Materials'**
+  String get extraReasonMaterial;
+
+  /// No description provided for @extraReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get extraReasonOther;
+
+  /// No description provided for @extraSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to customer'**
+  String get extraSend;
+
+  /// No description provided for @extraWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the customer: {amount} more ({reason})'**
+  String extraWaiting(String amount, String reason);
+
+  /// No description provided for @extraTakeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Take back'**
+  String get extraTakeBack;
 }
 
 class _AppLocalizationsDelegate

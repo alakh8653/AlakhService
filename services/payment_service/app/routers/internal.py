@@ -122,6 +122,16 @@ async def booking_cancelled(
     return result
 
 
+@router.post("/booking/{booking_id}/close-open")
+async def close_open_payments(booking_id: str, db: AsyncSession = Depends(get_db, scope="function")):
+    """The booking's price is about to change: a checkout started at the old price must not complete. Says whether
+    the booking is paid already, in which case its price must stay."""
+    paid, closed = await payment_service.close_open_payments(db, booking_id)
+    if closed:
+        log.info("open_payments_closed", booking_id=booking_id, count=closed)
+    return {"paid": paid, "closed": closed}
+
+
 @router.post("/booking/{booking_id}/disputed")
 async def booking_disputed(booking_id: str, db: AsyncSession = Depends(get_db, scope="function")):
     return {"earning": _earning(await earnings_service.hold(db, booking_id))}

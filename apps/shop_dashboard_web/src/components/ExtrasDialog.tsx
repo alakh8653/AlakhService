@@ -1,52 +1,51 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
 import Dialog from './Dialog';
-import { MAX_EXTRA_ITEMS, getExtras, requestExtras } from '../services/bookingService';
+import { MAX_EXTRA_CENTS, askExtraCharge, getExtraCharges } from '../services/bookingService';
 import { apiErrorMessage, formatMoney, toMinorUnits } from '../services/format';
-import type { ExtrasQuote, QuoteStatus } from '../types';
+import type { Booking, ExtraCharge, ExtraChargeStatus } from '../types';
 
 interface ExtrasDialogProps {
   bookingId: string;
   bookingNumber: string;
-  onSent: (quote: ExtrasQuote) => void;
+  /** The booking as the server has it after the request (now waiting on the customer). */
+  onSent: (booking: Booking) => void;
   onClose: () => void;
 }
 
-interface Draft {
-  description: string;
-  amount: string;
-}
-
-const STATUS_TEXT: Record<QuoteStatus, string> = {
+const STATUS_TEXT: Record<ExtraChargeStatus, string> = {
   PENDING: 'Waiting for the customer',
   APPROVED: 'Approved by the customer',
   DECLINED: 'Declined by the customer',
+  WITHDRAWN: 'Taken back',
+  EXPIRED: 'No longer applies',
 };
-const STATUS_CLASS: Record<QuoteStatus, string> = {
+const STATUS_CLASS: Record<ExtraChargeStatus, string> = {
   PENDING: 'text-amber-800',
   APPROVED: 'text-green-800',
   DECLINED: 'text-red-700',
+  WITHDRAWN: 'text-gray-600',
+  EXPIRED: 'text-gray-600',
 };
 
 const inputClass =
   'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
 /**
- * Asks the customer to approve extra charges found during the job: what each is for and how much, and a
- * note. Nothing is added to the bill until they approve; earlier requests are listed with their answer.
+ * Asks the customer to agree to an extra charge found once the job was seen: how much and why. Nothing is
+ * added to the bill until they approve; earlier requests are listed with their answer.
  */
 export default function ExtrasDialog({ bookingId, bookingNumber, onSent, onClose }: ExtrasDialogProps) {
-  const [items, setItems] = useState<Draft[]>([{ description: '', amount: '' }]);
-  const [note, setNote] = useState('');
-  const [earlier, setEarlier] = useState<ExtrasQuote[]>([]);
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [earlier, setEarlier] = useState<ExtraCharge[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getExtras(bookingId)
-      .then((quotes) => {
-        if (!cancelled) setEarlier(quotes);
+    getExtraCharges(bookingId)
+      .then((charges) => {
+        if (!cancelled) setEarlier(charges);
       })
       .catch(() => undefined);
     return () => {
@@ -54,102 +53,65 @@ export default function ExtrasDialog({ bookingId, bookingNumber, onSent, onClose
     };
   }, [bookingId]);
 
-  const update = (i: number, change: Partial<Draft>) =>
-    setItems((all) => all.map((d, j) => (j === i ? { ...d, ...change } : d)));
-
-  const total = items.reduce((sum, d) => sum + (Number(d.amount) > 0 ? toMinorUnits(Number(d.amount)) : 0), 0);
-
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (items.some((d) => d.description.trim().length < 3)) {
-      setError('Say what each charge is for (at least 3 letters).');
+    const cents = Number(amount) > 0 ? toMinorUnits(Number(amount)) : 0;
+    if (reason.trim().length < 3) {
+      setError('Say what the extra charge is for (at least 3 letters).');
       return;
     }
-    if (items.some((d) => !(Number(d.amount) > 0))) {
-      setError('Enter an amount in rupees for each charge.');
+    if (cents <= 0 || cents > MAX_EXTRA_CENTS) {
+      setError(`Enter an amount in rupees, up to ${formatMoney(MAX_EXTRA_CENTS)}.`);
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const quote = await requestExtras(
-        bookingId,
-        items.map((d) => ({ description: d.description.trim(), amountCents: toMinorUnits(Number(d.amount)) })),
-        note,
-      );
-      onSent(quote);
+      onSent(await askExtraCharge(bookingId, cents, reason));
       onClose();
     } catch (err) {
-      // 409: one is already waiting, or the total is too high; the server says which.
-      setError(apiErrorMessage(err, 'Could not send the extra charges'));
+      // 409: already paid, a package or walk-in, or one still waiting; the server says which.
+      setError(apiErrorMessage(err, 'Could not send the extra charge'));
       setBusy(false);
     }
   };
 
   return (
     <Dialog
-      title={`Extra charges for #${bookingNumber}`}
-      description="The customer must approve these in the app before they are added to the bill. If they decline, the price stays the same."
+      title={`Extra charge for #${bookingNumber}`}
+      description="The customer must approve this in the app before it is added to the bill. If they decline, the price stays the same."
       onClose={onClose}
     >
       <form onSubmit={submit} className="space-y-3" noValidate>
         {earlier.length > 0 && (
           <ul className="text-sm space-y-1 border-b border-gray-100 pb-3" aria-label="Earlier requests">
-            {earlier.map((q) => (
-              <li key={q.id} className={STATUS_CLASS[q.status]}>
-                {formatMoney(q.totalCents)} · {STATUS_TEXT[q.status]}
+            {earlier.map((c) => (
+              <li key={c.id} className={STATUS_CLASS[c.status]}>
+                {formatMoney(c.amountCents)} for {c.reason} · {STATUS_TEXT[c.status]}
               </li>
             ))}
           </ul>
         )}
-        {items.map((d, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            <label className="flex-[3] text-xs text-gray-700">
-              What is it for?
-              <input
-                value={d.description}
-                maxLength={120}
-                onChange={(e) => update(i, { description: e.target.value })}
-                className={`mt-1 ${inputClass}`}
-                placeholder="New capacitor"
-              />
-            </label>
-            <label className="flex-[2] text-xs text-gray-700">
-              Amount (₹)
-              <input
-                value={d.amount}
-                inputMode="decimal"
-                onChange={(e) => update(i, { amount: e.target.value.replace(/[^0-9.]/g, '') })}
-                className={`mt-1 ${inputClass}`}
-                placeholder="350"
-              />
-            </label>
-            {items.length > 1 && (
-              <button
-                type="button"
-                aria-label={`Remove charge ${i + 1}`}
-                onClick={() => setItems((all) => all.filter((_, j) => j !== i))}
-                className="mt-6 p-2 text-gray-500 hover:text-red-700"
-              >
-                <Trash2 size={16} aria-hidden />
-              </button>
-            )}
-          </div>
-        ))}
-        {items.length < MAX_EXTRA_ITEMS && (
-          <button
-            type="button"
-            onClick={() => setItems((all) => [...all, { description: '', amount: '' }])}
-            className="flex items-center gap-1 text-sm font-medium text-indigo-700 hover:underline"
-          >
-            <Plus size={14} aria-hidden /> Add another charge
-          </button>
-        )}
         <label className="block text-sm text-gray-700">
-          Note for the customer <span className="text-gray-500">(optional)</span>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={300} className={`mt-1 ${inputClass}`} />
+          What is it for?
+          <input
+            value={reason}
+            maxLength={200}
+            onChange={(e) => setReason(e.target.value)}
+            className={`mt-1 ${inputClass}`}
+            placeholder="New capacitor"
+          />
         </label>
-        <p className="text-sm font-medium text-gray-900">Total asked: {formatMoney(total)}</p>
+        <label className="block text-sm text-gray-700">
+          Amount (₹)
+          <input
+            value={amount}
+            inputMode="decimal"
+            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+            className={`mt-1 ${inputClass} max-w-40`}
+            placeholder="350"
+          />
+        </label>
         {error && (
           <p role="alert" className="text-sm text-red-700">
             {error}

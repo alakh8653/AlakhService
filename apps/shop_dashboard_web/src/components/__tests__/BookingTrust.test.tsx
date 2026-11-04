@@ -6,8 +6,9 @@ import type { Booking } from '../../types';
 
 vi.mock('../../services/bookingService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/bookingService')>()),
-  getExtras: vi.fn(),
-  requestExtras: vi.fn(),
+  getExtraCharges: vi.fn(),
+  askExtraCharge: vi.fn(),
+  withdrawExtraCharge: vi.fn(),
 }));
 vi.mock('../../services/paymentService', () => ({ getBookingPayments: vi.fn().mockResolvedValue([]), confirmCashReceived: vi.fn() }));
 
@@ -100,68 +101,78 @@ describe('BookingCard start code', () => {
 describe('BookingCard extra charges', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    api.getExtras.mockResolvedValue([
-      { id: 'q0', bookingId: 'b1', status: 'DECLINED', items: [], totalCents: 20000, note: null, createdAt: '', decidedAt: '' },
+    api.getExtraCharges.mockResolvedValue([
+      { id: 'x0', bookingId: 'b1', amountCents: 20000, reason: 'Wiring', status: 'DECLINED', createdAt: '', decidedAt: '' },
     ]);
   });
 
-  it('sends charges for the customer to approve, and says it is waiting', async () => {
-    api.requestExtras.mockResolvedValue({
-      id: 'q1', bookingId: 'b1', status: 'PENDING', items: [], totalCents: 50050, note: null, createdAt: '', decidedAt: null,
-    });
-    render(<BookingCard booking={{ ...visit, status: 'IN_PROGRESS' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add extra charges' }));
-    const dialog = screen.getByRole('dialog', { name: 'Extra charges for #BK-1' });
-    expect(dialog).toHaveTextContent('The customer must approve these');
-    expect(await within(dialog).findByText('₹200 · Declined by the customer')).toBeInTheDocument();
+  it('asks the customer to approve an extra charge, and says it is waiting', async () => {
+    const onUpdated = vi.fn();
+    api.askExtraCharge.mockImplementation(async (_id, amountCents, reason) => ({
+      ...visit,
+      status: 'IN_PROGRESS',
+      pendingExtraId: 'x1',
+      pendingExtraAmount: amountCents,
+      pendingExtraReason: reason,
+    }));
+    render(<BookingCard booking={{ ...visit, status: 'IN_PROGRESS' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} onUpdated={onUpdated} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add extra charge' }));
+    const dialog = screen.getByRole('dialog', { name: 'Extra charge for #BK-1' });
+    expect(dialog).toHaveTextContent('The customer must approve this');
+    expect(await within(dialog).findByText('₹200 for Wiring · Declined by the customer')).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send to customer' }));
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Say what each charge is for');
-    expect(api.requestExtras).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Say what the extra charge is for');
+    expect(api.askExtraCharge).not.toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByLabelText('What is it for?'), { target: { value: 'New capacitor' } });
-    fireEvent.change(within(dialog).getByLabelText('Amount (₹)'), { target: { value: '350' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: /Add another charge/ }));
-    fireEvent.change(within(dialog).getAllByLabelText('What is it for?')[1], { target: { value: 'Wiring' } });
-    fireEvent.change(within(dialog).getAllByLabelText('Amount (₹)')[1], { target: { value: '150.50' } });
-    fireEvent.change(within(dialog).getByLabelText(/Note for the customer/), { target: { value: 'Old part burnt' } });
-    expect(dialog).toHaveTextContent('Total asked: ₹500.50');
+    fireEvent.change(within(dialog).getByLabelText('Amount (₹)'), { target: { value: '350.50' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send to customer' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(api.requestExtras).toHaveBeenCalledWith(
-      'b1',
-      [
-        { description: 'New capacitor', amountCents: 35000 },
-        { description: 'Wiring', amountCents: 15050 },
-      ],
-      'Old part burnt',
-    );
-    expect(screen.getByTestId('extras-line')).toHaveTextContent('waiting for the customer');
-    expect(screen.getByRole('button', { name: 'Add extra charges' })).toBeDisabled();
+    expect(api.askExtraCharge).toHaveBeenCalledWith('b1', 35050, 'New capacitor');
+    expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({ pendingExtraId: 'x1' }));
+    expect(screen.getByTestId('extras-line')).toHaveTextContent('Extra ₹350.50 for New capacitor: waiting for the customer to approve');
+    expect(screen.getByRole('button', { name: 'Add extra charge' })).toBeDisabled();
   });
 
   it('shows the server refusing (409) and keeps the form', async () => {
-    api.requestExtras.mockRejectedValue(
-      Object.assign(new Error('409'), { response: { status: 409, data: { detail: 'The customer has not answered the last request yet' } } }),
+    api.askExtraCharge.mockRejectedValue(
+      Object.assign(new Error('409'), {
+        response: { status: 409, data: { detail: 'This booking is already paid, so an extra charge cannot be added in the app yet' } },
+      }),
     );
     render(<BookingCard booking={{ ...visit, status: 'IN_PROGRESS' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add extra charges' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add extra charge' }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('What is it for?'), { target: { value: 'New capacitor' } });
     fireEvent.change(within(dialog).getByLabelText('Amount (₹)'), { target: { value: '350' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send to customer' }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('The customer has not answered the last request yet');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('already paid');
+  });
+
+  it('takes back a request the customer has not answered', async () => {
+    api.withdrawExtraCharge.mockResolvedValue({ ...visit, status: 'IN_PROGRESS', pendingExtraId: null, updatedAt: 'z' });
+    render(
+      <BookingCard
+        booking={{ ...visit, status: 'IN_PROGRESS', pendingExtraId: 'x1', pendingExtraAmount: 5000, pendingExtraReason: 'Wiring' }}
+        onChangeStatus={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Take back' }));
+    await waitFor(() => expect(screen.queryByTestId('extras-line')).not.toBeInTheDocument());
+    expect(api.withdrawExtraCharge).toHaveBeenCalledWith('b1', 'x1');
   });
 
   it('shows approved extras and the free-fix label, and offers no extras once done', () => {
     const { rerender } = render(
-      <BookingCard booking={{ ...visit, status: 'IN_PROGRESS', extrasCents: 25000 }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />,
+      <BookingCard booking={{ ...visit, status: 'IN_PROGRESS', extraAmount: 25000 }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />,
     );
     expect(screen.getByTestId('extras-line')).toHaveTextContent('Customer approved ₹250 extra');
     expect(screen.queryByText('Free fix')).not.toBeInTheDocument();
     rerender(<BookingCard booking={{ ...visit, status: 'COMPLETED', reworkOf: 'b0', totalAmount: 0 }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />);
     expect(screen.getByText('Free fix')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add extra charges' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add extra charge' })).not.toBeInTheDocument();
   });
 });

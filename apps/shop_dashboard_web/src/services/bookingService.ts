@@ -1,6 +1,6 @@
 import apiClient from './apiClient';
 import { apiErrorMessage } from './format';
-import type { Analytics, Booking, BookingStatus, ExtraItem, ExtrasQuote, PaginatedResponse, QuoteStatus, ServiceMode } from '../types';
+import type { Analytics, Booking, BookingStatus, ExtraCharge, ExtraChargeStatus, PaginatedResponse, ServiceMode } from '../types';
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   'PENDING',
@@ -88,8 +88,10 @@ interface BookingResponse {
   points_discount?: number;
   preferred_staff_id?: string | null;
   preferred_staff_name?: string | null;
-  extras_cents?: number;
-  pending_quote_id?: string | null;
+  extra_amount?: number;
+  pending_extra_id?: string | null;
+  pending_extra_amount?: number | null;
+  pending_extra_reason?: string | null;
   rework_of?: string | null;
   metadata?: { rework_of?: string | null } | null;
   created_at: string;
@@ -125,8 +127,10 @@ export function toBooking(data: BookingResponse): Booking {
     pointsDiscount: data.points_discount ?? 0,
     preferredStaffId: data.preferred_staff_id ?? null,
     preferredStaffName: data.preferred_staff_name ?? null,
-    extrasCents: data.extras_cents ?? 0,
-    pendingQuoteId: data.pending_quote_id ?? null,
+    extraAmount: data.extra_amount ?? 0,
+    pendingExtraId: data.pending_extra_id ?? null,
+    pendingExtraAmount: data.pending_extra_amount ?? null,
+    pendingExtraReason: data.pending_extra_reason ?? null,
     reworkOf: data.rework_of ?? data.metadata?.rework_of ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -242,56 +246,6 @@ export function startCodeError(err: unknown): string {
   return apiErrorMessage(err, 'Could not start the job');
 }
 
-// ── Extra charges (the customer approves them before they are added) ───────────
-
-/** Statuses in which the shop may still ask for extra charges. */
-export const EXTRAS_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'IN_PROGRESS', 'PICKED_UP']);
-export const MAX_EXTRA_ITEMS = 10;
-
-interface QuoteResponse {
-  id: string;
-  booking_id: string;
-  status: QuoteStatus;
-  items: { description: string; amount_cents: number }[];
-  total_cents: number;
-  note?: string | null;
-  created_at: string;
-  decided_at?: string | null;
-}
-
-export function toQuote(data: QuoteResponse): ExtrasQuote {
-  return {
-    id: data.id,
-    bookingId: data.booking_id,
-    status: data.status,
-    items: (data.items ?? []).map((i) => ({ description: i.description, amountCents: i.amount_cents })),
-    totalCents: data.total_cents,
-    note: data.note ?? null,
-    createdAt: data.created_at,
-    decidedAt: data.decided_at ?? null,
-  };
-}
-
-/** The booking's extra-charge requests, newest first; empty from a server that has none (404). */
-export async function getExtras(bookingId: string): Promise<ExtrasQuote[]> {
-  try {
-    const { data } = await apiClient.get<QuoteResponse[]>(`/bookings/${encodeURIComponent(bookingId)}/extras`);
-    return data.map(toQuote);
-  } catch (err) {
-    if ((err as { response?: { status?: number } })?.response?.status === 404) return [];
-    throw err;
-  }
-}
-
-/** Asks the customer to approve [items] (409 while an earlier request is still waiting on them). */
-export async function requestExtras(bookingId: string, items: ExtraItem[], note?: string): Promise<ExtrasQuote> {
-  const { data } = await apiClient.post<QuoteResponse>(`/bookings/${encodeURIComponent(bookingId)}/extras`, {
-    items: items.map((i) => ({ description: i.description, amount_cents: i.amountCents })),
-    ...(note && note.trim() ? { note: note.trim() } : {}),
-  });
-  return toQuote(data);
-}
-
 /** Give a confirmed booking to one of the shop's staff (their provider account). */
 export async function assignProvider(id: string, providerId: string): Promise<Booking> {
   const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/assign`, { provider_id: providerId });
@@ -316,6 +270,73 @@ export async function setReadyBy(id: string, readyBy: string | null): Promise<Bo
 
 export async function cancelBooking(id: string, reason: string): Promise<Booking> {
   const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/cancel`, { reason });
+  return toBooking(data);
+}
+
+// ── Extra charges (booking_service's /extra-charges: the customer approves before anything is added) ──
+
+/** Statuses in which the shop may ask for an extra charge (booking_service's OPEN_STATUSES). */
+export const EXTRA_CHARGE_STATUSES = new Set<BookingStatus>([
+  'CONFIRMED',
+  'ASSIGNED',
+  'PROVIDER_EN_ROUTE',
+  'PICKED_UP',
+  'IN_PROGRESS',
+  'OUT_FOR_DELIVERY',
+]);
+/** ₹5 lakh, booking_service's ceiling for one extra charge (minor units). */
+export const MAX_EXTRA_CENTS = 50_000_000;
+
+interface ExtraChargeResponse {
+  id: string;
+  booking_id: string;
+  amount_cents: number;
+  reason: string;
+  status: ExtraChargeStatus;
+  created_at: string;
+  decided_at?: string | null;
+}
+
+export function toExtraCharge(data: ExtraChargeResponse): ExtraCharge {
+  return {
+    id: data.id,
+    bookingId: data.booking_id,
+    amountCents: data.amount_cents,
+    reason: data.reason,
+    status: data.status,
+    createdAt: data.created_at,
+    decidedAt: data.decided_at ?? null,
+  };
+}
+
+const extraCharges = (bookingId: string) => `/bookings/${encodeURIComponent(bookingId)}/extra-charges`;
+
+/** The booking's extra charges, newest first; empty from a server that has none (404). */
+export async function getExtraCharges(bookingId: string): Promise<ExtraCharge[]> {
+  try {
+    const { data } = await apiClient.get<ExtraChargeResponse[]>(extraCharges(bookingId));
+    return data.map(toExtraCharge);
+  } catch (err) {
+    if ((err as { response?: { status?: number } })?.response?.status === 404) return [];
+    throw err;
+  }
+}
+
+/**
+ * Asks the customer to agree to [amountCents] more, saying why. Refused (409) once the booking is paid or
+ * covered by a package, for a walk-in, or while an earlier request waits on the customer.
+ */
+export async function askExtraCharge(bookingId: string, amountCents: number, reason: string): Promise<Booking> {
+  const { data } = await apiClient.post<BookingResponse>(extraCharges(bookingId), {
+    amount_cents: amountCents,
+    reason: reason.trim(),
+  });
+  return toBooking(data);
+}
+
+/** Takes back a request the customer has not answered. */
+export async function withdrawExtraCharge(bookingId: string, chargeId: string): Promise<Booking> {
+  const { data } = await apiClient.delete<BookingResponse>(`${extraCharges(bookingId)}/${encodeURIComponent(chargeId)}`);
   return toBooking(data);
 }
 

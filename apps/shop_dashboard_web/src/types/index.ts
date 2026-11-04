@@ -45,31 +45,27 @@ export interface Booking {
   /** The staff member the customer asked for (shop staff id and display name), if anyone. */
   preferredStaffId?: string | null;
   preferredStaffName?: string | null;
-  /** Extra charges the customer approved (minor units), and the request still waiting on them, if any. */
-  extrasCents?: number;
-  pendingQuoteId?: string | null;
+  /** Of totalAmount, what the customer agreed to pay on top after the job was seen (minor units). */
+  extraAmount?: number;
+  /** An extra charge waiting for the customer's answer: its id, amount (minor units) and reason. */
+  pendingExtraId?: string | null;
+  pendingExtraAmount?: number | null;
+  pendingExtraReason?: string | null;
   /** A free fix: the earlier booking this one redoes at no cost (the shop's guarantee). */
   reworkOf?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-/** A line of extra charges the shop asks the customer to approve. */
-export interface ExtraItem {
-  description: string;
-  amountCents: number;
-}
+export type ExtraChargeStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'WITHDRAWN' | 'EXPIRED';
 
-export type QuoteStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
-
-/** Extra charges asked for during a job: they count only once the customer approves them. */
-export interface ExtrasQuote {
+/** An extra charge asked for once the job was seen: it counts only if the customer approves it. */
+export interface ExtraCharge {
   id: string;
   bookingId: string;
-  status: QuoteStatus;
-  items: ExtraItem[];
-  totalCents: number;
-  note: string | null;
+  amountCents: number;
+  reason: string;
+  status: ExtraChargeStatus;
   createdAt: string;
   decidedAt: string | null;
 }

@@ -3,8 +3,15 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { CalendarCheck, Clock, Home, MessageCircle, Package, ReceiptText, Store, User, Scissors, UserCog, Wrench } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
-import { EXTRAS_STATUSES, READY_BY_STATUSES, bookingActions, needsStartCode, type QueueEntry } from '../services/bookingService';
-import { formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
+import {
+  EXTRA_CHARGE_STATUSES,
+  READY_BY_STATUSES,
+  bookingActions,
+  needsStartCode,
+  withdrawExtraCharge,
+  type QueueEntry,
+} from '../services/bookingService';
+import { apiErrorMessage, formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
 import CancelBookingDialog from './CancelBookingDialog';
@@ -54,6 +61,8 @@ interface BookingCardProps {
   onSetReadyBy?: (id: string, readyBy: string | null) => Result;
   /** Today's place in the shop's queue, if the booking is in it. */
   queue?: QueueEntry;
+  /** The booking changed here (an extra charge asked for or taken back). */
+  onUpdated?: (booking: Booking) => void;
 }
 
 /** A datetime-local input's value (local time, to the minute) for an ISO datetime. */
@@ -107,15 +116,23 @@ export default function BookingCard({
   onAssign,
   onSetReadyBy,
   queue,
+  onUpdated,
 }: BookingCardProps) {
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   // The step waiting for the customer's start code, and the extra-charges form.
   const [starting, setStarting] = useState<BookingStatus | null>(null);
   const [askingExtras, setAskingExtras] = useState(false);
-  const [extrasSent, setExtrasSent] = useState(false);
-  const extrasWaiting = extrasSent || !!booking.pendingQuoteId;
-  const canAskExtras = EXTRAS_STATUSES.has(booking.status);
+  // What the server answered to an extra charge asked or taken back here, until the list catches up.
+  const [fresh, setFresh] = useState<Booking | null>(null);
+  const [extrasError, setExtrasError] = useState<string | null>(null);
+  const extras = fresh && fresh.id === booking.id && fresh.updatedAt >= booking.updatedAt ? fresh : booking;
+  const extrasWaiting = !!extras.pendingExtraId;
+  const canAskExtras = EXTRA_CHARGE_STATUSES.has(booking.status);
+  const changed = (b: Booking) => {
+    setFresh(b);
+    onUpdated?.(b);
+  };
   const [chatOpen, setChatOpen] = useState(false);
   const actions = bookingActions(booking);
   const stepActions = actions.filter((a) => a.target !== 'CANCEL');
@@ -224,19 +241,44 @@ export default function BookingCard({
         {booking.reworkOf && (
           <p className="text-sm text-sky-800">Free fix under your guarantee for an earlier booking: no charge to the customer.</p>
         )}
-        {extrasWaiting ? (
-          <p className="text-sm text-amber-800 flex items-center gap-1.5" data-testid="extras-line">
-            <ReceiptText size={14} aria-hidden /> Extra charges: waiting for the customer to approve
-          </p>
-        ) : (booking.extrasCents ?? 0) > 0 ? (
+        {extrasWaiting && (
+          <div className="text-sm text-amber-800 flex flex-wrap items-center gap-1.5" data-testid="extras-line">
+            <ReceiptText size={14} aria-hidden />
+            Extra {formatMoney(extras.pendingExtraAmount ?? 0)}
+            {extras.pendingExtraReason ? ` for ${extras.pendingExtraReason}` : ''}: waiting for the customer to approve
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  setExtrasError(null);
+                  try {
+                    changed(await withdrawExtraCharge(booking.id, extras.pendingExtraId!));
+                  } catch (err) {
+                    setExtrasError(apiErrorMessage(err, 'Could not take it back'));
+                  }
+                })
+              }
+              className="ml-1 text-xs font-medium text-gray-700 underline disabled:opacity-50"
+            >
+              Take back
+            </button>
+          </div>
+        )}
+        {!extrasWaiting && (extras.extraAmount ?? 0) > 0 && (
           <p className="text-sm text-green-800 flex items-center gap-1.5" data-testid="extras-line">
-            <ReceiptText size={14} aria-hidden /> Customer approved {formatMoney(booking.extrasCents ?? 0)} extra
+            <ReceiptText size={14} aria-hidden /> Customer approved {formatMoney(extras.extraAmount ?? 0)} extra
           </p>
-        ) : null}
+        )}
+        {extrasError && (
+          <p role="alert" className="text-sm text-red-700">
+            {extrasError}
+          </p>
+        )}
         {chatOpen && <BookingChat bookingId={booking.id} customerName={booking.customerDisplayName} />}
       </div>
       <div className="flex flex-col sm:items-end gap-2 sm:min-w-44">
-        <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        <p className="text-lg font-bold text-gray-900">{formatMoney(extras.totalAmount)}</p>
         {(booking.pointsDiscount ?? 0) > 0 && (
           <p className="text-xs text-emerald-700">+ {formatMoney(booking.pointsDiscount ?? 0)} in points, paid to you by AlakhService</p>
         )}
@@ -298,7 +340,7 @@ export default function BookingCard({
                 onClick={() => setAskingExtras(true)}
                 className="text-sm font-medium text-amber-800 border border-amber-200 bg-amber-50 rounded-lg px-3 py-2 hover:bg-amber-100 disabled:opacity-50"
               >
-                Add extra charges
+                Add extra charge
               </button>
             )}
             {canCancel && (
@@ -329,7 +371,7 @@ export default function BookingCard({
         <ExtrasDialog
           bookingId={booking.id}
           bookingNumber={booking.bookingNumber}
-          onSent={() => setExtrasSent(true)}
+          onSent={changed}
           onClose={() => setAskingExtras(false)}
         />
       )}

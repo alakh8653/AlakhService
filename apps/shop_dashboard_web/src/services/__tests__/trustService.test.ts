@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../apiClient';
-import { getExtras, needsStartCode, requestExtras, startCodeError, toBooking, updateBookingStatus } from '../bookingService';
+import {
+  askExtraCharge,
+  getExtraCharges,
+  needsStartCode,
+  startCodeError,
+  toBooking,
+  updateBookingStatus,
+  withdrawExtraCharge,
+} from '../bookingService';
 import { toShop } from '../shopService';
 
 vi.mock('../apiClient', () => ({
-  default: { get: vi.fn(), put: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), put: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 
 const api = vi.mocked(apiClient);
@@ -58,39 +66,41 @@ describe('start code', () => {
 describe('extra charges', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('are sent in paise with an optional note', async () => {
+  it("are asked for with booking_service's /extra-charges, in paise with a reason", async () => {
     api.post.mockResolvedValue({
-      data: {
-        id: 'q1',
-        booking_id: 'b1',
-        status: 'PENDING',
-        items: [{ description: 'New capacitor', amount_cents: 35000 }],
-        total_cents: 35000,
-        note: 'Old part burnt',
-        created_at: '2026-10-10T11:00:00Z',
-        decided_at: null,
-      },
+      data: { ...apiBooking, status: 'IN_PROGRESS', pending_extra_id: 'x1', pending_extra_amount: 35000, pending_extra_reason: 'New capacitor' },
     });
-    const quote = await requestExtras('b1', [{ description: 'New capacitor', amountCents: 35000 }], '  Old part burnt ');
-    expect(api.post).toHaveBeenCalledWith('/bookings/b1/extras', {
-      items: [{ description: 'New capacitor', amount_cents: 35000 }],
-      note: 'Old part burnt',
-    });
-    expect(quote).toMatchObject({ id: 'q1', status: 'PENDING', totalCents: 35000, items: [{ amountCents: 35000 }] });
+    const booking = await askExtraCharge('b1', 35000, '  New capacitor ');
+    expect(api.post).toHaveBeenCalledWith('/bookings/b1/extra-charges', { amount_cents: 35000, reason: 'New capacitor' });
+    expect(booking).toMatchObject({ pendingExtraId: 'x1', pendingExtraAmount: 35000, pendingExtraReason: 'New capacitor' });
+  });
+
+  it('can be taken back before the customer answers', async () => {
+    api.delete.mockResolvedValue({ data: { ...apiBooking, pending_extra_id: null } });
+    const booking = await withdrawExtraCharge('b1', 'x1');
+    expect(api.delete).toHaveBeenCalledWith('/bookings/b1/extra-charges/x1');
+    expect(booking.pendingExtraId).toBeNull();
   });
 
   it('list as empty from a server without them', async () => {
+    api.get.mockResolvedValue({
+      data: [{ id: 'x0', booking_id: 'b1', amount_cents: 20000, reason: 'Wiring', status: 'DECLINED', created_at: '', decided_at: '' }],
+    });
+    expect(await getExtraCharges('b1')).toEqual([
+      { id: 'x0', bookingId: 'b1', amountCents: 20000, reason: 'Wiring', status: 'DECLINED', createdAt: '', decidedAt: '' },
+    ]);
+    expect(api.get).toHaveBeenCalledWith('/bookings/b1/extra-charges');
     api.get.mockRejectedValue(httpError(404));
-    expect(await getExtras('b1')).toEqual([]);
+    expect(await getExtraCharges('b1')).toEqual([]);
     api.get.mockRejectedValue(httpError(500));
-    await expect(getExtras('b1')).rejects.toThrow();
+    await expect(getExtraCharges('b1')).rejects.toThrow();
   });
 
   it('and the free fix show on the booking', () => {
-    const b = toBooking({ ...apiBooking, extras_cents: 20000, pending_quote_id: 'q2', rework_of: 'b0' });
-    expect(b).toMatchObject({ extrasCents: 20000, pendingQuoteId: 'q2', reworkOf: 'b0' });
+    const b = toBooking({ ...apiBooking, extra_amount: 20000, pending_extra_id: 'x2', pending_extra_amount: 5000, rework_of: 'b0' });
+    expect(b).toMatchObject({ extraAmount: 20000, pendingExtraId: 'x2', pendingExtraAmount: 5000, reworkOf: 'b0' });
     expect(toBooking({ ...apiBooking, metadata: { rework_of: 'b0' } }).reworkOf).toBe('b0');
-    expect(toBooking(apiBooking)).toMatchObject({ extrasCents: 0, pendingQuoteId: null, reworkOf: null });
+    expect(toBooking(apiBooking)).toMatchObject({ extraAmount: 0, pendingExtraId: null, reworkOf: null });
   });
 });
 

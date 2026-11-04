@@ -5623,6 +5623,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hidden while we check'**
   String get profilePhotoHidden;
+
+  /// No description provided for @reviewReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get reviewReport;
+
+  /// No description provided for @reviewReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this review'**
+  String get reviewReportTitle;
+
+  /// No description provided for @reviewReportAbusive.
+  ///
+  /// In en, this message translates to:
+  /// **'It is rude or offensive'**
+  String get reviewReportAbusive;
+
+  /// No description provided for @reviewReportFake.
+  ///
+  /// In en, this message translates to:
+  /// **'It seems fake'**
+  String get reviewReportFake;
+
+  /// No description provided for @reviewReportContact.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows a phone number or private details'**
+  String get reviewReportContact;
+
+  /// No description provided for @reviewReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks. We will check this review.'**
+  String get reviewReported;
 }
 
 class _AppLocalizationsDelegate

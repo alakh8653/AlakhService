@@ -921,5 +921,11 @@
   "photoReportFake": "यह इस प्रदाता का काम नहीं है",
   "photoReportContact": "इसमें फ़ोन नंबर या संपर्क दिख रहा है",
   "photoReported": "धन्यवाद। हम इस फ़ोटो की जाँच करेंगे।",
-  "profilePhotoHidden": "जाँच तक छिपी है"
+  "profilePhotoHidden": "जाँच तक छिपी है",
+  "reviewReport": "शिकायत करें",
+  "reviewReportTitle": "इस समीक्षा की शिकायत करें",
+  "reviewReportAbusive": "यह अभद्र या आपत्तिजनक है",
+  "reviewReportFake": "यह नकली लगती है",
+  "reviewReportContact": "इसमें फ़ोन नंबर या निजी जानकारी है",
+  "reviewReported": "धन्यवाद। हम इस समीक्षा की जाँच करेंगे।"
 }

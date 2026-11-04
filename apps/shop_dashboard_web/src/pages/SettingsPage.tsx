@@ -8,6 +8,7 @@ import type { AppDispatch, RootState } from '../state/store';
 import { setShop } from '../state/authSlice';
 import { updateShop } from '../services/shopService';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
+import ProviderProfileCard from '../components/ProviderProfileCard';
 import { useToast } from '../components/Toast';
 import { SHOP_CATEGORIES } from '../services/categories';
 
@@ -220,6 +221,7 @@ export default function SettingsPage() {
           {isDirty && !isSubmitting && <span className="text-sm text-amber-700">Unsaved changes</span>}
         </div>
       </form>
+      {shop && <ProviderProfileCard shopId={shop.id} />}
     </div>
   );
 }

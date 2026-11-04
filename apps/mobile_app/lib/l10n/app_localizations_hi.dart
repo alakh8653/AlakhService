@@ -3163,4 +3163,22 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get profilePhotoHidden => 'जाँच तक छिपी है';
+
+  @override
+  String get reviewReport => 'शिकायत करें';
+
+  @override
+  String get reviewReportTitle => 'इस समीक्षा की शिकायत करें';
+
+  @override
+  String get reviewReportAbusive => 'यह अभद्र या आपत्तिजनक है';
+
+  @override
+  String get reviewReportFake => 'यह नकली लगती है';
+
+  @override
+  String get reviewReportContact => 'इसमें फ़ोन नंबर या निजी जानकारी है';
+
+  @override
+  String get reviewReported => 'धन्यवाद। हम इस समीक्षा की जाँच करेंगे।';
 }

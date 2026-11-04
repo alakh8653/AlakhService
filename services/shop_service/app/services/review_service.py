@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Tuple
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -231,6 +231,9 @@ class ReviewService:
 
     async def set_hidden(self, db: AsyncSession, review: ShopRating, hidden: bool) -> ShopRating:
         review.is_hidden = hidden
+        if not hidden:  # kept: it leaves the queue until someone new reports it
+            await db.execute(delete(ReviewReport).where(ReviewReport.review_id == review.id))
+            review.report_count = 0
         await db.flush()
         await self.refresh_shop_rating(db, review.shop_id)
         log.info("review_visibility_changed", review_id=review.id, hidden=hidden)

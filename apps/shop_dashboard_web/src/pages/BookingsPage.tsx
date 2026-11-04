@@ -210,6 +210,8 @@ export default function BookingsPage() {
               onChangeStatus={actions.changeStatus}
               onAssign={actions.assign}
               onCancel={actions.cancel}
+              onAskExtra={actions.askExtra}
+              onWithdrawExtra={actions.withdrawExtra}
               onSetReadyBy={actions.setReadyBy}
               queue={queue[b.id]}
             />

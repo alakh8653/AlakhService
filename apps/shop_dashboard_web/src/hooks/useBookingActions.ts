@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useToast } from '../components/Toast';
-import { assignProvider, cancelBooking, setReadyBy, updateBookingStatus } from '../services/bookingService';
+import { askExtraCharge, assignProvider, cancelBooking, setReadyBy, updateBookingStatus, withdrawExtraCharge } from '../services/bookingService';
 import { apiErrorMessage, formatDayTime } from '../services/format';
 import type { Booking, BookingStatus } from '../types';
 
@@ -52,6 +52,18 @@ export function useBookingActions(onUpdated: (booking: Booking) => void, provide
           () => cancelBooking(id, reason),
           (b) => `Booking #${b.bookingNumber} cancelled. The customer has been told.`,
           'Could not cancel the booking',
+        ),
+      askExtra: (id: string, amountCents: number, reason: string) =>
+        perform(
+          () => askExtraCharge(id, amountCents, reason),
+          () => 'Sent. The price changes only if the customer approves.',
+          'Could not send the extra charge',
+        ),
+      withdrawExtra: (id: string, chargeId: string) =>
+        perform(
+          () => withdrawExtraCharge(id, chargeId),
+          () => 'Extra charge taken back.',
+          'Could not take it back',
         ),
       setReadyBy: (id: string, readyBy: string | null) =>
         perform(

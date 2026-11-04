@@ -83,6 +83,11 @@ interface BookingResponse {
   address_id?: string | null;
   notes: string | null;
   total_amount: number;
+  payment_status?: string;
+  extra_amount?: number;
+  pending_extra_id?: string | null;
+  pending_extra_amount?: number | null;
+  pending_extra_reason?: string | null;
   reschedule_count?: number;
   points_discount?: number;
   preferred_staff_id?: string | null;
@@ -116,6 +121,11 @@ export function toBooking(data: BookingResponse): Booking {
     addressId: data.address_id ?? null,
     notes: data.notes,
     totalAmount: data.total_amount,
+    paymentStatus: data.payment_status ?? 'UNPAID',
+    extraAmount: data.extra_amount ?? 0,
+    pendingExtraId: data.pending_extra_id ?? null,
+    pendingExtraAmount: data.pending_extra_amount ?? null,
+    pendingExtraReason: data.pending_extra_reason ?? null,
     rescheduleCount: data.reschedule_count ?? 0,
     pointsDiscount: data.points_discount ?? 0,
     preferredStaffId: data.preferred_staff_id ?? null,
@@ -234,6 +244,19 @@ export const READY_BY_STATUSES = new Set<BookingStatus>([
 /** Tells the customer when their item will be back (null clears it). */
 export async function setReadyBy(id: string, readyBy: string | null): Promise<Booking> {
   const { data } = await apiClient.put<BookingResponse>(`/bookings/${id}/ready-by`, { ready_by: readyBy });
+  return toBooking(data);
+}
+
+/** Statuses in which booking_service takes an extra charge: from when a provider can have seen the job until it ends. */
+export const EXTRA_CHARGE_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'PICKED_UP', 'IN_PROGRESS', 'OUT_FOR_DELIVERY']);
+
+export async function askExtraCharge(id: string, amountCents: number, reason: string): Promise<Booking> {
+  const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/extra-charges`, { amount_cents: amountCents, reason });
+  return toBooking(data);
+}
+
+export async function withdrawExtraCharge(id: string, chargeId: string): Promise<Booking> {
+  const { data } = await apiClient.delete<BookingResponse>(`/bookings/${id}/extra-charges/${chargeId}`);
   return toBooking(data);
 }
 

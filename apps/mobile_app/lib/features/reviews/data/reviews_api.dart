@@ -120,6 +120,15 @@ class ReviewsApi {
     }
   }
 
+  /// Flags a review for an admin to look at. It stays up until an admin hides it.
+  Future<void> report(String shopId, String reviewId, String reason) async {
+    try {
+      await apiClient.post<Map<String, dynamic>>('${ApiConstants.shopReviews(shopId)}/$reviewId/report', data: {'reason': reason});
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   /// The rating of each shop in [shopIds], in one request (shops without a row are left out).
   Future<Map<String, ShopRating>> ratings(Iterable<String> shopIds) async {
     final ids = shopIds.toSet().take(50).toList();

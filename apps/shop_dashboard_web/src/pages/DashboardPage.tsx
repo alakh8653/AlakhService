@@ -227,6 +227,8 @@ export default function DashboardPage() {
                 onChangeStatus={actions.changeStatus}
                 onAssign={actions.assign}
                 onCancel={actions.cancel}
+                onAskExtra={actions.askExtra}
+                onWithdrawExtra={actions.withdrawExtra}
                 onSetReadyBy={actions.setReadyBy}
               />
             ))}

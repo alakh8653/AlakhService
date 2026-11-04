@@ -38,6 +38,13 @@ export interface Booking {
   addressId: string | null;
   notes: string | null;
   totalAmount: number; // minor units (paise)
+  paymentStatus?: string;
+  /** Of totalAmount, what the customer agreed to on top after the provider saw the job. */
+  extraAmount?: number;
+  /** An extra charge waiting for the customer's answer. */
+  pendingExtraId?: string | null;
+  pendingExtraAmount?: number | null;
+  pendingExtraReason?: string | null;
   /** How many times the customer has moved it to another time (they may twice). */
   rescheduleCount?: number;
   /** Paid by the customer's loyalty points (minor units): AlakhService pays it to the shop. */

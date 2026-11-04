@@ -34,6 +34,7 @@ export const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { to: '/disputes', label: 'Disputes', icon: Scale },
       { to: '/moderation/contact-sharing', label: 'Contact Sharing', icon: MessageSquareWarning },
       { to: '/moderation/work-photos', label: 'Work Photos', icon: MessageSquareWarning },
+      { to: '/moderation/reviews', label: 'Reported Reviews', icon: MessageSquareWarning },
       { to: '/privacy-requests', label: 'Privacy requests', icon: UserLock },
     ],
   },

@@ -3,11 +3,12 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { CalendarCheck, Clock, Home, MessageCircle, Package, Store, User, Scissors, UserCog } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
-import { READY_BY_STATUSES, bookingActions, type QueueEntry } from '../services/bookingService';
+import { EXTRA_CHARGE_STATUSES, READY_BY_STATUSES, bookingActions, type QueueEntry } from '../services/bookingService';
 import { formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
 import CancelBookingDialog from './CancelBookingDialog';
+import ExtraChargeDialog from './ExtraChargeDialog';
 import BookingChat from './BookingChat';
 
 // Bookings a customer may already have chosen to pay in cash for.
@@ -45,6 +46,9 @@ interface BookingCardProps {
   onAssign?: (id: string, providerId: string) => Result;
   /** Pickup & drop: promise (ISO datetime) or clear (null) when the item will be back. */
   onSetReadyBy?: (id: string, readyBy: string | null) => Result;
+  /** Asks the customer to agree to pay more. */
+  onAskExtra?: (id: string, amountCents: number, reason: string) => Result;
+  onWithdrawExtra?: (id: string, chargeId: string) => Result;
   /** Today's place in the shop's queue, if the booking is in it. */
   queue?: QueueEntry;
 }
@@ -98,10 +102,13 @@ export default function BookingCard({
   onCancel,
   onAssign,
   onSetReadyBy,
+  onAskExtra,
+  onWithdrawExtra,
   queue,
 }: BookingCardProps) {
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [askingExtra, setAskingExtra] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const actions = bookingActions(booking);
   const stepActions = actions.filter((a) => a.target !== 'CANCEL');
@@ -209,6 +216,27 @@ export default function BookingCard({
         {(booking.pointsDiscount ?? 0) > 0 && (
           <p className="text-xs text-emerald-700">+ {formatMoney(booking.pointsDiscount ?? 0)} in points, paid to you by AlakhService</p>
         )}
+        {(booking.extraAmount ?? 0) > 0 && <p className="text-xs text-gray-600">Includes {formatMoney(booking.extraAmount ?? 0)} extra the customer approved</p>}
+        {booking.pendingExtraId ? (
+          <div className="text-xs text-amber-800 sm:text-right">
+            <p>
+              Waiting for the customer: {formatMoney(booking.pendingExtraAmount ?? 0)} more ({booking.pendingExtraReason})
+            </p>
+            {onWithdrawExtra && (
+              <button type="button" disabled={busy} onClick={() => void run(() => onWithdrawExtra(booking.id, booking.pendingExtraId as string))} className="underline">
+                Take back
+              </button>
+            )}
+          </div>
+        ) : (
+          onAskExtra &&
+          EXTRA_CHARGE_STATUSES.has(booking.status) &&
+          (booking.paymentStatus ?? 'UNPAID') === 'UNPAID' && (
+            <button type="button" disabled={busy} onClick={() => setAskingExtra(true)} className="text-sm text-indigo-700 underline">
+              Add extra charge
+            </button>
+          )
+        )}
         {CASH_STATUSES.has(booking.status) && <CashDue bookingId={booking.id} />}
         {booking.status === 'CONFIRMED' && onAssign && (
           providers.length > 0 ? (
@@ -268,6 +296,13 @@ export default function BookingCard({
           </div>
         )}
       </div>
+      {askingExtra && onAskExtra && (
+        <ExtraChargeDialog
+          bookingNumber={booking.bookingNumber}
+          onConfirm={(cents, reason) => run(() => onAskExtra(booking.id, cents, reason))}
+          onClose={() => setAskingExtra(false)}
+        />
+      )}
       {cancelling && (
         <CancelBookingDialog
           bookingNumber={booking.bookingNumber}

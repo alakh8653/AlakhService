@@ -143,8 +143,10 @@ async def test_a_home_visit_starts_only_with_the_customers_code(client):
     missing = await status(client, bid, "IN_PROGRESS", PROVIDER)
     assert missing.status_code == 422 and missing.json()["detail"] == trust.START_CODE_MESSAGE
     wrong = str((int(code) + 1) % 10000).zfill(4)
+    # The shop owner too needs the code (the dashboard sends it in the same body).
+    assert (await status(client, bid, "IN_PROGRESS", OWNER)).status_code == 422
     assert (await status(client, bid, "IN_PROGRESS", OWNER, wrong)).status_code == 422
-    ok = await status(client, bid, "IN_PROGRESS", PROVIDER, code)
+    ok = await status(client, bid, "IN_PROGRESS", OWNER, code)
     assert ok.status_code == 200 and ok.json()["status"] == "IN_PROGRESS"
 
 
@@ -224,6 +226,7 @@ async def test_the_shop_asks_and_only_the_customer_approves_extra_charges(client
     [(who, data)] = told("booking.extras_requested")
     assert who == [(CUSTOMER, "customer")]
     assert (data["booking_number"], data["total"]) == (booking["booking_number"], "350.00")
+    assert (data["booking_id"], data["quote_id"]) == (bid, quote["id"])  # a tap opens the booking
 
     # Nothing is added yet, and a second question waits for the first answer.
     seen = (await client.get(f"/api/v1/bookings/{bid}", headers=customer)).json()
@@ -257,6 +260,7 @@ async def test_the_shop_asks_and_only_the_customer_approves_extra_charges(client
     assert "Extra charges of ₹350.00 approved" in history[-1]["reason"]
     [(who, data)] = told("booking.extras_decided")
     assert who == [("owner-1", "shop"), ("staff-1", "provider")] and data["decision"] == "approved"
+    assert data["booking_id"] == bid
 
     # Once answered the job can be finished; payment_service is told the new total.
     done = await status(client, bid, "COMPLETED", PROVIDER)
@@ -434,6 +438,7 @@ async def test_the_customer_shares_a_visit_without_anyones_contact_details(clien
         "scheduled_at": body["scheduled_at"],
         "provider_first_name": "Imran",
         "provider_location": None,
+        "eta": body["scheduled_at"],  # not on the way yet: the booked time
     }
     for secret in (CUSTOMER, "addr-1", "staff-1", "Imran K.", booking["start_code"]):
         assert secret not in public.text
@@ -443,8 +448,10 @@ async def test_the_customer_shares_a_visit_without_anyones_contact_details(clien
     await status(client, booking["id"], "PROVIDER_EN_ROUTE", PROVIDER)
     on_way = (await client.get(f"/api/v1/public/shares/{token}")).json()
     assert on_way["provider_location"] == {"lat": 12.97, "lng": 77.59, "updated_at": None}
+    assert on_way["eta"] is not None
     await status(client, booking["id"], "IN_PROGRESS", PROVIDER, booking["start_code"])
-    assert (await client.get(f"/api/v1/public/shares/{token}")).json()["provider_location"] is None
+    started_view = (await client.get(f"/api/v1/public/shares/{token}")).json()
+    assert (started_view["provider_location"], started_view["eta"]) == (None, None)
 
     assert (await client.get("/api/v1/public/shares/not-a-token")).status_code == 404
     CLOCK["now"] = ist(MON, "10:00") + timedelta(hours=24)  # a day after the visit

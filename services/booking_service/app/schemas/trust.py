@@ -63,6 +63,9 @@ class PublicShare(BaseModel):
     provider_first_name: Optional[str] = None
     # Only while the professional is on the way (or bringing a pickup back).
     provider_location: Optional[ProviderLocation] = None
+    # When the professional is expected at the door: estimated while they are on the way to a home visit,
+    # otherwise the booked time (null once the visit has started or is over).
+    eta: Optional[datetime] = None
 
 
 class SosRequest(BaseModel):

@@ -34,9 +34,14 @@ async def test_verified_at_is_public_set_on_approval_and_cleared_on_rejection(cl
     assert public["guarantee_days"] == 14
     listed = (await client.get("/api/v1/shops")).json()
     assert listed[0]["verified_at"] == public["verified_at"]
+    # Service cards read the badge with the ratings.
+    briefs = (await client.get("/api/v1/shops/ratings", params={"ids": shop["id"]})).json()
+    assert briefs[0]["is_verified"] is True
 
     rejected = await client.post(
         f"/api/v1/admin/shops/{shop['id']}/reject", json={"reason": "Forged licence"}, headers=ADMIN
     )
     assert rejected.status_code == 200
     assert (rejected.json()["is_verified"], rejected.json()["verified_at"]) == (False, None)
+    briefs = (await client.get("/api/v1/shops/ratings", params={"ids": shop["id"]})).json()
+    assert briefs[0]["is_verified"] is False

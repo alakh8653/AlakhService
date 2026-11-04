@@ -19,9 +19,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core import availability, queue_hub, trust
+from app.core import availability, home_visits, queue_hub, trust
 from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup
-from app.core.fsm import BookingStatus
+from app.core.fsm import AT_HOME, BookingStatus
 from app.core.names import FALLBACK, NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
 from app.core.privacy import present
@@ -31,6 +31,7 @@ from app.dependencies import (
     get_admin_lookup,
     get_clock,
     get_current_user,
+    get_location_lookup,
     get_provider_location_lookup,
     get_schedule_lookup,
     get_service_lookup,
@@ -313,6 +314,29 @@ def _first_name(display: Optional[str]) -> Optional[str]:
     return display.split()[0]
 
 
+# Before the visit starts, the expected time at the door; afterwards there is nothing to wait for.
+WAITING_STATUSES = {
+    BookingStatus.PENDING.value,
+    BookingStatus.CONFIRMED.value,
+    BookingStatus.ASSIGNED.value,
+    BookingStatus.PROVIDER_EN_ROUTE.value,
+}
+
+
+async def _eta(db, booking: Booking, now: datetime, lookup_place) -> Optional[datetime]:
+    if booking.status not in WAITING_STATUSES:
+        return None
+    if booking.status == BookingStatus.PROVIDER_EN_ROUTE.value and booking.service_mode == AT_HOME:
+        try:
+            day = home_visits.day_window(now, settings.DISPLAY_TIMEZONE)
+            _, route = await home_visits.route_for(db, booking.provider_id, day, now, lookup_place)
+            if booking.id in route:
+                return route[booking.id].arrive_at
+        except Exception as e:  # the booked time stands in
+            log.warning("share_eta_failed", booking_id=booking.id, error=str(e))
+    return trust.utc(booking.scheduled_at)
+
+
 @router.get("/public/shares/{token}", response_model=PublicShare)
 async def view_share(
     token: str,
@@ -322,6 +346,7 @@ async def view_share(
     lookup_service: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_service_lookup),
     lookup_names: NameLookup = Depends(get_name_lookup),
     lookup_location: Callable[[str], Awaitable[Optional[dict]]] = Depends(get_provider_location_lookup),
+    lookup_place=Depends(get_location_lookup),
 ):
     """Public (no login): a shared visit's status. No phone, email, full name or address, ever."""
     booking = await trust.shared_booking(db, token, _now(clock))
@@ -341,6 +366,7 @@ async def view_share(
         if booking.status in trust.LOCATION_STATUSES:
             location = await lookup_location(booking.provider_id)
     return PublicShare(
+        eta=await _eta(db, booking, _now(clock), lookup_place),
         shop_name=shop_name,
         service_name=service_name,
         status=booking.status,

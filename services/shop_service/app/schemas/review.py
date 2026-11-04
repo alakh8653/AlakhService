@@ -30,6 +30,8 @@ class ShopRatingBrief(BaseModel):
     shop_id: str
     average_rating: float
     review_count: int
+    # Approved by an admin: service cards show the "Verified" badge.
+    is_verified: bool = False
 
 
 class OwnerReply(BaseModel):

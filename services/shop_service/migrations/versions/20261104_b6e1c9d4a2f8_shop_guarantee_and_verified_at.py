@@ -5,8 +5,8 @@ and when the shop was approved (verified_at, for the "Verified" badge). Shops ap
 their review time as verified_at.
 
 Revision ID: b6e1c9d4a2f8
-Revises: 9a4d2e6f1b73
-Create Date: 2026-11-03 12:00:00.000000
+Revises: d7a3b5e1f9c2
+Create Date: 2026-11-04 14:00:00.000000
 
 """
 from typing import Sequence, Union
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'b6e1c9d4a2f8'
-down_revision: Union[str, Sequence[str], None] = '9a4d2e6f1b73'
+down_revision: Union[str, Sequence[str], None] = 'd7a3b5e1f9c2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

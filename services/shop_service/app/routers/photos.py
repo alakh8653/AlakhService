@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -20,7 +20,7 @@ from app.core.photos import NotAPhoto, clean_photo
 from app.core.storage import LocalDocumentStorage, StorageDisabled, get_storage
 from app.database import get_db
 from app.dependencies import Caller, ensure_owner, optional_caller, require_caller
-from app.models.shop import ShopWorkPhoto
+from app.models.shop import ShopWorkPhoto, WorkPhotoReport
 from app.services.shop_service import is_public, shop_service
 
 router = APIRouter()
@@ -30,11 +30,18 @@ class WorkPhotoResponse(BaseModel):
     id: str
     url: str
     caption: Optional[str] = None
+    # Only the owner and admins are ever sent a hidden photo.
+    is_hidden: bool = False
 
 
 def _response(photo: ShopWorkPhoto, may_edit: bool) -> WorkPhotoResponse:
     caption = photo.caption if may_edit or not photo.caption else mask_contact(photo.caption).text
-    return WorkPhotoResponse(id=photo.id, url=f"/api/v1/shops/{photo.shop_id}/photos/{photo.id}/file", caption=caption)
+    return WorkPhotoResponse(
+        id=photo.id,
+        url=f"/api/v1/shops/{photo.shop_id}/photos/{photo.id}/file",
+        caption=caption,
+        is_hidden=bool(photo.is_hidden),
+    )
 
 
 async def _shop(db: AsyncSession, shop_id: str):
@@ -62,7 +69,7 @@ async def list_photos(
     may_edit = caller is not None and (caller.is_admin or caller.user_id == shop.owner_id)
     if not is_public(shop) and not may_edit:
         raise HTTPException(status_code=404, detail="Shop not found")
-    return [_response(p, may_edit) for p in await _photos(db, shop_id)]
+    return [_response(p, may_edit) for p in await _photos(db, shop_id) if may_edit or not p.is_hidden]
 
 
 @router.post("/shops/{shop_id}/photos", response_model=WorkPhotoResponse, status_code=201)
@@ -116,11 +123,19 @@ async def photo_file(
     photo_id: str,
     db: AsyncSession = Depends(get_db, scope="function"),
     storage: LocalDocumentStorage = Depends(get_storage),
+    caller: Optional[Caller] = Depends(optional_caller),
 ):
-    """The image. Public to read, as profile photos are: images load without a token and ids are random."""
+    """The image. Public to read, as profile photos are: images load without a token and ids are random.
+
+    A hidden one only for an admin judging it or its owner. Kept in caches briefly, so that it goes soon after.
+    """
     photo = await db.get(ShopWorkPhoto, photo_id)
     if photo is None or photo.shop_id != shop_id:
         raise HTTPException(status_code=404, detail="Not found")
+    if photo.is_hidden:
+        shop = await _shop(db, shop_id)
+        if caller is None or not (caller.is_admin or caller.user_id == shop.owner_id):
+            raise HTTPException(status_code=404, detail="Not found")
     try:
         path = storage.path_of(photo.storage_key)
     except (StorageDisabled, ValueError):
@@ -131,7 +146,7 @@ async def photo_file(
         path,
         media_type="image/jpeg",
         headers={
-            "Cache-Control": "public, max-age=86400",
+            "Cache-Control": "public, max-age=300",
             "X-Content-Type-Options": "nosniff",
             "Cross-Origin-Resource-Policy": "cross-origin",
         },
@@ -153,6 +168,7 @@ async def delete_photo(
     if photo is None or photo.shop_id != shop_id:
         raise HTTPException(status_code=404, detail="Not found")
     key = photo.storage_key
+    await db.execute(delete(WorkPhotoReport).where(WorkPhotoReport.photo_id == photo.id))
     await db.delete(photo)
     await db.flush()
     storage.delete(key)

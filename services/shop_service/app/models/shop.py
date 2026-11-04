@@ -69,7 +69,23 @@ class ShopWorkPhoto(Base):
     shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
     storage_key = Column(String, nullable=False)
     caption = Column(String(120), nullable=True)
+    is_hidden = Column(Boolean, default=False, server_default=false(), nullable=False)
+    report_count = Column(Integer, default=0, server_default="0", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class WorkPhotoReport(Base):
+    """Someone flagging a work photo for an admin, once per person."""
+
+    __tablename__ = "work_photo_reports"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    photo_id = Column(String, ForeignKey("shop_work_photos.id", ondelete="CASCADE"), nullable=False, index=True)
+    reporter_id = Column(String, nullable=False)
+    reason = Column(String(500), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("photo_id", "reporter_id", name="uq_work_photo_reports_photo_reporter"),)
 
 
 class ShopDocument(Base):

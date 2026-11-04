@@ -5581,6 +5581,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{years, plural, =1{1 year of experience} other{{years} years of experience}}'**
   String profileYears(int years);
+
+  /// No description provided for @photoReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this photo'**
+  String get photoReportTitle;
+
+  /// No description provided for @photoReportPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows someone\'s private details'**
+  String get photoReportPrivate;
+
+  /// No description provided for @photoReportOffensive.
+  ///
+  /// In en, this message translates to:
+  /// **'It is offensive'**
+  String get photoReportOffensive;
+
+  /// No description provided for @photoReportFake.
+  ///
+  /// In en, this message translates to:
+  /// **'It is not this provider\'s work'**
+  String get photoReportFake;
+
+  /// No description provided for @photoReportContact.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows a phone number or contact'**
+  String get photoReportContact;
+
+  /// No description provided for @photoReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks. We will check this photo.'**
+  String get photoReported;
+
+  /// No description provided for @profilePhotoHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden while we check'**
+  String get profilePhotoHidden;
 }
 
 class _AppLocalizationsDelegate

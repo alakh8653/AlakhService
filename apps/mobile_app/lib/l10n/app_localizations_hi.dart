@@ -3142,4 +3142,25 @@ class AppLocalizationsHi extends AppLocalizations {
   String profileYears(int years) {
     return '$years साल का अनुभव';
   }
+
+  @override
+  String get photoReportTitle => 'इस फ़ोटो की शिकायत करें';
+
+  @override
+  String get photoReportPrivate => 'इसमें किसी की निजी जानकारी दिख रही है';
+
+  @override
+  String get photoReportOffensive => 'यह आपत्तिजनक है';
+
+  @override
+  String get photoReportFake => 'यह इस प्रदाता का काम नहीं है';
+
+  @override
+  String get photoReportContact => 'इसमें फ़ोन नंबर या संपर्क दिख रहा है';
+
+  @override
+  String get photoReported => 'धन्यवाद। हम इस फ़ोटो की जाँच करेंगे।';
+
+  @override
+  String get profilePhotoHidden => 'जाँच तक छिपी है';
 }

@@ -26,6 +26,7 @@ void main() {
     ];
     adapter = FakeAdapter((RequestOptions r) {
       if (failing) return (status: 500, body: {'detail': 'Please try again'});
+      if (r.path.endsWith('/report')) return (status: 202, body: {'status': 'reported'});
       if (r.path.endsWith('/photos') && r.method == 'POST') {
         photos.add({'id': 'p2', 'url': '/api/v1/shops/s1/photos/p2/file'});
         return (status: 201, body: photos.last);
@@ -59,6 +60,30 @@ void main() {
       expect(find.text('Hindi, Tamil'), findsOneWidget);
       expect(find.text('AC work since 2015'), findsOneWidget);
       expect(find.byKey(const ValueKey('work-photo-p1')), findsOneWidget);
+    });
+
+    testWidgets('a photo can be reported from the full view, with a reason to tap', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('work-photo-p1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('report-photo')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('It is offensive'));
+      await tester.pumpAndSettle();
+      final sent = adapter.requests.firstWhere((r) => r.path.endsWith('/photos/p1/report'));
+      expect(sent.data['reason'], 'It is offensive');
+      expect(find.text('Thanks. We will check this photo.'), findsOneWidget);
+    });
+
+    testWidgets('backing out of reporting sends nothing', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('work-photo-p1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('report-photo')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(adapter.requests.any((r) => r.path.endsWith('/report')), isFalse);
     });
 
     testWidgets('a business with nothing added shows nothing, not an empty box', (tester) async {
@@ -122,6 +147,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('remove-photo-p1')));
       await tester.pumpAndSettle();
       expect(photos.map((p) => p['id']), ['p2']);
+    });
+
+    testWidgets('a hidden photo is marked, so they know why customers cannot see it', (tester) async {
+      photos = [
+        {'id': 'p1', 'url': '/api/v1/shops/s1/photos/p1/file', 'is_hidden': true},
+      ];
+      await pump(tester);
+      expect(find.text('Hidden while we check'), findsOneWidget);
     });
 
     testWidgets('the server refusing is shown', (tester) async {

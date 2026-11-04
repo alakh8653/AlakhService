@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     DOCUMENT_MAX_BYTES: int = 5 * 1024 * 1024
     # Photos of its work a business can show customers.
     MAX_WORK_PHOTOS: int = 12
+    # This many different people reporting a photo hide it until an admin looks.
+    PHOTO_AUTO_HIDE_REPORTS: int = 3
     MAX_DOCUMENTS_PER_SHOP: int = 20
 
     model_config = SettingsConfigDict(env_file=".env")

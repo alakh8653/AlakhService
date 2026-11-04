@@ -61,6 +61,14 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Extra charge declined",
         "The customer declined {amount} more on booking {booking_number}. The price stays as it was.",
     ),
+    ("shop.photo_hidden", "shop"): (
+        "A work photo was hidden",
+        "A photo of {shop_name} is hidden from customers while we check it. Open your profile to see it or remove it.",
+    ),
+    ("shop.photo_removed", "shop"): (
+        "A work photo was removed",
+        "We removed a photo of {shop_name}. Please don't show customers' faces, documents or anything offensive.",
+    ),
     ("shop.report", None): (
         "Your report is ready",
         "Your report for {label} is ready. Open Reports to see your profit.",

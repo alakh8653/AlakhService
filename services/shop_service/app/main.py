@@ -11,6 +11,7 @@ from app.routers.favorites import router as favorites_router
 from app.routers.hours import router as hours_router
 from app.routers.internal import router as internal_router
 from app.routers.kyc import router as kyc_router
+from app.routers.photo_moderation import router as photo_moderation_router
 from app.routers.photos import router as photos_router
 from app.routers.reviews import router as reviews_router
 from app.routers.shop import router as shop_router
@@ -54,6 +55,7 @@ app.include_router(staff_router, prefix="/api/v1", tags=["staff"])
 app.include_router(hours_router, prefix="/api/v1", tags=["opening hours"])
 app.include_router(kyc_router, prefix="/api/v1", tags=["onboarding and KYC"])
 app.include_router(photos_router, prefix="/api/v1", tags=["work photos"])
+app.include_router(photo_moderation_router, prefix="/api/v1", tags=["work photos"])
 # Other services only (X-Internal-Key); outside /api/v1, so the gateway never forwards it.
 app.include_router(internal_router, tags=["internal"])
 

@@ -1774,5 +1774,12 @@
   "profileAddPhoto": "Add a photo",
   "profileAboutTitle": "About this provider",
   "profileYears": "{years, plural, =1{1 year of experience} other{{years} years of experience}}",
-  "@profileYears": {"placeholders": {"years": {"type": "int"}}}
+  "@profileYears": {"placeholders": {"years": {"type": "int"}}},
+  "photoReportTitle": "Report this photo",
+  "photoReportPrivate": "It shows someone's private details",
+  "photoReportOffensive": "It is offensive",
+  "photoReportFake": "It is not this provider's work",
+  "photoReportContact": "It shows a phone number or contact",
+  "photoReported": "Thanks. We will check this photo.",
+  "profilePhotoHidden": "Hidden while we check"
 }

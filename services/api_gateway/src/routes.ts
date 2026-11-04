@@ -103,6 +103,7 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/payments', upstream: 'payment', access: 'admin' },
   { prefix: '/api/v1/admin/access', upstream: 'admin', rewrite: '/api/v1/access', access: 'admin' },
   { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
+  { prefix: '/api/v1/admin/work-photos', upstream: 'shop', access: 'admin' },
   { prefix: '/api/v1/admin/chat', upstream: 'booking', rewrite: '/api/v1/chat-moderation', access: 'admin' },
   // Shop onboarding review (queue, approve, reject); shop_service serves it under the same path.
   { prefix: '/api/v1/admin/shops', upstream: 'shop', access: 'admin' },

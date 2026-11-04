@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  A visit a customer shared with someone they trust: https://<DOMAIN>/v/<token> (Caddy serves this page
+  for every /v/ path). It reads GET /api/v1/public/shares/<token> on this same origin and shows the
+  visit's status and when the professional is expected. It never shows anyone's phone, email, full
+  name or address: the API does not return them. The link stops working a day after the visit.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>A shared visit · AlakhService</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="/">AlakhService</a>
+</div></header>
+
+<main class="wrap">
+  <h1 id="title">A shared visit</h1>
+  <p id="lead">Someone shared their AlakhService visit with you so you can follow it.</p>
+
+  <div class="card" id="visit" hidden>
+    <h2 class="first" id="status">…</h2>
+    <p id="what"></p>
+    <p id="when"></p>
+    <p id="eta"></p>
+    <p id="who"></p>
+    <p id="where"></p>
+    <p class="updated" id="refreshed"></p>
+  </div>
+
+  <p class="status" id="message" role="status" aria-live="polite">Loading…</p>
+
+  <div class="card">
+    <h2 class="first">Worried about them?</h2>
+    <p>Call them first. In an emergency, call <strong>112</strong>.</p>
+  </div>
+</main>
+<script src="/visit.js"></script>
+</body>
+</html>

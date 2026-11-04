@@ -157,7 +157,7 @@ async def request_rework(
 
 
 def share_url(token: str) -> str:
-    return f"{settings.SHARE_BASE_URL.rstrip('/')}/s/{token}"
+    return f"{settings.SHARE_BASE_URL.rstrip('/')}/v/{token}"
 
 
 @router.post("/bookings/{booking_id}/share", response_model=ShareResponse)

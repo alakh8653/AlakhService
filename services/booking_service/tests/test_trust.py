@@ -277,7 +277,7 @@ async def test_the_customer_shares_a_visit_without_anyones_contact_details(clien
     shared = await client.post(url, headers=auth(CUSTOMER))
     assert shared.status_code == 200
     link = shared.json()["url"]
-    assert link.startswith("https://alakhservice.in/s/")
+    assert link.startswith("https://alakhservice.in/v/")
     assert (await client.post(url, headers=auth(CUSTOMER))).json()["url"] == link  # the same link each time
     token = link.rsplit("/", 1)[1]
 
@@ -317,7 +317,7 @@ async def test_the_share_link_uses_the_configured_site(client, monkeypatch):
     monkeypatch.setattr(settings, "SHARE_BASE_URL", "https://alakh-ci.in/")
     booking = (await book_at(client, MON, "12:00", service="svc-a", customer=CUSTOMER)).json()
     shared = (await client.post(f"/api/v1/bookings/{booking['id']}/share", headers=auth(CUSTOMER))).json()
-    assert re.fullmatch(r"https://alakh-ci\.in/s/[\w-]{20,64}", shared["url"])
+    assert re.fullmatch(r"https://alakh-ci\.in/v/[\w-]{20,64}", shared["url"])
     assert shared["expires_at"].startswith("2030-11-05T06:30")  # 24 hours after 12:00 IST
 
 

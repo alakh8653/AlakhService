@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     EXOTEL_SUBDOMAIN: str = "api.exotel.com"
     # Where a shared visit's live position comes from (the provider's last reported location).
     TRACKING_SERVICE_URL: str = "http://tracking_service:8000"
-    # The public site that serves shared visits: a customer's share link is {SHARE_BASE_URL}/s/{token}.
+    # The public site that serves shared visits: a customer's share link is {SHARE_BASE_URL}/v/{token}
+    # (/s/ is taken by the app links for shops).
     SHARE_BASE_URL: str = "https://alakhservice.in"
     # Told when a booking is completed, cancelled or disputed (commission, refunds), over /internal.
     PAYMENT_SERVICE_URL: str = "http://payment_service:8000"

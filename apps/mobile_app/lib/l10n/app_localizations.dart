@@ -1931,7 +1931,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileTitle.
   ///
   /// In en, this message translates to:
-  /// **'My profile and work photos'**
+  /// **'Profile'**
   String get profileTitle;
 
   /// No description provided for @editProfile.
@@ -5516,6 +5516,12 @@ abstract class AppLocalizations {
   /// **'Take back'**
   String get extraTakeBack;
 
+  /// No description provided for @ownerProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My profile and work photos'**
+  String get ownerProfileTitle;
+
   /// No description provided for @profileHelp.
   ///
   /// In en, this message translates to:
@@ -5623,6 +5629,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hidden while we check'**
   String get profilePhotoHidden;
+
+  /// No description provided for @startCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your start code'**
+  String get startCodeTitle;
+
+  /// No description provided for @startCodeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this code only when the professional arrives'**
+  String get startCodeHelp;
+
+  /// No description provided for @startJobTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the job'**
+  String get startJobTitle;
+
+  /// No description provided for @startCodeAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the customer for the 4-digit start code. The job cannot start without it.'**
+  String get startCodeAsk;
+
+  /// No description provided for @startCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'4-digit code'**
+  String get startCodeLabel;
+
+  /// No description provided for @startCodeWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the customer for the 4-digit start code'**
+  String get startCodeWrong;
+
+  /// No description provided for @startCodeTooMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many wrong tries. Please wait 15 minutes and try again.'**
+  String get startCodeTooMany;
+
+  /// No description provided for @startCodeStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startCodeStart;
+
+  /// No description provided for @guaranteeField.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix guarantee (days)'**
+  String get guaranteeField;
+
+  /// No description provided for @guaranteeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If something goes wrong after the job, the customer can ask for a free fix within these days. 0 means no guarantee.'**
+  String get guaranteeHelp;
+
+  /// No description provided for @guaranteeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number from 0 to 90'**
+  String get guaranteeInvalid;
+
+  /// No description provided for @guaranteeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix guarantee'**
+  String get guaranteeTitle;
+
+  /// No description provided for @guaranteeSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Guarantee saved'**
+  String get guaranteeSaved;
+
+  /// No description provided for @guaranteeUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Free fix guarantee until {date}'**
+  String guaranteeUntil(String date);
+
+  /// No description provided for @guaranteeEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'The free-fix guarantee ended on {date}'**
+  String guaranteeEnded(String date);
+
+  /// No description provided for @reworkRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request free fix'**
+  String get reworkRequest;
+
+  /// No description provided for @reworkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request a free fix'**
+  String get reworkTitle;
+
+  /// No description provided for @reworkExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell the shop what went wrong. They will come back and fix it at no cost.'**
+  String get reworkExplain;
+
+  /// No description provided for @reworkReason.
+  ///
+  /// In en, this message translates to:
+  /// **'What went wrong?'**
+  String get reworkReason;
+
+  /// No description provided for @reworkReasonShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Please write at least 10 characters'**
+  String get reworkReasonShort;
+
+  /// No description provided for @reworkPreferred.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred time (optional)'**
+  String get reworkPreferred;
+
+  /// No description provided for @reworkPickTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a time'**
+  String get reworkPickTime;
+
+  /// No description provided for @reworkSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send request'**
+  String get reworkSend;
+
+  /// No description provided for @reworkSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix request sent to the shop'**
+  String get reworkSent;
+
+  /// No description provided for @reworkOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'See the free-fix booking'**
+  String get reworkOpen;
+
+  /// No description provided for @reworkOf.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a free fix for an earlier booking'**
+  String get reworkOf;
+
+  /// No description provided for @reworkOpenOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'See the original booking'**
+  String get reworkOpenOriginal;
+
+  /// No description provided for @freeFixLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Free fix'**
+  String get freeFixLabel;
+
+  /// No description provided for @shareVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Share visit status'**
+  String get shareVisit;
+
+  /// No description provided for @shareVisitText.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow my AlakhService visit live: {url}'**
+  String shareVisitText(String url);
+
+  /// No description provided for @shareVisitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create a share link. Please try again.'**
+  String get shareVisitFailed;
+
+  /// No description provided for @sosButton.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS'**
+  String get sosButton;
+
+  /// No description provided for @sosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an SOS alert?'**
+  String get sosTitle;
+
+  /// No description provided for @sosBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Our safety team will be alerted right away, with your location if available. Use this only in an emergency.'**
+  String get sosBody;
+
+  /// No description provided for @sosSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send SOS'**
+  String get sosSend;
+
+  /// No description provided for @sosSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Our safety team has been alerted.'**
+  String get sosSent;
+
+  /// No description provided for @sosFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not alert our team. If you are in danger, call 112 now.'**
+  String get sosFailed;
+
+  /// No description provided for @sosCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call {number}'**
+  String sosCall(String number);
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @verified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get verified;
 }
 
 class _AppLocalizationsDelegate

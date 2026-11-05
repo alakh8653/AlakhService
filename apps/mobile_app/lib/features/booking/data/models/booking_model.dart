@@ -34,6 +34,10 @@ class BookingModel extends Booking {
     super.pendingExtraId,
     super.pendingExtraAmount,
     super.pendingExtraReason,
+    super.startCode,
+    super.reworkOf,
+    super.reworkBookingId,
+    super.guaranteeUntil,
   });
 
   /// Reads booking_service's response. Amounts arrive in paise.
@@ -72,6 +76,10 @@ class BookingModel extends Booking {
       pendingExtraId: json['pending_extra_id'] as String?,
       pendingExtraAmount: json['pending_extra_amount'] == null ? null : (json['pending_extra_amount'] as num) / 100,
       pendingExtraReason: json['pending_extra_reason'] as String?,
+      startCode: json['start_code']?.toString(),
+      reworkOf: (json['rework_of'] ?? (json['metadata'] is Map ? (json['metadata'] as Map)['rework_of'] : null))?.toString(),
+      reworkBookingId: json['rework_booking_id']?.toString(),
+      guaranteeUntil: DateTime.tryParse((json['guarantee_until'] as String?) ?? '')?.toLocal(),
     );
   }
 

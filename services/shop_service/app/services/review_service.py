@@ -112,11 +112,18 @@ class ReviewService:
         if not shop_ids:
             return []
         rows = (
-            await db.execute(select(Shop.id, Shop.rating_avg, Shop.rating_count).where(Shop.id.in_(shop_ids)))
+            await db.execute(
+                select(Shop.id, Shop.rating_avg, Shop.rating_count, Shop.is_verified).where(Shop.id.in_(shop_ids))
+            )
         ).all()
         found = {
-            sid: ShopRatingBrief(shop_id=sid, average_rating=round(avg, 1) if count else 0.0, review_count=count)
-            for sid, avg, count in rows
+            sid: ShopRatingBrief(
+                shop_id=sid,
+                average_rating=round(avg, 1) if count else 0.0,
+                review_count=count,
+                is_verified=bool(verified),
+            )
+            for sid, avg, count, verified in rows
         }
         return [found[sid] for sid in dict.fromkeys(shop_ids) if sid in found]
 

@@ -9,7 +9,9 @@ import '../../../../core/network/api_errors.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../booking/data/trust_api.dart';
 import '../../../booking/domain/entities/booking.dart';
+import '../../../booking/presentation/widgets/safety_actions.dart';
 import '../../data/tracking_api.dart';
 import '../../data/tracking_destination.dart';
 import '../../domain/travel_estimate.dart';
@@ -23,12 +25,22 @@ class LiveTrackingPage extends StatefulWidget {
   final TrackingDestinations? destinations;
   final Duration pollInterval;
 
+  /// Sharing the visit and SOS (replaceable in tests).
+  final TrustApi? trustApi;
+  final ShareText? shareText;
+  final OpenUri? openUri;
+  final CurrentFix? sosLocation;
+
   const LiveTrackingPage({
     super.key,
     required this.booking,
     this.trackingApi,
     this.destinations,
     this.pollInterval = const Duration(seconds: 10),
+    this.trustApi,
+    this.shareText,
+    this.openUri,
+    this.sosLocation,
   });
 
   @override
@@ -99,7 +111,23 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
     final location = _location;
     final target = _target;
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.liveTracking)),
+      appBar: AppBar(
+        title: Text(context.l10n.liveTracking),
+        actions: [
+          if (widget.booking.canShareVisit)
+            IconButton(
+              key: const ValueKey('share-visit'),
+              icon: const Icon(Icons.share_location_outlined),
+              tooltip: context.l10n.shareVisit,
+              onPressed: () => shareVisitStatus(
+                context,
+                bookingId: widget.booking.id,
+                api: widget.trustApi,
+                share: widget.shareText,
+              ),
+            ),
+        ],
+      ),
       body: Stack(
         children: [
           GoogleMap(
@@ -132,12 +160,32 @@ class _LiveTrackingPageState extends State<LiveTrackingPage> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: TrackingStatusCard(
-              booking: widget.booking,
-              location: location,
-              target: target,
-              loading: _loading,
-              error: _error,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (widget.booking.offersSos)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Material(
+                      color: context.colors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      child: SosButton(
+                        bookingId: widget.booking.id,
+                        api: widget.trustApi,
+                        location: widget.sosLocation,
+                        openUri: widget.openUri,
+                      ),
+                    ),
+                  ),
+                TrackingStatusCard(
+                  booking: widget.booking,
+                  location: location,
+                  target: target,
+                  loading: _loading,
+                  error: _error,
+                ),
+              ],
             ),
           ),
         ],

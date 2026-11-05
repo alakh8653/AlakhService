@@ -1067,7 +1067,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get profileTitle => 'My profile and work photos';
+  String get profileTitle => 'Profile';
 
   @override
   String get editProfile => 'Edit Profile';
@@ -3136,6 +3136,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get extraTakeBack => 'Take back';
 
   @override
+  String get ownerProfileTitle => 'My profile and work photos';
+
+  @override
   String get profileHelp =>
       'Customers see this before they book. It helps them choose you.';
 
@@ -3199,4 +3202,140 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profilePhotoHidden => 'Hidden while we check';
+
+  @override
+  String get startCodeTitle => 'Your start code';
+
+  @override
+  String get startCodeHelp =>
+      'Share this code only when the professional arrives';
+
+  @override
+  String get startJobTitle => 'Start the job';
+
+  @override
+  String get startCodeAsk =>
+      'Ask the customer for the 4-digit start code. The job cannot start without it.';
+
+  @override
+  String get startCodeLabel => '4-digit code';
+
+  @override
+  String get startCodeWrong => 'Ask the customer for the 4-digit start code';
+
+  @override
+  String get startCodeTooMany =>
+      'Too many wrong tries. Please wait 15 minutes and try again.';
+
+  @override
+  String get startCodeStart => 'Start';
+
+  @override
+  String get guaranteeField => 'Free-fix guarantee (days)';
+
+  @override
+  String get guaranteeHelp =>
+      'If something goes wrong after the job, the customer can ask for a free fix within these days. 0 means no guarantee.';
+
+  @override
+  String get guaranteeInvalid => 'Enter a number from 0 to 90';
+
+  @override
+  String get guaranteeTitle => 'Free-fix guarantee';
+
+  @override
+  String get guaranteeSaved => 'Guarantee saved';
+
+  @override
+  String guaranteeUntil(String date) {
+    return 'Free fix guarantee until $date';
+  }
+
+  @override
+  String guaranteeEnded(String date) {
+    return 'The free-fix guarantee ended on $date';
+  }
+
+  @override
+  String get reworkRequest => 'Request free fix';
+
+  @override
+  String get reworkTitle => 'Request a free fix';
+
+  @override
+  String get reworkExplain =>
+      'Tell the shop what went wrong. They will come back and fix it at no cost.';
+
+  @override
+  String get reworkReason => 'What went wrong?';
+
+  @override
+  String get reworkReasonShort => 'Please write at least 10 characters';
+
+  @override
+  String get reworkPreferred => 'Preferred time (optional)';
+
+  @override
+  String get reworkPickTime => 'Choose a time';
+
+  @override
+  String get reworkSend => 'Send request';
+
+  @override
+  String get reworkSent => 'Free-fix request sent to the shop';
+
+  @override
+  String get reworkOpen => 'See the free-fix booking';
+
+  @override
+  String get reworkOf => 'This is a free fix for an earlier booking';
+
+  @override
+  String get reworkOpenOriginal => 'See the original booking';
+
+  @override
+  String get freeFixLabel => 'Free fix';
+
+  @override
+  String get shareVisit => 'Share visit status';
+
+  @override
+  String shareVisitText(String url) {
+    return 'Follow my AlakhService visit live: $url';
+  }
+
+  @override
+  String get shareVisitFailed =>
+      'Could not create a share link. Please try again.';
+
+  @override
+  String get sosButton => 'SOS';
+
+  @override
+  String get sosTitle => 'Send an SOS alert?';
+
+  @override
+  String get sosBody =>
+      'Our safety team will be alerted right away, with your location if available. Use this only in an emergency.';
+
+  @override
+  String get sosSend => 'Send SOS';
+
+  @override
+  String get sosSent => 'Our safety team has been alerted.';
+
+  @override
+  String get sosFailed =>
+      'We could not alert our team. If you are in danger, call 112 now.';
+
+  @override
+  String sosCall(String number) {
+    return 'Call $number';
+  }
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get verified => 'Verified';
 }

@@ -97,3 +97,19 @@ To enable calls, set `CALL_PROVIDER=exotel` and the `EXOTEL_*` settings. Steps a
 [DEPLOYMENT.md](DEPLOYMENT.md#6-fill-in-envproduction). Providers plug in behind the small
 `CallBridge` interface in `services/booking_service/app/core/telephony.py`. Adding another one
 means one class and one branch in `bridge_from_settings`.
+
+## Trust and safety features
+
+The features in [TRUST_AND_SAFETY.md](TRUST_AND_SAFETY.md) follow the same rule:
+
+- **Start code.** A home visit or pickup's 4-digit start code is in the booking only for its customer
+  and admins. The shop and the provider see `start_code: null` and must ask the customer at the door.
+- **Shared visit.** `GET /api/v1/public/shares/{token}` and the `/v/{token}` page show the shop's name,
+  the service, the status, the times and the professional's first name. They never show a phone,
+  email, full name, address, customer id or provider id. The professional's position is shown only
+  while they are on the way (or bringing a pickup back).
+- **SOS.** An alert goes to admins only. The note is stored as written, for admins. In the
+  notification, contact details are hidden like everywhere else. Admins are found through
+  `GET /internal/users/admins`, which returns ids only.
+- **Free fix.** The reason the customer gives goes into the new booking's notes. The shop sees it with
+  contact details hidden, as with any customer note.

@@ -153,7 +153,7 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profileTitle)),
+      appBar: AppBar(title: Text(l10n.ownerProfileTitle)),
       body: _loading
           ? const LoadingIndicator()
           : SafeArea(

@@ -8,8 +8,9 @@ import structlog
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import trust
 from app.core.availability import CAPACITY_STATUSES, Span
-from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
+from app.core.fsm import AT_HOME, PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
 
@@ -75,6 +76,8 @@ class BookingService:
             metadata_json=metadata_json,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
+            # Given by the customer to the professional at the door: the work starts only with it.
+            start_code=trust.new_start_code() if booking_data.service_mode in (AT_HOME, PICKUP_DROP) else None,
             created_at=now,
             updated_at=now,
         )

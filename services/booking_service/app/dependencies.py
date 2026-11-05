@@ -274,6 +274,84 @@ def get_location_lookup() -> Callable[[str, str], Awaitable[Optional[Tuple[float
     return fetch_location
 
 
+# A shop's name for a shared visit's page: names rarely change, so kept for a while.
+SHOP_NAME_CACHE_SECONDS = 300.0
+_shop_name_cache = _Cache(ttl=SHOP_NAME_CACHE_SECONDS)
+
+
+async def fetch_shop_name(shop_id: str) -> Optional[str]:
+    """The shop's public name (shop_service), or None when it is unknown or shop_service cannot answer."""
+    hit, name = _shop_name_cache.fresh(shop_id)
+    if hit:
+        return name
+    try:
+        async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)) as c:
+            resp = await c.get(f"/api/v1/shops/{path_segment(shop_id)}", headers=internal_headers())
+    except httpx.HTTPError as exc:
+        log.warning("shop_name_unavailable", shop_id=shop_id, error=str(exc))
+        return None
+    if resp.status_code != 200:
+        return None
+    name = resp.json().get("name")
+    _shop_name_cache.put(shop_id, name)
+    return name
+
+
+def get_shop_name_lookup() -> Callable[[str], Awaitable[Optional[str]]]:
+    return fetch_shop_name
+
+
+async def fetch_provider_location(provider_id: str) -> Optional[dict]:
+    """The provider's last reported position {lat, lng, updated_at} (tracking_service), or None.
+
+    tracking_service gives a position to the provider themselves, so it is asked with a one-minute token
+    in the provider's name, signed here and used for this one call only.
+    """
+    token = jwt.encode(
+        {"sub": provider_id, "role": "user", "type": "access", "exp": int(time.time()) + 60},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+    try:
+        async with httpx.AsyncClient(
+            base_url=settings.TRACKING_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)
+        ) as c:
+            resp = await c.get(
+                f"/api/v1/locations/{path_segment(provider_id)}", headers={"Authorization": f"Bearer {token}"}
+            )
+    except httpx.HTTPError as exc:
+        log.warning("provider_location_unavailable", error=str(exc))
+        return None
+    if resp.status_code != 200:
+        return None
+    data = resp.json()
+    if data.get("latitude") is None or data.get("longitude") is None:
+        return None
+    return {"lat": data["latitude"], "lng": data["longitude"], "updated_at": data.get("timestamp")}
+
+
+def get_provider_location_lookup() -> Callable[[str], Awaitable[Optional[dict]]]:
+    return fetch_provider_location
+
+
+async def fetch_admin_ids() -> List[str]:
+    """Every active admin's user id (auth_service), for alerts all of them must get; [] when it cannot say."""
+    if not settings.INTERNAL_API_KEY:
+        return []
+    try:
+        async with httpx.AsyncClient(base_url=settings.AUTH_SERVICE_URL, timeout=5.0) as client:
+            resp = await client.get("/internal/users/admins", headers={"X-Internal-Key": settings.INTERNAL_API_KEY})
+        resp.raise_for_status()
+        return [i for i in resp.json().get("user_ids", []) if isinstance(i, str) and i]
+    except (httpx.HTTPError, ValueError) as exc:
+        log.error("admin_lookup_failed", error=str(exc))
+        return []
+
+
+def get_admin_lookup() -> Callable[[], Awaitable[List[str]]]:
+    return fetch_admin_ids
+
+
 def get_clock() -> Callable[[], datetime]:
     """The current time (replaced in tests)."""
     return lambda: datetime.now(timezone.utc)

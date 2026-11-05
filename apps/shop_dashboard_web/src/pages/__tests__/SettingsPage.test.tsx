@@ -98,3 +98,27 @@ describe('SettingsPage map location', () => {
     expect(updateShop).not.toHaveBeenCalled();
   });
 });
+
+describe('SettingsPage free-fix guarantee', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('starts at a week and saves the days the owner picks', async () => {
+    vi.mocked(updateShop).mockImplementation(async (_id, update) => ({ ...shop, guaranteeDays: update.guarantee_days }) as Shop);
+    renderPage();
+    const days = screen.getByLabelText('Free-fix guarantee (days)');
+    await waitFor(() => expect(days).toHaveValue(7));
+    expect(screen.getByText(/the customer can ask for a free fix within these days/)).toBeInTheDocument();
+    fireEvent.change(days, { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
+    await waitFor(() => expect(updateShop).toHaveBeenCalled());
+    expect(vi.mocked(updateShop).mock.calls[0][1]).toMatchObject({ guarantee_days: 30 });
+  });
+
+  it('refuses more than 90 days', async () => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Free-fix guarantee (days)'), { target: { value: '120' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
+    expect(await screen.findByText('A whole number of days from 0 to 90')).toBeInTheDocument();
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+});

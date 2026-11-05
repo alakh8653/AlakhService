@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
-import type { Analytics, Booking, BookingStatus, PaginatedResponse, ServiceMode } from '../types';
+import { apiErrorMessage } from './format';
+import type { Analytics, Booking, BookingStatus, ExtraCharge, ExtraChargeStatus, PaginatedResponse, ServiceMode } from '../types';
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   'PENDING',
@@ -87,6 +88,12 @@ interface BookingResponse {
   points_discount?: number;
   preferred_staff_id?: string | null;
   preferred_staff_name?: string | null;
+  extra_amount?: number;
+  pending_extra_id?: string | null;
+  pending_extra_amount?: number | null;
+  pending_extra_reason?: string | null;
+  rework_of?: string | null;
+  metadata?: { rework_of?: string | null } | null;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +127,11 @@ export function toBooking(data: BookingResponse): Booking {
     pointsDiscount: data.points_discount ?? 0,
     preferredStaffId: data.preferred_staff_id ?? null,
     preferredStaffName: data.preferred_staff_name ?? null,
+    extraAmount: data.extra_amount ?? 0,
+    pendingExtraId: data.pending_extra_id ?? null,
+    pendingExtraAmount: data.pending_extra_amount ?? null,
+    pendingExtraReason: data.pending_extra_reason ?? null,
+    reworkOf: data.rework_of ?? data.metadata?.rework_of ?? null,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
@@ -207,12 +219,31 @@ export async function updateBookingStatus(
   id: string,
   status: BookingStatus,
   reason?: string,
+  startCode?: string,
 ): Promise<Booking> {
   const { data } = await apiClient.put<BookingResponse>(`/bookings/${id}/status`, {
     status,
     reason,
+    ...(startCode ? { start_code: startCode } : {}),
   });
   return toBooking(data);
+}
+
+/**
+ * Starting work at the customer's (a home visit going IN_PROGRESS, a pickup PICKED_UP) needs the
+ * customer's 4-digit start code: booking_service refuses it without (422), and after 5 wrong tries (429).
+ */
+export function needsStartCode(mode: ServiceMode, target: BookingStatus): boolean {
+  return (mode === 'AT_HOME' && target === 'IN_PROGRESS') || (mode === 'PICKUP_DROP' && target === 'PICKED_UP');
+}
+
+/** What to tell the shop when the start code was refused. */
+export function startCodeError(err: unknown): string {
+  const status = (err as { response?: { status?: number } })?.response?.status;
+  if (status === 429) return 'Too many wrong codes. Wait 15 minutes, then try again.';
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (status === 422) return typeof detail === 'string' && detail ? detail : 'Ask the customer for the 4-digit start code';
+  return apiErrorMessage(err, 'Could not start the job');
 }
 
 /** Give a confirmed booking to one of the shop's staff (their provider account). */
@@ -239,6 +270,73 @@ export async function setReadyBy(id: string, readyBy: string | null): Promise<Bo
 
 export async function cancelBooking(id: string, reason: string): Promise<Booking> {
   const { data } = await apiClient.post<BookingResponse>(`/bookings/${id}/cancel`, { reason });
+  return toBooking(data);
+}
+
+// ── Extra charges (booking_service's /extra-charges: the customer approves before anything is added) ──
+
+/** Statuses in which the shop may ask for an extra charge (booking_service's OPEN_STATUSES). */
+export const EXTRA_CHARGE_STATUSES = new Set<BookingStatus>([
+  'CONFIRMED',
+  'ASSIGNED',
+  'PROVIDER_EN_ROUTE',
+  'PICKED_UP',
+  'IN_PROGRESS',
+  'OUT_FOR_DELIVERY',
+]);
+/** ₹5 lakh, booking_service's ceiling for one extra charge (minor units). */
+export const MAX_EXTRA_CENTS = 50_000_000;
+
+interface ExtraChargeResponse {
+  id: string;
+  booking_id: string;
+  amount_cents: number;
+  reason: string;
+  status: ExtraChargeStatus;
+  created_at: string;
+  decided_at?: string | null;
+}
+
+export function toExtraCharge(data: ExtraChargeResponse): ExtraCharge {
+  return {
+    id: data.id,
+    bookingId: data.booking_id,
+    amountCents: data.amount_cents,
+    reason: data.reason,
+    status: data.status,
+    createdAt: data.created_at,
+    decidedAt: data.decided_at ?? null,
+  };
+}
+
+const extraCharges = (bookingId: string) => `/bookings/${encodeURIComponent(bookingId)}/extra-charges`;
+
+/** The booking's extra charges, newest first; empty from a server that has none (404). */
+export async function getExtraCharges(bookingId: string): Promise<ExtraCharge[]> {
+  try {
+    const { data } = await apiClient.get<ExtraChargeResponse[]>(extraCharges(bookingId));
+    return data.map(toExtraCharge);
+  } catch (err) {
+    if ((err as { response?: { status?: number } })?.response?.status === 404) return [];
+    throw err;
+  }
+}
+
+/**
+ * Asks the customer to agree to [amountCents] more, saying why. Refused (409) once the booking is paid or
+ * covered by a package, for a walk-in, or while an earlier request waits on the customer.
+ */
+export async function askExtraCharge(bookingId: string, amountCents: number, reason: string): Promise<Booking> {
+  const { data } = await apiClient.post<BookingResponse>(extraCharges(bookingId), {
+    amount_cents: amountCents,
+    reason: reason.trim(),
+  });
+  return toBooking(data);
+}
+
+/** Takes back a request the customer has not answered. */
+export async function withdrawExtraCharge(bookingId: string, chargeId: string): Promise<Booking> {
+  const { data } = await apiClient.delete<BookingResponse>(`${extraCharges(bookingId)}/${encodeURIComponent(chargeId)}`);
   return toBooking(data);
 }
 

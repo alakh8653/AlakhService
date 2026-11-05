@@ -64,6 +64,8 @@ class BookingStatusUpdate(BaseModel):
     reason: Optional[str] = None
     # Starting a service at the shop: the team member doing it (else the one the queue planned, if free).
     staff_id: Optional[str] = None
+    # Starting a home visit (IN_PROGRESS) or collecting a pickup (PICKED_UP): the customer's 4-digit code.
+    start_code: Optional[str] = Field(default=None, max_length=10)
 
 
 class BookingAssignRequest(BaseModel):
@@ -131,6 +133,13 @@ class BookingResponse(BaseModel):
     pending_extra_id: Optional[str] = None
     pending_extra_amount: Optional[int] = None
     pending_extra_reason: Optional[str] = None
+    # Home visits and pickups: the code the customer gives the professional to start. Only the customer
+    # (and admins) see it; it is null for everyone else.
+    start_code: Optional[str] = None
+    # A free fix: the booking this one redoes, the fix booked for this one, and until when one can be asked.
+    rework_of: Optional[str] = None
+    rework_booking_id: Optional[str] = None
+    guarantee_until: Optional[datetime] = None
     # Why it was cancelled, in the words of whoever cancelled it (see app/core/privacy.py).
     cancellation_reason: Optional[str] = None
     created_at: datetime

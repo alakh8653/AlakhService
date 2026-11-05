@@ -208,6 +208,8 @@ export default function BookingsPage() {
               serviceName={serviceNames[b.serviceId]}
               providers={providers}
               onChangeStatus={actions.changeStatus}
+              onStart={actions.start}
+              onUpdated={replace}
               onAssign={actions.assign}
               onCancel={actions.cancel}
               onSetReadyBy={actions.setReadyBy}

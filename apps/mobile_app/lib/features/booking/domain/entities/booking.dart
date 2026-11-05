@@ -114,6 +114,16 @@ class Booking extends Equatable {
   final double? pendingExtraAmount;
   final String? pendingExtraReason;
 
+  /// The 4-digit code the customer gives the professional on arrival (home visits and pickups); only
+  /// the customer gets it.
+  final String? startCode;
+
+  /// The free fix: the booking this one fixes for free, the free fix of this one, and until when one may
+  /// be asked for (set once completed).
+  final String? reworkOf;
+  final String? reworkBookingId;
+  final DateTime? guaranteeUntil;
+
   const Booking({
     required this.id,
     this.bookingNumber = '',
@@ -144,6 +154,10 @@ class Booking extends Equatable {
     this.pendingExtraId,
     this.pendingExtraAmount,
     this.pendingExtraReason,
+    this.startCode,
+    this.reworkOf,
+    this.reworkBookingId,
+    this.guaranteeUntil,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);
@@ -185,8 +199,43 @@ class Booking extends Equatable {
   /// Cancelling is free until this long before the booking's time.
   static const freeCancellationBefore = Duration(hours: 2);
 
+  /// The professional comes to the customer: the start code and the safety tools apply.
+  bool get isVisit => serviceMode == 'AT_HOME' || serviceMode == 'PICKUP_DROP';
+
+  /// The customer shows the start code until the work has started (or the item is collected).
+  bool get showsStartCode =>
+      startCode != null &&
+      isVisit &&
+      const {BookingStatus.pending, BookingStatus.confirmed, BookingStatus.assigned, BookingStatus.enRoute}.contains(status);
+
+  /// A home visit under way: someone is coming or is in the customer's home, so SOS is offered.
+  bool get offersSos =>
+      serviceMode == 'AT_HOME' &&
+      const {BookingStatus.assigned, BookingStatus.enRoute, BookingStatus.inProgress}.contains(status);
+
+  /// Someone else can follow the visit: a professional is coming or is there.
+  bool get canShareVisit => isVisit && !BookingStatus.finished.contains(status) && status != BookingStatus.disputed;
+
+  /// A free fix may still be asked for.
+  bool canRequestRework(DateTime now) =>
+      status == BookingStatus.completed &&
+      reworkOf == null &&
+      reworkBookingId == null &&
+      guaranteeUntil != null &&
+      now.isBefore(guaranteeUntil!);
+
   bool get canDispute => status == BookingStatus.inProgress || status == BookingStatus.completed;
 
   @override
-  List<Object?> get props => [id, userId, serviceId, status, scheduledAt, providerId, paymentStatus, rescheduleCount];
+  List<Object?> get props => [
+        id,
+        userId,
+        serviceId,
+        status,
+        scheduledAt,
+        providerId,
+        paymentStatus,
+        rescheduleCount,
+        reworkBookingId,
+      ];
 }

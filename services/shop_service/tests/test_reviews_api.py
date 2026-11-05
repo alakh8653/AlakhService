@@ -165,8 +165,8 @@ async def test_summary_list_filters_and_shop_responses(client):
     other = await make_shop(client, owner="owner-2")
     briefs = (await client.get("/api/v1/shops/ratings", params={"ids": f"{other},{shop},missing,{shop}"})).json()
     assert briefs == [
-        {"shop_id": other, "average_rating": 0.0, "review_count": 0},
-        {"shop_id": shop, "average_rating": 3.8, "review_count": 4},
+        {"shop_id": other, "average_rating": 0.0, "review_count": 0, "is_verified": True},
+        {"shop_id": shop, "average_rating": 3.8, "review_count": 4, "is_verified": True},
     ]
     too_many = ",".join(f"s{n}" for n in range(51))
     assert (await client.get("/api/v1/shops/ratings", params={"ids": too_many})).status_code == 422

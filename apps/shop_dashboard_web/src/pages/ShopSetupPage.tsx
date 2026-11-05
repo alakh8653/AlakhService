@@ -3,6 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import type { AppDispatch } from '../state/store';
+import { setShop } from '../state/authSlice';
+import { updateShop } from '../services/shopService';
+import { DEFAULT_GUARANTEE_DAYS, GUARANTEE_HELP, MAX_GUARANTEE_DAYS, guaranteeDaysField } from '../services/guarantee';
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import { SHOP_CATEGORIES } from '../services/categories';
@@ -18,6 +23,7 @@ const schema = z.object({
     .refine((v) => v === '' || isE164(normalizePhone(v)), 'Enter a 10-digit mobile number, e.g. 98765 43210')
     .optional(),
   description: z.string().trim().max(500).optional(),
+  guaranteeDays: guaranteeDaysField,
 });
 type FormData = z.infer<typeof schema>;
 
@@ -28,17 +34,25 @@ const inputClass =
 export default function ShopSetupPage() {
   const { user, createShop, logout } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { category: '' } });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { category: '', guaranteeDays: String(DEFAULT_GUARANTEE_DAYS) } });
 
   const onSubmit = async (values: FormData) => {
     try {
       setServerError(null);
-      await createShop({ ...values, phone: values.phone ? normalizePhone(values.phone) : undefined });
+      const { guaranteeDays, ...details } = values;
+      const created = await createShop({ ...details, phone: details.phone ? normalizePhone(details.phone) : undefined });
+      // The guarantee is set on the shop once it exists; if this fails it keeps the default, changeable in Settings.
+      try {
+        dispatch(setShop(await updateShop(created.id, { guarantee_days: Number(guaranteeDays) })));
+      } catch {
+        // best effort
+      }
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setServerError(apiErrorMessage(err, 'Could not create your shop'));
@@ -90,6 +104,23 @@ export default function ShopSetupPage() {
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">About your shop <span className="font-normal text-gray-500">(optional)</span></label>
             <textarea id="description" rows={3} {...register('description')} className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="guaranteeDays" className="block text-sm font-medium text-gray-700 mb-1">Free-fix guarantee (days)</label>
+            <input
+              id="guaranteeDays"
+              type="number"
+              min={0}
+              max={MAX_GUARANTEE_DAYS}
+              inputMode="numeric"
+              aria-invalid={!!errors.guaranteeDays}
+              {...register('guaranteeDays')}
+              className={`${inputClass} max-w-32`}
+            />
+            {errors.guaranteeDays && <p className="mt-1 text-xs text-red-600">{errors.guaranteeDays.message}</p>}
+            <p className="mt-1 text-xs text-gray-600">
+              {GUARANTEE_HELP}
+            </p>
           </div>
           <button
             type="submit"

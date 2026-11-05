@@ -124,10 +124,10 @@ shop.{$DOMAIN} {
 		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 	}
 
-	# The only API calls the site's forms make (account deletion, password reset), forwarded on this
-	# same origin so the gateway's CORS list stays the two dashboards. The gateway still applies its
-	# sign-in rate limit to them; everything else under /api is not served here.
-	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current
+	# The only API calls the site's pages make (account deletion, password reset, a shared visit),
+	# forwarded on this same origin so the gateway's CORS list stays the two dashboards. The gateway still
+	# applies its rate limits to them; everything else under /api is not served here.
+	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current /api/v1/public/shares/*
 	handle @site_api {
 		request_body {
 			max_size 16KiB
@@ -163,6 +163,15 @@ shop.{$DOMAIN} {
 	handle /s/* {
 		header Cache-Control "no-cache"
 		rewrite * /open-app.html
+		file_server
+	}
+	# A visit a customer shared (/v/<token>, made by booking_service): status and ETA, no contact details.
+	# The token is the whole secret: never cached, never sent on as a referrer, never indexed.
+	handle /v/* {
+		header Cache-Control "no-store"
+		header Referrer-Policy "no-referrer"
+		header X-Robots-Tag "noindex, nofollow"
+		rewrite * /visit.html
 		file_server
 	}
 	handle /reset-password* {

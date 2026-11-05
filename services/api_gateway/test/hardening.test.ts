@@ -161,6 +161,28 @@ describe('sign-in rate limit', () => {
   });
 });
 
+describe('shared-visit rate limit', () => {
+  it('lets anyone open a shared visit without a token, but not try tokens quickly', async () => {
+    const booking = await upstream();
+    const catalog = await upstream();
+    const app = createApp(
+      testConfig({ booking: booking.url, serviceCatalog: catalog.url }, { shareRateLimit: { windowMs: 60_000, max: 3 } }),
+      quiet,
+    );
+    const open = (t: string) => request(app).get(`/api/v1/public/shares/${t}`);
+    // A shared link opens nothing but the page without a token (and counts towards the limit too).
+    expect((await request(app).post('/api/v1/public/shares/a')).status).toBe(401);
+    expect((await open('a')).status).toBe(200);
+    expect((await open('b')).status).toBe(200);
+    const blocked = await open('c');
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.detail).toMatch(/shared visits/);
+    expect(booking.requests.map((r) => r.url)).toEqual(['/api/v1/public/shares/a', '/api/v1/public/shares/b']);
+    // Other browsing is not limited by it.
+    expect((await request(app).get('/api/v1/categories')).status).toBe(200);
+  });
+});
+
 describe('shared rate limits', () => {
   it('start counting once Redis comes up after the gateway', async () => {
     const catalog = await upstream();

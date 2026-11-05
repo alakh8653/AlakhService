@@ -16,6 +16,8 @@ export interface GatewayConfig {
   rateLimit: { windowMs: number; max: number };
   /** Tighter per-client limit on sign-in, sign-up, OTP and password-reset requests. */
   authRateLimit: { windowMs: number; max: number };
+  /** Per-client limit on shared-visit pages (public, looked up by an unguessable token). */
+  shareRateLimit: { windowMs: number; max: number };
   /** Shared store for rate limits and token revocation; in-memory limits (per instance) without it. */
   redisUrl?: string;
   /** How many proxies in front of the gateway to trust for the client IP (X-Forwarded-For). */
@@ -109,6 +111,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig 
     authRateLimit: {
       windowMs: intFromEnv(env, 'AUTH_RATE_LIMIT_WINDOW_MS', 600_000),
       max: intFromEnv(env, 'AUTH_RATE_LIMIT_MAX', 60),
+    },
+    shareRateLimit: {
+      windowMs: intFromEnv(env, 'SHARE_RATE_LIMIT_WINDOW_MS', 60_000),
+      max: intFromEnv(env, 'SHARE_RATE_LIMIT_MAX', 30),
     },
     redisUrl: env.REDIS_URL || undefined,
     trustProxy: intFromEnv(env, 'TRUST_PROXY', 0),

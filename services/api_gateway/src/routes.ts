@@ -59,6 +59,10 @@ export const ROUTES: Route[] = [
     access: 'public',
     publicMethods: READ_ONLY,
   },
+  // Free fixes (/bookings/{id}/rework), share links (/share) and SOS (/sos) are booking routes too;
+  // booking_service checks who is on the booking.
+  // A visit the customer shared: no account needed (rate-limited per client, see app.ts), no contact details.
+  { prefix: '/api/v1/public/shares', upstream: 'booking', access: 'public', publicMethods: READ_ONLY },
   // A customer's waitlist for full days.
   { prefix: '/api/v1/waitlist', upstream: 'booking' },
   // Chat moderation: messages with contact details hidden, and who keeps trying.
@@ -105,6 +109,8 @@ export const ROUTES: Route[] = [
   { prefix: '/api/v1/admin/reviews', upstream: 'shop', rewrite: '/api/v1/reviews', access: 'admin' },
   { prefix: '/api/v1/admin/work-photos', upstream: 'shop', access: 'admin' },
   { prefix: '/api/v1/admin/chat', upstream: 'booking', rewrite: '/api/v1/chat-moderation', access: 'admin' },
+  // SOS alerts raised during bookings; booking_service serves them under the same path.
+  { prefix: '/api/v1/admin/safety', upstream: 'booking', access: 'admin' },
   // Shop onboarding review (queue, approve, reject); shop_service serves it under the same path.
   { prefix: '/api/v1/admin/shops', upstream: 'shop', access: 'admin' },
   { prefix: '/api/v1/admin', upstream: 'admin', access: 'admin' },

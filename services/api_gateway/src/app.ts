@@ -36,6 +36,9 @@ export interface AppOptions {
 const AUTH_LIMITED =
   /^\/api\/v1\/auth\/(login|register|send-otp|verify-otp|forgot-password|reset-password|refresh|delete-account\/otp)$/;
 
+// Shared-visit pages: public and looked up by token, so a client may not try tokens quickly.
+const SHARE_LIMITED = /^\/api\/v1\/public\/shares\//;
+
 /**
  * RedisStore loads its Lua script once, at startup, and keeps that promise. The gateway starts
  * before its Redis client has connected, so the load fails and every later count would fail with
@@ -158,6 +161,18 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
       store: limitStore('rl:auth:'),
       passOnStoreError: true,
       message: { detail: 'Too many sign-in attempts from this network. Please wait a few minutes and try again.' },
+    }),
+  );
+  app.use(
+    rateLimit({
+      windowMs: config.shareRateLimit.windowMs,
+      limit: config.shareRateLimit.max,
+      skip: (req) => !SHARE_LIMITED.test(req.path),
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      store: limitStore('rl:share:'),
+      passOnStoreError: true,
+      message: { detail: 'Too many requests for shared visits. Please wait a minute and try again.' },
     }),
   );
 

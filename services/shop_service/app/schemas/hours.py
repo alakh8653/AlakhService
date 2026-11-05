@@ -110,3 +110,5 @@ class ShopSchedule(BaseModel):
     updated_at: Optional[datetime] = None
     # False while the shop awaits approval or is switched off: booking_service turns bookings away.
     accepting_bookings: bool = True
+    # Days after completion in which a customer may ask for a free fix (booking_service reads it).
+    guarantee_days: int = 7

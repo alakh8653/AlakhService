@@ -9,7 +9,10 @@ class ShopRating {
   final double average;
   final int count;
 
-  const ShopRating({required this.average, required this.count});
+  /// The shop's verified badge, when the ratings lookup reports it.
+  final bool? isVerified;
+
+  const ShopRating({required this.average, required this.count, this.isVerified});
 }
 
 class RatingSummary {
@@ -140,6 +143,7 @@ class ReviewsApi {
           r['shop_id'] as String: ShopRating(
             average: (r['average_rating'] as num).toDouble(),
             count: r['review_count'] as int,
+            isVerified: r['is_verified'] as bool?,
           ),
       };
     } on DioException catch (e) {

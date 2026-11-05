@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ProviderProfileCard from '../ProviderProfileCard';
-import ExtraChargeDialog from '../ExtraChargeDialog';
 import * as service from '../../services/profileService';
 
 const toast = vi.fn();
@@ -67,33 +66,5 @@ describe('ProviderProfileCard', () => {
     render(<ProviderProfileCard shopId="s1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove photo New wiring' }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith('s1', 'p1'));
-  });
-});
-
-describe('ExtraChargeDialog', () => {
-  it('needs a reason and a whole number, then sends paise', async () => {
-    const onConfirm = vi.fn().mockResolvedValue(true);
-    const onClose = vi.fn();
-    render(<ExtraChargeDialog bookingNumber="BK1" onConfirm={onConfirm} onClose={onClose} />);
-    expect(screen.getByText(/must approve/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Send to customer' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('what it is for');
-    fireEvent.click(screen.getByLabelText('Spare parts'));
-    fireEvent.click(screen.getByRole('button', { name: 'Send to customer' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('whole rupees');
-    fireEvent.change(screen.getByLabelText('How much more (₹)'), { target: { value: '200' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send to customer' }));
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(20000, 'Spare parts'));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-  });
-
-  it('stays open when it could not be sent', async () => {
-    const onClose = vi.fn();
-    render(<ExtraChargeDialog bookingNumber="BK1" onConfirm={vi.fn().mockResolvedValue(false)} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Extra work'));
-    fireEvent.change(screen.getByLabelText('How much more (₹)'), { target: { value: '50' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send to customer' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Send to customer' })).toBeTruthy());
-    expect(onClose).not.toHaveBeenCalled();
   });
 });

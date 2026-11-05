@@ -14,6 +14,7 @@ import '../../../shared/widgets/service_card.dart';
 import '../../services/domain/entities/service_entity.dart';
 import '../../services/presentation/pages/service_detail_page.dart';
 import '../data/saved_shops_api.dart';
+import '../../../shared/widgets/verified_badge.dart';
 
 /// The shops the customer has saved; each opens the list of what it offers, to book again quickly.
 class SavedShopsPage extends StatefulWidget {
@@ -93,7 +94,10 @@ class _SavedShopsPageState extends State<SavedShopsPage> {
                             backgroundColor: context.colors.primaryContainer,
                             child: Icon(Icons.storefront, color: context.colors.primary),
                           ),
-                          title: Text(shop.name),
+                          title: Row(children: [
+                            Flexible(child: Text(shop.name)),
+                            if (shop.isVerified) ...[const SizedBox(width: 6), const VerifiedBadge(compact: true)],
+                          ]),
                           subtitle: details.isEmpty ? null : Text(details),
                           trailing: IconButton(
                             icon: Icon(Icons.favorite, color: context.colors.error),

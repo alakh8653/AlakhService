@@ -1,15 +1,23 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Clock, Home, MessageCircle, Package, Store, User, Scissors, UserCog } from 'lucide-react';
+import { CalendarCheck, Clock, Home, MessageCircle, Package, ReceiptText, Store, User, Scissors, UserCog, Wrench } from 'lucide-react';
 import type { Booking, BookingStatus, ServiceMode } from '../types';
-import { EXTRA_CHARGE_STATUSES, READY_BY_STATUSES, bookingActions, type QueueEntry } from '../services/bookingService';
-import { formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
+import {
+  EXTRA_CHARGE_STATUSES,
+  READY_BY_STATUSES,
+  bookingActions,
+  needsStartCode,
+  withdrawExtraCharge,
+  type QueueEntry,
+} from '../services/bookingService';
+import { apiErrorMessage, formatDayTime, formatMoney, formatWhen, shortId } from '../services/format';
 import StatusBadge from './StatusBadge';
 import CashDue from './CashDue';
 import CancelBookingDialog from './CancelBookingDialog';
-import ExtraChargeDialog from './ExtraChargeDialog';
 import BookingChat from './BookingChat';
+import StartCodeDialog from './StartCodeDialog';
+import ExtrasDialog from './ExtrasDialog';
 
 // Bookings a customer may already have chosen to pay in cash for.
 const CASH_STATUSES = new Set<BookingStatus>([
@@ -41,16 +49,20 @@ interface BookingCardProps {
   serviceName?: string;
   /** Staff who can take bookings (active, with a provider account). */
   providers?: ProviderOption[];
-  onChangeStatus: (id: string, status: BookingStatus) => Result;
+  onChangeStatus: (id: string, status: BookingStatus, startCode?: string) => Result;
+  /**
+   * Starts work at the customer's with their start code: resolves to null once started, or why it was
+   * refused (wrong code, too many tries). Without it the step goes through onChangeStatus and fails.
+   */
+  onStart?: (id: string, status: BookingStatus, startCode: string) => Promise<string | null>;
   onCancel: (id: string, reason: string) => Result;
   onAssign?: (id: string, providerId: string) => Result;
   /** Pickup & drop: promise (ISO datetime) or clear (null) when the item will be back. */
   onSetReadyBy?: (id: string, readyBy: string | null) => Result;
-  /** Asks the customer to agree to pay more. */
-  onAskExtra?: (id: string, amountCents: number, reason: string) => Result;
-  onWithdrawExtra?: (id: string, chargeId: string) => Result;
   /** Today's place in the shop's queue, if the booking is in it. */
   queue?: QueueEntry;
+  /** The booking changed here (an extra charge asked for or taken back). */
+  onUpdated?: (booking: Booking) => void;
 }
 
 /** A datetime-local input's value (local time, to the minute) for an ISO datetime. */
@@ -99,16 +111,28 @@ export default function BookingCard({
   serviceName,
   providers = [],
   onChangeStatus,
+  onStart,
   onCancel,
   onAssign,
   onSetReadyBy,
-  onAskExtra,
-  onWithdrawExtra,
   queue,
+  onUpdated,
 }: BookingCardProps) {
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [askingExtra, setAskingExtra] = useState(false);
+  // The step waiting for the customer's start code, and the extra-charges form.
+  const [starting, setStarting] = useState<BookingStatus | null>(null);
+  const [askingExtras, setAskingExtras] = useState(false);
+  // What the server answered to an extra charge asked or taken back here, until the list catches up.
+  const [fresh, setFresh] = useState<Booking | null>(null);
+  const [extrasError, setExtrasError] = useState<string | null>(null);
+  const extras = fresh && fresh.id === booking.id && fresh.updatedAt >= booking.updatedAt ? fresh : booking;
+  const extrasWaiting = !!extras.pendingExtraId;
+  const canAskExtras = EXTRA_CHARGE_STATUSES.has(booking.status);
+  const changed = (b: Booking) => {
+    setFresh(b);
+    onUpdated?.(b);
+  };
   const [chatOpen, setChatOpen] = useState(false);
   const actions = bookingActions(booking);
   const stepActions = actions.filter((a) => a.target !== 'CANCEL');
@@ -143,6 +167,11 @@ export default function BookingCard({
             <ModeIcon size={12} aria-hidden /> {MODE_LABELS[booking.serviceMode] ?? booking.serviceMode}
           </span>
           <span className="text-xs text-gray-500">#{booking.bookingNumber}</span>
+          {booking.reworkOf && (
+            <span className="flex items-center gap-1 text-xs font-medium text-sky-800 bg-sky-100 rounded-full px-2 py-0.5">
+              <Wrench size={12} aria-hidden /> Free fix
+            </span>
+          )}
         </div>
         <p className={`text-sm flex items-center gap-1.5 pt-1 ${isToday ? 'font-semibold text-indigo-700' : 'font-medium text-gray-900'}`}>
           <Clock size={14} className="flex-shrink-0" aria-hidden />
@@ -209,33 +238,49 @@ export default function BookingCard({
           </p>
         )}
         {booking.notes && <p className="text-sm text-gray-600 italic">“{booking.notes}”</p>}
+        {booking.reworkOf && (
+          <p className="text-sm text-sky-800">Free fix under your guarantee for an earlier booking: no charge to the customer.</p>
+        )}
+        {extrasWaiting && (
+          <div className="text-sm text-amber-800 flex flex-wrap items-center gap-1.5" data-testid="extras-line">
+            <ReceiptText size={14} aria-hidden />
+            Extra {formatMoney(extras.pendingExtraAmount ?? 0)}
+            {extras.pendingExtraReason ? ` for ${extras.pendingExtraReason}` : ''}: waiting for the customer to approve
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  setExtrasError(null);
+                  try {
+                    changed(await withdrawExtraCharge(booking.id, extras.pendingExtraId!));
+                  } catch (err) {
+                    setExtrasError(apiErrorMessage(err, 'Could not take it back'));
+                  }
+                })
+              }
+              className="ml-1 text-xs font-medium text-gray-700 underline disabled:opacity-50"
+            >
+              Take back
+            </button>
+          </div>
+        )}
+        {!extrasWaiting && (extras.extraAmount ?? 0) > 0 && (
+          <p className="text-sm text-green-800 flex items-center gap-1.5" data-testid="extras-line">
+            <ReceiptText size={14} aria-hidden /> Customer approved {formatMoney(extras.extraAmount ?? 0)} extra
+          </p>
+        )}
+        {extrasError && (
+          <p role="alert" className="text-sm text-red-700">
+            {extrasError}
+          </p>
+        )}
         {chatOpen && <BookingChat bookingId={booking.id} customerName={booking.customerDisplayName} />}
       </div>
       <div className="flex flex-col sm:items-end gap-2 sm:min-w-44">
-        <p className="text-lg font-bold text-gray-900">{formatMoney(booking.totalAmount)}</p>
+        <p className="text-lg font-bold text-gray-900">{formatMoney(extras.totalAmount)}</p>
         {(booking.pointsDiscount ?? 0) > 0 && (
           <p className="text-xs text-emerald-700">+ {formatMoney(booking.pointsDiscount ?? 0)} in points, paid to you by AlakhService</p>
-        )}
-        {(booking.extraAmount ?? 0) > 0 && <p className="text-xs text-gray-600">Includes {formatMoney(booking.extraAmount ?? 0)} extra the customer approved</p>}
-        {booking.pendingExtraId ? (
-          <div className="text-xs text-amber-800 sm:text-right">
-            <p>
-              Waiting for the customer: {formatMoney(booking.pendingExtraAmount ?? 0)} more ({booking.pendingExtraReason})
-            </p>
-            {onWithdrawExtra && (
-              <button type="button" disabled={busy} onClick={() => void run(() => onWithdrawExtra(booking.id, booking.pendingExtraId as string))} className="underline">
-                Take back
-              </button>
-            )}
-          </div>
-        ) : (
-          onAskExtra &&
-          EXTRA_CHARGE_STATUSES.has(booking.status) &&
-          (booking.paymentStatus ?? 'UNPAID') === 'UNPAID' && (
-            <button type="button" disabled={busy} onClick={() => setAskingExtra(true)} className="text-sm text-indigo-700 underline">
-              Add extra charge
-            </button>
-          )
         )}
         {CASH_STATUSES.has(booking.status) && <CashDue bookingId={booking.id} />}
         {booking.status === 'CONFIRMED' && onAssign && (
@@ -266,14 +311,18 @@ export default function BookingCard({
             </p>
           )
         )}
-        {(stepActions.length > 0 || canCancel) && (
+        {(stepActions.length > 0 || canCancel || canAskExtras) && (
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {stepActions.map((action, i) => (
               <button
                 type="button"
                 key={action.label}
                 disabled={busy}
-                onClick={() => void run(() => onChangeStatus(booking.id, action.target as BookingStatus))}
+                onClick={() => {
+                  const target = action.target as BookingStatus;
+                  if (needsStartCode(booking.serviceMode, target)) setStarting(target);
+                  else void run(() => onChangeStatus(booking.id, target));
+                }}
                 className={`text-sm font-medium rounded-lg px-3 py-2 disabled:opacity-50 ${
                   i === 0
                     ? 'bg-indigo-600 text-white hover:bg-indigo-700'
@@ -283,6 +332,17 @@ export default function BookingCard({
                 {action.label}
               </button>
             ))}
+            {canAskExtras && (
+              <button
+                type="button"
+                disabled={busy || extrasWaiting}
+                title={extrasWaiting ? 'The customer has not answered the last request yet' : undefined}
+                onClick={() => setAskingExtras(true)}
+                className="text-sm font-medium text-amber-800 border border-amber-200 bg-amber-50 rounded-lg px-3 py-2 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Add extra charge
+              </button>
+            )}
             {canCancel && (
               <button
                 type="button"
@@ -296,11 +356,23 @@ export default function BookingCard({
           </div>
         )}
       </div>
-      {askingExtra && onAskExtra && (
-        <ExtraChargeDialog
+      {starting && (
+        <StartCodeDialog
           bookingNumber={booking.bookingNumber}
-          onConfirm={(cents, reason) => run(() => onAskExtra(booking.id, cents, reason))}
-          onClose={() => setAskingExtra(false)}
+          onSubmit={async (code) => {
+            if (onStart) return onStart(booking.id, starting, code);
+            const ok = await onChangeStatus(booking.id, starting, code);
+            return ok === false ? 'Could not start the job' : null;
+          }}
+          onClose={() => setStarting(null)}
+        />
+      )}
+      {askingExtras && (
+        <ExtrasDialog
+          bookingId={booking.id}
+          bookingNumber={booking.bookingNumber}
+          onSent={changed}
+          onClose={() => setAskingExtras(false)}
         />
       )}
       {cancelling && (

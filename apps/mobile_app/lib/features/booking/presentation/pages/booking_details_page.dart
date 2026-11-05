@@ -21,11 +21,14 @@ import '../../data/availability_api.dart';
 import '../../data/booking_queue_api.dart';
 import '../../data/extra_charge_api.dart';
 import '../../data/home_arrival_api.dart';
+import '../../data/trust_api.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_payment.dart';
 import '../widgets/live_queue_card.dart';
 import '../widgets/home_arrival_card.dart';
+import '../widgets/safety_actions.dart';
+import '../widgets/trust_cards.dart';
 import 'booking_history_page.dart' show bookingStatusLabel;
 import 'reschedule_page.dart';
 
@@ -46,6 +49,13 @@ class BookingDetailsPage extends StatefulWidget {
   final HomeArrivalApi? arrivalApi;
   final ExtraChargeApi? extraChargeApi;
 
+  /// The free fix, sharing the visit and SOS; and the system share sheet, tel: links and
+  /// the device position they use (replaceable in tests).
+  final TrustApi? trustApi;
+  final ShareText? shareText;
+  final OpenUri? openUri;
+  final CurrentFix? sosLocation;
+
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
 
@@ -65,6 +75,10 @@ class BookingDetailsPage extends StatefulWidget {
     this.queueApi,
     this.arrivalApi,
     this.extraChargeApi,
+    this.trustApi,
+    this.shareText,
+    this.openUri,
+    this.sosLocation,
     this.clock = DateTime.now,
     this.invoiceViewer,
   });
@@ -197,6 +211,44 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
     if (moved != null && mounted) _load();
   }
 
+  /// Another booking: the free fix of this one, or the one this fixes.
+  Future<void> _openBooking(String id) => Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookingDetailsPage(
+            bookingId: id,
+            repository: widget.repository,
+            paymentApi: widget.paymentApi,
+            chatApi: widget.chatApi,
+            availabilityApi: widget.availabilityApi,
+            serviceRepository: widget.serviceRepository,
+            checkoutLauncher: widget.checkoutLauncher,
+            queueApi: widget.queueApi,
+            arrivalApi: widget.arrivalApi,
+            extraChargeApi: widget.extraChargeApi,
+            trustApi: widget.trustApi,
+            shareText: widget.shareText,
+            openUri: widget.openUri,
+            sosLocation: widget.sosLocation,
+            clock: widget.clock,
+            invoiceViewer: widget.invoiceViewer,
+          ),
+        ),
+      );
+
+  Future<void> _requestRework(Booking booking) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final id = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => ReworkRequestPage(booking: booking, api: widget.trustApi, clock: widget.clock)),
+    );
+    if (id == null || !mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(l10n.reworkSent)));
+    await _load();
+    if (mounted) await _openBooking(id);
+  }
+
   /// Opens the service as it is offered now (price, shop, reviews), to book it again.
   Future<void> _bookAgain(Booking booking) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -327,6 +379,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(l10n.statusPendingHelp, style: AppTextStyles.body2.themed(context)),
           ),
+        if (booking.showsStartCode) StartCodeCard(code: booking.startCode!),
         if (booking.status == BookingStatus.cancelled && (booking.cancellationReason ?? '').isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -386,6 +439,25 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ),
+        if (booking.canShareVisit) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('share-visit'),
+              onPressed: () => shareVisitStatus(context, bookingId: booking.id, api: widget.trustApi, share: widget.shareText),
+              icon: const Icon(Icons.share_location_outlined),
+              label: Text(l10n.shareVisit),
+            ),
+          ),
+        ],
+        if (booking.offersSos) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: SosButton(bookingId: booking.id, api: widget.trustApi, location: widget.sosLocation, openUri: widget.openUri),
+          ),
+        ],
         if (booking.canReschedule(widget.clock())) ...[
           const SizedBox(height: 8),
           SizedBox(
@@ -397,6 +469,12 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ],
+        FreeFixSection(
+          booking: booking,
+          now: widget.clock(),
+          onOpenBooking: _openBooking,
+          onRequest: () => _requestRework(booking),
+        ),
         if (booking.status == BookingStatus.completed && booking.shopId != null) ...[
           const SizedBox(height: 8),
           if (_tip != null)

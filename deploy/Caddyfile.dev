@@ -10,7 +10,7 @@
 	root * /srv/site
 
 	# The site's forms (account deletion, password reset) call these on the same origin.
-	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current
+	@site_api path /api/v1/auth/send-otp /api/v1/auth/delete-account/otp /api/v1/auth/reset-password /api/v1/legal/current /api/v1/public/shares/*
 	handle @site_api {
 		reverse_proxy api_gateway:3000
 	}
@@ -21,6 +21,10 @@
 	}
 	handle /s/* {
 		rewrite * /open-app.html
+		file_server
+	}
+	handle /v/* {
+		rewrite * /visit.html
 		file_server
 	}
 	handle /reset-password* {

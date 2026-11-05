@@ -3,6 +3,7 @@
 A shop (its owner and the provider doing the job) sees the customer as a display name ("Ravi S."),
 never their phone, email or full name; free text the customer wrote has contact details hidden; and
 the customer's saved address only for a home visit or pickup, while the booking is still open.
+The start code of a home visit or pickup is shown to the customer (and admins) only.
 The customer and admins see the booking as it is, except that the customer gets the reason a booking was
 cancelled with contact details hidden too: the shop wrote it.
 """
@@ -41,7 +42,8 @@ def shape(booking, user: dict, display_name: str) -> BookingResponse:
         )
     if sees_everything(booking, user):
         return out
-    hidden = {"notes": masked(out.notes), "item_description": masked(out.item_description)}
+    # The start code is the customer's to give at the door: the shop and the provider never see it.
+    hidden = {"notes": masked(out.notes), "item_description": masked(out.item_description), "start_code": None}
     if booking.service_mode == AT_SHOP or booking.status in CLOSED_STATUSES:
         hidden["address_id"] = None
     return out.model_copy(update=hidden)

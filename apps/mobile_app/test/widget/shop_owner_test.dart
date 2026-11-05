@@ -209,7 +209,24 @@ void main() {
       // A person alone must be on their own team, or their home visits cannot be assigned.
       expect(staff.data['user_id'], 'u1');
       expect(adapter.requests.any((r) => r.path.endsWith('/hours') && r.method == 'PUT'), isTrue);
+      // The free-fix guarantee starts at a week unless they change it.
+      final guarantee = adapter.requests.firstWhere((r) => r.path.endsWith('/shops/s1') && r.method == 'PUT');
+      expect(guarantee.data, {'guarantee_days': 7});
       expect(find.text('Verification and payouts'), findsOneWidget);
+    });
+
+    testWidgets('the free-fix guarantee is set during setup', (tester) async {
+      await pumpSetup(tester);
+      await fillToLastStep(tester);
+      expect(find.text('Free-fix guarantee (days)'), findsOneWidget);
+      await enter(tester, 'Free-fix guarantee (days)', '95');
+      await tapText(tester, 'Save and continue');
+      expect(find.text('Enter a number from 0 to 90'), findsOneWidget);
+      expect(adapter.requests.any((r) => r.path.endsWith('/shops') && r.method == 'POST'), isFalse);
+      await enter(tester, 'Free-fix guarantee (days)', '30');
+      await tapText(tester, 'Save and continue');
+      final guarantee = adapter.requests.firstWhere((r) => r.path.endsWith('/shops/s1') && r.method == 'PUT');
+      expect(guarantee.data, {'guarantee_days': 30});
     });
 
     testWidgets('type of work and place of work are chosen, never assumed', (tester) async {

@@ -5,6 +5,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../features/services/domain/entities/service_entity.dart';
 import '../utils/format.dart';
 import 'rating_widget.dart';
+import 'verified_badge.dart';
 import '../../l10n/l10n.dart';
 
 /// "At shop · Home visit · Pickup & drop": how a service can be had, for cards and details.
@@ -98,6 +99,10 @@ class ServiceCard extends StatelessWidget {
                               ),
                           ],
                         ),
+                        if (service.shopVerified) ...[
+                          const SizedBox(height: 2),
+                          const VerifiedBadge(),
+                        ],
                         if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Text(subtitle, style: AppTextStyles.caption.themed(context)),

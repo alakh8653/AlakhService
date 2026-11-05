@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useToast } from '../components/Toast';
-import { askExtraCharge, assignProvider, cancelBooking, setReadyBy, updateBookingStatus, withdrawExtraCharge } from '../services/bookingService';
+import { assignProvider, cancelBooking, setReadyBy, startCodeError, updateBookingStatus } from '../services/bookingService';
 import { apiErrorMessage, formatDayTime } from '../services/format';
 import type { Booking, BookingStatus } from '../types';
 
@@ -35,12 +35,23 @@ export function useBookingActions(onUpdated: (booking: Booking) => void, provide
     };
 
     return {
-      changeStatus: (id: string, status: BookingStatus) =>
+      changeStatus: (id: string, status: BookingStatus, startCode?: string) =>
         perform(
-          () => updateBookingStatus(id, status),
+          () => updateBookingStatus(id, status, undefined, startCode),
           (b) => `Booking #${b.bookingNumber} ${STATUS_DONE[status] ?? 'updated.'}`,
           'Could not update the booking',
         ),
+      /** Starts work at the customer's with their start code: null once started, else why it was refused. */
+      start: async (id: string, status: BookingStatus, startCode: string): Promise<string | null> => {
+        try {
+          const updated = await updateBookingStatus(id, status, undefined, startCode);
+          onUpdated(updated);
+          toast(`Booking #${updated.bookingNumber} ${STATUS_DONE[status] ?? 'updated.'}`);
+          return null;
+        } catch (err) {
+          return startCodeError(err);
+        }
+      },
       assign: (id: string, providerId: string) =>
         perform(
           () => assignProvider(id, providerId),
@@ -52,18 +63,6 @@ export function useBookingActions(onUpdated: (booking: Booking) => void, provide
           () => cancelBooking(id, reason),
           (b) => `Booking #${b.bookingNumber} cancelled. The customer has been told.`,
           'Could not cancel the booking',
-        ),
-      askExtra: (id: string, amountCents: number, reason: string) =>
-        perform(
-          () => askExtraCharge(id, amountCents, reason),
-          () => 'Sent. The price changes only if the customer approves.',
-          'Could not send the extra charge',
-        ),
-      withdrawExtra: (id: string, chargeId: string) =>
-        perform(
-          () => withdrawExtraCharge(id, chargeId),
-          () => 'Extra charge taken back.',
-          'Could not take it back',
         ),
       setReadyBy: (id: string, readyBy: string | null) =>
         perform(

@@ -259,3 +259,15 @@ async def notify_contact(user_id: str, db: AsyncSession = Depends(get_db, scope=
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     return {"phone": user.phone, "email": user.email}
+
+
+class AdminIds(BaseModel):
+    # Ids only: each admin is reached through notification_service, which looks up their own contact.
+    user_ids: List[str]
+
+
+@internal_router.get("/internal/users/admins", response_model=AdminIds, dependencies=[Depends(require_internal)])
+async def admin_ids(db: AsyncSession = Depends(get_db, scope="function")):
+    """The active admins' user ids, for alerts every admin must get (booking_service's SOS)."""
+    rows = await db.execute(select(User.id).where(User.role == "admin", User.is_active.is_(True)).order_by(User.id))
+    return {"user_ids": list(rows.scalars().all())}

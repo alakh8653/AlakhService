@@ -120,6 +120,25 @@ describe('route table', () => {
     expect(requiredAccess(findRoute('/api/v1/auth/delete-account')!, 'POST')).toBe('user');
   });
 
+  it('sends customer-trust routes to booking_service: shared visits public to read, SOS list to admins', () => {
+    for (const path of ['/api/v1/bookings/b1/rework', '/api/v1/bookings/b1/share', '/api/v1/bookings/b1/sos']) {
+      const route = findRoute(path)!;
+      expect(route.upstream).toBe('booking');
+      expect(requiredAccess(route, 'POST')).toBe('user');
+    }
+    const shared = findRoute('/api/v1/public/shares/tok123')!;
+    expect(shared.upstream).toBe('booking');
+    expect(requiredAccess(shared, 'GET')).toBe('public');
+    expect(requiredAccess(shared, 'POST')).toBe('user');
+    expect(upstreamPath(shared, '/api/v1/public/shares/tok123')).toBe('/api/v1/public/shares/tok123');
+    expect(findRoute('/api/v1/public/other')).toBeUndefined();
+
+    const sos = findRoute('/api/v1/admin/safety/sos')!;
+    expect(sos.upstream).toBe('booking');
+    expect(requiredAccess(sos, 'GET')).toBe('admin');
+    expect(upstreamPath(sos, '/api/v1/admin/safety/sos')).toBe('/api/v1/admin/safety/sos');
+  });
+
   it('only opens read-only methods on browse routes', () => {
     const route = findRoute('/api/v1/categories')!;
     expect(requiredAccess(route, 'GET')).toBe('public');

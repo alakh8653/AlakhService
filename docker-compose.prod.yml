@@ -186,6 +186,8 @@ services:
       EXOTEL_ACCOUNT_SID: ${EXOTEL_ACCOUNT_SID:-}
       EXOTEL_CALLER_ID: ${EXOTEL_CALLER_ID:-}
       EXOTEL_SUBDOMAIN: ${EXOTEL_SUBDOMAIN:-api.exotel.com}
+      # A customer's shared visit links (https://<DOMAIN>/v/<token>), served by the public site.
+      SHARE_BASE_URL: https://${DOMAIN:?DOMAIN must be set in .env.production}
 
   payment_service:
     <<: *prod-python

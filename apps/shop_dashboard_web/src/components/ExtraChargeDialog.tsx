@@ -33,7 +33,7 @@ export default function ExtraChargeDialog({ bookingNumber, onConfirm, onClose }:
     }
     setSending(true);
     setError(null);
-    let ok = false;
+    let ok: boolean;
     try {
       ok = (await onConfirm(rupees * 100, reason)) !== false;
     } finally {

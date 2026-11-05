@@ -3204,6 +3204,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profilePhotoHidden => 'Hidden while we check';
 
   @override
+  String get reviewReport => 'Report';
+
+  @override
+  String get reviewReportTitle => 'Report this review';
+
+  @override
+  String get reviewReportAbusive => 'It is rude or offensive';
+
+  @override
+  String get reviewReportFake => 'It seems fake';
+
+  @override
+  String get reviewReportContact =>
+      'It shows a phone number or private details';
+
+  @override
+  String get reviewReported => 'Thanks. We will check this review.';
+
+  @override
   String get startCodeTitle => 'Your start code';
 
   @override

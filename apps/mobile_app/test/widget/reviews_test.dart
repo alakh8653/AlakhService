@@ -70,6 +70,7 @@ FakeAdapter backend({int total = 128}) => FakeAdapter((r) {
           {'shop_id': 'shop-2', 'average_rating': 0.0, 'review_count': 0},
         ]);
       }
+      if (r.path.endsWith('/report')) return (status: 202, body: {'status': 'reported'});
       if (r.path.endsWith('/reviews/summary')) return (status: 200, body: summaryJson);
       if (r.path.endsWith('/reviews')) {
         final stars = r.queryParameters['rating'] as int?;
@@ -160,6 +161,8 @@ void main() {
     expect(find.text('Reviews of Demo Salon'), findsOneWidget);
     expect(find.text('Show more reviews'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Show more reviews'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Show more reviews'));
     await tester.pumpAndSettle();
     expect(adapter.requests.last.queryParameters['skip'], 2);
@@ -174,6 +177,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No 1-star reviews yet.'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('a customer reports a review with a tap for the reason', (tester) async {
+    final adapter = backend();
+    await tester.pumpWidget(detail(clientFor(adapter)));
+    await tester.pumpAndSettle();
+    final report = find.text('Report').first;
+    await tester.ensureVisible(report);
+    await tester.pumpAndSettle();
+    await tester.tap(report);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('It seems fake'));
+    await tester.pumpAndSettle();
+    final sent = adapter.requests.firstWhere((r) => r.path.endsWith('/report'));
+    expect(sent.data['reason'], 'It seems fake');
+    expect(find.text('Thanks. We will check this review.'), findsOneWidget);
   });
 
   testWidgets('a shop without reviews reads as New and says so', (tester) async {

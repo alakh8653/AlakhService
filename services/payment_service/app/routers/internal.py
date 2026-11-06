@@ -11,6 +11,7 @@ from typing import Optional
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.internal import require_internal
@@ -18,7 +19,7 @@ from app.core.notifier import Notifier, get_notifier, notify_payment, payment_sn
 from app.core.peers import BookingSync, get_booking_sync
 from app.core.razorpay import GatewayError, RazorpayGateway, get_razorpay
 from app.database import get_db
-from app.models.payment import ShopEarning
+from app.models.payment import ShopCashEntry, ShopEarning, ShopReportPreference
 from app.schemas.money import (
     BookingCancelled,
     BookingCompleted,
@@ -120,6 +121,32 @@ async def booking_cancelled(
         refund = await payment_service.get_refund(db, result["refund_id"])
         await _announce_refund(db, background, notifier, sync, refund, booking_id)
     return result
+
+
+@router.get("/shops/{shop_id}/owed")
+async def shop_owed(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
+    """What the shop is still to be paid; negative when it owes commission on cash jobs."""
+    owed = await db.scalar(
+        select(func.coalesce(func.sum(ShopEarning.payout_cents), 0)).where(
+            ShopEarning.shop_id == shop_id, ShopEarning.status.in_((earnings_service.HELD, earnings_service.READY))
+        )
+    )
+    return {"owed_cents": int(owed or 0)}
+
+
+@router.post("/shops/{shop_id}/forget")
+async def forget_shop(shop_id: str, db: AsyncSession = Depends(get_db, scope="function")):
+    """Its owner deleted their account: their own notes on expenses and where reports go are erased, and no more
+    reports are made. Earnings and payouts stay, for the accounts the law says to keep."""
+    await db.execute(delete(ShopCashEntry).where(ShopCashEntry.shop_id == shop_id))
+    await db.execute(delete(ShopReportPreference).where(ShopReportPreference.shop_id == shop_id))
+    db.add(
+        ShopReportPreference(
+            shop_id=shop_id, daily=False, weekly=False, monthly=False, yearly=False, email=False, whatsapp=False
+        )
+    )
+    await db.flush()
+    return {"shop_id": shop_id}
 
 
 @router.post("/booking/{booking_id}/close-open")

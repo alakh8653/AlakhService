@@ -333,6 +333,9 @@ class ShopReportPreference(Base):
     # When the owner agreed to get reports on WhatsApp, which WhatsApp requires us to be able to show.
     whatsapp_consent_at = Column(DateTime(timezone=True), nullable=True)
     updated_by = Column(String, nullable=True)
+    # "Send me this report now" today, in India time: each can be a paid WhatsApp message.
+    sent_on = Column(Date, nullable=True)
+    sent_count = Column(Integer, nullable=False, default=0, server_default="0")
 
 
 class ShopReportDelivery(Base):

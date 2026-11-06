@@ -102,7 +102,13 @@ with the version the user accepted and ask again.
      code; 429 after 5 tries per hour per email/phone (on top of 5 guesses per code and the gateway's
      sign-in rate limit per IP).
 
-Both erase the profile, addresses and devices (user_service), anonymise the sign-in so the email and
+Both close a shop the person owns (`DELETE /shops/mine`): upcoming bookings are cancelled and refunded, it leaves
+the listings, and its documents, bank or UPI details, photos, contact details and the owner's expense notes are
+erased. Legal name, GSTIN, address and earnings stay for invoices and accounts. It is refused while a job is being
+served or the owner is still owed a payout. **Have your lawyer confirm how long KYC documents must be kept:** they
+are erased at once today.
+
+Both also erase the profile, addresses and devices (user_service), anonymise the sign-in so the email and
 phone are free again, and sign out every device. Bookings, payments and invoices stay under the
 anonymous id. In Play Console → *App content → Data safety*, give `https://<DOMAIN>/delete-account` as
 the account deletion URL. Apps with a "Delete account" button should link to the same page as a fallback.

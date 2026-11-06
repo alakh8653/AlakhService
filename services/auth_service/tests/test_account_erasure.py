@@ -22,6 +22,7 @@ async def test_saved_shops_and_the_profile_are_erased_as_the_person():
     calls, transport = recording({"/api/v1/shops/favorites": 204})
     await erase_profile("tok", transport=transport)
     assert calls == [
+        ("DELETE", "shop_service", "/api/v1/shops/mine", "Bearer tok"),
         ("DELETE", "shop_service", "/api/v1/shops/favorites", "Bearer tok"),
         ("DELETE", "user_service", "/api/v1/users/me/account", "Bearer tok"),
     ]
@@ -33,4 +34,23 @@ async def test_a_failure_stops_the_deletion_so_it_can_be_retried():
     with pytest.raises(HTTPException) as e:
         await erase_profile("tok", transport=transport)
     assert e.value.status_code == 503
-    assert [c[2] for c in calls] == ["/api/v1/shops/favorites"]  # the profile is left for the retry
+    assert [c[2] for c in calls] == [
+        "/api/v1/shops/mine",
+        "/api/v1/shops/favorites",
+    ]  # the profile is left for the retry
+
+
+@pytest.mark.asyncio
+async def test_a_shop_owner_is_told_why_when_their_business_stops_the_deletion():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(409, json={"detail": "You are still owed ₹1,500.00 for Ravi."})
+
+    with pytest.raises(HTTPException) as e:
+        await erase_profile("tok", transport=httpx.MockTransport(handler))
+    assert e.value.status_code == 409
+    assert "still owed" in e.value.detail
+    # Nothing else was erased, so their account is untouched.
+    assert calls == ["/api/v1/shops/mine"]

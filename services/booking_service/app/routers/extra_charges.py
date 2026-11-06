@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import ADMIN, PROVIDER, SHOP_OWNER, OwnerLookup
@@ -41,6 +41,8 @@ OPEN_STATUSES = {
 }
 # ₹5 lakh: a typing slip of a few zeros should not reach a customer as a real request.
 MAX_EXTRA_CENTS = 50_000_000
+# Each request notifies the customer: asking and taking back in a loop must not become pestering.
+MAX_REQUESTS_PER_BOOKING = 5
 
 
 class ExtraChargeCreate(BaseModel):
@@ -162,6 +164,13 @@ async def ask_for_extra_charge(
         raise HTTPException(status_code=409, detail="This visit is covered by a prepaid package")
     if booking.pending_extra_id:
         raise HTTPException(status_code=409, detail="The customer has not answered your last request yet")
+    asked = await db.scalar(
+        select(func.count()).select_from(BookingExtraCharge).where(BookingExtraCharge.booking_id == booking.id)
+    )
+    if asked >= MAX_REQUESTS_PER_BOOKING:
+        raise HTTPException(
+            status_code=409, detail="Too many requests on this booking. Please talk to the customer in chat."
+        )
     charge = BookingExtraCharge(
         id=str(uuid.uuid4()),
         booking_id=booking.id,

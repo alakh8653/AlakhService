@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Scheduled reports to shop owners: when they go out each morning, India time.
     REPORTS_ENABLED: bool = True
     REPORT_HOUR_IST: int = 8
+    REPORT_SENDS_PER_DAY: int = 5
     REPORT_WORKER_INTERVAL_SECONDS: float = 900
     TRUST_RISK_SERVICE_URL: str = "http://trust_risk_service:8000"
     # Refunds are recorded in admin_service's audit log.

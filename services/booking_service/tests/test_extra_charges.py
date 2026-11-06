@@ -176,3 +176,15 @@ async def test_a_phone_number_in_the_reason_is_hidden_from_the_customer(client, 
     assert "9876543210" not in body["pending_extra_reason"]
     assert "9876543210" not in (await total(client))["pending_extra_reason"]
     assert "9876543210" not in (await client.get(URL, headers=CUSTOMER)).json()[0]["reason"]
+
+
+@pytest.mark.asyncio
+async def test_asking_again_and_again_stops_after_five(client, paid_elsewhere):  # noqa: F811
+    await set_fields(status="IN_PROGRESS")
+    for _ in range(5):
+        charge = (await client.post(URL, json=BODY, headers=OWNER)).json()["pending_extra_id"]
+        assert (await client.delete(f"{URL}/{charge}", headers=OWNER)).status_code == 200
+    SENT.clear()
+    resp = await client.post(URL, json=BODY, headers=OWNER)
+    assert resp.status_code == 409 and "Too many" in resp.json()["detail"]
+    assert SENT == []

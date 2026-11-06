@@ -60,6 +60,8 @@ ERASE_FAILED = "Could not delete your account right now. Please try again."
 
 # Where the person's own data lives, erased as them; each delete can safely be repeated on a retry.
 ERASE_TARGETS = (
+    # First, as it alone can refuse: a job being served, or money still owed to them.
+    (lambda: settings.SHOP_SERVICE_URL, "/api/v1/shops/mine"),  # a business they own, its documents and bank details
     (lambda: settings.SHOP_SERVICE_URL, "/api/v1/shops/favorites"),  # saved shops
     (lambda: settings.USER_SERVICE_URL, "/api/v1/users/me/account"),  # profile, addresses, devices
 )
@@ -74,6 +76,8 @@ async def erase_profile(token: str, transport: Optional[httpx.AsyncBaseTransport
                 resp = await client.delete(path, headers={"Authorization": f"Bearer {token}"})
         except httpx.HTTPError as e:
             raise HTTPException(status_code=503, detail=ERASE_FAILED) from e
+        if resp.status_code == 409:  # something they can act on, in shop_service's words
+            raise HTTPException(status_code=409, detail=resp.json().get("detail", ERASE_FAILED))
         if resp.status_code >= 400:
             log.warning("account_erase_failed", path=path, status=resp.status_code)
             raise HTTPException(status_code=503, detail=ERASE_FAILED)

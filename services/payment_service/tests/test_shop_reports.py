@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
+from app.config import settings as reports_settings
 from app.core import reports
 from app.core.peers import get_shop_directory
 from app.core.reports import due_reports, get_report_sender
@@ -14,11 +15,12 @@ from app.database import get_db
 from app.main import app
 from app.models.payment import ShopEarning, ShopReportDelivery
 from app.services.report_service import period_range
-from tests.test_earnings_api import OWNER, auth, http  # noqa: F401  (http is a fixture)
+from tests.test_earnings_api import KEY, OWNER, auth, http  # noqa: F401  (http is a fixture)
 from tests.test_payment_access_api import client  # noqa: F401
 
 SHOP = "shop-1"
 BASE = f"/api/v1/payments/shops/{SHOP}"
+INTERNAL = {"X-Internal-Key": KEY}
 
 
 class FakeOwners:
@@ -265,3 +267,49 @@ async def test_send_now_says_where_it_went(http, owners):  # noqa: F811
     assert sender.sent[0]["report"]["period"] == "weekly"
     app.dependency_overrides[get_report_sender] = lambda: FakeSender(result=None)
     assert (await http.post(f"{BASE}/report/send", headers=OWNER)).status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_send_now_is_limited_each_day_because_whatsapp_costs_money(http, owners, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(reports_settings, "REPORT_SENDS_PER_DAY", 2)
+    sender = FakeSender()
+    app.dependency_overrides[get_report_sender] = lambda: sender
+    app.dependency_overrides[get_shop_directory] = Directory
+    url = f"{BASE}/report/send"
+    assert (await http.post(url, headers=OWNER)).status_code == 200
+    assert (await http.post(url, headers=OWNER)).status_code == 200
+    third = await http.post(url, headers=OWNER)
+    assert third.status_code == 429 and "tomorrow" in third.json()["detail"]
+    assert len(sender.sent) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_failed_send_does_not_use_up_the_limit(http, owners, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(reports_settings, "REPORT_SENDS_PER_DAY", 1)
+    app.dependency_overrides[get_shop_directory] = Directory
+    app.dependency_overrides[get_report_sender] = lambda: FakeSender(result=None)
+    url = f"{BASE}/report/send"
+    assert (await http.post(url, headers=OWNER)).status_code == 503
+    app.dependency_overrides[get_report_sender] = lambda: FakeSender()
+    assert (await http.post(url, headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_what_a_shop_is_owed_and_forgetting_its_owners_notes(http, owners, factory):  # noqa: F811
+    await earning(datetime(2026, 10, 10, 6, 0, tzinfo=timezone.utc), net=8000)
+    resp = await http.get(f"/internal/payments/shops/{SHOP}/owed", headers=INTERNAL)
+    assert (resp.status_code, resp.json()) == (200, {"owed_cents": 8000})
+    assert (await http.get(f"/internal/payments/shops/{SHOP}/owed")).status_code in (401, 403)
+
+    entry = {"kind": "EXPENSE", "category": "TRAVEL", "amount": 5}
+    await http.post(f"{BASE}/cash-entries", json=entry, headers=OWNER)
+    assert (await http.post(f"/internal/payments/shops/{SHOP}/forget", headers=INTERNAL)).status_code == 200
+    assert (await http.get(f"{BASE}/cash-entries", headers=OWNER)).json() == []
+    settings_now = (await http.get(f"{BASE}/report-settings", headers=OWNER)).json()
+    assert not any(settings_now.values())
+    # Its earnings stay, for the accounts the law says to keep.
+    assert (await http.get(f"/internal/payments/shops/{SHOP}/owed", headers=INTERNAL)).json()["owed_cents"] == 8000
+    # And nothing more goes out.
+    sender = FakeSender()
+    await earning(datetime(2026, 11, 2, 6, 0, tzinfo=timezone.utc))
+    assert await reports.run_once(factory, Directory(), sender, datetime(2026, 11, 3, 9, 0, tzinfo=timezone.utc)) == 0

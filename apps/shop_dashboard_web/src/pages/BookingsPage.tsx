@@ -63,7 +63,7 @@ export default function BookingsPage() {
   const [exporting, setExporting] = useState(false);
   const { serviceNames } = useShopServices();
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
-  const { staff, providers, providerName } = useStaff();
+  const { staff, providers, providerName } = useStaff({ ensureOwner: true });
   // Today's live queue (place in line, expected start), refreshed with the list.
   const queue = useShopQueue(shopId, bookings);
   const actions = useBookingActions(replace, providerName);

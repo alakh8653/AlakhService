@@ -131,7 +131,7 @@ export default function DashboardPage() {
   const userName = useSelector((state: RootState) => state.auth.user?.name);
   const { analytics, isLoading, error } = useAnalytics();
   const { services, serviceNames, isLoading: servicesLoading } = useShopServices();
-  const { staff, providers, providerName, isLoading: staffLoading } = useStaff();
+  const { staff, providers, providerName, isLoading: staffLoading } = useStaff({ ensureOwner: true });
   const { today, toConfirm, error: todayError, replace } = useToday(shop?.id);
   const hoursPublished = useHoursPublished(shop?.id);
   const actions = useBookingActions(replace, providerName);

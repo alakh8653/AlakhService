@@ -207,7 +207,7 @@ describe('shared rate limits', () => {
     online = true;
 
     const browse = () => request(app).get('/api/v1/categories');
-    expect((await browse()).status).toBe(200); // not counted: the store reloads its script
+    // The first request after Redis comes up reloads the script and is counted, like every other.
     expect((await browse()).status).toBe(200);
     expect((await browse()).status).toBe(429);
   });

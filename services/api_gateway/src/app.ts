@@ -39,23 +39,6 @@ const AUTH_LIMITED =
 // Shared-visit pages: public and looked up by token, so a client may not try tokens quickly.
 const SHARE_LIMITED = /^\/api\/v1\/public\/shares\//;
 
-/**
- * RedisStore loads its Lua script once, at startup, and keeps that promise. The gateway starts
- * before its Redis client has connected, so the load fails and every later count would fail with
- * it (and be let through) until a restart. Load the script again after a failure instead.
- */
-class RecoveringRedisStore extends RedisStore {
-  override async increment(key: string) {
-    try {
-      return await super.increment(key);
-    } catch (err) {
-      this.incrementScriptSha = this.loadIncrementScript();
-      this.incrementScriptSha.catch(() => undefined); // surfaced by the next increment
-      throw err;
-    }
-  }
-}
-
 const defaultLog = (entry: LogEntry) => console.log(JSON.stringify({ msg: 'request', ...entry }));
 
 export function createApp(config: GatewayConfig, options: AppOptions = {}) {
@@ -79,9 +62,11 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
   };
   const isRevoked = createRevocationCheck(options.redis, redisError);
   // Shared across gateway instances when Redis is there; if Redis fails, requests are let through.
+  // The gateway starts before its Redis client connects, so the store's startup script load fails;
+  // rate-limit-redis (6.0.2+) loads it again on the next count and retries that count.
   const limitStore = (prefix: string): Store | undefined =>
     options.redis
-      ? new RecoveringRedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })
+      ? new RedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })
       : undefined;
 
   const app = express();

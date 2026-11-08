@@ -7,7 +7,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import RatingExistsError, ShopNotFoundError
+from app.core.exceptions import OwnShopRatingError, RatingExistsError, ShopNotFoundError
 from app.models.shop import APPROVED, PENDING_REVIEW, Shop, ShopRating
 from app.schemas.shop import ShopCreate, ShopUpdate
 from app.services.review_service import review_service
@@ -133,7 +133,8 @@ class ShopService:
         reviewer_name: Optional[str] = None,
     ) -> Shop:
         """Record a booking's rating (and optional written review) once and refresh the shop's average."""
-        await self.get_shop(db, shop_id)
+        if (await self.get_shop(db, shop_id)).owner_id == customer_id:
+            raise OwnShopRatingError()
         existing = await db.execute(select(ShopRating).where(ShopRating.booking_id == booking_id))
         if existing.scalar_one_or_none() is not None:
             raise RatingExistsError()

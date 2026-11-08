@@ -570,6 +570,14 @@ async def book(client, service, who="c7", **extra):
     return resp.json()
 
 
+@pytest.mark.asyncio
+async def test_an_owner_cannot_book_their_own_shop(client):
+    refused = await client.post("/api/v1/bookings", json=new_booking("svc-a"), headers=auth("owner-1"))
+    assert refused.status_code == 409 and refused.json()["detail"] == "You can't book your own shop"
+    # As a customer of someone else's shop they book like anyone.
+    assert (await book(client, "svc-a", who="owner-2"))["status"] == "PENDING"
+
+
 async def set_status(client, booking_id, status, who, start_code=None):
     body = {"status": status, "start_code": start_code} if start_code else {"status": status}
     return await client.put(f"/api/v1/bookings/{booking_id}/status", json=body, headers=auth(who))

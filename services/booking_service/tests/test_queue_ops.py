@@ -100,6 +100,12 @@ async def test_a_customer_joins_the_line_from_the_app_once_and_only_while_open(c
 
 
 @pytest.mark.asyncio
+async def test_an_owner_cannot_join_their_own_line(client):
+    refused = await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("owner-1"))
+    assert refused.status_code == 409 and refused.json()["detail"] == "You can't book your own shop"
+
+
+@pytest.mark.asyncio
 async def test_a_break_moves_waiting_customers_to_whoever_else_can_serve_them(client):
     CLOCK["now"] = ist(MON, "10:30")
     a, b = await walk_in(client, "One"), await walk_in(client, "Two")

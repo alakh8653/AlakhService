@@ -16,6 +16,9 @@ class ShopScheduleSettings(Base):
     hours_configured = Column(Boolean, default=False, server_default=false(), nullable=False)
     # How many customers can be served at once; null means one per active staff member.
     capacity = Column(Integer, nullable=True)
+    # Bookings are confirmed at once while a place is free, with no tap from the owner. Needs opening
+    # hours: only a shop with hours has its capacity checked.
+    auto_confirm = Column(Boolean, default=False, server_default=false(), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=True)
 
 

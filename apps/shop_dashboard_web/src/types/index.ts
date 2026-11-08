@@ -124,6 +124,8 @@ export interface ShopHours {
   capacity: number;
   /** Set by the owner; null means one per active staff member. */
   capacityOverride: number | null;
+  /** Each booking is confirmed at once while a place is free (needs opening hours). */
+  autoConfirm: boolean;
   activeStaff: number;
   updatedAt: string | null;
 }

@@ -3319,4 +3319,32 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get verified => 'सत्यापित';
+
+  @override
+  String get ownerCapacityTitle => 'एक समय में ग्राहक';
+
+  @override
+  String get ownerCapacityLabel => 'एक साथ कितने ग्राहक';
+
+  @override
+  String ownerCapacityHelp(int count) {
+    return 'किसी समय पर इतनी बुकिंग होने के बाद ग्राहक उस समय बुक नहीं कर सकते। हर टीम सदस्य के लिए एक ग्राहक ($count) रखने के लिए खाली छोड़ें।';
+  }
+
+  @override
+  String get ownerCapacityInvalid => '1 से 100 तक की पूरी संख्या लिखें';
+
+  @override
+  String get ownerAutoConfirm => 'बुकिंग अपने आप पक्की करें';
+
+  @override
+  String get ownerAutoConfirmHelp =>
+      'जगह खाली होने तक हर बुकिंग तुरंत पक्की हो जाएगी। आपको उन्हें स्वीकार नहीं करना होगा।';
+
+  @override
+  String get bookingConfirmedNow => 'बुकिंग पक्की हो गई';
+
+  @override
+  String get bookingConfirmedNowBody =>
+      'दुकान में आपके लिए जगह है, इसलिए आपकी बुकिंग पक्की हो गई है। आप अपनी बुकिंग से भुगतान कर सकते हैं।';
 }

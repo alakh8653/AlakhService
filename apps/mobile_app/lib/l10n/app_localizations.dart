@@ -5905,6 +5905,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Verified'**
   String get verified;
+
+  /// No description provided for @ownerCapacityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers at the same time'**
+  String get ownerCapacityTitle;
+
+  /// No description provided for @ownerCapacityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers at once'**
+  String get ownerCapacityLabel;
+
+  /// No description provided for @ownerCapacityHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Once a time has this many bookings, customers can\'t book it. Leave empty for one per team member ({count}).'**
+  String ownerCapacityHelp(int count);
+
+  /// No description provided for @ownerCapacityInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number from 1 to 100'**
+  String get ownerCapacityInvalid;
+
+  /// No description provided for @ownerAutoConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm bookings automatically'**
+  String get ownerAutoConfirm;
+
+  /// No description provided for @ownerAutoConfirmHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Each booking is confirmed straight away while a place is free. You won\'t need to accept them.'**
+  String get ownerAutoConfirmHelp;
+
+  /// No description provided for @bookingConfirmedNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking confirmed'**
+  String get bookingConfirmedNow;
+
+  /// No description provided for @bookingConfirmedNowBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop has a place for you, so your booking is confirmed. You can pay from your booking.'**
+  String get bookingConfirmedNowBody;
 }
 
 class _AppLocalizationsDelegate

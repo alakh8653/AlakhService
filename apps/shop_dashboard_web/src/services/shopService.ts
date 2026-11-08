@@ -128,6 +128,7 @@ interface ShopHoursResponse {
   holidays: { date: string; note: string | null }[];
   capacity: number;
   capacity_override: number | null;
+  auto_confirm?: boolean;
   active_staff: number;
   updated_at: string | null;
 }
@@ -142,6 +143,7 @@ export function toShopHours(data: ShopHoursResponse): ShopHours {
     holidays: data.holidays,
     capacity: data.capacity,
     capacityOverride: data.capacity_override,
+    autoConfirm: data.auto_confirm ?? false,
     activeStaff: data.active_staff,
     updatedAt: data.updated_at,
   };
@@ -163,6 +165,11 @@ export async function saveWeeklyHours(shopId: string, weekly: OpenInterval[][]):
 /** null goes back to one customer per active staff member. */
 export async function saveCapacity(shopId: string, capacity: number | null): Promise<ShopHours> {
   const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/capacity`, { capacity });
+  return toShopHours(data);
+}
+
+export async function saveAutoConfirm(shopId: string, autoConfirm: boolean): Promise<ShopHours> {
+  const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/auto-confirm`, { auto_confirm: autoConfirm });
   return toShopHours(data);
 }
 

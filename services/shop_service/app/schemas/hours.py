@@ -79,6 +79,10 @@ class CapacityUpdate(BaseModel):
     capacity: Optional[int] = Field(default=None, ge=1, le=100)
 
 
+class AutoConfirmUpdate(BaseModel):
+    auto_confirm: bool
+
+
 class HolidayCreate(BaseModel):
     date: date
     note: Optional[str] = Field(default=None, max_length=120)
@@ -106,6 +110,8 @@ class ShopSchedule(BaseModel):
     # How many bookings may overlap at any moment.
     capacity: int
     capacity_override: Optional[int] = None
+    # Confirm each booking at once while a place is free (booking_service reads it; needs hours).
+    auto_confirm: bool = False
     active_staff: int
     updated_at: Optional[datetime] = None
     # False while the shop awaits approval or is switched off: booking_service turns bookings away.

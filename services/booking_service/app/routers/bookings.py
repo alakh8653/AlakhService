@@ -193,7 +193,11 @@ async def create_booking(
                     status_code=409, detail=f"{name} is not working then; choose another time or anyone"
                 )
     # Checked before the coupon is used up, and held until the booking is committed (see hold_shop_capacity).
-    await _ensure_bookable(db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock())
+    schedule = await _ensure_bookable(
+        db, listing["shop_id"], booking_data.scheduled_at, duration, lookup_schedule, clock()
+    )
+    # Only with opening hours: without them nothing checks that a place is free.
+    confirm_now = schedule.auto_confirm and schedule.configured
     booking_id = str(uuid.uuid4())
     price = listing["price_cents"]
     code = (booking_data.coupon_code or "").strip().upper() or None
@@ -246,6 +250,10 @@ async def create_booking(
         booking = await booking_service.create_booking(
             db, customer_id, booking_data, metadata, idempotency_key, fingerprint, booking_id
         )
+        if confirm_now:  # still under hold_shop_capacity, so the last place cannot go twice
+            booking = await booking_service.transition_status(
+                db, booking.id, BookingStatus.CONFIRMED.value, SYSTEM, AUTO_CONFIRM_REASON
+            )
         # Commit first: the background task delays the session's own commit, and the people notified
         # (and the caller's next request) must already see the change.
         await db.commit()
@@ -271,7 +279,18 @@ async def create_booking(
         customer_id,
         lookup_owner,
         roles=("shop",),
+        extra={"confirm_line": AUTO_CONFIRM_LINE} if confirm_now else None,
     )
+    if confirm_now:
+        background.add_task(
+            notify_booking,
+            notifier,
+            snapshot(booking, listing.get("name")),
+            "booking.confirmed",
+            None,  # nobody tapped confirm, so the customer who booked is told too
+            lookup_owner,
+            roles=("customer",),
+        )
     return await present(booking, current_user, lookup_names)
 
 
@@ -286,7 +305,7 @@ async def _give_back(wallet, packages, booking_id: str, points_discount: int, pa
 
 async def _ensure_bookable(
     db, shop_id, start: datetime, duration: int, lookup_schedule, now: datetime, exclude_id: Optional[str] = None
-) -> None:
+) -> availability.Schedule:
     """409 unless the shop is open for the whole booking, it is far enough ahead, and a place is free.
 
     A shop that has not published opening hours takes any future time, as before hours existed.
@@ -297,7 +316,7 @@ async def _ensure_bookable(
         raise HTTPException(status_code=409, detail=availability.NOT_ACCEPTING_MESSAGE)
     # Without hours there is still a day off to respect (availability.booking_problem).
     if not schedule.configured and not schedule.holidays:
-        return
+        return schedule
     await booking_service.hold_shop_capacity(db, shop_id)
     start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
     end = start + timedelta(minutes=duration)
@@ -307,6 +326,7 @@ async def _ensure_bookable(
     problem = availability.booking_problem(schedule, start, duration, now, booked, grace=timedelta(minutes=5))
     if problem:
         raise HTTPException(status_code=409, detail=problem)
+    return schedule
 
 
 @router.get("/bookings", response_model=BookingListResponse)
@@ -459,6 +479,10 @@ def cancelled_by(parties) -> str:
         return "shop"
     return "customer"
 
+
+SYSTEM = "system"
+AUTO_CONFIRM_REASON = "Confirmed automatically: a place was free"
+AUTO_CONFIRM_LINE = "Confirmed automatically."
 
 PAYMENT_EVENTS = {BookingStatus.COMPLETED.value: payments.COMPLETED, BookingStatus.DISPUTED.value: payments.DISPUTED}
 

@@ -1831,5 +1831,14 @@
   "sosCall": "Call {number}",
   "@sosCall": {"placeholders": {"number": {"type": "String"}}},
   "close": "Close",
-  "verified": "Verified"
+  "verified": "Verified",
+  "ownerCapacityTitle": "Customers at the same time",
+  "ownerCapacityLabel": "Customers at once",
+  "ownerCapacityHelp": "Once a time has this many bookings, customers can't book it. Leave empty for one per team member ({count}).",
+  "@ownerCapacityHelp": {"placeholders": {"count": {"type": "int"}}},
+  "ownerCapacityInvalid": "Enter a whole number from 1 to 100",
+  "ownerAutoConfirm": "Confirm bookings automatically",
+  "ownerAutoConfirmHelp": "Each booking is confirmed straight away while a place is free. You won't need to accept them.",
+  "bookingConfirmedNow": "Booking confirmed",
+  "bookingConfirmedNowBody": "The shop has a place for you, so your booking is confirmed. You can pay from your booking."
 }

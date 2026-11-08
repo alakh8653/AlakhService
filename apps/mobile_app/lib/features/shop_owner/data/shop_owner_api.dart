@@ -440,6 +440,29 @@ class PayoutDetails {
       );
 }
 
+/// How many customers a time can take, and whether bookings confirm themselves while a place is free.
+class BookingLimits {
+  /// Null means one customer per active team member.
+  final int? capacityOverride;
+  final int capacity;
+  final int activeStaff;
+  final bool autoConfirm;
+
+  const BookingLimits({
+    required this.capacityOverride,
+    required this.capacity,
+    required this.activeStaff,
+    required this.autoConfirm,
+  });
+
+  factory BookingLimits.fromSchedule(Map<String, dynamic> j) => BookingLimits(
+        capacityOverride: j['capacity_override'] as int?,
+        capacity: j['capacity'] as int? ?? 1,
+        activeStaff: j['active_staff'] as int? ?? 0,
+        autoConfirm: j['auto_confirm'] as bool? ?? false,
+      );
+}
+
 /// Opening hours for the week as the owner sets them on the phone: the same hours on the chosen days.
 class WeekHours {
   /// 0 = Monday ... 6 = Sunday.
@@ -564,6 +587,19 @@ class ShopOwnerApi {
 
   Future<void> saveHours(String shopId, WeekHours hours) => _call(() async {
         await apiClient.put<Map<String, dynamic>>(ApiConstants.shopHours(shopId), data: hours.toJson());
+      });
+
+  Future<BookingLimits> bookingLimits(String shopId) => _call(() async {
+        return BookingLimits.fromSchedule((await apiClient.get<Map<String, dynamic>>(ApiConstants.shopHours(shopId))).data!);
+      });
+
+  /// Null goes back to one customer per active team member.
+  Future<void> saveCapacity(String shopId, int? capacity) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/capacity', data: {'capacity': capacity});
+      });
+
+  Future<void> saveAutoConfirm(String shopId, bool autoConfirm) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/auto-confirm', data: {'auto_confirm': autoConfirm});
       });
 
   Future<WeekHours> hours(String shopId) => _call(() async {

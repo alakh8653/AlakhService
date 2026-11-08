@@ -197,6 +197,10 @@ class OwnerHoursPage extends StatefulWidget {
 class _OwnerHoursPageState extends State<OwnerHoursPage> {
   late final ShopOwnerApi _api = widget.api ?? sl<ShopOwnerApi>();
   WeekHours? _hours;
+  BookingLimits? _limits;
+  final _capacity = TextEditingController();
+  bool _autoConfirm = false;
+  String? _capacityError;
   bool _simplified = false;
   bool _saving = false;
   String? _error;
@@ -210,10 +214,14 @@ class _OwnerHoursPageState extends State<OwnerHoursPage> {
   Future<void> _load() async {
     try {
       final hours = await _api.hours(widget.shopId);
+      final limits = await _api.bookingLimits(widget.shopId);
       if (mounted) {
         setState(() {
           _hours = hours;
           _simplified = hours.simplified;
+          _limits = limits;
+          _capacity.text = limits.capacityOverride?.toString() ?? '';
+          _autoConfirm = limits.autoConfirm;
         });
       }
     } on ServerException catch (e) {
@@ -221,15 +229,32 @@ class _OwnerHoursPageState extends State<OwnerHoursPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _capacity.dispose();
+    super.dispose();
+  }
+
   Future<void> _save() async {
     final hours = _hours;
-    if (hours == null) return;
+    final limits = _limits;
+    if (hours == null || limits == null) return;
+    final text = _capacity.text.trim();
+    final capacity = text.isEmpty ? null : int.tryParse(text);
+    if (text.isNotEmpty && (capacity == null || capacity < 1 || capacity > 100)) {
+      setState(() => _capacityError = context.l10n.ownerCapacityInvalid);
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
+      _capacityError = null;
     });
     try {
+      // The hours first: confirming by itself only works once they are saved.
       await _api.saveHours(widget.shopId, hours);
+      if (capacity != limits.capacityOverride) await _api.saveCapacity(widget.shopId, capacity);
+      if (_autoConfirm != limits.autoConfirm) await _api.saveAutoConfirm(widget.shopId, _autoConfirm);
       if (mounted) Navigator.pop(context);
     } on ServerException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -256,6 +281,27 @@ class _OwnerHoursPageState extends State<OwnerHoursPage> {
                     const SizedBox(height: 16),
                   ],
                   WeekHoursEditor(hours: hours, onChanged: (value) => setState(() => _hours = value)),
+                  const SizedBox(height: 24),
+                  Text(l10n.ownerCapacityTitle, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _capacity,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: l10n.ownerCapacityLabel,
+                      helperText: l10n.ownerCapacityHelp(_limits?.activeStaff ?? 0),
+                      helperMaxLines: 3,
+                      errorText: _capacityError,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.ownerAutoConfirm),
+                    subtitle: Text(l10n.ownerAutoConfirmHelp),
+                    value: _autoConfirm,
+                    onChanged: (value) => setState(() => _autoConfirm = value),
+                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(_error!, style: AppTextStyles.body2.copyWith(color: AppColors.error)),

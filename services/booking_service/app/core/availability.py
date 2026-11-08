@@ -72,6 +72,8 @@ class Schedule:
     timezone: str = DEFAULT_TIMEZONE
     # False while the shop awaits approval or is switched off: no times, and bookings are refused.
     accepting_bookings: bool = True
+    # The owner's choice to confirm each booking at once while a place is free.
+    auto_confirm: bool = False
 
     @classmethod
     def from_shop_service(cls, data: Optional[dict]) -> "Schedule":
@@ -86,6 +88,7 @@ class Schedule:
             accepting_bookings=data.get("accepting_bookings") is not False,
             configured=bool(data.get("configured")),
             capacity=max(1, int(data.get("capacity") or 1)),
+            auto_confirm=bool(data.get("auto_confirm")),
             weekly=weekly,
             holidays=holidays,
             timezone=data.get("timezone") or DEFAULT_TIMEZONE,

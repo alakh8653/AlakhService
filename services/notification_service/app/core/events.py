@@ -11,7 +11,7 @@ from typing import Optional
 MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
     ("booking.created", "shop"): (
         "New booking",
-        "{service_name} booked for {scheduled_at}. Booking {booking_number}. {rework_line}",
+        "{service_name} booked for {scheduled_at}. Booking {booking_number}. {confirm_line} {rework_line}",
     ),
     # A customer or provider asked for help during a booking: every admin, by push and email.
     ("safety.sos", None): (

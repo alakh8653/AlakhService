@@ -56,3 +56,8 @@ async def test_every_admin_gets_an_sos_by_email_even_with_the_app(client):  # no
     finally:
         CONTACTS.pop("adm-1")
         CONTACTS.pop("adm-2")
+
+
+def test_the_shop_is_told_when_a_booking_confirmed_itself():
+    body = render("booking.created", "shop", {**DATA, "confirm_line": "Confirmed automatically."})[1]
+    assert body.endswith("Confirmed automatically.")

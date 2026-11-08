@@ -3357,4 +3357,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get verified => 'Verified';
+
+  @override
+  String get ownerCapacityTitle => 'Customers at the same time';
+
+  @override
+  String get ownerCapacityLabel => 'Customers at once';
+
+  @override
+  String ownerCapacityHelp(int count) {
+    return 'Once a time has this many bookings, customers can\'t book it. Leave empty for one per team member ($count).';
+  }
+
+  @override
+  String get ownerCapacityInvalid => 'Enter a whole number from 1 to 100';
+
+  @override
+  String get ownerAutoConfirm => 'Confirm bookings automatically';
+
+  @override
+  String get ownerAutoConfirmHelp =>
+      'Each booking is confirmed straight away while a place is free. You won\'t need to accept them.';
+
+  @override
+  String get bookingConfirmedNow => 'Booking confirmed';
+
+  @override
+  String get bookingConfirmedNowBody =>
+      'The shop has a place for you, so your booking is confirmed. You can pay from your booking.';
 }

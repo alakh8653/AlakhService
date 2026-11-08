@@ -6,13 +6,14 @@ import authReducer, { setShop } from '../../state/authSlice';
 import bookingReducer from '../../state/bookingSlice';
 import OpeningHoursPage from '../OpeningHoursPage';
 import { ToastProvider } from '../../components/Toast';
-import { addHoliday, getShopHours, removeHoliday, saveCapacity, saveWeeklyHours } from '../../services/shopService';
+import { addHoliday, getShopHours, removeHoliday, saveAutoConfirm, saveCapacity, saveWeeklyHours } from '../../services/shopService';
 import type { OpenInterval, Shop, ShopHours } from '../../types';
 
 vi.mock('../../services/shopService', () => ({
   getShopHours: vi.fn(),
   saveWeeklyHours: vi.fn(),
   saveCapacity: vi.fn(),
+  saveAutoConfirm: vi.fn(),
   addHoliday: vi.fn(),
   removeHoliday: vi.fn(),
 }));
@@ -25,6 +26,7 @@ const hours = (over: Partial<ShopHours> = {}): ShopHours => ({
   holidays: [],
   capacity: 2,
   capacityOverride: null,
+  autoConfirm: false,
   activeStaff: 2,
   updatedAt: null,
   ...over,
@@ -171,6 +173,25 @@ describe('OpeningHoursPage closures and capacity', () => {
     fireEvent.click(within(list).getByRole('button', { name: /Remove/ }));
     await waitFor(() => expect(removeHoliday).toHaveBeenCalledWith('s1', '2099-11-08'));
     expect(await screen.findByText('No upcoming closures.')).toBeInTheDocument();
+  });
+
+  it('turns automatic confirmation on once opening hours are saved', async () => {
+    vi.mocked(getShopHours).mockResolvedValue(hours({ configured: true, capacity: 3 }));
+    vi.mocked(saveAutoConfirm).mockResolvedValue(hours({ configured: true, capacity: 3, autoConfirm: true }));
+    renderPage();
+    const box = await screen.findByRole('checkbox', { name: /Confirm each booking straight away/ });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    await waitFor(() => expect(saveAutoConfirm).toHaveBeenCalledWith('s1', true));
+    expect(await screen.findByText('New bookings will be confirmed automatically.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /Confirm each booking straight away/ })).toBeChecked());
+  });
+
+  it('asks for opening hours before automatic confirmation can be turned on', async () => {
+    vi.mocked(getShopHours).mockResolvedValue(hours({ configured: false }));
+    renderPage();
+    expect(await screen.findByRole('checkbox', { name: /Confirm each booking straight away/ })).toBeDisabled();
+    expect(screen.getByText('Save your opening hours first. Automatic confirmation needs them.')).toBeInTheDocument();
   });
 
   it('explains the default capacity, saves an override and goes back to the staff count', async () => {

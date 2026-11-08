@@ -191,6 +191,11 @@ async def test_customers_rate_a_shop_once_per_completed_booking(client):
     assert rated.json()["rating_avg"] == 4.0 and rated.json()["rating_count"] == 1
     assert (await client.post(url, json={"booking_id": "done", "rating": 1}, headers=customer)).status_code == 409
 
+    # An owner's own booking at their shop, from before this was refused, cannot become a review.
+    BOOKINGS["mine"] = {"id": "mine", "customer_id": "owner-1", "shop_id": shop["id"], "status": "COMPLETED"}
+    own = await client.post(url, json={"booking_id": "mine", "rating": 5}, headers=auth("owner-1"))
+    assert own.status_code == 409 and own.json()["detail"] == "You can't rate your own shop"
+
 
 @pytest.mark.asyncio
 async def test_shop_lists_are_paged_within_bounds(client):

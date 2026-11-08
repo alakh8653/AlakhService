@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.contact_filter import mask_contact
-from app.core.exceptions import RatingExistsError, ShopNotFoundError
+from app.core.exceptions import OwnShopRatingError, RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
 from app.core.reporting import Reporter, get_reporter
 from app.core.trades import required_for
@@ -204,5 +204,5 @@ async def rate_shop(
         return for_caller(rated, caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except RatingExistsError as e:
+    except (OwnShopRatingError, RatingExistsError) as e:
         raise HTTPException(status_code=409, detail=str(e)) from e

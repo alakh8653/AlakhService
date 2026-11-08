@@ -22,7 +22,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core import availability, home_visits, live_queue, payments, queue_hub, queue_ops, risk, trust, waitlist
-from app.core.access import ADMIN, CUSTOMER, PROVIDER, SHOP_OWNER, OwnerLookup, may_transition, relationships
+from app.core.access import (
+    ADMIN,
+    CUSTOMER,
+    PROVIDER,
+    SHOP_OWNER,
+    OwnerLookup,
+    ensure_not_own_shop,
+    may_transition,
+    relationships,
+)
 from app.core.fsm import AT_HOME, AT_SHOP, PICKUP_DROP, BookingStatus
 from app.core.names import FALLBACK, NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot, when
@@ -162,6 +171,7 @@ async def create_booking(
         raise HTTPException(status_code=404, detail="Service not found")
     if not listing.get("is_active", False):
         raise HTTPException(status_code=409, detail="Service is not currently offered")
+    await ensure_not_own_shop(lookup_owner, listing["shop_id"], customer_id)
     duration = listing.get("duration_minutes") or booking_data.duration_minutes
     if not duration:
         raise HTTPException(status_code=422, detail="duration_minutes is required for this service")

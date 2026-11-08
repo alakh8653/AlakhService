@@ -21,7 +21,7 @@ from starlette.websockets import WebSocketDisconnected
 
 from app.core import availability, live_queue, payments, queue_ops, risk
 from app.core import queue_engine as qe
-from app.core.access import ADMIN, CUSTOMER, SHOP_OWNER, OwnerLookup
+from app.core.access import ADMIN, CUSTOMER, SHOP_OWNER, OwnerLookup, ensure_not_own_shop
 from app.core.fsm import AT_SHOP, BookingStatus
 from app.core.names import NameLookup, get_name_lookup
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
@@ -381,6 +381,7 @@ async def join_line(
     customer_id = current_user.get("sub")
     listing = await _listing_for(lookup_service, body.service_id)
     shop_id = listing["shop_id"]
+    await ensure_not_own_shop(lookup_owner, shop_id, customer_id)
     schedule = await _schedule(lookup_schedule, shop_id)
     now = live_queue._utc(clock())
     if not schedule.accepting_bookings:

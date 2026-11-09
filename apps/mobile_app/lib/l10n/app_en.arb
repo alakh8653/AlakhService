@@ -1840,5 +1840,9 @@
   "ownerAutoConfirm": "Confirm bookings automatically",
   "ownerAutoConfirmHelp": "Each booking is confirmed straight away while a place is free. You won't need to accept them.",
   "bookingConfirmedNow": "Booking confirmed",
-  "bookingConfirmedNowBody": "The shop has a place for you, so your booking is confirmed. You can pay from your booking."
+  "bookingConfirmedNowBody": "The shop has a place for you, so your booking is confirmed. You can pay from your booking.",
+  "lineWaitMinutes": "About {minutes} min wait now · {count, plural, =0{nobody waiting} =1{1 person waiting} other{{count} people waiting}}",
+  "@lineWaitMinutes": {"placeholders": {"minutes": {"type": "int"}, "count": {"type": "int"}}},
+  "lineNoWait": "No wait right now",
+  "lineFullToday": "The line is full for today: book a time instead"
 }

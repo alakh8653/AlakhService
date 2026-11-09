@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
 from app.config import settings
+from app.core.http import TLS
 
 security = HTTPBearer()
 log = structlog.get_logger()
@@ -102,7 +103,7 @@ async def fetch_shop_owner(shop_id: str) -> Optional[str]:
 
 
 async def _fetch_shop_owner(shop_id: str) -> Optional[str]:
-    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+    async with httpx.AsyncClient(verify=TLS, base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}", headers=internal_headers())
         except httpx.HTTPError as exc:
@@ -136,7 +137,7 @@ async def require_shop_access(
 
 async def fetch_service_listing(service_id: str) -> Optional[dict]:
     """The service catalogue's listing (price_cents, duration_minutes, shop_id, is_active), or None."""
-    async with httpx.AsyncClient(base_url=settings.SERVICE_CATALOG_URL, timeout=5.0) as client:
+    async with httpx.AsyncClient(verify=TLS, base_url=settings.SERVICE_CATALOG_URL, timeout=5.0) as client:
         try:
             resp = await client.get(f"/api/v1/services/{path_segment(service_id)}")
         except httpx.HTTPError as exc:
@@ -154,7 +155,7 @@ def get_service_lookup() -> Callable[[str], Awaitable[Optional[dict]]]:
 
 async def fetch_shop_provider_ids(shop_id: str, token: str) -> set:
     """User ids of the shop's active staff, as shop_service shows them to the caller (the owner)."""
-    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+    async with httpx.AsyncClient(verify=TLS, base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(
                 "/api/v1/staff", params={"shop_id": shop_id}, headers={"Authorization": f"Bearer {token}"}
@@ -185,7 +186,7 @@ async def fetch_shop_team(shop_id: str) -> List[dict]:
 
 
 async def _fetch_shop_team(shop_id: str) -> List[dict]:
-    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
+    async with httpx.AsyncClient(verify=TLS, base_url=settings.SHOP_SERVICE_URL, timeout=5.0) as client:
         try:
             resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/team")
         except httpx.HTTPError as exc:
@@ -220,7 +221,9 @@ async def fetch_shop_schedule(shop_id: str) -> Optional[dict]:
 
 async def _fetch_shop_schedule(shop_id: str) -> Optional[dict]:
     # Short timeouts: this sits in front of every booking.
-    async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
+    async with httpx.AsyncClient(
+        verify=TLS, base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)
+    ) as client:
         try:
             resp = await client.get(f"/api/v1/shops/{path_segment(shop_id)}/hours", headers=internal_headers())
         except httpx.HTTPError as exc:
@@ -257,7 +260,7 @@ async def fetch_location(kind: str, ref: str) -> Optional[Tuple[float, float]]:
         base, path = settings.USER_SERVICE_URL, f"/internal/addresses/{path_segment(ref)}/location"
     else:
         base, path = settings.SHOP_SERVICE_URL, f"/api/v1/shops/{path_segment(ref)}"
-    async with httpx.AsyncClient(base_url=base, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
+    async with httpx.AsyncClient(verify=TLS, base_url=base, timeout=httpx.Timeout(3.0, connect=1.0)) as client:
         resp = await client.get(path, headers=internal_headers())
     point = None
     if resp.status_code == 200:
@@ -285,7 +288,9 @@ async def fetch_shop_name(shop_id: str) -> Optional[str]:
     if hit:
         return name
     try:
-        async with httpx.AsyncClient(base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)) as c:
+        async with httpx.AsyncClient(
+            verify=TLS, base_url=settings.SHOP_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)
+        ) as c:
             resp = await c.get(f"/api/v1/shops/{path_segment(shop_id)}", headers=internal_headers())
     except httpx.HTTPError as exc:
         log.warning("shop_name_unavailable", shop_id=shop_id, error=str(exc))
@@ -314,7 +319,7 @@ async def fetch_provider_location(provider_id: str) -> Optional[dict]:
     )
     try:
         async with httpx.AsyncClient(
-            base_url=settings.TRACKING_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)
+            verify=TLS, base_url=settings.TRACKING_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0)
         ) as c:
             resp = await c.get(
                 f"/api/v1/locations/{path_segment(provider_id)}", headers={"Authorization": f"Bearer {token}"}
@@ -339,7 +344,7 @@ async def fetch_admin_ids() -> List[str]:
     if not settings.INTERNAL_API_KEY:
         return []
     try:
-        async with httpx.AsyncClient(base_url=settings.AUTH_SERVICE_URL, timeout=5.0) as client:
+        async with httpx.AsyncClient(verify=TLS, base_url=settings.AUTH_SERVICE_URL, timeout=5.0) as client:
             resp = await client.get("/internal/users/admins", headers={"X-Internal-Key": settings.INTERNAL_API_KEY})
         resp.raise_for_status()
         return [i for i in resp.json().get("user_ids", []) if isinstance(i, str) and i]
@@ -367,7 +372,9 @@ async def price_with_coupon(token: str, customer_id: str, service_id: str, list_
     Runs as the customer (their token), so the coupon's once-per-customer rule applies to them.
     """
     headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(base_url=settings.PRICING_ENGINE_URL, timeout=5.0, headers=headers) as client:
+    async with httpx.AsyncClient(
+        verify=TLS, base_url=settings.PRICING_ENGINE_URL, timeout=5.0, headers=headers
+    ) as client:
         try:
             check = await client.get(f"/api/v1/coupons/{path_segment(code)}/validate")
             if check.status_code == 404:

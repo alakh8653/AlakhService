@@ -103,10 +103,37 @@ async def test_the_worker_times_each_pass(monkeypatch):
         if len(calls) == 2:
             raise asyncio.CancelledError
 
-    monkeypatch.setattr(worker, "run_once", one_pass)
+    monkeypatch.setattr(worker, "run_if_first", one_pass)
     monkeypatch.setattr(worker, "asyncio", SimpleNamespace(sleep=stop_after_two, CancelledError=asyncio.CancelledError))
     before = value("alakh_booking_worker_pass_seconds_count")
     with pytest.raises(asyncio.CancelledError):
         await worker.run_forever(None, None, None, None)
     assert value("alakh_booking_worker_pass_seconds_count") == before + 2
     assert value("alakh_booking_worker_last_pass_timestamp_seconds") > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("free,runs", [(True, 1), (False, 0)])
+async def test_only_one_process_does_a_worker_pass(monkeypatch, free, runs):
+    done = []
+
+    async def one_pass(*args, **kwargs):
+        done.append(1)
+        return {}
+
+    class Guard:
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        async def execute(self, *args):
+            return SimpleNamespace(scalar=lambda: free)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    monkeypatch.setattr(worker, "run_once", one_pass)
+    await worker.run_if_first(lambda: Guard())
+    assert len(done) == runs

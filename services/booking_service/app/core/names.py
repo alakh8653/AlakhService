@@ -12,6 +12,7 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.core.http import TLS
 
 log = structlog.get_logger()
 
@@ -40,7 +41,10 @@ async def fetch_display_names(
     if missing and settings.INTERNAL_API_KEY:
         try:
             async with httpx.AsyncClient(
-                base_url=settings.AUTH_SERVICE_URL, timeout=httpx.Timeout(3.0, connect=1.0), transport=transport
+                verify=TLS,
+                base_url=settings.AUTH_SERVICE_URL,
+                timeout=httpx.Timeout(3.0, connect=1.0),
+                transport=transport,
             ) as client:
                 for start in range(0, len(missing), 200):
                     resp = await client.post(

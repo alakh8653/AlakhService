@@ -179,6 +179,10 @@ services:
     image: localhost/alakhservice/booking_service:${IMAGE_TAG:-latest}
     environment:
       <<: *prod-env
+      # Busy times: each process serves its share of customers looking at their place in line. Live
+      # updates reach every process through Redis (docs/LIVE_QUEUE.md).
+      WEB_CONCURRENCY: ${BOOKING_PROCESSES:-3}
+      QUEUE_PUBSUB: "true"
       # Masked calls between customer and shop (docs/PRIVACY_AND_CONTACT.md). Off unless set.
       CALL_PROVIDER: ${CALL_PROVIDER:-none}
       EXOTEL_API_KEY: ${EXOTEL_API_KEY:-}

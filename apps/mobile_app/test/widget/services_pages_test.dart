@@ -1,6 +1,7 @@
 import 'package:alakh_service/core/network/api_client.dart';
 import 'package:alakh_service/core/network/network_info.dart';
 import 'package:alakh_service/core/network/token_store.dart';
+import 'package:alakh_service/features/booking/data/booking_queue_api.dart';
 import 'package:alakh_service/features/directions/data/shop_location_api.dart';
 import 'package:alakh_service/features/queue/data/queue_api.dart';
 import 'package:alakh_service/features/reviews/data/reviews_api.dart';
@@ -139,6 +140,61 @@ void main() {
     expect(find.text('+₹99'), findsOneWidget);
     expect(find.text('₹4,500'), findsOneWidget); // in the bar with Book Now, always on screen
     expect(find.text('Book Now'), findsOneWidget);
+  });
+
+  group('the wait before joining the line', () {
+    Future<void> open(WidgetTester tester, Map<String, Object?> wait) async {
+      final adapter = FakeAdapter((r) => r.path.endsWith('/wait-now')
+          ? (status: 200, body: wait)
+          : r.path.endsWith('/hours')
+          ? (status: 200, body: {
+              'configured': true,
+              'weekly': [
+                {'day': 6, 'intervals': [{'start': '10:00', 'end': '20:00'}]},
+              ],
+              'holidays': <Object>[],
+            })
+          : r.path.contains('/shops/')
+          ? (status: 200, body: {'name': 'Demo Salon', 'address': '12 MG Road', 'city': 'Pune'})
+          : (status: 200, body: <Object>[]));
+      final client = clientFor(adapter);
+      const service = ServiceEntity(
+        id: 's', name: 'Haircut', description: '', category: '', basePrice: 200, priceUnit: '20 min', shopId: 'shop-1',
+        serviceModes: [ServiceMode.atShop],
+      );
+      await tester.pumpWidget(MaterialApp(
+        home: ServiceDetailPage(
+          service: service,
+          shopApi: ShopLocationApi(client),
+          queueApi: QueueApi(client),
+          reviewsApi: ReviewsApi(client),
+          hoursApi: ShopHoursApi(client),
+          lineApi: BookingQueueApi(client),
+          clock: () => DateTime.utc(2026, 10, 18, 9), // Sunday 2:30 PM in India, open
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    OutlinedButton join(WidgetTester tester) =>
+        tester.widget<OutlinedButton>(find.ancestor(of: find.text("Join today's line now"), matching: find.byType(OutlinedButton)));
+
+    testWidgets('shows the minutes and people waiting', (tester) async {
+      await open(tester, {'open': true, 'can_join': true, 'waiting': 4, 'wait_minutes': 35});
+      expect(find.text('About 35 min wait now · 4 people waiting'), findsOneWidget);
+      expect(join(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('says when there is no wait', (tester) async {
+      await open(tester, {'open': true, 'can_join': true, 'waiting': 0, 'wait_minutes': 0});
+      expect(find.text('No wait right now'), findsOneWidget);
+    });
+
+    testWidgets('a full line says so and cannot be joined', (tester) async {
+      await open(tester, {'open': true, 'can_join': false, 'waiting': 30});
+      expect(find.text('The line is full for today: book a time instead'), findsOneWidget);
+      expect(join(tester).onPressed, isNull);
+    });
   });
 
   testWidgets('an unavailable service explains why it cannot be booked', (tester) async {

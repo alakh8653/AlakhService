@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -59,7 +60,7 @@ class AuthService:
             email=user_create.email,
             phone=user_create.phone,
             full_name=user_create.full_name,
-            hashed_password=hash_password(user_create.password),
+            hashed_password=await asyncio.to_thread(hash_password, user_create.password),
             is_active=True,
             is_verified=False,
             is_superuser=False,
@@ -89,7 +90,7 @@ class AuthService:
 
         user = await self._find_user(db, identifier)
 
-        if not user or not verify_password(login_data.password, user.hashed_password):
+        if not user or not await asyncio.to_thread(verify_password, login_data.password, user.hashed_password):
             await self._record_login_attempt(db, identifier, ip, False)
             locked = await self._count_failure(redis, identifier, ip)
             # Keep the audit row: the error makes the request's session roll back.
@@ -388,7 +389,7 @@ class AuthService:
         if not user or not password_reset_token_matches(payload, user.hashed_password):
             raise InvalidTokenError()
 
-        user.hashed_password = hash_password(new_password)
+        user.hashed_password = await asyncio.to_thread(hash_password, new_password)
         user.updated_at = datetime.now(timezone.utc)
         # Sign out every session that was opened with the old password.
         await self.revoke_all_sessions(db, redis, user.id)

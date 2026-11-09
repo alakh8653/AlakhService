@@ -3385,4 +3385,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get bookingConfirmedNowBody =>
       'The shop has a place for you, so your booking is confirmed. You can pay from your booking.';
+
+  @override
+  String lineWaitMinutes(int minutes, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people waiting',
+      one: '1 person waiting',
+      zero: 'nobody waiting',
+    );
+    return 'About $minutes min wait now · $_temp0';
+  }
+
+  @override
+  String get lineNoWait => 'No wait right now';
+
+  @override
+  String get lineFullToday => 'The line is full for today: book a time instead';
 }

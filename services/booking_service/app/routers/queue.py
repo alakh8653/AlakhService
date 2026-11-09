@@ -8,6 +8,7 @@ Anyone: GET /bookings/shop/{shop_id}/queue/board, a masked board for a screen at
 """
 
 import json
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, List, Literal, Optional
@@ -55,6 +56,9 @@ router = APIRouter()
 # What a screen at the shop shows: who is being served and the next few, names masked.
 BOARD_NEXT = 8
 FAR_FUTURE = datetime.max.replace(tzinfo=timezone.utc)
+# A public page many people open at once: each service's answer is worked out once in this time.
+WAIT_NOW_SECONDS = 15
+_wait_cache: Dict[str, tuple] = {}
 
 
 class QueueSettingsBody(BaseModel):
@@ -101,6 +105,19 @@ class WalkInBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     vip: bool = False
     preferred_staff_id: Optional[str] = None
+
+
+class WaitNow(BaseModel):
+    """What someone would get by joining the shop's line now."""
+
+    open: bool
+    can_join: bool
+    waiting: int = 0
+    being_served: int = 0
+    wait_minutes: Optional[int] = None
+    eta_min: Optional[datetime] = None
+    eta_max: Optional[datetime] = None
+    confidence: Optional[str] = None
 
 
 class JoinBody(BaseModel):
@@ -320,11 +337,14 @@ async def booking_queue(
     clock: Callable[[], datetime] = Depends(get_clock),
 ):
     """Where the booking stands in today's queue at its shop: place in line, wait range, who serves them."""
-    booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
+    # The app asks every few seconds: its own customer needs no call to find out who owns the shop.
+    booking = await booking_service.get_booking(db, booking_id)
+    if booking is None or booking.customer_id != current_user.get("sub"):
+        booking, _ = await _visible_booking(db, booking_id, current_user, lookup_owner)
     schedule = await _schedule(lookup_schedule, booking.shop_id)
     now = live_queue._utc(clock())
     team = await queue_ops.team_of(lookup_team, booking.shop_id) if booking.service_mode == AT_SHOP else []
-    spot = await live_queue.spot_for(db, booking, schedule, now, team)
+    spot = await live_queue.spot_for(db, booking, schedule, now, team, shared=True)
     return queue_status(booking, spot, schedule, team, now)
 
 
@@ -362,6 +382,43 @@ async def check_in(
     team = await queue_ops.team_of(lookup_team, booking.shop_id)
     spot = await live_queue.spot_for(db, booking, schedule, now, team)
     return queue_status(booking, spot, schedule, team, now)
+
+
+@router.get("/availability/wait-now", response_model=WaitNow)
+async def wait_now(
+    service_id: str = Query(..., max_length=64),
+    db: AsyncSession = Depends(get_db, scope="function"),
+    lookup_service=Depends(get_service_lookup),
+    lookup_schedule: ScheduleLookup = Depends(get_schedule_lookup),
+    lookup_team=Depends(get_team_lookup),
+    clock: Callable[[], datetime] = Depends(get_clock),
+):
+    """How long the wait is if you join this shop's line now, before joining. Public, and only counts."""
+    cached = _wait_cache.get(service_id)
+    if cached and time.monotonic() - cached[0] < WAIT_NOW_SECONDS:
+        return cached[1]
+    listing = await _listing_for(lookup_service, service_id)
+    shop_id = listing["shop_id"]
+    schedule = await _schedule(lookup_schedule, shop_id)
+    now = live_queue._utc(clock())
+    if not schedule.accepting_bookings or not queue_ops.open_now(schedule, now):
+        answer = WaitNow(open=False, can_join=False)
+    else:
+        team = await queue_ops.team_of(lookup_team, shop_id)
+        day = await live_queue.load_day(db, shop_id, schedule, now, team)
+        spot, line = live_queue.preview_walk_in(day, now, service_id, listing.get("duration_minutes") or 30)
+        answer = WaitNow(
+            open=True,
+            can_join=spot.state != live_queue.UNSERVABLE,
+            waiting=sum(s.state in (live_queue.WAITING_STATE, live_queue.YOUR_TURN) for s in line.values()),
+            being_served=spot.being_served,
+            wait_minutes=spot.wait_minutes,
+            eta_min=spot.eta_min,
+            eta_max=spot.eta_max,
+            confidence=spot.confidence,
+        )
+    _wait_cache[service_id] = (time.monotonic(), answer)
+    return answer
 
 
 @router.post("/bookings/walk-in", response_model=QueueStatus, status_code=201)

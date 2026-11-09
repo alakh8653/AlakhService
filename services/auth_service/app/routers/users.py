@@ -1,5 +1,6 @@
 """Account administration: admins look users up; admin_service switches accounts on and off."""
 
+import asyncio
 import hmac
 import secrets
 import unicodedata
@@ -98,7 +99,7 @@ async def anonymise_account(db: AsyncSession, redis, user: User, token: str, era
     user.full_name = "Deleted user"
     user.is_active = False
     user.is_verified = False
-    user.hashed_password = hash_password(secrets.token_urlsafe(32))
+    user.hashed_password = await asyncio.to_thread(hash_password, secrets.token_urlsafe(32))
     user.updated_at = datetime.now(timezone.utc)
     await auth_service.revoke_all_sessions(db, redis, user.id)
     log.info("account_deleted", user_id=user.id)
@@ -117,7 +118,7 @@ async def delete_account(
     user = await db.get(User, current_user["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
-    if not verify_password(body.password, user.hashed_password):
+    if not await asyncio.to_thread(verify_password, body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect password")
     await anonymise_account(db, redis, user, credentials.credentials, erase)
     return {"message": "Your account has been deleted"}

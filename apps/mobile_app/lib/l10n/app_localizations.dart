@@ -5953,6 +5953,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The shop has a place for you, so your booking is confirmed. You can pay from your booking.'**
   String get bookingConfirmedNowBody;
+
+  /// No description provided for @lineWaitMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'About {minutes} min wait now · {count, plural, =0{nobody waiting} =1{1 person waiting} other{{count} people waiting}}'**
+  String lineWaitMinutes(int minutes, int count);
+
+  /// No description provided for @lineNoWait.
+  ///
+  /// In en, this message translates to:
+  /// **'No wait right now'**
+  String get lineNoWait;
+
+  /// No description provided for @lineFullToday.
+  ///
+  /// In en, this message translates to:
+  /// **'The line is full for today: book a time instead'**
+  String get lineFullToday;
 }
 
 class _AppLocalizationsDelegate

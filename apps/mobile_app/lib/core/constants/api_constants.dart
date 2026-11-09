@@ -55,6 +55,7 @@ class ApiConstants {
   static String bookingSos(String id) => '$bookings/$id/sos';
   static const String disputes = '$apiVersion/disputes';
   /// Bookable times of a service on a day (?service_id=&date=YYYY-MM-DD); public.
+  static const String waitNow = '$apiVersion/availability/wait-now';
   static const String availability = '$apiVersion/availability';
   static String validateCoupon(String code) => '$apiVersion/coupons/${Uri.encodeComponent(code)}/validate';
 

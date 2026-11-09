@@ -6,10 +6,12 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
 
+from app.core import live_queue
 from app.dependencies import get_team_lookup
 from app.main import app
 from app.models.booking import Booking
 from app.models.queue import DurationStat, QueueAudit
+from app.routers.queue import _wait_cache
 from tests import test_availability
 from tests.test_availability import CLOCK, MON, book, ist, utc_iso
 from tests.test_shop_bookings_api import SENT, SESSIONS, auth, ws_client  # noqa: F401
@@ -97,6 +99,59 @@ async def test_a_customer_joins_the_line_from_the_app_once_and_only_while_open(c
     CLOCK["now"] = ist(MON, "15:00")  # between the two shifts
     closed = await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("j2"))
     assert closed.status_code == 409 and "closed" in closed.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_the_wait_is_shown_before_joining_and_matches_what_joining_gives(client):
+    CLOCK["now"] = ist(MON, "10:30")
+    url = "/api/v1/availability/wait-now?service_id=svc-a"
+    _wait_cache.clear()
+    empty = (await client.get(url)).json()  # no account needed
+    assert empty["open"] and empty["can_join"] and empty["waiting"] == 0 and empty["wait_minutes"] == 0
+
+    for name in ("Ann", "Ben", "Cal", "Dev"):
+        await walk_in(client, name)
+    # Asked again at once, the answer is the one just worked out: a busy page costs one calculation.
+    assert (await client.get(url)).json()["waiting"] == 0
+    _wait_cache.clear()
+    busy = (await client.get(url)).json()
+    assert busy["waiting"] == 4 and busy["wait_minutes"] > 0 and busy["eta_min"] and busy["confidence"]
+
+    joined = await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("j9"))
+    assert joined.status_code == 201 and joined.json()["wait_minutes"] == busy["wait_minutes"]
+
+    CLOCK["now"] = ist(MON, "15:00")  # between the two shifts
+    _wait_cache.clear()
+    closed = (await client.get(url)).json()
+    assert closed["open"] is False and closed["can_join"] is False and closed["wait_minutes"] is None
+    _wait_cache.clear()
+    assert (await client.get("/api/v1/availability/wait-now?service_id=nope")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_people_looking_at_once_share_one_calculation_of_the_line(client, monkeypatch):
+    CLOCK["now"] = ist(MON, "10:30")
+    first = (await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("s1"))).json()
+    second = (await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("s2"))).json()
+    monkeypatch.setattr(live_queue, "LINE_CACHE_SECONDS", 60)
+    worked_out = []
+    real = live_queue.shop_queue
+
+    async def counting(*args, **kwargs):
+        worked_out.append(1)
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(live_queue, "shop_queue", counting)
+    a = await client.get(f"/api/v1/bookings/{first['booking_id']}/queue", headers=auth("s1"))
+    b = await client.get(f"/api/v1/bookings/{second['booking_id']}/queue", headers=auth("s2"))
+    assert a.json()["position"] == 1 and b.json()["position"] == 2 and len(worked_out) == 1
+
+    # Someone new, not in the remembered line, is worked out at once rather than told they are not queued.
+    third = await client.post("/api/v1/bookings/walk-in", json={"service_id": "svc-a"}, headers=auth("s3"))
+    c = await client.get(f"/api/v1/bookings/{third.json()['booking_id']}/queue", headers=auth("s3"))
+    assert c.json()["position"] == 3
+    other = await client.get(f"/api/v1/bookings/{first['booking_id']}/queue", headers=auth("stranger"))
+    assert other.status_code == 404  # sharing the calculation shares nothing with strangers
 
 
 @pytest.mark.asyncio

@@ -3347,4 +3347,21 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get bookingConfirmedNowBody =>
       'दुकान में आपके लिए जगह है, इसलिए आपकी बुकिंग पक्की हो गई है। आप अपनी बुकिंग से भुगतान कर सकते हैं।';
+
+  @override
+  String lineWaitMinutes(int minutes, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count लोग इंतज़ार में',
+      zero: 'कोई इंतज़ार में नहीं',
+    );
+    return 'अभी लगभग $minutes मिनट का इंतज़ार · $_temp0';
+  }
+
+  @override
+  String get lineNoWait => 'अभी कोई इंतज़ार नहीं';
+
+  @override
+  String get lineFullToday => 'आज की कतार भर गई है: कोई समय बुक करें';
 }

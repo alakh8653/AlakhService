@@ -1,5 +1,6 @@
 """Account administration: admins look users up; admin_service switches accounts on and off."""
 
+import asyncio
 import hmac
 import secrets
 import unicodedata
@@ -60,6 +61,8 @@ ERASE_FAILED = "Could not delete your account right now. Please try again."
 
 # Where the person's own data lives, erased as them; each delete can safely be repeated on a retry.
 ERASE_TARGETS = (
+    # First, as it alone can refuse: a job being served, or money still owed to them.
+    (lambda: settings.SHOP_SERVICE_URL, "/api/v1/shops/mine"),  # a business they own, its documents and bank details
     (lambda: settings.SHOP_SERVICE_URL, "/api/v1/shops/favorites"),  # saved shops
     (lambda: settings.USER_SERVICE_URL, "/api/v1/users/me/account"),  # profile, addresses, devices
 )
@@ -74,6 +77,8 @@ async def erase_profile(token: str, transport: Optional[httpx.AsyncBaseTransport
                 resp = await client.delete(path, headers={"Authorization": f"Bearer {token}"})
         except httpx.HTTPError as e:
             raise HTTPException(status_code=503, detail=ERASE_FAILED) from e
+        if resp.status_code == 409:  # something they can act on, in shop_service's words
+            raise HTTPException(status_code=409, detail=resp.json().get("detail", ERASE_FAILED))
         if resp.status_code >= 400:
             log.warning("account_erase_failed", path=path, status=resp.status_code)
             raise HTTPException(status_code=503, detail=ERASE_FAILED)
@@ -94,7 +99,7 @@ async def anonymise_account(db: AsyncSession, redis, user: User, token: str, era
     user.full_name = "Deleted user"
     user.is_active = False
     user.is_verified = False
-    user.hashed_password = hash_password(secrets.token_urlsafe(32))
+    user.hashed_password = await asyncio.to_thread(hash_password, secrets.token_urlsafe(32))
     user.updated_at = datetime.now(timezone.utc)
     await auth_service.revoke_all_sessions(db, redis, user.id)
     log.info("account_deleted", user_id=user.id)
@@ -113,7 +118,7 @@ async def delete_account(
     user = await db.get(User, current_user["sub"])
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
-    if not verify_password(body.password, user.hashed_password):
+    if not await asyncio.to_thread(verify_password, body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect password")
     await anonymise_account(db, redis, user, credentials.credentials, erase)
     return {"message": "Your account has been deleted"}
@@ -259,3 +264,15 @@ async def notify_contact(user_id: str, db: AsyncSession = Depends(get_db, scope=
     if user is None or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     return {"phone": user.phone, "email": user.email}
+
+
+class AdminIds(BaseModel):
+    # Ids only: each admin is reached through notification_service, which looks up their own contact.
+    user_ids: List[str]
+
+
+@internal_router.get("/internal/users/admins", response_model=AdminIds, dependencies=[Depends(require_internal)])
+async def admin_ids(db: AsyncSession = Depends(get_db, scope="function")):
+    """The active admins' user ids, for alerts every admin must get (booking_service's SOS)."""
+    rows = await db.execute(select(User.id).where(User.role == "admin", User.is_active.is_(True)).order_by(User.id))
+    return {"user_ids": list(rows.scalars().all())}

@@ -179,6 +179,10 @@ services:
     image: localhost/alakhservice/booking_service:${IMAGE_TAG:-latest}
     environment:
       <<: *prod-env
+      # Busy times: each process serves its share of customers looking at their place in line. Live
+      # updates reach every process through Redis (docs/LIVE_QUEUE.md).
+      WEB_CONCURRENCY: ${BOOKING_PROCESSES:-3}
+      QUEUE_PUBSUB: "true"
       # Masked calls between customer and shop (docs/PRIVACY_AND_CONTACT.md). Off unless set.
       CALL_PROVIDER: ${CALL_PROVIDER:-none}
       EXOTEL_API_KEY: ${EXOTEL_API_KEY:-}
@@ -186,6 +190,8 @@ services:
       EXOTEL_ACCOUNT_SID: ${EXOTEL_ACCOUNT_SID:-}
       EXOTEL_CALLER_ID: ${EXOTEL_CALLER_ID:-}
       EXOTEL_SUBDOMAIN: ${EXOTEL_SUBDOMAIN:-api.exotel.com}
+      # A customer's shared visit links (https://<DOMAIN>/v/<token>), served by the public site.
+      SHARE_BASE_URL: https://${DOMAIN:?DOMAIN must be set in .env.production}
 
   payment_service:
     <<: *prod-python

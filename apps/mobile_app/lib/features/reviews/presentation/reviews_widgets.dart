@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/errors/exceptions.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -73,7 +74,10 @@ class RatingSummaryView extends StatelessWidget {
 class ReviewTile extends StatelessWidget {
   final Review review;
 
-  const ReviewTile({super.key, required this.review});
+  /// Offers to report it; customers get this, the shop's own owner does not.
+  final VoidCallback? onReport;
+
+  const ReviewTile({super.key, required this.review, this.onReport});
 
   @override
   Widget build(BuildContext context) {
@@ -127,9 +131,41 @@ class ReviewTile extends StatelessWidget {
                 ],
               ),
             ),
+          if (onReport != null)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton.icon(
+                icon: const Icon(Icons.flag_outlined, size: 16),
+                label: Text(context.l10n.reviewReport),
+                onPressed: onReport,
+              ),
+            ),
         ],
       ),
     );
+  }
+}
+
+/// Asks why with a tap and sends the report, saying how it went.
+Future<void> reportReview(BuildContext context, ReviewsApi api, String shopId, Review review) async {
+  final l10n = context.l10n;
+  final messenger = ScaffoldMessenger.of(context);
+  final reason = await showDialog<String>(
+    context: context,
+    builder: (dialog) => SimpleDialog(
+      title: Text(l10n.reviewReportTitle),
+      children: [
+        for (final option in [l10n.reviewReportAbusive, l10n.reviewReportFake, l10n.reviewReportContact])
+          SimpleDialogOption(onPressed: () => Navigator.pop(dialog, option), child: Text(option)),
+      ],
+    ),
+  );
+  if (reason == null) return;
+  try {
+    await api.report(shopId, review.id, reason);
+    messenger.showSnackBar(SnackBar(content: Text(l10n.reviewReported)));
+  } on ServerException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(e.message)));
   }
 }
 
@@ -181,7 +217,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
           const SizedBox(height: 4),
           for (final r in _reviews ?? const <Review>[]) ...[
             const Divider(height: 1),
-            ReviewTile(review: r),
+            ReviewTile(review: r, onReport: () => reportReview(context, widget.api, widget.shopId, r)),
           ],
           // Always offered: the full list also filters by stars.
           Align(

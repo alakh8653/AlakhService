@@ -126,6 +126,7 @@ class KycService:
             raise ReviewStateError("Before submitting, add: " + ", ".join(missing))
         shop.verification_status = PENDING_REVIEW
         shop.is_verified = False
+        shop.verified_at = None
         shop.rejection_reason = None
         shop.submitted_at = now()
         await db.flush()
@@ -139,6 +140,7 @@ class KycService:
         shop.is_verified = True
         shop.rejection_reason = None
         shop.reviewed_at = now()
+        shop.verified_at = shop.reviewed_at
         shop.reviewed_by = admin_id
         for doc in await self.list_documents(db, shop.id):
             doc.is_verified = True
@@ -150,6 +152,7 @@ class KycService:
         # An approved shop can be rejected too (e.g. a forged document found later): it leaves the listings.
         shop.verification_status = REJECTED
         shop.is_verified = False
+        shop.verified_at = None
         shop.rejection_reason = reason
         shop.reviewed_at = now()
         shop.reviewed_by = admin_id

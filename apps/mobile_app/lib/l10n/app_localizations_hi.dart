@@ -2247,7 +2247,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get ownerAreaYouServe => 'आपका कार्य क्षेत्र (वैकल्पिक)';
 
   @override
-  String get ownerPhone => 'ग्राहकों के लिए फ़ोन नंबर';
+  String get ownerPhone =>
+      'दुकान का फ़ोन (केवल Alakh सहायता के लिए; ग्राहकों को नहीं दिखता)';
 
   @override
   String get ownerUseLocation => 'मेरी मौजूदा लोकेशन लें';
@@ -2959,4 +2960,420 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get entryOther => 'अन्य';
+
+  @override
+  String get ownerDaysOff => 'छुट्टी के दिन';
+
+  @override
+  String get ownerDaysOffHelp =>
+      'इन दिनों ग्राहक बुक नहीं कर सकते। जो बुकिंग पहले से हैं वे बनी रहेंगी, उन्हें आप खुद रद्द करें या बदलें।';
+
+  @override
+  String get ownerOffToday => 'आज छुट्टी';
+
+  @override
+  String get ownerOffTomorrow => 'कल छुट्टी';
+
+  @override
+  String get ownerOffPick => 'तारीख़ चुनें';
+
+  @override
+  String get ownerNoDaysOff => 'आगे कोई छुट्टी नहीं है।';
+
+  @override
+  String get ownerReviews => 'ग्राहकों की समीक्षाएँ';
+
+  @override
+  String get ownerNoReviews =>
+      'अभी कोई समीक्षा नहीं। काम पूरा होने पर ग्राहक की रेटिंग यहाँ दिखेगी।';
+
+  @override
+  String get ownerReply => 'जवाब दें';
+
+  @override
+  String get ownerEditReply => 'जवाब बदलें';
+
+  @override
+  String get ownerReplyHelp => 'आपका जवाब सभी पढ़ सकते हैं।';
+
+  @override
+  String get ownerCustomers => 'मेरे ग्राहक';
+
+  @override
+  String get ownerNoCustomers =>
+      'पहली बुकिंग पूरी होने पर ग्राहक यहाँ दिखेंगे।';
+
+  @override
+  String ownerCustomersSummary(int total, int back) {
+    return '$total ग्राहक, $back दोबारा आए';
+  }
+
+  @override
+  String ownerCustomerLine(int visits, String date) {
+    return '$visits बार आए, पिछली बार $date';
+  }
+
+  @override
+  String get ownerShare => 'अपना व्यवसाय शेयर करें';
+
+  @override
+  String get ownerShareHelp =>
+      'इसे अपने ग्राहकों और ग्रुप में भेजें। वे लिंक से सीधे आपको बुक कर सकते हैं।';
+
+  @override
+  String ownerShareMessage(String name, String link) {
+    return 'AlakhService पर $name को बुक करें: $link';
+  }
+
+  @override
+  String get ownerShareWhatsApp => 'WhatsApp पर शेयर करें';
+
+  @override
+  String get ownerShareCopy => 'संदेश कॉपी करें';
+
+  @override
+  String get ownerShareCopied => 'कॉपी हो गया। इसे कहीं भी पेस्ट कर सकते हैं।';
+
+  @override
+  String get ownerShareFailed =>
+      'WhatsApp नहीं खुला। इसकी जगह संदेश कॉपी करें।';
+
+  @override
+  String get ownerShareNotYet =>
+      'व्यवसाय मंज़ूर होने पर आप अपना लिंक शेयर कर सकते हैं।';
+
+  @override
+  String get extraTitle => 'अतिरिक्त शुल्क की मंज़ूरी';
+
+  @override
+  String extraLine(String amount, String reason) {
+    return '$amount और: $reason';
+  }
+
+  @override
+  String extraNewTotal(String total) {
+    return 'मंज़ूर करने पर नया कुल: $total';
+  }
+
+  @override
+  String get extraHelp =>
+      'दाम तभी बदलेगा जब आप मंज़ूर करेंगे। मना करने पर दाम वही रहेगा।';
+
+  @override
+  String get extraApprove => 'मंज़ूर करें';
+
+  @override
+  String get extraDecline => 'मना करें';
+
+  @override
+  String extraConfirmTitle(String amount) {
+    return '$amount और देने हैं?';
+  }
+
+  @override
+  String get extraConfirmBody => 'यह आपकी बुकिंग के दाम में जुड़ जाएगा।';
+
+  @override
+  String get extraConfirmYes => 'हाँ, मंज़ूर है';
+
+  @override
+  String extraIncluded(String amount) {
+    return 'इसमें आपका मंज़ूर किया $amount अतिरिक्त शामिल है';
+  }
+
+  @override
+  String get extraAdd => 'अतिरिक्त शुल्क जोड़ें';
+
+  @override
+  String get extraOwnerHelp =>
+      'दाम बदलने से पहले ग्राहक को ऐप में इसे मंज़ूर करना होगा।';
+
+  @override
+  String get extraHowMuch => 'कितना और';
+
+  @override
+  String get extraChooseReason => 'कृपया चुनें कि यह किसके लिए है।';
+
+  @override
+  String get extraReasonParts => 'स्पेयर पार्ट्स';
+
+  @override
+  String get extraReasonWork => 'अतिरिक्त काम';
+
+  @override
+  String get extraReasonMaterial => 'सामान';
+
+  @override
+  String get extraReasonOther => 'कुछ और';
+
+  @override
+  String get extraSend => 'ग्राहक को भेजें';
+
+  @override
+  String extraWaiting(String amount, String reason) {
+    return 'ग्राहक के जवाब का इंतज़ार: $amount और ($reason)';
+  }
+
+  @override
+  String get extraTakeBack => 'वापस लें';
+
+  @override
+  String get ownerProfileTitle => 'मेरी प्रोफ़ाइल और काम की फ़ोटो';
+
+  @override
+  String get profileHelp =>
+      'बुक करने से पहले ग्राहक इसे देखते हैं। इससे उन्हें आपको चुनने में मदद मिलती है।';
+
+  @override
+  String get profileYearsLabel => 'कितने साल का अनुभव';
+
+  @override
+  String get profileLanguagesLabel => 'आप कौन सी भाषाएँ बोलते हैं';
+
+  @override
+  String get profileAboutLabel => 'आपके बारे में (ज़रूरी नहीं)';
+
+  @override
+  String get profileAboutHelp =>
+      'अपना फ़ोन नंबर न लिखें: वह ग्राहकों से छिपा दिया जाएगा।';
+
+  @override
+  String get profileSaved => 'सेव हो गया। ग्राहक इसे देख सकते हैं।';
+
+  @override
+  String get profilePhotosTitle => 'आपके काम की फ़ोटो';
+
+  @override
+  String get profilePhotosHelp =>
+      'पूरे हुए काम दिखाएँ। ग्राहकों के चेहरे या दस्तावेज़ न दिखाएँ। हम फ़ोटो से जगह की जानकारी हटा देते हैं।';
+
+  @override
+  String get profileAddPhoto => 'फ़ोटो जोड़ें';
+
+  @override
+  String get profileAboutTitle => 'इस प्रदाता के बारे में';
+
+  @override
+  String profileYears(int years) {
+    return '$years साल का अनुभव';
+  }
+
+  @override
+  String get photoReportTitle => 'इस फ़ोटो की शिकायत करें';
+
+  @override
+  String get photoReportPrivate => 'इसमें किसी की निजी जानकारी दिख रही है';
+
+  @override
+  String get photoReportOffensive => 'यह आपत्तिजनक है';
+
+  @override
+  String get photoReportFake => 'यह इस प्रदाता का काम नहीं है';
+
+  @override
+  String get photoReportContact => 'इसमें फ़ोन नंबर या संपर्क दिख रहा है';
+
+  @override
+  String get photoReported => 'धन्यवाद। हम इस फ़ोटो की जाँच करेंगे।';
+
+  @override
+  String get profilePhotoHidden => 'जाँच तक छिपी है';
+
+  @override
+  String get reviewReport => 'शिकायत करें';
+
+  @override
+  String get reviewReportTitle => 'इस समीक्षा की शिकायत करें';
+
+  @override
+  String get reviewReportAbusive => 'यह अभद्र या आपत्तिजनक है';
+
+  @override
+  String get reviewReportFake => 'यह नकली लगती है';
+
+  @override
+  String get reviewReportContact => 'इसमें फ़ोन नंबर या निजी जानकारी है';
+
+  @override
+  String get reviewReported => 'धन्यवाद। हम इस समीक्षा की जाँच करेंगे।';
+
+  @override
+  String get startCodeTitle => 'आपका शुरू करने का कोड';
+
+  @override
+  String get startCodeHelp =>
+      'यह कोड तभी बताएँ जब प्रोफ़ेशनल आपके पास पहुँच जाए';
+
+  @override
+  String get startJobTitle => 'काम शुरू करें';
+
+  @override
+  String get startCodeAsk =>
+      'ग्राहक से 4 अंकों का शुरू करने का कोड पूछें। इसके बिना काम शुरू नहीं होगा।';
+
+  @override
+  String get startCodeLabel => '4 अंकों का कोड';
+
+  @override
+  String get startCodeWrong => 'ग्राहक से 4 अंकों का शुरू करने का कोड पूछें';
+
+  @override
+  String get startCodeTooMany =>
+      'कई बार गलत कोड डाला गया। 15 मिनट रुककर फिर कोशिश करें।';
+
+  @override
+  String get startCodeStart => 'शुरू करें';
+
+  @override
+  String get guaranteeField => 'मुफ़्त सुधार की गारंटी (दिन)';
+
+  @override
+  String get guaranteeHelp =>
+      'काम के बाद कुछ गड़बड़ हो तो ग्राहक इतने दिनों में मुफ़्त सुधार माँग सकता है। 0 का मतलब कोई गारंटी नहीं।';
+
+  @override
+  String get guaranteeInvalid => '0 से 90 तक की संख्या डालें';
+
+  @override
+  String get guaranteeTitle => 'मुफ़्त सुधार की गारंटी';
+
+  @override
+  String get guaranteeSaved => 'गारंटी सेव हो गई';
+
+  @override
+  String guaranteeUntil(String date) {
+    return '$date तक मुफ़्त सुधार की गारंटी';
+  }
+
+  @override
+  String guaranteeEnded(String date) {
+    return 'मुफ़्त सुधार की गारंटी $date को खत्म हो गई';
+  }
+
+  @override
+  String get reworkRequest => 'मुफ़्त सुधार माँगें';
+
+  @override
+  String get reworkTitle => 'मुफ़्त सुधार का अनुरोध';
+
+  @override
+  String get reworkExplain =>
+      'दुकान को बताएँ कि क्या गड़बड़ हुई। वे वापस आकर बिना पैसे लिए ठीक करेंगे।';
+
+  @override
+  String get reworkReason => 'क्या गड़बड़ हुई?';
+
+  @override
+  String get reworkReasonShort => 'कम से कम 10 अक्षर लिखें';
+
+  @override
+  String get reworkPreferred => 'पसंद का समय (ज़रूरी नहीं)';
+
+  @override
+  String get reworkPickTime => 'समय चुनें';
+
+  @override
+  String get reworkSend => 'अनुरोध भेजें';
+
+  @override
+  String get reworkSent => 'मुफ़्त सुधार का अनुरोध दुकान को भेज दिया गया';
+
+  @override
+  String get reworkOpen => 'मुफ़्त सुधार वाली बुकिंग देखें';
+
+  @override
+  String get reworkOf => 'यह पिछली बुकिंग का मुफ़्त सुधार है';
+
+  @override
+  String get reworkOpenOriginal => 'पहली बुकिंग देखें';
+
+  @override
+  String get freeFixLabel => 'मुफ़्त सुधार';
+
+  @override
+  String get shareVisit => 'विज़िट की जानकारी शेयर करें';
+
+  @override
+  String shareVisitText(String url) {
+    return 'मेरी AlakhService विज़िट लाइव देखें: $url';
+  }
+
+  @override
+  String get shareVisitFailed => 'शेयर लिंक नहीं बन सका। फिर से कोशिश करें।';
+
+  @override
+  String get sosButton => 'SOS';
+
+  @override
+  String get sosTitle => 'SOS अलर्ट भेजें?';
+
+  @override
+  String get sosBody =>
+      'हमारी सुरक्षा टीम को तुरंत अलर्ट मिलेगा, और हो सके तो आपकी लोकेशन भी। इसे सिर्फ़ आपात स्थिति में इस्तेमाल करें।';
+
+  @override
+  String get sosSend => 'SOS भेजें';
+
+  @override
+  String get sosSent => 'हमारी सुरक्षा टीम को अलर्ट भेज दिया गया है।';
+
+  @override
+  String get sosFailed =>
+      'हम अपनी टीम को अलर्ट नहीं भेज सके। अगर आप खतरे में हैं तो अभी 112 पर कॉल करें।';
+
+  @override
+  String sosCall(String number) {
+    return '$number पर कॉल करें';
+  }
+
+  @override
+  String get close => 'बंद करें';
+
+  @override
+  String get verified => 'सत्यापित';
+
+  @override
+  String get ownerCapacityTitle => 'एक समय में ग्राहक';
+
+  @override
+  String get ownerCapacityLabel => 'एक साथ कितने ग्राहक';
+
+  @override
+  String ownerCapacityHelp(int count) {
+    return 'किसी समय पर इतनी बुकिंग होने के बाद ग्राहक उस समय बुक नहीं कर सकते। हर टीम सदस्य के लिए एक ग्राहक ($count) रखने के लिए खाली छोड़ें।';
+  }
+
+  @override
+  String get ownerCapacityInvalid => '1 से 100 तक की पूरी संख्या लिखें';
+
+  @override
+  String get ownerAutoConfirm => 'बुकिंग अपने आप पक्की करें';
+
+  @override
+  String get ownerAutoConfirmHelp =>
+      'जगह खाली होने तक हर बुकिंग तुरंत पक्की हो जाएगी। आपको उन्हें स्वीकार नहीं करना होगा।';
+
+  @override
+  String get bookingConfirmedNow => 'बुकिंग पक्की हो गई';
+
+  @override
+  String get bookingConfirmedNowBody =>
+      'दुकान में आपके लिए जगह है, इसलिए आपकी बुकिंग पक्की हो गई है। आप अपनी बुकिंग से भुगतान कर सकते हैं।';
+
+  @override
+  String lineWaitMinutes(int minutes, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count लोग इंतज़ार में',
+      zero: 'कोई इंतज़ार में नहीं',
+    );
+    return 'अभी लगभग $minutes मिनट का इंतज़ार · $_temp0';
+  }
+
+  @override
+  String get lineNoWait => 'अभी कोई इंतज़ार नहीं';
+
+  @override
+  String get lineFullToday => 'आज की कतार भर गई है: कोई समय बुक करें';
 }

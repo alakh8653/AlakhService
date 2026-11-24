@@ -3941,7 +3941,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerPhone.
   ///
   /// In en, this message translates to:
-  /// **'Phone for customers'**
+  /// **'Shop phone (for Alakh support only; customers never see it)'**
   String get ownerPhone;
 
   /// No description provided for @ownerUseLocation.
@@ -5269,6 +5269,726 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other'**
   String get entryOther;
+
+  /// No description provided for @ownerDaysOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Days off'**
+  String get ownerDaysOff;
+
+  /// No description provided for @ownerDaysOffHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers can\'t book on these days. Bookings you already have stay, so please cancel or move those yourself.'**
+  String get ownerDaysOffHelp;
+
+  /// No description provided for @ownerOffToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Off today'**
+  String get ownerOffToday;
+
+  /// No description provided for @ownerOffTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Off tomorrow'**
+  String get ownerOffTomorrow;
+
+  /// No description provided for @ownerOffPick.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a date'**
+  String get ownerOffPick;
+
+  /// No description provided for @ownerNoDaysOff.
+  ///
+  /// In en, this message translates to:
+  /// **'No days off coming up.'**
+  String get ownerNoDaysOff;
+
+  /// No description provided for @ownerReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer reviews'**
+  String get ownerReviews;
+
+  /// No description provided for @ownerNoReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'No reviews yet. They appear here after customers rate a finished job.'**
+  String get ownerNoReviews;
+
+  /// No description provided for @ownerReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get ownerReply;
+
+  /// No description provided for @ownerEditReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit reply'**
+  String get ownerEditReply;
+
+  /// No description provided for @ownerReplyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone can read your reply.'**
+  String get ownerReplyHelp;
+
+  /// No description provided for @ownerCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'My customers'**
+  String get ownerCustomers;
+
+  /// No description provided for @ownerNoCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers appear here after their first finished booking.'**
+  String get ownerNoCustomers;
+
+  /// No description provided for @ownerCustomersSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} customers, {back} came back'**
+  String ownerCustomersSummary(int total, int back);
+
+  /// No description provided for @ownerCustomerLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{visits, plural, =1{1 visit} other{{visits} visits}}, last on {date}'**
+  String ownerCustomerLine(int visits, String date);
+
+  /// No description provided for @ownerShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share my business'**
+  String get ownerShare;
+
+  /// No description provided for @ownerShareHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send this to your customers and groups. They can book you directly from the link.'**
+  String get ownerShareHelp;
+
+  /// No description provided for @ownerShareMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Book {name} on AlakhService: {link}'**
+  String ownerShareMessage(String name, String link);
+
+  /// No description provided for @ownerShareWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Share on WhatsApp'**
+  String get ownerShareWhatsApp;
+
+  /// No description provided for @ownerShareCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy message'**
+  String get ownerShareCopy;
+
+  /// No description provided for @ownerShareCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied. You can paste it anywhere.'**
+  String get ownerShareCopied;
+
+  /// No description provided for @ownerShareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open WhatsApp. Use Copy message instead.'**
+  String get ownerShareFailed;
+
+  /// No description provided for @ownerShareNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'You can share your link once your business is approved.'**
+  String get ownerShareNotYet;
+
+  /// No description provided for @extraTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra charge to approve'**
+  String get extraTitle;
+
+  /// No description provided for @extraLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} more: {reason}'**
+  String extraLine(String amount, String reason);
+
+  /// No description provided for @extraNewTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'New total if you approve: {total}'**
+  String extraNewTotal(String total);
+
+  /// No description provided for @extraHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The price changes only if you approve. If you decline, it stays as it was.'**
+  String get extraHelp;
+
+  /// No description provided for @extraApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get extraApprove;
+
+  /// No description provided for @extraDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get extraDecline;
+
+  /// No description provided for @extraConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay {amount} more?'**
+  String extraConfirmTitle(String amount);
+
+  /// No description provided for @extraConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will be added to your booking\'s price.'**
+  String get extraConfirmBody;
+
+  /// No description provided for @extraConfirmYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, approve'**
+  String get extraConfirmYes;
+
+  /// No description provided for @extraIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Includes {amount} extra you approved'**
+  String extraIncluded(String amount);
+
+  /// No description provided for @extraAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add extra charge'**
+  String get extraAdd;
+
+  /// No description provided for @extraOwnerHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'The customer must approve this in the app before the price changes.'**
+  String get extraOwnerHelp;
+
+  /// No description provided for @extraHowMuch.
+  ///
+  /// In en, this message translates to:
+  /// **'How much more'**
+  String get extraHowMuch;
+
+  /// No description provided for @extraChooseReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose what it is for.'**
+  String get extraChooseReason;
+
+  /// No description provided for @extraReasonParts.
+  ///
+  /// In en, this message translates to:
+  /// **'Spare parts'**
+  String get extraReasonParts;
+
+  /// No description provided for @extraReasonWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra work'**
+  String get extraReasonWork;
+
+  /// No description provided for @extraReasonMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Materials'**
+  String get extraReasonMaterial;
+
+  /// No description provided for @extraReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get extraReasonOther;
+
+  /// No description provided for @extraSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send to customer'**
+  String get extraSend;
+
+  /// No description provided for @extraWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the customer: {amount} more ({reason})'**
+  String extraWaiting(String amount, String reason);
+
+  /// No description provided for @extraTakeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Take back'**
+  String get extraTakeBack;
+
+  /// No description provided for @ownerProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My profile and work photos'**
+  String get ownerProfileTitle;
+
+  /// No description provided for @profileHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers see this before they book. It helps them choose you.'**
+  String get profileHelp;
+
+  /// No description provided for @profileYearsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Years of experience'**
+  String get profileYearsLabel;
+
+  /// No description provided for @profileLanguagesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages you speak'**
+  String get profileLanguagesLabel;
+
+  /// No description provided for @profileAboutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'About you (optional)'**
+  String get profileAboutLabel;
+
+  /// No description provided for @profileAboutHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t add your phone number: it will be hidden from customers.'**
+  String get profileAboutHelp;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Customers can see this.'**
+  String get profileSaved;
+
+  /// No description provided for @profilePhotosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos of your work'**
+  String get profilePhotosTitle;
+
+  /// No description provided for @profilePhotosHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Show finished jobs. Don\'t show customers\' faces or documents. We remove location details from photos.'**
+  String get profilePhotosHelp;
+
+  /// No description provided for @profileAddPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo'**
+  String get profileAddPhoto;
+
+  /// No description provided for @profileAboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About this provider'**
+  String get profileAboutTitle;
+
+  /// No description provided for @profileYears.
+  ///
+  /// In en, this message translates to:
+  /// **'{years, plural, =1{1 year of experience} other{{years} years of experience}}'**
+  String profileYears(int years);
+
+  /// No description provided for @photoReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this photo'**
+  String get photoReportTitle;
+
+  /// No description provided for @photoReportPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows someone\'s private details'**
+  String get photoReportPrivate;
+
+  /// No description provided for @photoReportOffensive.
+  ///
+  /// In en, this message translates to:
+  /// **'It is offensive'**
+  String get photoReportOffensive;
+
+  /// No description provided for @photoReportFake.
+  ///
+  /// In en, this message translates to:
+  /// **'It is not this provider\'s work'**
+  String get photoReportFake;
+
+  /// No description provided for @photoReportContact.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows a phone number or contact'**
+  String get photoReportContact;
+
+  /// No description provided for @photoReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks. We will check this photo.'**
+  String get photoReported;
+
+  /// No description provided for @profilePhotoHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden while we check'**
+  String get profilePhotoHidden;
+
+  /// No description provided for @reviewReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get reviewReport;
+
+  /// No description provided for @reviewReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this review'**
+  String get reviewReportTitle;
+
+  /// No description provided for @reviewReportAbusive.
+  ///
+  /// In en, this message translates to:
+  /// **'It is rude or offensive'**
+  String get reviewReportAbusive;
+
+  /// No description provided for @reviewReportFake.
+  ///
+  /// In en, this message translates to:
+  /// **'It seems fake'**
+  String get reviewReportFake;
+
+  /// No description provided for @reviewReportContact.
+  ///
+  /// In en, this message translates to:
+  /// **'It shows a phone number or private details'**
+  String get reviewReportContact;
+
+  /// No description provided for @reviewReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks. We will check this review.'**
+  String get reviewReported;
+
+  /// No description provided for @startCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your start code'**
+  String get startCodeTitle;
+
+  /// No description provided for @startCodeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this code only when the professional arrives'**
+  String get startCodeHelp;
+
+  /// No description provided for @startJobTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the job'**
+  String get startJobTitle;
+
+  /// No description provided for @startCodeAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the customer for the 4-digit start code. The job cannot start without it.'**
+  String get startCodeAsk;
+
+  /// No description provided for @startCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'4-digit code'**
+  String get startCodeLabel;
+
+  /// No description provided for @startCodeWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the customer for the 4-digit start code'**
+  String get startCodeWrong;
+
+  /// No description provided for @startCodeTooMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many wrong tries. Please wait 15 minutes and try again.'**
+  String get startCodeTooMany;
+
+  /// No description provided for @startCodeStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get startCodeStart;
+
+  /// No description provided for @guaranteeField.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix guarantee (days)'**
+  String get guaranteeField;
+
+  /// No description provided for @guaranteeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If something goes wrong after the job, the customer can ask for a free fix within these days. 0 means no guarantee.'**
+  String get guaranteeHelp;
+
+  /// No description provided for @guaranteeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number from 0 to 90'**
+  String get guaranteeInvalid;
+
+  /// No description provided for @guaranteeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix guarantee'**
+  String get guaranteeTitle;
+
+  /// No description provided for @guaranteeSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Guarantee saved'**
+  String get guaranteeSaved;
+
+  /// No description provided for @guaranteeUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Free fix guarantee until {date}'**
+  String guaranteeUntil(String date);
+
+  /// No description provided for @guaranteeEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'The free-fix guarantee ended on {date}'**
+  String guaranteeEnded(String date);
+
+  /// No description provided for @reworkRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Request free fix'**
+  String get reworkRequest;
+
+  /// No description provided for @reworkTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request a free fix'**
+  String get reworkTitle;
+
+  /// No description provided for @reworkExplain.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell the shop what went wrong. They will come back and fix it at no cost.'**
+  String get reworkExplain;
+
+  /// No description provided for @reworkReason.
+  ///
+  /// In en, this message translates to:
+  /// **'What went wrong?'**
+  String get reworkReason;
+
+  /// No description provided for @reworkReasonShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Please write at least 10 characters'**
+  String get reworkReasonShort;
+
+  /// No description provided for @reworkPreferred.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred time (optional)'**
+  String get reworkPreferred;
+
+  /// No description provided for @reworkPickTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a time'**
+  String get reworkPickTime;
+
+  /// No description provided for @reworkSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send request'**
+  String get reworkSend;
+
+  /// No description provided for @reworkSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Free-fix request sent to the shop'**
+  String get reworkSent;
+
+  /// No description provided for @reworkOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'See the free-fix booking'**
+  String get reworkOpen;
+
+  /// No description provided for @reworkOf.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a free fix for an earlier booking'**
+  String get reworkOf;
+
+  /// No description provided for @reworkOpenOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'See the original booking'**
+  String get reworkOpenOriginal;
+
+  /// No description provided for @freeFixLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Free fix'**
+  String get freeFixLabel;
+
+  /// No description provided for @shareVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Share visit status'**
+  String get shareVisit;
+
+  /// No description provided for @shareVisitText.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow my AlakhService visit live: {url}'**
+  String shareVisitText(String url);
+
+  /// No description provided for @shareVisitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create a share link. Please try again.'**
+  String get shareVisitFailed;
+
+  /// No description provided for @sosButton.
+  ///
+  /// In en, this message translates to:
+  /// **'SOS'**
+  String get sosButton;
+
+  /// No description provided for @sosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an SOS alert?'**
+  String get sosTitle;
+
+  /// No description provided for @sosBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Our safety team will be alerted right away, with your location if available. Use this only in an emergency.'**
+  String get sosBody;
+
+  /// No description provided for @sosSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send SOS'**
+  String get sosSend;
+
+  /// No description provided for @sosSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Our safety team has been alerted.'**
+  String get sosSent;
+
+  /// No description provided for @sosFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We could not alert our team. If you are in danger, call 112 now.'**
+  String get sosFailed;
+
+  /// No description provided for @sosCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Call {number}'**
+  String sosCall(String number);
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @verified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get verified;
+
+  /// No description provided for @ownerCapacityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers at the same time'**
+  String get ownerCapacityTitle;
+
+  /// No description provided for @ownerCapacityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers at once'**
+  String get ownerCapacityLabel;
+
+  /// No description provided for @ownerCapacityHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Once a time has this many bookings, customers can\'t book it. Leave empty for one per team member ({count}).'**
+  String ownerCapacityHelp(int count);
+
+  /// No description provided for @ownerCapacityInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number from 1 to 100'**
+  String get ownerCapacityInvalid;
+
+  /// No description provided for @ownerAutoConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm bookings automatically'**
+  String get ownerAutoConfirm;
+
+  /// No description provided for @ownerAutoConfirmHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Each booking is confirmed straight away while a place is free. You won\'t need to accept them.'**
+  String get ownerAutoConfirmHelp;
+
+  /// No description provided for @bookingConfirmedNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking confirmed'**
+  String get bookingConfirmedNow;
+
+  /// No description provided for @bookingConfirmedNowBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The shop has a place for you, so your booking is confirmed. You can pay from your booking.'**
+  String get bookingConfirmedNowBody;
+
+  /// No description provided for @lineWaitMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'About {minutes} min wait now · {count, plural, =0{nobody waiting} =1{1 person waiting} other{{count} people waiting}}'**
+  String lineWaitMinutes(int minutes, int count);
+
+  /// No description provided for @lineNoWait.
+  ///
+  /// In en, this message translates to:
+  /// **'No wait right now'**
+  String get lineNoWait;
+
+  /// No description provided for @lineFullToday.
+  ///
+  /// In en, this message translates to:
+  /// **'The line is full for today: book a time instead'**
+  String get lineFullToday;
 }
 
 class _AppLocalizationsDelegate

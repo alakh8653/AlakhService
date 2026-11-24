@@ -7,7 +7,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../booking/data/home_arrival_api.dart';
+import '../../booking/data/trust_api.dart';
 import '../../booking/domain/entities/booking.dart';
+import '../../booking/presentation/widgets/provider_trust.dart';
+import '../../booking/presentation/widgets/safety_actions.dart';
 import '../../tracking/data/tracking_api.dart';
 import '../data/jobs_api.dart';
 import '../../../shared/widgets/location_rationale.dart';
@@ -21,7 +24,21 @@ class JobsPage extends StatefulWidget {
   final LocationReporter? reporter;
   final HomeArrivalApi? routeApi;
 
-  const JobsPage({super.key, required this.providerId, this.jobsApi, this.reporter, this.routeApi});
+  /// SOS, and the tel: link and position SOS uses (replaceable in tests).
+  final TrustApi? trustApi;
+  final OpenUri? openUri;
+  final CurrentFix? sosLocation;
+
+  const JobsPage({
+    super.key,
+    required this.providerId,
+    this.jobsApi,
+    this.reporter,
+    this.routeApi,
+    this.trustApi,
+    this.openUri,
+    this.sosLocation,
+  });
 
   @override
   State<JobsPage> createState() => _JobsPageState();
@@ -82,13 +99,25 @@ class _JobsPageState extends State<JobsPage> {
     }
   }
 
+  void _replace(Booking updated) {
+    setState(() => _jobs = [for (final j in _jobs!) j.id == updated.id ? updated : j]);
+    _updateSharing();
+  }
+
   Future<void> _advance(Booking job, JobStep step) async {
+    // At the customer's door: the job starts only with the customer's start code.
+    if (needsStartCode(job.serviceMode, step.status)) {
+      await askStartCode(context, (code) async {
+        final updated = await _api.moveTo(job.id, step.status, startCode: code);
+        if (mounted) _replace(updated);
+      });
+      return;
+    }
     setState(() => _busyId = job.id);
     try {
       final updated = await _api.moveTo(job.id, step.status);
       if (!mounted) return;
-      setState(() => _jobs = [for (final j in _jobs!) j.id == job.id ? updated : j]);
-      _updateSharing();
+      _replace(updated);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +158,15 @@ class _JobsPageState extends State<JobsPage> {
               const Text('Current', style: AppTextStyles.subtitle1),
               const SizedBox(height: 8),
               for (final job in active)
-                _JobCard(job: job, stop: _route[job.id], busy: _busyId == job.id, onAdvance: (step) => _advance(job, step)),
+                _JobCard(
+                  job: job,
+                  stop: _route[job.id],
+                  busy: _busyId == job.id,
+                  onAdvance: (step) => _advance(job, step),
+                  sos: job.offersSos
+                      ? SosButton(bookingId: job.id, api: widget.trustApi, location: widget.sosLocation, openUri: widget.openUri)
+                      : null,
+                ),
             ],
             if (earlier.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -174,8 +211,9 @@ class _JobCard extends StatelessWidget {
   final RouteStop? stop;
   final bool busy;
   final ValueChanged<JobStep> onAdvance;
+  final Widget? sos;
 
-  const _JobCard({required this.job, this.stop, required this.busy, required this.onAdvance});
+  const _JobCard({required this.job, this.stop, required this.busy, required this.onAdvance, this.sos});
 
   static const _labels = {
     BookingStatus.pending: 'Awaiting confirmation',
@@ -201,6 +239,7 @@ class _JobCard extends StatelessWidget {
           children: [
             Row(children: [
               Expanded(child: Text(job.serviceName, style: AppTextStyles.subtitle1)),
+              if (job.reworkOf != null) const Padding(padding: EdgeInsets.only(right: 8), child: FreeFixChip()),
               Text(_labels[job.status] ?? job.status, style: AppTextStyles.caption.themed(context)),
             ]),
             const SizedBox(height: 4),
@@ -246,6 +285,10 @@ class _JobCard extends StatelessWidget {
                       : Text(step.label),
                 ),
               ),
+            ],
+            if (sos != null) ...[
+              const SizedBox(height: 8),
+              Align(alignment: AlignmentDirectional.centerEnd, child: sos!),
             ],
           ],
         ),

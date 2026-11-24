@@ -37,7 +37,7 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
       final byShop = await api.ratings(shopIds);
       return [
         for (final s in services)
-          if (byShop[s.shopId] case final r?) s.withRating(r.average, r.count) else s,
+          if (byShop[s.shopId] case final r?) s.withRating(r.average, r.count, verified: r.isVerified) else s,
       ];
     } catch (_) {
       return services;

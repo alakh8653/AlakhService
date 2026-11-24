@@ -52,6 +52,11 @@ class OwnerShop {
   final String? legalAddress;
   final String? gstin;
 
+  /// Days after completion in which a customer may ask for a free fix (0 to 90).
+  final int guaranteeDays;
+
+  static const defaultGuaranteeDays = 7;
+
   const OwnerShop({
     required this.id,
     required this.name,
@@ -62,6 +67,7 @@ class OwnerShop {
     this.legalName,
     this.legalAddress,
     this.gstin,
+    this.guaranteeDays = defaultGuaranteeDays,
   });
 
   bool get approved => verificationStatus == 'APPROVED';
@@ -81,6 +87,7 @@ class OwnerShop {
         legalName: j['legal_name'] as String?,
         legalAddress: j['legal_address'] as String?,
         gstin: j['gstin'] as String?,
+        guaranteeDays: (j['guarantee_days'] as num?)?.toInt() ?? defaultGuaranteeDays,
       );
 }
 
@@ -127,6 +134,20 @@ class OwnerBooking {
   /// UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED.
   final String paymentStatus;
 
+  /// An extra charge waiting for the customer's answer.
+  final String? pendingExtraId;
+  final int? pendingExtraCents;
+  final String? pendingExtraReason;
+
+  /// Of [totalCents], what the customer agreed to on top.
+  final int extraCents;
+
+  /// Who does the job, and the booking this one fixes for free.
+  final String? providerId;
+  final String? reworkOf;
+
+  bool get isFreeFix => reworkOf != null;
+
   const OwnerBooking({
     required this.id,
     required this.number,
@@ -138,6 +159,12 @@ class OwnerBooking {
     this.totalCents = 0,
     this.notes,
     this.paymentStatus = 'UNPAID',
+    this.pendingExtraId,
+    this.pendingExtraCents,
+    this.pendingExtraReason,
+    this.extraCents = 0,
+    this.providerId,
+    this.reworkOf,
   });
 
   factory OwnerBooking.fromJson(Map<String, dynamic> j) => OwnerBooking(
@@ -151,8 +178,18 @@ class OwnerBooking {
         totalCents: (j['total_amount'] as num?)?.toInt() ?? 0,
         notes: j['notes'] as String?,
         paymentStatus: j['payment_status'] as String? ?? 'UNPAID',
+        pendingExtraId: j['pending_extra_id'] as String?,
+        pendingExtraCents: (j['pending_extra_amount'] as num?)?.toInt(),
+        pendingExtraReason: j['pending_extra_reason'] as String?,
+        extraCents: (j['extra_amount'] as num?)?.toInt() ?? 0,
+        providerId: j['provider_id']?.toString(),
+        reworkOf: (j['rework_of'] ?? (j['metadata'] is Map ? (j['metadata'] as Map)['rework_of'] : null))?.toString(),
       );
 }
+
+/// Statuses in which booking_service takes an extra charge: from when a provider can have seen the job until it
+/// is finished.
+const extraChargeStatuses = {'CONFIRMED', 'ASSIGNED', 'PROVIDER_EN_ROUTE', 'PICKED_UP', 'IN_PROGRESS', 'OUT_FOR_DELIVERY'};
 
 /// What the owner may do next with a booking.
 enum OwnerAction { accept, decline, customerArrived, goMyself, onTheWay, onTheWayToCollect, pickedUp, startWork, start, sendBack, delivered, complete, cancel }
@@ -245,6 +282,23 @@ Set<ChecklistItem> documentsWaiting(List<ChecklistItem> checklist, List<String> 
     }
   }
   return waiting;
+}
+
+/// Someone served by this business, by display name only.
+class ShopCustomer {
+  final String name;
+  final int visits;
+  final double spent;
+  final DateTime lastVisit;
+
+  const ShopCustomer({required this.name, required this.visits, required this.spent, required this.lastVisit});
+
+  factory ShopCustomer.fromJson(Map<String, dynamic> j) => ShopCustomer(
+        name: j['name'] as String,
+        visits: (j['visits'] as num).toInt(),
+        spent: (j['spent'] as num).toDouble(),
+        lastVisit: DateTime.parse(j['last_visit'] as String).toLocal(),
+      );
 }
 
 /// One day's, or for a year one month's, figures in a report.
@@ -416,6 +470,29 @@ class PayoutDetails {
       );
 }
 
+/// How many customers a time can take, and whether bookings confirm themselves while a place is free.
+class BookingLimits {
+  /// Null means one customer per active team member.
+  final int? capacityOverride;
+  final int capacity;
+  final int activeStaff;
+  final bool autoConfirm;
+
+  const BookingLimits({
+    required this.capacityOverride,
+    required this.capacity,
+    required this.activeStaff,
+    required this.autoConfirm,
+  });
+
+  factory BookingLimits.fromSchedule(Map<String, dynamic> j) => BookingLimits(
+        capacityOverride: j['capacity_override'] as int?,
+        capacity: j['capacity'] as int? ?? 1,
+        activeStaff: j['active_staff'] as int? ?? 0,
+        autoConfirm: j['auto_confirm'] as bool? ?? false,
+      );
+}
+
 /// Opening hours for the week as the owner sets them on the phone: the same hours on the chosen days.
 class WeekHours {
   /// 0 = Monday ... 6 = Sunday.
@@ -552,6 +629,19 @@ class ShopOwnerApi {
         await apiClient.put<Map<String, dynamic>>(ApiConstants.shopHours(shopId), data: hours.toJson());
       });
 
+  Future<BookingLimits> bookingLimits(String shopId) => _call(() async {
+        return BookingLimits.fromSchedule((await apiClient.get<Map<String, dynamic>>(ApiConstants.shopHours(shopId))).data!);
+      });
+
+  /// Null goes back to one customer per active team member.
+  Future<void> saveCapacity(String shopId, int? capacity) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/capacity', data: {'capacity': capacity});
+      });
+
+  Future<void> saveAutoConfirm(String shopId, bool autoConfirm) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/auto-confirm', data: {'auto_confirm': autoConfirm});
+      });
+
   Future<WeekHours> hours(String shopId) => _call(() async {
         return WeekHours.fromSchedule((await apiClient.get<Map<String, dynamic>>(ApiConstants.shopHours(shopId))).data!);
       });
@@ -598,6 +688,11 @@ class ShopOwnerApi {
           'legal_address': legalAddress ?? '',
           'gstin': (gstin == null || gstin.isEmpty) ? null : gstin,
         });
+      });
+
+  /// The free-fix guarantee in days (0 to 90), public on the shop.
+  Future<void> saveGuaranteeDays(String shopId, int days) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>(ApiConstants.shop(shopId), data: {'guarantee_days': days});
       });
 
   /// The types of document already uploaded (PAN, GST, AADHAAR, UDYAM, BANK_PROOF or SHOP_PHOTO).
@@ -659,6 +754,62 @@ class ShopOwnerApi {
         final response =
             await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/submit-for-review');
         return OwnerShop.fromJson(response.data!);
+      });
+
+  // What customers see before booking
+
+  Future<void> saveProfile(String shopId, {required String about, int? yearsExperience, required List<String> languages}) =>
+      _call(() async {
+        await apiClient.put<Map<String, dynamic>>(ApiConstants.shop(shopId), data: {
+          'description': about,
+          'years_experience': yearsExperience,
+          'languages': languages,
+        });
+      });
+
+  /// The raw image is the request body, as shop_service expects.
+  Future<void> addWorkPhoto(String shopId, PickedDocument file) => _call(() async {
+        await apiClient.post<Map<String, dynamic>>(
+          '${ApiConstants.shop(shopId)}/photos',
+          data: Stream<List<int>>.fromIterable([file.bytes]),
+          options: Options(
+            contentType: file.contentType,
+            headers: {Headers.contentLengthHeader: file.bytes.length},
+            sendTimeout: const Duration(minutes: 2),
+          ),
+        );
+      });
+
+  Future<void> deleteWorkPhoto(String shopId, String photoId) => _call(() async {
+        await apiClient.delete<void>('${ApiConstants.shop(shopId)}/photos/$photoId');
+      });
+
+  // Days off, reviews and customers
+
+  Future<List<DateTime>> daysOff(String shopId) => _call(() async {
+        final data = (await apiClient.get<Map<String, dynamic>>(ApiConstants.shopHours(shopId))).data!;
+        return ((data['holidays'] as List<dynamic>?) ?? const [])
+            .cast<Map<String, dynamic>>()
+            .map((h) => DateTime.parse(h['date'] as String))
+            .toList()
+          ..sort();
+      });
+
+  Future<void> addDayOff(String shopId, String day) => _call(() async {
+        await apiClient.post<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/holidays', data: {'date': day});
+      });
+
+  Future<void> removeDayOff(String shopId, String day) => _call(() async {
+        await apiClient.delete<void>('${ApiConstants.shop(shopId)}/holidays/$day');
+      });
+
+  Future<void> replyToReview(String shopId, String reviewId, String text) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>('${ApiConstants.shop(shopId)}/reviews/$reviewId/reply', data: {'text': text});
+      });
+
+  Future<List<ShopCustomer>> customers(String shopId) => _call(() async {
+        final data = (await apiClient.get<List<dynamic>>('${ApiConstants.bookings}/shop/$shopId/customers')).data!;
+        return data.cast<Map<String, dynamic>>().map(ShopCustomer.fromJson).toList();
       });
 
   // Reports
@@ -727,8 +878,12 @@ class ShopOwnerApi {
         return items;
       });
 
-  Future<void> setStatus(String bookingId, String status) => _call(() async {
-        await apiClient.put<Map<String, dynamic>>('${ApiConstants.bookings}/$bookingId/status', data: {'status': status});
+  /// Starting work at the customer's takes their 4-digit [startCode].
+  Future<void> setStatus(String bookingId, String status, {String? startCode}) => _call(() async {
+        await apiClient.put<Map<String, dynamic>>(
+          '${ApiConstants.bookings}/$bookingId/status',
+          data: {'status': status, if (startCode != null) 'start_code': startCode},
+        );
       });
 
   /// Refunded in full, as a cancellation by the shop.

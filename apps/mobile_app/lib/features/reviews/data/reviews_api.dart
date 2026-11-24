@@ -9,7 +9,10 @@ class ShopRating {
   final double average;
   final int count;
 
-  const ShopRating({required this.average, required this.count});
+  /// The shop's verified badge, when the ratings lookup reports it.
+  final bool? isVerified;
+
+  const ShopRating({required this.average, required this.count, this.isVerified});
 }
 
 class RatingSummary {
@@ -120,6 +123,15 @@ class ReviewsApi {
     }
   }
 
+  /// Flags a review for an admin to look at. It stays up until an admin hides it.
+  Future<void> report(String shopId, String reviewId, String reason) async {
+    try {
+      await apiClient.post<Map<String, dynamic>>('${ApiConstants.shopReviews(shopId)}/$reviewId/report', data: {'reason': reason});
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
+
   /// The rating of each shop in [shopIds], in one request (shops without a row are left out).
   Future<Map<String, ShopRating>> ratings(Iterable<String> shopIds) async {
     final ids = shopIds.toSet().take(50).toList();
@@ -131,6 +143,7 @@ class ReviewsApi {
           r['shop_id'] as String: ShopRating(
             average: (r['average_rating'] as num).toDouble(),
             count: r['review_count'] as int,
+            isVerified: r['is_verified'] as bool?,
           ),
       };
     } on DioException catch (e) {

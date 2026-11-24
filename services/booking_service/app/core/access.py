@@ -8,8 +8,12 @@ are valid at all; this only decides who may request them.
 
 from typing import Awaitable, Callable, Optional, Set
 
+from fastapi import HTTPException
+
 from app.core.fsm import BookingStatus
 from app.models.booking import Booking
+
+OWN_SHOP_MESSAGE = "You can't book your own shop"
 
 ADMIN = "admin"
 CUSTOMER = "customer"
@@ -40,6 +44,12 @@ ALLOWED_TARGETS = {
 }
 
 OwnerLookup = Callable[[str], Awaitable[Optional[str]]]
+
+
+async def ensure_not_own_shop(lookup_owner: OwnerLookup, shop_id: str, customer_id: str) -> None:
+    """A booking is what lets someone review a shop, so an owner cannot be a customer of their own."""
+    if await lookup_owner(shop_id) == customer_id:
+        raise HTTPException(status_code=409, detail=OWN_SHOP_MESSAGE)
 
 
 async def relationships(booking: Booking, user: dict, lookup_owner: OwnerLookup) -> Set[str]:

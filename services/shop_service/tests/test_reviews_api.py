@@ -165,8 +165,8 @@ async def test_summary_list_filters_and_shop_responses(client):
     other = await make_shop(client, owner="owner-2")
     briefs = (await client.get("/api/v1/shops/ratings", params={"ids": f"{other},{shop},missing,{shop}"})).json()
     assert briefs == [
-        {"shop_id": other, "average_rating": 0.0, "review_count": 0},
-        {"shop_id": shop, "average_rating": 3.8, "review_count": 4},
+        {"shop_id": other, "average_rating": 0.0, "review_count": 0, "is_verified": True},
+        {"shop_id": shop, "average_rating": 3.8, "review_count": 4, "is_verified": True},
     ]
     too_many = ",".join(f"s{n}" for n in range(51))
     assert (await client.get("/api/v1/shops/ratings", params={"ids": too_many})).status_code == 422
@@ -322,3 +322,19 @@ async def test_contact_details_in_reviews_and_replies_are_hidden(client):
     # Reviewers are shown by display name only, with nothing that identifies or contacts them.
     assert page.json()["items"][0]["reviewer_name"] == "Priya S."
     assert not {"customer_id", "booking_id", "email", "phone", "full_name"} & set(page.json()["items"][0])
+
+
+@pytest.mark.asyncio
+async def test_keeping_a_reported_review_clears_its_reports_so_it_leaves_the_queue(client):
+    shop = await make_shop(client)
+    await review(client, shop, "cust-1", 1)
+    item = (await reviews(client, shop))["items"][0]
+    url = f"/api/v1/shops/{shop}/reviews/{item['id']}/report"
+    assert (await client.post(url, json={"reason": "Abusive"}, headers=auth("cust-2"))).status_code == 202
+    assert (await client.get("/api/v1/reviews/reported", headers=ADMIN)).json()["total"] == 1
+
+    kept = await client.put(f"/api/v1/reviews/{item['id']}/visibility", json={"hidden": False}, headers=ADMIN)
+    assert (kept.status_code, kept.json()["report_count"], kept.json()["report_reasons"]) == (200, 0, [])
+    assert (await client.get("/api/v1/reviews/reported", headers=ADMIN)).json()["total"] == 0
+    # The same person may report it again if it needs another look.
+    assert (await client.post(url, json={"reason": "Abusive"}, headers=auth("cust-2"))).status_code == 202

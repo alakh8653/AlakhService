@@ -9,6 +9,7 @@ import '../features/auth/presentation/pages/reset_password_link_page.dart';
 import '../features/booking/presentation/pages/booking_details_page.dart';
 import '../features/chat/presentation/booking_chat_page.dart';
 import '../features/push/push_service.dart';
+import '../features/shops/presentation/saved_shops_page.dart';
 import '../l10n/l10n.dart';
 import 'app_links.dart';
 
@@ -18,6 +19,7 @@ typedef TargetPageBuilder = Widget Function(AppTarget target);
 Widget defaultTargetPage(AppTarget target) => switch (target) {
       BookingTarget(chat: true) => BookingChatPage(bookingId: target.bookingId),
       BookingTarget() => BookingDetailsPage(bookingId: target.bookingId),
+      ShopTarget() => SharedShopPage(shopId: target.shopId),
       ResetPasswordTarget() => ResetPasswordLinkPage(token: target.token),
     };
 

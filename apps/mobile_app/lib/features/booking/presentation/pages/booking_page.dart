@@ -426,16 +426,18 @@ class _BookingPageState extends State<BookingPage> {
   Future<void> _showBooked(Booking booking) async {
     final navigator = Navigator.of(context);
     final l10n = context.l10n;
+    // A shop that confirms by itself has already taken this booking.
+    final confirmed = booking.status == 'CONFIRMED';
     final viewBookings = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(Icons.check_circle, color: context.palette.success, size: 56),
-        title: Text(l10n.bookingRequested),
+        title: Text(confirmed ? l10n.bookingConfirmedNow : l10n.bookingRequested),
         content: Text(
           '${widget.serviceName}\n${friendlyDateTime(booking.scheduledAt, l10n: l10n)}'
           '${booking.bookingNumber.isEmpty ? '' : '\n${l10n.bookingNumber(booking.bookingNumber)}'}\n\n'
-          '${l10n.bookingRequestedBody}',
+          '${confirmed ? l10n.bookingConfirmedNowBody : l10n.bookingRequestedBody}',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,

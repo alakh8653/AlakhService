@@ -15,7 +15,10 @@ class Destination {
   final double? latitude;
   final double? longitude;
 
-  const Destination({required this.name, required this.address, this.latitude, this.longitude});
+  /// The shop has been verified by the platform.
+  final bool isVerified;
+
+  const Destination({required this.name, required this.address, this.latitude, this.longitude, this.isVerified = false});
 
   bool get hasCoordinates => latitude != null && longitude != null;
 

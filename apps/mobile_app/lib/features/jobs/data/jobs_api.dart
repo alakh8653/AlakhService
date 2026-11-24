@@ -73,11 +73,12 @@ class JobsApi {
     }
   }
 
-  Future<Booking> moveTo(String bookingId, String status) async {
+  /// Starting work at the customer's takes their 4-digit [startCode] (422 when wrong, 429 after too many tries).
+  Future<Booking> moveTo(String bookingId, String status, {String? startCode}) async {
     try {
       final response = await apiClient.put<Map<String, dynamic>>(
         ApiConstants.bookingStatus(bookingId),
-        data: {'status': status},
+        data: {'status': status, if (startCode != null) 'start_code': startCode},
       );
       return await _model(response.data!);
     } on DioException catch (e) {

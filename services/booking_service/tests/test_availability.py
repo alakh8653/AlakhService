@@ -9,13 +9,14 @@ import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from app import dependencies
 from app.core.availability import max_concurrent, step_minutes
 from app.dependencies import get_clock
 from app.main import app
-from app.models.booking import Booking
-from tests.test_shop_bookings_api import LISTINGS, SCHEDULES, SESSIONS, auth, close_service, open_service
+from app.models.booking import Booking, BookingStatusHistory
+from tests.test_shop_bookings_api import LISTINGS, SCHEDULES, SENT, SESSIONS, auth, close_service, open_service
 
 IST = timezone(timedelta(hours=5, minutes=30))
 MON, TUE, WED, THU = date(2030, 11, 4), date(2030, 11, 5), date(2030, 11, 6), date(2030, 11, 7)
@@ -449,3 +450,49 @@ async def test_while_shop_service_is_down_the_last_answers_stand_in_for_an_hour(
         assert down.value.status_code == 503
     for cache in (dependencies._schedule_cache, dependencies._team_cache, dependencies._owner_cache):
         cache.clear()
+
+
+@pytest.mark.asyncio
+async def test_auto_confirm_confirms_each_booking_until_the_time_is_full(client):
+    SCHEDULES["shop-1"] = {**HOURS, "capacity": 2, "auto_confirm": True}
+    SENT.clear()
+    first = await book(client, MON, "10:00")
+    assert (first.status_code, first.json()["status"]) == (201, "CONFIRMED")
+    assert (await book(client, MON, "10:00", customer="c6")).json()["status"] == "CONFIRMED"
+    full = await book(client, MON, "10:00", customer="c7")
+    assert full.status_code == 409
+    assert "fully booked" in full.json()["detail"]
+    # Nothing else was held up: a free time still confirms.
+    assert (await book(client, MON, "11:00")).json()["status"] == "CONFIRMED"
+
+
+@pytest.mark.asyncio
+async def test_auto_confirm_tells_the_customer_and_the_shop_and_records_who_confirmed(client):
+    SCHEDULES["shop-1"] = {**HOURS, "capacity": 1, "auto_confirm": True}
+    SENT.clear()
+    booking = (await book(client, MON, "10:00")).json()
+    events = {event: people for event, people, *_ in SENT}
+    assert [role for _, role in events["booking.confirmed"]] == ["customer"]
+    assert [role for _, role in events["booking.created"]] == ["shop"]
+    created = next(s for s in SENT if s[0] == "booking.created")
+    assert created[2]["confirm_line"] == "Confirmed automatically."
+    async with SESSIONS["factory"]() as db:
+        rows = (
+            await db.execute(select(BookingStatusHistory).where(BookingStatusHistory.booking_id == booking["id"]))
+        ).scalars()
+        assert [(h.to_status, h.changed_by) for h in rows if h.to_status == "CONFIRMED"] == [("CONFIRMED", "system")]
+
+
+@pytest.mark.asyncio
+async def test_a_shop_without_auto_confirm_still_accepts_each_booking_itself(client):
+    SCHEDULES["shop-1"] = {**HOURS, "capacity": 2}
+    SENT.clear()
+    assert (await book(client, MON, "10:00")).json()["status"] == "PENDING"
+    assert [s[0] for s in SENT if s[0] == "booking.confirmed"] == []
+    assert "confirm_line" not in next(s for s in SENT if s[0] == "booking.created")[2]
+
+
+@pytest.mark.asyncio
+async def test_auto_confirm_needs_opening_hours_because_only_they_check_for_a_free_place(client):
+    SCHEDULES["shop-1"] = {**HOURS, "configured": False, "weekly": [], "auto_confirm": True}
+    assert (await book(client, MON, "10:00")).json()["status"] == "PENDING"

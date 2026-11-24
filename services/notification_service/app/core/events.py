@@ -7,9 +7,18 @@ them; the wording lives here so every channel (in-app list, push) says the same 
 import re
 from typing import Optional
 
-# (event, role) -> (title, body). Bodies are str.format templates over the event's data.
+# (event, role) -> (title, body): str.format templates over the event's data.
 MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
-    ("booking.created", "shop"): ("New booking", "{service_name} booked for {scheduled_at}. Booking {booking_number}."),
+    ("booking.created", "shop"): (
+        "New booking",
+        "{service_name} booked for {scheduled_at}. Booking {booking_number}. {confirm_line} {rework_line}",
+    ),
+    # A customer or provider asked for help during a booking: every admin, by push and email.
+    ("safety.sos", None): (
+        "SOS: someone needs help",
+        "SOS from the {role} of booking {booking_number} at {raised_at}. Location: {location}. {note} "
+        "Reach them now; if they cannot be reached, call 112 for them.",
+    ),
     ("booking.confirmed", None): (
         "Booking confirmed",
         "Your booking {booking_number} for {scheduled_at} is confirmed.",
@@ -49,6 +58,26 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
         "Booking {booking_number} is complete. Tap to rate your experience.",
     ),
     ("booking.completed", None): ("Booking completed", "Booking {booking_number} is complete."),
+    ("booking.extra_requested", "customer"): (
+        "Extra charge to approve",
+        "Your provider asks for {amount} more on booking {booking_number}: {reason}. Open the app to approve or decline.",
+    ),
+    ("booking.extra_approved", None): (
+        "Extra charge approved",
+        "The customer approved {amount} more on booking {booking_number}. The new total is {new_total}.",
+    ),
+    ("booking.extra_declined", None): (
+        "Extra charge declined",
+        "The customer declined {amount} more on booking {booking_number}. The price stays as it was.",
+    ),
+    ("shop.photo_hidden", "shop"): (
+        "A work photo was hidden",
+        "A photo of {shop_name} is hidden from customers while we check it. Open your profile to see it or remove it.",
+    ),
+    ("shop.photo_removed", "shop"): (
+        "A work photo was removed",
+        "We removed a photo of {shop_name}. Please don't show customers' faces, documents or anything offensive.",
+    ),
     ("shop.report", None): (
         "Your report is ready",
         "Your report for {label} is ready. Open Reports to see your profit.",
@@ -177,6 +206,9 @@ MESSAGES: dict[tuple[str, Optional[str]], tuple[str, str]] = {
 # Shop owners use the web dashboard, which has no push, so these are always emailed to them too.
 SHOP_EMAIL_EVENTS = frozenset({"booking.created", "booking.rescheduled", "shop.approved", "shop.rejected"})
 
+# Alerts every admin gets by email as well as push, whether or not they have the app.
+ADMIN_EMAIL_EVENTS = frozenset({"safety.sos"})
+
 
 # Updates that can wait: during the recipient's quiet hours they are kept in the app but not pushed.
 QUIET_HOURS_HELD = frozenset(
@@ -233,7 +265,8 @@ def render(event: str, role: Optional[str], data: dict) -> Optional[tuple[str, s
     if template is None:
         return None
     title, body = template
-    return title, _fill(body, data)
+    # A title may name a detail too ("Extra charges approved").
+    return _fill(title, data), _fill(body, data)
 
 
 def render_sms(event: str, data: dict) -> Optional[str]:

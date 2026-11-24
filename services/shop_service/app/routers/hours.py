@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ShopNotFoundError
 from app.database import get_db
 from app.dependencies import Caller, ensure_owner, require_caller
-from app.schemas.hours import CapacityUpdate, HolidayCreate, ShopSchedule, WeeklyHoursUpdate
+from app.schemas.hours import AutoConfirmUpdate, CapacityUpdate, HolidayCreate, ShopSchedule, WeeklyHoursUpdate
 from app.services import hours_service
 from app.services.shop_service import is_public, shop_service
 
@@ -33,7 +33,11 @@ async def _owned_shop(db: AsyncSession, shop_id: str, caller: Caller):
 
 async def _schedule(db: AsyncSession, shop) -> ShopSchedule:
     schedule = await hours_service.get_schedule(db, shop.id)
-    return schedule.model_copy(update={"accepting_bookings": is_public(shop)})
+    return schedule.model_copy(update={"accepting_bookings": is_public(shop), "guarantee_days": _guarantee_days(shop)})
+
+
+def _guarantee_days(shop) -> int:
+    return 7 if shop.guarantee_days is None else shop.guarantee_days
 
 
 @router.get("/shops/{shop_id}/hours", response_model=ShopSchedule)
@@ -63,6 +67,18 @@ async def set_capacity(
 ):
     shop = await _owned_shop(db, shop_id, caller)
     await hours_service.set_capacity(db, shop_id, data.capacity)
+    return await _schedule(db, shop)
+
+
+@router.put("/shops/{shop_id}/auto-confirm", response_model=ShopSchedule)
+async def set_auto_confirm(
+    shop_id: str,
+    data: AutoConfirmUpdate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
+):
+    shop = await _owned_shop(db, shop_id, caller)
+    await hours_service.set_auto_confirm(db, shop_id, data.auto_confirm)
     return await _schedule(db, shop)
 
 

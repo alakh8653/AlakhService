@@ -4,6 +4,23 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_errors.dart';
 
+/// The wait at a shop for someone who has not joined its line yet.
+class WaitNow {
+  final bool open;
+  final bool canJoin;
+  final int waiting;
+  final int? waitMinutes;
+
+  const WaitNow({required this.open, required this.canJoin, required this.waiting, this.waitMinutes});
+
+  factory WaitNow.fromJson(Map<String, dynamic> j) => WaitNow(
+        open: j['open'] as bool? ?? false,
+        canJoin: j['can_join'] as bool? ?? false,
+        waiting: j['waiting'] as int? ?? 0,
+        waitMinutes: j['wait_minutes'] as int?,
+      );
+}
+
 /// Where a booking stands in today's queue at its shop (booking_service's GET /bookings/{id}/queue).
 class BookingQueue {
   final String bookingId;
@@ -79,6 +96,19 @@ class BookingQueueApi {
 
   /// Tells the shop the customer has arrived.
   Future<BookingQueue> checkIn(String bookingId) => _call(() => apiClient.post(ApiConstants.bookingCheckIn(bookingId)));
+
+  /// What joining the line for [serviceId] now would mean, before joining.
+  Future<WaitNow> waitNow(String serviceId) async {
+    try {
+      final response = await apiClient.get<Map<String, dynamic>>(
+        ApiConstants.waitNow,
+        queryParameters: {'service_id': serviceId},
+      );
+      return WaitNow.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw toServerException(e);
+    }
+  }
 
   /// Joins the shop's line for [serviceId] now, without a booked time.
   Future<BookingQueue> joinLine(String serviceId, {String? preferredStaffId}) => _call(

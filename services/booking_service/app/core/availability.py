@@ -72,6 +72,8 @@ class Schedule:
     timezone: str = DEFAULT_TIMEZONE
     # False while the shop awaits approval or is switched off: no times, and bookings are refused.
     accepting_bookings: bool = True
+    # The owner's choice to confirm each booking at once while a place is free.
+    auto_confirm: bool = False
 
     @classmethod
     def from_shop_service(cls, data: Optional[dict]) -> "Schedule":
@@ -86,6 +88,7 @@ class Schedule:
             accepting_bookings=data.get("accepting_bookings") is not False,
             configured=bool(data.get("configured")),
             capacity=max(1, int(data.get("capacity") or 1)),
+            auto_confirm=bool(data.get("auto_confirm")),
             weekly=weekly,
             holidays=holidays,
             timezone=data.get("timezone") or DEFAULT_TIMEZONE,
@@ -169,10 +172,11 @@ def day_availability(
     """The start times on [day] at which a [duration]-minute booking can be made, with why there are none."""
     if not schedule.accepting_bookings:
         return DayAvailability(CLOSED, [], [], reason=NOT_ACCEPTING_MESSAGE)
-    if not schedule.configured:
-        return DayAvailability(NOT_CONFIGURED, [], [])
+    # Before the weekly hours: a day off counts even for a shop that never saved any.
     if day in schedule.holidays:
         return DayAvailability(HOLIDAY, [], [], schedule.holidays[day])
+    if not schedule.configured:
+        return DayAvailability(NOT_CONFIGURED, [], [])
     intervals = schedule.intervals_on(day)
     step = step_minutes(duration)
     # Every start whose whole booking fits inside one open interval.
@@ -198,8 +202,6 @@ def booking_problem(
     schedule: Schedule, start: datetime, duration: int, now: datetime, booked: Iterable[Span], grace: timedelta
 ) -> Optional[str]:
     """Why a booking at [start] cannot be taken, or None when it can (or the shop has no hours)."""
-    if not schedule.configured:
-        return None
     start = _utc(start)
     local = schedule.local(start)
     day, minutes = local.date(), local.hour * 60 + local.minute
@@ -208,6 +210,8 @@ def booking_problem(
     if day in schedule.holidays:
         note = schedule.holidays[day]
         return f"The shop is closed on {label.split(',')[0]}" + (f" ({note})" if note else "")
+    if not schedule.configured:
+        return None
     if not any(s <= minutes and minutes + duration <= e for s, e in schedule.intervals_on(day)):
         return f"The shop is not open for the whole of a {duration}-minute booking at {label}; pick another time"
     if local.second or local.microsecond or minutes % GRID_MINUTES:

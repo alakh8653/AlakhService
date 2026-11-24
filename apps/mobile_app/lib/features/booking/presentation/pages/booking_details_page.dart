@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -18,12 +19,16 @@ import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
 import '../../data/availability_api.dart';
 import '../../data/booking_queue_api.dart';
+import '../../data/extra_charge_api.dart';
 import '../../data/home_arrival_api.dart';
+import '../../data/trust_api.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/repositories/booking_repository.dart';
 import '../widgets/booking_payment.dart';
 import '../widgets/live_queue_card.dart';
 import '../widgets/home_arrival_card.dart';
+import '../widgets/safety_actions.dart';
+import '../widgets/trust_cards.dart';
 import 'booking_history_page.dart' show bookingStatusLabel;
 import 'reschedule_page.dart';
 
@@ -42,6 +47,14 @@ class BookingDetailsPage extends StatefulWidget {
   final CheckoutLauncher? checkoutLauncher;
   final BookingQueueApi? queueApi;
   final HomeArrivalApi? arrivalApi;
+  final ExtraChargeApi? extraChargeApi;
+
+  /// The free fix, sharing the visit and SOS; and the system share sheet, tel: links and
+  /// the device position they use (replaceable in tests).
+  final TrustApi? trustApi;
+  final ShareText? shareText;
+  final OpenUri? openUri;
+  final CurrentFix? sosLocation;
 
   /// The current time (replaceable in tests).
   final DateTime Function() clock;
@@ -61,6 +74,11 @@ class BookingDetailsPage extends StatefulWidget {
     this.checkoutLauncher,
     this.queueApi,
     this.arrivalApi,
+    this.extraChargeApi,
+    this.trustApi,
+    this.shareText,
+    this.openUri,
+    this.sosLocation,
     this.clock = DateTime.now,
     this.invoiceViewer,
   });
@@ -78,12 +96,14 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   int _unread = 0;
   bool _cancelling = false;
   bool _openingService = false;
+  bool _answeringExtra = false;
   // The tip paid for a completed booking (rupees); null when none, or not known yet.
   double? _tip;
 
   BookingRepository get _repository => widget.repository ?? sl<BookingRepository>();
   PaymentApi get _paymentApi => widget.paymentApi ?? sl<PaymentApi>();
   ChatApi get _chatApi => widget.chatApi ?? sl<ChatApi>();
+  ExtraChargeApi get _extraChargeApi => widget.extraChargeApi ?? sl<ExtraChargeApi>();
 
   @override
   void initState() {
@@ -191,6 +211,44 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
     if (moved != null && mounted) _load();
   }
 
+  /// Another booking: the free fix of this one, or the one this fixes.
+  Future<void> _openBooking(String id) => Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookingDetailsPage(
+            bookingId: id,
+            repository: widget.repository,
+            paymentApi: widget.paymentApi,
+            chatApi: widget.chatApi,
+            availabilityApi: widget.availabilityApi,
+            serviceRepository: widget.serviceRepository,
+            checkoutLauncher: widget.checkoutLauncher,
+            queueApi: widget.queueApi,
+            arrivalApi: widget.arrivalApi,
+            extraChargeApi: widget.extraChargeApi,
+            trustApi: widget.trustApi,
+            shareText: widget.shareText,
+            openUri: widget.openUri,
+            sosLocation: widget.sosLocation,
+            clock: widget.clock,
+            invoiceViewer: widget.invoiceViewer,
+          ),
+        ),
+      );
+
+  Future<void> _requestRework(Booking booking) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final id = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => ReworkRequestPage(booking: booking, api: widget.trustApi, clock: widget.clock)),
+    );
+    if (id == null || !mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(l10n.reworkSent)));
+    await _load();
+    if (mounted) await _openBooking(id);
+  }
+
   /// Opens the service as it is offered now (price, shop, reviews), to book it again.
   Future<void> _bookAgain(Booking booking) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -213,6 +271,79 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
       body: booking == null
           ? (_error != null ? AppErrorWidget(message: _error!, onRetry: _load) : LoadingIndicator(message: l10n.loadingBookings))
           : RefreshIndicator(onRefresh: _load, child: _details(context, l10n, booking)),
+    );
+  }
+
+  Future<void> _answerExtra(Booking booking, {required bool approve}) async {
+    final l10n = context.l10n;
+    final messenger = ScaffoldMessenger.of(context);
+    final id = booking.pendingExtraId!;
+    if (approve) {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(l10n.extraConfirmTitle(rupees(booking.pendingExtraAmount!))),
+          content: Text(l10n.extraConfirmBody),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(l10n.notNow)),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: Text(l10n.extraConfirmYes)),
+          ],
+        ),
+      );
+      if (sure != true || !mounted) return;
+    }
+    setState(() => _answeringExtra = true);
+    try {
+      if (approve) {
+        await _extraChargeApi.approve(booking.id, id);
+      } else {
+        await _extraChargeApi.decline(booking.id, id);
+      }
+    } on ServerException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+    if (!mounted) return;
+    setState(() => _answeringExtra = false);
+    await _load();
+  }
+
+  /// The provider asks for more: how much, why and the new total, and nothing changes unless they agree.
+  Widget _extraCharge(AppLocalizations l10n, Booking booking) {
+    final amount = booking.pendingExtraAmount ?? 0;
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.extraTitle, style: AppTextStyles.heading3),
+            const SizedBox(height: 4),
+            Text(l10n.extraLine(rupees(amount), booking.pendingExtraReason ?? ''), style: AppTextStyles.body1),
+            const SizedBox(height: 4),
+            Text(l10n.extraNewTotal(rupees(booking.totalAmount + amount)), style: AppTextStyles.body2.themed(context)),
+            Text(l10n.extraHelp, style: AppTextStyles.caption.themed(context)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _answeringExtra ? null : () => _answerExtra(booking, approve: false),
+                    child: Text(l10n.extraDecline),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _answeringExtra ? null : () => _answerExtra(booking, approve: true),
+                    child: Text(l10n.extraApprove),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -248,6 +379,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(l10n.statusPendingHelp, style: AppTextStyles.body2.themed(context)),
           ),
+        if (booking.showsStartCode) StartCodeCard(code: booking.startCode!),
         if (booking.status == BookingStatus.cancelled && (booking.cancellationReason ?? '').isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -274,6 +406,9 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
               [pickup ? l10n.modePickupDrop : l10n.modeHomeVisit, if (booking.itemDescription != null) booking.itemDescription!].join(' · ')),
         if (booking.address.isNotEmpty) _row(context, Icons.location_on, booking.address),
         _row(context, Icons.currency_rupee, rupees(booking.totalAmount)),
+        if (booking.extraAmount > 0)
+          Text(l10n.extraIncluded(rupees(booking.extraAmount)), style: AppTextStyles.caption.themed(context)),
+        if (booking.pendingExtraId != null) _extraCharge(l10n, booking),
         if (booking.preferredStaffName != null) _row(context, Icons.person_outline, l10n.askedFor(booking.preferredStaffName!)),
         if (booking.pointsDiscount > 0) _row(context, Icons.card_giftcard, l10n.pointsUsed(rupees(booking.pointsDiscount))),
         if (shown != null)
@@ -304,6 +439,25 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ),
+        if (booking.canShareVisit) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('share-visit'),
+              onPressed: () => shareVisitStatus(context, bookingId: booking.id, api: widget.trustApi, share: widget.shareText),
+              icon: const Icon(Icons.share_location_outlined),
+              label: Text(l10n.shareVisit),
+            ),
+          ),
+        ],
+        if (booking.offersSos) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: SosButton(bookingId: booking.id, api: widget.trustApi, location: widget.sosLocation, openUri: widget.openUri),
+          ),
+        ],
         if (booking.canReschedule(widget.clock())) ...[
           const SizedBox(height: 8),
           SizedBox(
@@ -315,6 +469,12 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ],
+        FreeFixSection(
+          booking: booking,
+          now: widget.clock(),
+          onOpenBooking: _openBooking,
+          onRequest: () => _requestRework(booking),
+        ),
         if (booking.status == BookingStatus.completed && booking.shopId != null) ...[
           const SizedBox(height: 8),
           if (_tip != null)

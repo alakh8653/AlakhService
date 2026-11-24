@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/di/injection_container.dart';
+import '../../../core/errors/exceptions.dart';
+import '../data/shop_profile_api.dart';
+import 'shop_profile_section.dart';
 import '../../../core/network/api_errors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
@@ -11,6 +14,7 @@ import '../../../shared/widgets/service_card.dart';
 import '../../services/domain/entities/service_entity.dart';
 import '../../services/presentation/pages/service_detail_page.dart';
 import '../data/saved_shops_api.dart';
+import '../../../shared/widgets/verified_badge.dart';
 
 /// The shops the customer has saved; each opens the list of what it offers, to book again quickly.
 class SavedShopsPage extends StatefulWidget {
@@ -90,7 +94,10 @@ class _SavedShopsPageState extends State<SavedShopsPage> {
                             backgroundColor: context.colors.primaryContainer,
                             child: Icon(Icons.storefront, color: context.colors.primary),
                           ),
-                          title: Text(shop.name),
+                          title: Row(children: [
+                            Flexible(child: Text(shop.name)),
+                            if (shop.isVerified) ...[const SizedBox(width: 6), const VerifiedBadge(compact: true)],
+                          ]),
                           subtitle: details.isEmpty ? null : Text(details),
                           trailing: IconButton(
                             icon: Icon(Icons.favorite, color: context.colors.error),
@@ -110,6 +117,49 @@ class _SavedShopsPageState extends State<SavedShopsPage> {
 }
 
 /// What a saved shop offers now; each opens the service, to book it.
+/// Where a link its owner shared lands: the business's services, once its name is known. A business that
+/// has gone, or is not public, says so rather than showing an empty page.
+class SharedShopPage extends StatefulWidget {
+  final String shopId;
+  final SavedShopsApi? api;
+
+  const SharedShopPage({super.key, required this.shopId, this.api});
+
+  @override
+  State<SharedShopPage> createState() => _SharedShopPageState();
+}
+
+class _SharedShopPageState extends State<SharedShopPage> {
+  late final SavedShopsApi _api = widget.api ?? sl<SavedShopsApi>();
+  SavedShop? _shop;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final shop = await _api.shop(widget.shopId);
+      if (mounted) setState(() => _shop = shop);
+    } on ServerException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shop = _shop;
+    if (shop != null) return ShopServicesPage(shop: shop, api: _api);
+    return Scaffold(
+      appBar: AppBar(),
+      body: _error == null ? const LoadingIndicator() : Center(child: Text(_error!, textAlign: TextAlign.center)),
+    );
+  }
+}
+
 class ShopServicesPage extends StatefulWidget {
   final SavedShop shop;
   final SavedShopsApi? api;
@@ -157,15 +207,20 @@ class _ShopServicesPageState extends State<ShopServicesPage> {
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: services.length,
+                  itemCount: services.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) => ServiceCard(
-                    service: services[i],
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => ServiceDetailPage(service: services[i])),
-                    ),
-                  ),
+                  // First what the business says of itself, for someone arriving from a shared link.
+                  itemBuilder: (context, i) => i == 0
+                      ? (sl.isRegistered<ShopProfileApi>()
+                          ? ShopProfileSection(shopId: widget.shop.id, api: sl<ShopProfileApi>())
+                          : const SizedBox.shrink())
+                      : ServiceCard(
+                          service: services[i - 1],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ServiceDetailPage(service: services[i - 1])),
+                          ),
+                        ),
                 ),
     );
   }

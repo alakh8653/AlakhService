@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.money import IST, rupees
 from app.core.peers import ShopDirectory, get_shop_directory
 from app.core.reports import ReportSender, get_report_sender, send_report
@@ -120,9 +121,16 @@ async def send_now(
     await _require_shop_access(shop_id, current_user, lookup_owner)
     built = await report_service.build(db, shop_id, period, _today())
     prefs = await report_service.preference(db, shop_id)
+    used = (prefs.sent_count or 0) if prefs.sent_on == _today() else 0
+    if used >= settings.REPORT_SENDS_PER_DAY:
+        raise HTTPException(status_code=429, detail="You have sent this report enough times today. Try again tomorrow.")
     sent = await send_report(shops, sender, shop_id, built, prefs)
     if sent is None:
         raise HTTPException(status_code=503, detail="The report could not be sent just now. Please try again.")
+    prefs.sent_on = _today()
+    prefs.sent_count = used + 1
+    db.add(prefs)
+    await db.flush()
     return {"sent_to": sent}
 
 

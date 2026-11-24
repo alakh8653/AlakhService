@@ -135,7 +135,7 @@ class _AllReviewsPageState extends State<AllReviewsPage> {
     return Column(
       children: [
         for (final r in _reviews) ...[
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: ReviewTile(review: r)),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: ReviewTile(review: r, onReport: () => reportReview(context, widget.api, widget.shopId, r))),
           const Divider(height: 1, indent: 16, endIndent: 16),
         ],
         if (_reviews.length < _total)

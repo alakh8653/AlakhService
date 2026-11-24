@@ -23,8 +23,9 @@ It is an estimate: the shop may take someone early or late. It is recomputed on 
 """
 
 import json
+import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -49,7 +50,12 @@ STAFF_MIN_SAMPLES = 3
 # Actual durations outside this share of the nominal are mistakes (a start or finish pressed late).
 PLAUSIBLE = (0.25, 4.0)
 NO_SHOW_REASON = "No-show"
+# Everyone polling their place in the same few seconds shares one calculation of the shop's line.
+LINE_CACHE_SECONDS = 3.0
+LINE_CACHE_MAX = 10_000
 WALK_IN, BOOKED = "WALK_IN", "BOOKED"
+# The id of the imagined walk-in that preview_walk_in adds to the line.
+PREVIEW_ID = "preview"
 # The customer id of a walk-in the shop added without an account (nobody to notify).
 WALK_IN_PREFIX = "walk-in:"
 PRIORITY_NAMES = {qe.VIP: "VIP", qe.APPOINTMENT: "APPOINTMENT", qe.WALK_IN: "WALK_IN"}
@@ -93,6 +99,9 @@ class QueueSpot:
     reason: Optional[str] = None
     # Being served for much longer than planned.
     overrun: bool = False
+
+
+_line_cache: Dict[str, Tuple[float, Dict[str, QueueSpot]]] = {}
 
 
 @dataclass
@@ -319,6 +328,18 @@ def predict_day(day: Day, now: datetime, per_visit: bool = False) -> Dict[str, Q
     return spots
 
 
+def preview_walk_in(day: Day, now: datetime, service_id: str, minutes: int) -> Tuple[QueueSpot, Dict[str, QueueSpot]]:
+    """Where someone joining the line now would stand, and the line as it is. Nothing is saved."""
+    # After everyone already in line, even if another server's clock runs a little ahead.
+    last = max([now, *(v.created_at for v in day.visits)])
+    visit = _Visit(
+        PREVIEW_ID, BookingStatus.CONFIRMED.value, now, timedelta(minutes=minutes), last,
+        service_id=service_id, source=WALK_IN,
+    )  # fmt: skip
+    spots = predict_day(replace(day, visits=[*day.visits, visit]), now)
+    return spots.pop(PREVIEW_ID), spots
+
+
 def compute(visits: List[_Visit], capacity: int, now: datetime) -> Dict[str, QueueSpot]:
     """The queue for [capacity] places that do everything, each visit as long as booked (no team, no
     learnt lengths)."""
@@ -519,6 +540,10 @@ async def load_day(
     )
 
 
+def forget_line(shop_id: str) -> None:
+    _line_cache.pop(shop_id, None)
+
+
 async def shop_queue(
     db: AsyncSession, shop_id: str, schedule: Schedule, now: datetime, team: Optional[List[dict]] = None
 ) -> Dict[str, QueueSpot]:
@@ -527,7 +552,12 @@ async def shop_queue(
 
 
 async def spot_for(
-    db: AsyncSession, booking: Booking, schedule: Schedule, now: datetime, team: Optional[List[dict]] = None
+    db: AsyncSession,
+    booking: Booking,
+    schedule: Schedule,
+    now: datetime,
+    team: Optional[List[dict]] = None,
+    shared: bool = False,
 ) -> Optional[QueueSpot]:
     """The booking's place in today's queue, or None when it is not in one (another day, finished, not at
     the shop)."""
@@ -535,4 +565,13 @@ async def spot_for(
         return None
     if schedule.local(_utc(booking.scheduled_at)).date() != schedule.local(now).date():
         return None
-    return (await shop_queue(db, booking.shop_id, schedule, now, team)).get(booking.id)
+    if not shared or LINE_CACHE_SECONDS <= 0:
+        return (await shop_queue(db, booking.shop_id, schedule, now, team)).get(booking.id)
+    cached = _line_cache.get(booking.shop_id)
+    if cached and time.monotonic() - cached[0] < LINE_CACHE_SECONDS and booking.id in cached[1]:
+        return cached[1][booking.id]
+    spots = await shop_queue(db, booking.shop_id, schedule, now, team)
+    if len(_line_cache) >= LINE_CACHE_MAX:
+        _line_cache.clear()
+    _line_cache[booking.shop_id] = (time.monotonic(), spots)
+    return spots.get(booking.id)

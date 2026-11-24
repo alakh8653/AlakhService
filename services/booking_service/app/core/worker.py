@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, List, Optional, Tuple
 
 import structlog
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -36,6 +36,10 @@ EXPIRED_REASON = "Shop did not confirm"
 REMINDER_STATUSES = (BookingStatus.CONFIRMED.value, BookingStatus.ASSIGNED.value)
 
 OwnerLookup = Callable[[str], Awaitable[Optional[str]]]
+
+
+# Any fixed number: names the lock that says a worker pass is running.
+PASS_LOCK = 7_203_114
 
 
 def _skip_locked(query, db: AsyncSession):
@@ -300,6 +304,17 @@ async def run_once(
     return summary
 
 
+async def run_if_first(factory, *args, **kwargs) -> Optional[dict]:
+    """One pass, unless another process or replica is doing this one (no message goes out twice). The
+    lock ends with this transaction, so a process that dies cannot hold up the next pass."""
+    async with factory() as guard:
+        if guard.get_bind().dialect.name == "postgresql":
+            taken = await guard.execute(text("select pg_try_advisory_xact_lock(:key)"), {"key": PASS_LOCK})
+            if not taken.scalar():
+                return None
+        return await run_once(factory, *args, **kwargs)
+
+
 async def run_forever(
     factory,
     notifier: Notifier,
@@ -312,7 +327,7 @@ async def run_forever(
     while True:
         try:
             with metrics.WORKER_PASS_SECONDS.time():
-                await run_once(
+                await run_if_first(
                     factory, notifier, lookup_owner, client, lookup_schedule=lookup_schedule, lookup_team=lookup_team
                 )
             metrics.WORKER_LAST_PASS.set_to_current_time()

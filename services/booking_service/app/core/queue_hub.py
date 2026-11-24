@@ -25,6 +25,7 @@ import structlog
 from fastapi import WebSocket
 
 from app.config import settings
+from app.core import live_queue
 
 log = structlog.get_logger()
 
@@ -90,6 +91,7 @@ class QueueHub:
             asyncio.get_running_loop().create_task(self._publish(shop_id))
 
     def _wake(self, shop_id: str) -> None:
+        live_queue.forget_line(shop_id)  # the line just changed: the next look works it out again
         for (sid, _), room in list(self.rooms.items()):
             if sid == shop_id:
                 room.changed.set()

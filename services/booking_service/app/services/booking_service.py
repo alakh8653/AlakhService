@@ -8,8 +8,9 @@ import structlog
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import trust
 from app.core.availability import CAPACITY_STATUSES, Span
-from app.core.fsm import PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
+from app.core.fsm import AT_HOME, PICKUP_DROP, BookingStatus, booking_fsm, mode_problem
 from app.models.booking import Booking, BookingAssignment, BookingStatusHistory
 from app.schemas.booking import BookingCreate
 
@@ -75,6 +76,8 @@ class BookingService:
             metadata_json=metadata_json,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
+            # Given by the customer to the professional at the door: the work starts only with it.
+            start_code=trust.new_start_code() if booking_data.service_mode in (AT_HOME, PICKUP_DROP) else None,
             created_at=now,
             updated_at=now,
         )
@@ -245,6 +248,26 @@ class BookingService:
             query.order_by(Booking.scheduled_at.desc(), Booking.id).offset((page - 1) * per_page).limit(per_page)
         )
         return {"items": list(result.scalars().all()), "total": total, "page": page, "per_page": per_page}
+
+    async def shop_customers(self, db: AsyncSession, shop_id: str, limit: int = 200) -> list:
+        """Each customer's completed bookings at this shop. Walk-ins have no account, so they are left out."""
+        result = await db.execute(
+            select(
+                Booking.customer_id,
+                func.count().label("visits"),
+                func.sum(Booking.total_amount).label("spent"),
+                func.max(Booking.scheduled_at).label("last_visit"),
+            )
+            .where(
+                Booking.shop_id == shop_id,
+                Booking.status == BookingStatus.COMPLETED.value,
+                Booking.customer_id.notlike("walk-in:%"),
+            )
+            .group_by(Booking.customer_id)
+            .order_by(func.max(Booking.scheduled_at).desc())
+            .limit(limit)
+        )
+        return list(result.all())
 
     async def shop_summary(
         self, db: AsyncSession, shop_id: str, date_from: date, date_to: date, top_n: int = 5

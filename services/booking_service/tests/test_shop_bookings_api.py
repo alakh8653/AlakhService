@@ -65,6 +65,8 @@ class RecordingNotifier:
         elif event == "booking.rescheduled":
             # SQLite hands back naive datetimes; they are stored as UTC.
             assert when(stored.scheduled_at.replace(tzinfo=timezone.utc)) == data["scheduled_at"]
+        elif event.startswith("booking.extra_"):  # the status does not change
+            pass
         elif event == "booking.no_show":
             assert stored.status == "CANCELLED" and stored.cancellation_reason == "No-show"
         else:
@@ -568,8 +570,17 @@ async def book(client, service, who="c7", **extra):
     return resp.json()
 
 
-async def set_status(client, booking_id, status, who):
-    return await client.put(f"/api/v1/bookings/{booking_id}/status", json={"status": status}, headers=auth(who))
+@pytest.mark.asyncio
+async def test_an_owner_cannot_book_their_own_shop(client):
+    refused = await client.post("/api/v1/bookings", json=new_booking("svc-a"), headers=auth("owner-1"))
+    assert refused.status_code == 409 and refused.json()["detail"] == "You can't book your own shop"
+    # As a customer of someone else's shop they book like anyone.
+    assert (await book(client, "svc-a", who="owner-2"))["status"] == "PENDING"
+
+
+async def set_status(client, booking_id, status, who, start_code=None):
+    body = {"status": status, "start_code": start_code} if start_code else {"status": status}
+    return await client.put(f"/api/v1/bookings/{booking_id}/status", json=body, headers=auth(who))
 
 
 @pytest.mark.asyncio
@@ -615,7 +626,8 @@ async def test_pickup_and_drop_collects_the_item_and_brings_it_back(client):
     started = await set_status(client, job["id"], "IN_PROGRESS", "staff-1")
     assert started.status_code == 400 and "Pick up" in started.json()["detail"]
     assert (await set_status(client, job["id"], "PROVIDER_EN_ROUTE", "staff-1")).status_code == 200
-    assert (await set_status(client, job["id"], "PICKED_UP", "staff-1")).status_code == 200
+    # Collected with the code the customer gives at the door.
+    assert (await set_status(client, job["id"], "PICKED_UP", "staff-1", job["start_code"])).status_code == 200
     assert (await set_status(client, job["id"], "IN_PROGRESS", owner)).status_code == 200  # at the shop
     early = await set_status(client, job["id"], "COMPLETED", owner)
     assert early.status_code == 400 and "Deliver" in early.json()["detail"]
@@ -705,7 +717,7 @@ async def test_the_shop_tells_the_customer_when_a_pickup_comes_back(client):
     assert (await set_status(client, job["id"], "CONFIRMED", "owner-1")).status_code == 200
     await client.post(f"/api/v1/bookings/{job['id']}/assign", json={"provider_id": "staff-1"}, headers=auth("owner-1"))
     for status in ("PICKED_UP", "IN_PROGRESS"):
-        assert (await set_status(client, job["id"], status, "staff-1")).status_code == 200
+        assert (await set_status(client, job["id"], status, "staff-1", job["start_code"])).status_code == 200
     # The provider may set it too.
     assert (await client.put(url, json={"ready_by": back}, headers=auth("staff-1"))).status_code == 200
     assert (await set_status(client, job["id"], "OUT_FOR_DELIVERY", "staff-1")).status_code == 200

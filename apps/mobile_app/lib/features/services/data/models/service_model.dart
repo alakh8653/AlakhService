@@ -18,10 +18,11 @@ class ServiceModel extends ServiceEntity {
     super.serviceModes,
     super.homeVisitFee,
     super.pickupFee,
+    super.shopVerified,
   });
 
   /// This listing with its shop's rating (reviews are of the shop that does the work).
-  ServiceModel withRating(double rating, int reviewCount) => ServiceModel(
+  ServiceModel withRating(double rating, int reviewCount, {bool? verified}) => ServiceModel(
         id: id,
         name: name,
         description: description,
@@ -38,6 +39,7 @@ class ServiceModel extends ServiceEntity {
         serviceModes: serviceModes,
         homeVisitFee: homeVisitFee,
         pickupFee: pickupFee,
+        shopVerified: verified ?? shopVerified,
       );
 
   /// Reads a service_catalog listing. Prices arrive in paise (`price_cents`).
@@ -64,6 +66,9 @@ class ServiceModel extends ServiceEntity {
       serviceModes: (json['service_modes'] as List?)?.map((m) => m.toString()).toList() ?? const [ServiceMode.atShop],
       homeVisitFee: ((json['home_visit_fee_cents'] as num?) ?? 0) / 100,
       pickupFee: ((json['pickup_fee_cents'] as num?) ?? 0) / 100,
+      // From listings that carry their shop's badge (or its embedded shop).
+      shopVerified: json['shop_is_verified'] == true ||
+          (json['shop'] is Map && (json['shop'] as Map)['is_verified'] == true),
     );
   }
 }

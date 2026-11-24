@@ -1,8 +1,8 @@
 """a shop can do more than one type of work
 
 Revision ID: e1a7c42f9d05
-Revises: 9a4d2e6f1b73
-Create Date: 2026-11-03 12:00:00
+Revises: f3a9c1e7b2d4
+Create Date: 2026-11-24 12:00:00
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'e1a7c42f9d05'
-down_revision: Union[str, Sequence[str], None] = '9a4d2e6f1b73'
+down_revision: Union[str, Sequence[str], None] = 'f3a9c1e7b2d4'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

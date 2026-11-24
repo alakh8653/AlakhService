@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../booking/data/extra_charge_api.dart';
 import '../../../core/di/injection_container.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../core/theme/app_colors.dart';
@@ -11,13 +13,19 @@ import '../../../features/auth/domain/entities/user.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/utils/format.dart';
 import '../../../shared/widgets/loading_indicator.dart';
+import '../../booking/data/trust_api.dart';
 import '../../booking/presentation/pages/booking_history_page.dart';
+import '../../booking/presentation/widgets/provider_trust.dart';
+import '../../booking/presentation/widgets/safety_actions.dart';
 import '../../chat/presentation/booking_chat_page.dart';
 import '../../shop_line/data/shop_line_api.dart';
 import '../../shop_line/presentation/shop_line_page.dart';
 import '../data/shop_owner_api.dart';
+import 'owner_profile_page.dart';
+import 'owner_guarantee_page.dart';
 import 'owner_reports_page.dart';
 import 'owner_settings_pages.dart';
+import 'owner_tools_pages.dart';
 import 'verification_page.dart';
 
 /// The owner's home on the phone: new requests with big Accept and Decline buttons, then the work ahead,
@@ -27,7 +35,13 @@ class OwnerHomePage extends StatefulWidget {
   final User user;
   final ShopOwnerApi? api;
   final ShopLineApi? lineApi;
+  final ExtraChargeApi? extraChargeApi;
   final Duration refreshEvery;
+
+  /// SOS, and the tel: link and position SOS uses (replaceable in tests).
+  final TrustApi? trustApi;
+  final OpenUri? openUri;
+  final CurrentFix? sosLocation;
 
   /// Moves to the side of the app for booking services.
   final VoidCallback? onSwitchToBooking;
@@ -38,7 +52,11 @@ class OwnerHomePage extends StatefulWidget {
     required this.user,
     this.api,
     this.lineApi,
+    this.extraChargeApi,
     this.refreshEvery = const Duration(seconds: 30),
+    this.trustApi,
+    this.openUri,
+    this.sosLocation,
     this.onSwitchToBooking,
   });
 
@@ -89,12 +107,76 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     }
   }
 
+  ExtraChargeApi get _extraApi => widget.extraChargeApi ?? sl<ExtraChargeApi>();
+
+  Future<void> _extraCharge(OwnerBooking booking, Future<void> Function() change) async {
+    setState(() => _busy = booking.id);
+    try {
+      await change();
+      await _load();
+    } on ServerException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
+  Future<void> _askExtra(OwnerBooking booking) async {
+    final asked = await showDialog<({int cents, String reason})>(
+      context: context,
+      builder: (_) => const _ExtraChargeDialog(),
+    );
+    if (asked == null || !mounted) return;
+    await _extraCharge(booking, () => _extraApi.ask(booking.id, asked.cents, asked.reason));
+  }
+
+  Widget _extraSection(OwnerBooking booking, AppLocalizations l10n) {
+    final pending = booking.pendingExtraId;
+    if (pending != null) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              l10n.extraWaiting(rupees((booking.pendingExtraCents ?? 0) / 100), booking.pendingExtraReason ?? ''),
+              style: AppTextStyles.body2.copyWith(color: AppColors.warning),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _extraCharge(booking, () => _extraApi.withdraw(booking.id, pending)),
+            child: Text(l10n.extraTakeBack),
+          ),
+        ],
+      );
+    }
+    final canAsk = extraChargeStatuses.contains(booking.status) && booking.paymentStatus == 'UNPAID';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (booking.extraCents > 0)
+          Text(l10n.extraIncluded(rupees(booking.extraCents / 100)), style: AppTextStyles.caption.themed(context)),
+        if (canAsk)
+          TextButton.icon(
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(l10n.extraAdd),
+            onPressed: () => _askExtra(booking),
+          ),
+      ],
+    );
+  }
+
   Future<String?> _askReason(OwnerAction action) => showDialog<String>(
         context: context,
         builder: (_) => _ReasonDialog(declining: action == OwnerAction.decline),
       );
 
   Future<void> _do(OwnerBooking booking, OwnerAction action) async {
+    final target = ownerActionTargets[action];
+    // At the customer's door: the job starts only with the customer's start code.
+    if (target != null && needsStartCode(booking.mode, target)) {
+      final started = await askStartCode(context, (code) => _api.setStatus(booking.id, target, startCode: code));
+      if (started && mounted) await _load();
+      return;
+    }
     String? reason;
     if (action == OwnerAction.decline || action == OwnerAction.cancel) {
       reason = await _askReason(action);
@@ -140,6 +222,12 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         _ => l10n.ownerNotPaid,
       };
 
+  /// The owner is at a customer's home on this job themselves.
+  bool _offersSos(OwnerBooking booking) =>
+      booking.mode == modeAtHome &&
+      booking.providerId == widget.user.id &&
+      const {'ASSIGNED', 'PROVIDER_EN_ROUTE', 'IN_PROGRESS'}.contains(booking.status);
+
   Future<void> _open(Widget page) async {
     await Navigator.push<void>(context, MaterialPageRoute(builder: (_) => page));
     if (mounted) await _load();
@@ -181,6 +269,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             Row(
               children: [
                 Expanded(child: Text(booking.customerName, style: AppTextStyles.heading3)),
+                if (booking.isFreeFix) const Padding(padding: EdgeInsets.only(right: 8), child: FreeFixChip()),
                 Text(rupees(booking.totalCents / 100), style: AppTextStyles.body1),
               ],
             ),
@@ -213,6 +302,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               const SizedBox(height: 4),
               Text(booking.notes!, style: AppTextStyles.caption.themed(context)),
             ],
+            if (!isRequest) _extraSection(booking, l10n),
             const SizedBox(height: 12),
             if (busy)
               const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
@@ -254,6 +344,8 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                     label: Text(l10n.ownerMessage),
                     onPressed: () => _open(BookingChatPage(bookingId: booking.id, subtitle: booking.customerName)),
                   ),
+                  if (_offersSos(booking))
+                    SosButton(bookingId: booking.id, api: widget.trustApi, location: widget.sosLocation, openUri: widget.openUri),
                   for (final action in others)
                     TextButton(
                       style: action == OwnerAction.cancel ? TextButton.styleFrom(foregroundColor: AppColors.error) : null,
@@ -344,8 +436,18 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               () => ShopLinePage(shop: widget.shop, api: widget.lineApi),
             ),
             _link(Icons.bar_chart, l10n.ownerReports, () => OwnerReportsPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.badge_outlined, l10n.ownerProfileTitle, () => OwnerProfilePage(shopId: _shopId, api: widget.api)),
+            _link(Icons.share_outlined, l10n.ownerShare, () => OwnerSharePage(shop: shop)),
+            _link(Icons.event_busy_outlined, l10n.ownerDaysOff, () => OwnerDaysOffPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.star_outline, l10n.ownerReviews, () => OwnerReviewsPage(shopId: _shopId, api: widget.api)),
+            _link(Icons.people_outline, l10n.ownerCustomers, () => OwnerCustomersPage(shopId: _shopId, api: widget.api)),
             _link(Icons.content_cut, l10n.ownerMyServices, () => OwnerServicesPage(shopId: _shopId, api: widget.api)),
             _link(Icons.schedule, l10n.ownerOpeningHours, () => OwnerHoursPage(shopId: _shopId, api: widget.api)),
+            _link(
+              Icons.handyman_outlined,
+              l10n.guaranteeTitle,
+              () => OwnerGuaranteePage(shopId: _shopId, initialDays: shop.guaranteeDays, api: widget.api),
+            ),
             _link(
               Icons.verified_user_outlined,
               l10n.ownerVerificationTitle,
@@ -354,6 +456,93 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// How much more and why, in a tap and a number. Keeps its own text controller, which has to outlive the dialog's
+/// closing animation.
+class _ExtraChargeDialog extends StatefulWidget {
+  const _ExtraChargeDialog();
+
+  @override
+  State<_ExtraChargeDialog> createState() => _ExtraChargeDialogState();
+}
+
+class _ExtraChargeDialogState extends State<_ExtraChargeDialog> {
+  final _amount = TextEditingController();
+  final _other = TextEditingController();
+  String? _reason;
+  String? _error;
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _other.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final l10n = context.l10n;
+    final rupeesEntered = int.tryParse(_amount.text.trim()) ?? 0;
+    final other = _other.text.trim();
+    final reason = _reason == l10n.extraReasonOther ? other : _reason;
+    if (rupeesEntered <= 0) {
+      setState(() => _error = l10n.ownerEnterNumber);
+    } else if (reason == null || reason.length < 3) {
+      setState(() => _error = l10n.extraChooseReason);
+    } else {
+      Navigator.pop(context, (cents: rupeesEntered * 100, reason: reason));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.extraAdd),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.extraOwnerHelp),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final reason in [l10n.extraReasonParts, l10n.extraReasonWork, l10n.extraReasonMaterial, l10n.extraReasonOther])
+                  ChoiceChip(
+                    label: Text(reason),
+                    selected: _reason == reason,
+                    onSelected: (_) => setState(() => _reason = reason),
+                  ),
+              ],
+            ),
+            if (_reason == l10n.extraReasonOther)
+              TextField(
+                controller: _other,
+                maxLength: 200,
+                decoration: InputDecoration(labelText: l10n.ownerReasonLabel),
+              ),
+            TextField(
+              key: const ValueKey('extra-amount'),
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(labelText: l10n.extraHowMuch, prefixText: '₹ '),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: AppTextStyles.body2.copyWith(color: AppColors.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.notNow)),
+        FilledButton(onPressed: _send, child: Text(l10n.extraSend)),
+      ],
     );
   }
 }

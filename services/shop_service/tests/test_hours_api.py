@@ -145,6 +145,17 @@ async def test_capacity_defaults_to_active_staff_and_the_owner_can_override_it(c
 
 
 @pytest.mark.asyncio
+async def test_auto_confirm_is_off_until_the_owner_turns_it_on(client, shop):
+    assert (await client.get(hours_url(shop))).json()["auto_confirm"] is False
+    url = f"/api/v1/shops/{shop['id']}/auto-confirm"
+    assert (await client.put(url, json={"auto_confirm": True}, headers=OTHER)).status_code == 403
+    assert (await client.put(url, json={}, headers=OWNER)).status_code == 422
+    assert (await client.put(url, json={"auto_confirm": True}, headers=OWNER)).json()["auto_confirm"] is True
+    assert (await client.get(hours_url(shop))).json()["auto_confirm"] is True
+    assert (await client.put(url, json={"auto_confirm": False}, headers=OWNER)).json()["auto_confirm"] is False
+
+
+@pytest.mark.asyncio
 async def test_holidays_are_added_listed_soonest_first_and_removed(client, shop):
     url = f"/api/v1/shops/{shop['id']}/holidays"
     later, sooner = today() + timedelta(days=20), today() + timedelta(days=3)

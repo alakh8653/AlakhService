@@ -67,6 +67,7 @@ async def get_schedule(db: AsyncSession, shop_id: str) -> ShopSchedule:
         holidays=[Holiday(date=h.date, note=h.note) for h in holidays],
         capacity=override or max(1, active_staff),
         capacity_override=override,
+        auto_confirm=bool(settings and settings.auto_confirm),
         active_staff=active_staff,
         updated_at=settings.updated_at if settings else None,
     )
@@ -92,6 +93,11 @@ async def set_weekly_hours(db: AsyncSession, shop_id: str, weekly: list[DayHours
 
 async def set_capacity(db: AsyncSession, shop_id: str, capacity: Optional[int]) -> None:
     (await _settings_for_update(db, shop_id)).capacity = capacity
+    await db.flush()
+
+
+async def set_auto_confirm(db: AsyncSession, shop_id: str, auto_confirm: bool) -> None:
+    (await _settings_for_update(db, shop_id)).auto_confirm = auto_confirm
     await db.flush()
 
 

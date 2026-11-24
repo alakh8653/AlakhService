@@ -13,6 +13,7 @@ import structlog
 
 from app.config import settings
 from app.core import metrics
+from app.core.http import TLS
 
 log = structlog.get_logger()
 
@@ -29,7 +30,9 @@ class Notifier:
         if not self.key or not recipients:
             return
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=5.0, transport=self._transport) as client:
+            async with httpx.AsyncClient(
+                verify=TLS, base_url=self.base_url, timeout=5.0, transport=self._transport
+            ) as client:
                 resp = await client.post(
                     "/internal/notifications/events",
                     json={"event": event, "recipients": recipients, "data": data},

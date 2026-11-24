@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { Plus, Trash2, Copy, CalendarOff, Users } from 'lucide-react';
 import type { RootState } from '../state/store';
 import type { OpenInterval, ShopHours } from '../types';
-import { addHoliday, getShopHours, removeHoliday, saveCapacity, saveWeeklyHours } from '../services/shopService';
+import { addHoliday, getShopHours, removeHoliday, saveAutoConfirm, saveCapacity, saveWeeklyHours } from '../services/shopService';
 import { apiErrorMessage } from '../services/format';
 import { DAY_NAMES, MAX_INTERVALS, dayProblem, normalizeDay, suggestedWeek, todayInIndia } from '../services/hours';
 import Switch from '../components/Switch';
@@ -337,6 +337,48 @@ function Capacity({ hours, onChange }: { hours: ShopHours; onChange: (h: ShopHou
   );
 }
 
+function AutoConfirm({ hours, onChange }: { hours: ShopHours; onChange: (h: ShopHours) => void }) {
+  const shopId = useSelector((state: RootState) => state.auth.shop?.id);
+  const toast = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const change = async (on: boolean) => {
+    if (!shopId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await saveAutoConfirm(shopId, on));
+      toast(on ? 'New bookings will be confirmed automatically.' : 'You will accept each new booking yourself.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not save'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={`${card} space-y-2`} aria-labelledby="auto-confirm-heading">
+      <h2 id="auto-confirm-heading" className="font-semibold text-gray-900">Confirm bookings automatically</h2>
+      <label className="flex items-start gap-2 text-sm text-gray-800">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={hours.autoConfirm}
+          disabled={busy || !hours.configured}
+          onChange={(e) => change(e.target.checked)}
+        />
+        <span>
+          Confirm each booking straight away while a place is free. You won&apos;t need to accept them. Once a time has{' '}
+          {hours.capacity === 1 ? '1 customer' : `${hours.capacity} customers`}, it is full and customers can&apos;t book it.
+        </span>
+      </label>
+      {!hours.configured && <p className="text-xs text-amber-700">Save your opening hours first. Automatic confirmation needs them.</p>}
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+    </section>
+  );
+}
+
 export default function OpeningHoursPage() {
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [hours, setHours] = useState<ShopHours | null>(null);
@@ -376,6 +418,7 @@ export default function OpeningHoursPage() {
           <WeeklyHoursEditor hours={hours} onSaved={setHours} />
           <Holidays hours={hours} onChange={setHours} />
           <Capacity key={hours.capacity} hours={hours} onChange={setHours} />
+          <AutoConfirm hours={hours} onChange={setHours} />
         </>
       )}
     </div>

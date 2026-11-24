@@ -42,6 +42,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="${appLinkDomain}" />
                 <data android:pathPrefix="/b/" />
+                <data android:pathPrefix="/s/" />
                 <data android:path="/reset-password" />
             </intent-filter>
         </activity>

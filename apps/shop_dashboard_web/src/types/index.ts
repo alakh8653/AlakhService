@@ -45,8 +45,29 @@ export interface Booking {
   /** The staff member the customer asked for (shop staff id and display name), if anyone. */
   preferredStaffId?: string | null;
   preferredStaffName?: string | null;
+  /** Of totalAmount, what the customer agreed to pay on top after the job was seen (minor units). */
+  extraAmount?: number;
+  /** An extra charge waiting for the customer's answer: its id, amount (minor units) and reason. */
+  pendingExtraId?: string | null;
+  pendingExtraAmount?: number | null;
+  pendingExtraReason?: string | null;
+  /** A free fix: the earlier booking this one redoes at no cost (the shop's guarantee). */
+  reworkOf?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ExtraChargeStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'WITHDRAWN' | 'EXPIRED';
+
+/** An extra charge asked for once the job was seen: it counts only if the customer approves it. */
+export interface ExtraCharge {
+  id: string;
+  bookingId: string;
+  amountCents: number;
+  reason: string;
+  status: ExtraChargeStatus;
+  createdAt: string;
+  decidedAt: string | null;
 }
 
 export interface Service {
@@ -105,6 +126,8 @@ export interface ShopHours {
   capacity: number;
   /** Set by the owner; null means one per active staff member. */
   capacityOverride: number | null;
+  /** Each booking is confirmed at once while a place is free (needs opening hours). */
+  autoConfirm: boolean;
   activeStaff: number;
   updatedAt: string | null;
 }
@@ -128,6 +151,9 @@ export interface Shop {
   ratingCount: number;
   isActive: boolean;
   isVerified: boolean;
+  verifiedAt?: string | null;
+  /** Days after a job in which the customer may ask for a free fix (0 to 90; 7 when not set). */
+  guaranteeDays?: number;
   createdAt: string;
   /** KYC review: a new shop is hidden from customers until approved. Missing on older responses. */
   verificationStatus?: VerificationStatus;

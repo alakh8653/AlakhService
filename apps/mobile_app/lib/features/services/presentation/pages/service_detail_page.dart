@@ -24,9 +24,12 @@ import '../../../queue/presentation/pages/queue_status_page.dart';
 import '../../../reviews/data/reviews_api.dart';
 import '../../../reviews/presentation/reviews_widgets.dart';
 import '../../../shops/data/saved_shops_api.dart';
+import '../../../shops/data/shop_profile_api.dart';
+import '../../../shops/presentation/shop_profile_section.dart';
 import '../../../shops/data/shop_hours_api.dart';
 import '../../domain/entities/service_entity.dart';
 import '../../../../l10n/l10n.dart';
+import '../../../../shared/widgets/verified_badge.dart';
 
 class ServiceDetailPage extends StatefulWidget {
   final ServiceEntity service;
@@ -63,6 +66,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
   String? _openQueueId;
   bool _joining = false;
   bool _joiningLine = false;
+  // The wait if they join now, before they decide (null until known).
+  WaitNow? _waitNow;
   // Who provides it: the shop's name and area, so the customer knows where they are booking.
   Destination? _shop;
   // What customers say about the shop, for choosing it.
@@ -83,6 +88,10 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
     // Walk-in queue, if the shop runs one for this service.
     _queueApi.openQueueFor(service.id).then((id) {
       if (mounted) setState(() => _openQueueId = id);
+    }).catchError((_) {});
+    final lineApi = widget.lineApi ?? (sl.isRegistered<BookingQueueApi>() ? sl<BookingQueueApi>() : null);
+    lineApi?.waitNow(service.id).then((wait) {
+      if (mounted) setState(() => _waitNow = wait);
     }).catchError((_) {});
     final shopId = service.shopId;
     if (shopId != null) {
@@ -287,6 +296,7 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                             style: AppTextStyles.body2.themed(context),
                           ),
                         ),
+                        if (shop.isVerified) ...[const SizedBox(width: 6), const VerifiedBadge()],
                       ],
                     ),
                   ],
@@ -371,6 +381,8 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                     ),
                   ],
                   if (atShop) PackageOffers(serviceId: service.id, servicePrice: service.basePrice, api: widget.packagesApi),
+                  if (service.shopId != null && sl.isRegistered<ShopProfileApi>())
+                    ShopProfileSection(shopId: service.shopId!, api: sl<ShopProfileApi>()),
                   if (_reviewsApi != null && _summary != null) ...[
                     const SizedBox(height: 24),
                     ReviewsSection(shopId: service.shopId!, api: _reviewsApi!, summary: _summary, shopName: shop?.name),
@@ -398,12 +410,23 @@ class _ServiceDetailPageState extends State<ServiceDetailPage> {
                       service.shopId != null &&
                       _hours != null &&
                       openingSummary(_hours!, widget.clock(), l10n: l10n)?.open == true) ...[
+                    if (_waitNow?.open == true) ...[
+                      Text(
+                        !_waitNow!.canJoin
+                            ? l10n.lineFullToday
+                            : (_waitNow!.waitMinutes ?? 0) > 0
+                                ? l10n.lineWaitMinutes(_waitNow!.waitMinutes!, _waitNow!.waiting)
+                                : l10n.lineNoWait,
+                        style: AppTextStyles.subtitle2.themed(context),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     CustomButton(
                       label: l10n.joinLineNow,
                       variant: ButtonVariant.outlined,
                       leadingIcon: Icons.people_outline,
                       isLoading: _joiningLine,
-                      onPressed: _joiningLine ? null : _joinLine,
+                      onPressed: _joiningLine || _waitNow?.canJoin == false ? null : _joinLine,
                     ),
                     const SizedBox(height: 4),
                     Text(l10n.joinLineNote, style: AppTextStyles.caption.themed(context)),

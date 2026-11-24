@@ -116,15 +116,21 @@ jobs:
             echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
           } >> "$GITHUB_ENV"
 
-      # Points the app at your server when the repository variable API_BASE_URL is set
-      # (Settings > Secrets and variables > Actions > Variables), e.g. https://api.example.in;
-      # otherwise the default in lib/core/constants/api_constants.dart is used.
+      # Points the app at your server, your legal pages and your support contact when these
+      # repository variables are set (Settings > Secrets and variables > Actions > Variables), e.g.
+      # API_BASE_URL=https://api.example.in; otherwise the defaults in lib/core/constants/ are used.
       - name: Build release APK
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL }}
+          LEGAL_BASE_URL: ${{ vars.LEGAL_BASE_URL }}
+          APP_LINK_DOMAIN: ${{ vars.APP_LINK_DOMAIN }}
+          SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+          SUPPORT_PHONE: ${{ vars.SUPPORT_PHONE }}
         run: |
           args=()
-          if [ -n "$API_BASE_URL" ]; then args+=("--dart-define=API_BASE_URL=$API_BASE_URL"); fi
+          for name in API_BASE_URL LEGAL_BASE_URL APP_LINK_DOMAIN SUPPORT_EMAIL SUPPORT_PHONE; do
+            if [ -n "${!name}" ]; then args+=("--dart-define=$name=${!name}"); fi
+          done
           flutter build apk --release "${args[@]}"
 
       - name: Remove keystore

@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { DEFAULT_GUARANTEE_DAYS } from './guarantee';
 import type { OpenInterval, Service, ServiceMode, Shop, ShopHours, StaffMember, VerificationStatus } from '../types';
 
 // ── Shops (shop_service) ─────────────────────────────────────────────────────
@@ -20,6 +21,8 @@ interface ShopResponse {
   rating_count: number;
   is_active: boolean;
   is_verified: boolean;
+  verified_at?: string | null;
+  guarantee_days?: number;
   created_at: string;
   verification_status?: VerificationStatus;
   rejection_reason?: string | null;
@@ -47,6 +50,8 @@ export function toShop(data: ShopResponse): Shop {
     ratingCount: data.rating_count,
     isActive: data.is_active,
     isVerified: data.is_verified,
+    verifiedAt: data.verified_at ?? null,
+    guaranteeDays: data.guarantee_days ?? DEFAULT_GUARANTEE_DAYS,
     createdAt: data.created_at,
     verificationStatus: data.verification_status ?? (data.is_verified ? 'APPROVED' : 'PENDING_REVIEW'),
     rejectionReason: data.rejection_reason ?? null,
@@ -85,6 +90,7 @@ export interface ShopUpdate {
   legal_name?: string | null;
   legal_address?: string | null;
   gstin?: string | null;
+  guarantee_days?: number;
 }
 
 export interface NewShop {
@@ -127,6 +133,7 @@ interface ShopHoursResponse {
   holidays: { date: string; note: string | null }[];
   capacity: number;
   capacity_override: number | null;
+  auto_confirm?: boolean;
   active_staff: number;
   updated_at: string | null;
 }
@@ -141,6 +148,7 @@ export function toShopHours(data: ShopHoursResponse): ShopHours {
     holidays: data.holidays,
     capacity: data.capacity,
     capacityOverride: data.capacity_override,
+    autoConfirm: data.auto_confirm ?? false,
     activeStaff: data.active_staff,
     updatedAt: data.updated_at,
   };
@@ -162,6 +170,11 @@ export async function saveWeeklyHours(shopId: string, weekly: OpenInterval[][]):
 /** null goes back to one customer per active staff member. */
 export async function saveCapacity(shopId: string, capacity: number | null): Promise<ShopHours> {
   const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/capacity`, { capacity });
+  return toShopHours(data);
+}
+
+export async function saveAutoConfirm(shopId: string, autoConfirm: boolean): Promise<ShopHours> {
+  const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/auto-confirm`, { auto_confirm: autoConfirm });
   return toShopHours(data);
 }
 

@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import RatingExistsError, ShopNotFoundError
+from app.core.contact_filter import mask_contact
+from app.core.exceptions import OwnShopRatingError, RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
 from app.core.reporting import Reporter, get_reporter
 from app.core.trades import not_shown, required_for
@@ -44,7 +45,9 @@ def for_caller(shop, caller: Optional[Caller]) -> ShopResponse:
     view = ShopResponse.model_validate(shop)
     if can_manage(shop, caller):
         return view
-    return view.model_copy(update=dict.fromkeys(PRIVATE_FIELDS))
+    # The owner wrote this for customers to read, so a number written into it stays off the page too.
+    about = mask_contact(view.description).text if view.description else view.description
+    return view.model_copy(update={**dict.fromkeys(PRIVATE_FIELDS), "description": about})
 
 
 @router.post("/shops", response_model=ShopResponse, status_code=201)
@@ -206,5 +209,5 @@ async def rate_shop(
         return for_caller(rated, caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    except RatingExistsError as e:
+    except (OwnShopRatingError, RatingExistsError) as e:
         raise HTTPException(status_code=409, detail=str(e)) from e

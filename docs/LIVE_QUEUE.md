@@ -320,7 +320,8 @@ as a target of the `booking` job.
 
 1. `alembic upgrade head` in booking_service (adds the columns, the partial unique index and 4 tables).
 2. Rebuild booking_service, notification_service, user_service and api_gateway.
-3. Set `QUEUE_PUBSUB=true` on booking_service when running more than one replica (uses `REDIS_URL`).
+3. Production runs booking_service with `BOOKING_PROCESSES` processes (3 by default) and `QUEUE_PUBSUB=true`
+   (uses `REDIS_URL`). Set both when adding replicas too. One process at a time does each worker pass.
 4. user_service needs `INTERNAL_API_KEY` (shared, already in compose) for address locations.
 5. Dashboard: new routes `/line` and public `/board/:shopId`. Mobile: new screens, English and Hindi.
 

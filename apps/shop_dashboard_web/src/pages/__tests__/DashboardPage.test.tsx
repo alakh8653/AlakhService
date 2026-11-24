@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   getShopSummary: vi.fn(),
   getServices: vi.fn(),
   getStaff: vi.fn(),
+  createStaffMember: vi.fn(),
   getReviewSummary: vi.fn(),
   getReviews: vi.fn(),
   getShopHours: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock('../../services/shopService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/shopService')>()),
   getServices: api.getServices,
   getStaff: api.getStaff,
+  createStaffMember: api.createStaffMember,
   getShopHours: api.getShopHours,
 }));
 vi.mock('../../services/paymentService', () => ({ getBookingPayments: vi.fn().mockResolvedValue([]), confirmCashReceived: vi.fn() }));
@@ -108,6 +110,27 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: "Set opening hours so customers book only when you're open" })).toHaveAttribute('href', '/hours');
     expect(screen.getByText('No reviews yet')).toBeInTheDocument();
     expect(screen.queryByText(/waiting for you to confirm/)).not.toBeInTheDocument();
+  });
+
+  it('puts an owner working alone on their own team, so they can take home visits', async () => {
+    api.getShopBookings.mockResolvedValue({ data: [], total: 0, page: 1, perPage: 100, totalPages: 0 });
+    api.getServices.mockResolvedValue([]);
+    api.getStaff.mockResolvedValue([]);
+    renderPage(<DashboardPage />);
+    await waitFor(() =>
+      expect(api.createStaffMember).toHaveBeenCalledWith('s1', { name: 'Asha Rao', role: 'owner', userId: 'u' }),
+    );
+    expect(api.createStaffMember).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the team alone when the owner is on it, even switched off', async () => {
+    api.getShopBookings.mockResolvedValue({ data: [], total: 0, page: 1, perPage: 100, totalPages: 0 });
+    api.getServices.mockResolvedValue([]);
+    api.getStaff.mockResolvedValue([{ id: 'st', name: 'Asha Rao', userId: 'u', isActive: false }]);
+    renderPage(<DashboardPage />);
+    expect(await screen.findByText('No bookings today.')).toBeInTheDocument();
+    await waitFor(() => expect(api.getStaff).toHaveBeenCalled());
+    expect(api.createStaffMember).not.toHaveBeenCalled();
   });
 
   it('shows the live rating and how many reviews need a reply, linking to Reviews', async () => {

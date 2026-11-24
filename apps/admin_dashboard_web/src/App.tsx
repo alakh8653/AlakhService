@@ -12,6 +12,8 @@ const CouponsPage = lazy(() => import('./coupons/CouponsPage'));
 const AuditLogPage = lazy(() => import('./audit/AuditLogPage'));
 const ContactSharingPage = lazy(() => import('./moderation/ContactSharingPage'));
 const ShopsPage = lazy(() => import('./shops/ShopsPage'));
+const WorkPhotosPage = lazy(() => import('./shops/WorkPhotosPage'));
+const ReviewReportsPage = lazy(() => import('./shops/ReviewReportsPage'));
 const PrivacyRequestsPage = lazy(() => import('./privacy/PrivacyRequestsPage'));
 const DisputeListPage = lazy(() => import('./disputes/DisputeListPage'));
 const DisputeDetailPage = lazy(() => import('./disputes/DisputeDetailPage'));
@@ -79,6 +81,8 @@ export default function App() {
                 <Route path="/audit" element={<AuditLogPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/shops" element={<ShopsPage />} />
+                <Route path="/moderation/work-photos" element={<WorkPhotosPage />} />
+                <Route path="/moderation/reviews" element={<ReviewReportsPage />} />
                 <Route path="/privacy-requests" element={<PrivacyRequestsPage />} />
                 <Route path="/disputes" element={<DisputeListPage />} />
                 <Route path="/moderation/contact-sharing" element={<ContactSharingPage />} />

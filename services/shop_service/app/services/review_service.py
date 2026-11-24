@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Tuple
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,11 +112,18 @@ class ReviewService:
         if not shop_ids:
             return []
         rows = (
-            await db.execute(select(Shop.id, Shop.rating_avg, Shop.rating_count).where(Shop.id.in_(shop_ids)))
+            await db.execute(
+                select(Shop.id, Shop.rating_avg, Shop.rating_count, Shop.is_verified).where(Shop.id.in_(shop_ids))
+            )
         ).all()
         found = {
-            sid: ShopRatingBrief(shop_id=sid, average_rating=round(avg, 1) if count else 0.0, review_count=count)
-            for sid, avg, count in rows
+            sid: ShopRatingBrief(
+                shop_id=sid,
+                average_rating=round(avg, 1) if count else 0.0,
+                review_count=count,
+                is_verified=bool(verified),
+            )
+            for sid, avg, count, verified in rows
         }
         return [found[sid] for sid in dict.fromkeys(shop_ids) if sid in found]
 
@@ -231,6 +238,9 @@ class ReviewService:
 
     async def set_hidden(self, db: AsyncSession, review: ShopRating, hidden: bool) -> ShopRating:
         review.is_hidden = hidden
+        if not hidden:  # kept: it leaves the queue until someone new reports it
+            await db.execute(delete(ReviewReport).where(ReviewReport.review_id == review.id))
+            review.report_count = 0
         await db.flush()
         await self.refresh_shop_rating(db, review.shop_id)
         log.info("review_visibility_changed", review_id=review.id, hidden=hidden)

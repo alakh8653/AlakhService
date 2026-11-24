@@ -24,6 +24,7 @@ vi.mock('../../services/shopService', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/shopService')>()),
   getServices: vi.fn().mockResolvedValue([]),
   getStaff: vi.fn().mockResolvedValue([]),
+  createStaffMember: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../services/paymentService', () => ({ getBookingPayments: vi.fn().mockResolvedValue([]), confirmCashReceived: vi.fn() }));
 

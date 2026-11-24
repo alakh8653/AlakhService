@@ -1,6 +1,18 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -21,6 +33,9 @@ class Shop(Base):
     category = Column(String, nullable=False, index=True)
     extra_categories = Column(String(500), default="", server_default="", nullable=False)
     description = Column(Text, nullable=True)
+    # What customers see before booking (with photos in ShopWorkPhoto).
+    years_experience = Column(Integer, nullable=True)
+    languages = Column(JSON, nullable=True)
     rating_avg = Column(Float, default=0.0, nullable=False)
     rating_count = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -45,6 +60,38 @@ class Shop(Base):
     submitted_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_by = Column(String, nullable=True)
+    # When an admin approved it (the "Verified" badge); cleared when it is rejected or sent back for review.
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    # Days after a completed booking in which the customer can ask for a free fix (rework), 0-90.
+    guarantee_days = Column(Integer, nullable=False, default=7, server_default="7")
+
+
+class ShopWorkPhoto(Base):
+    """A photo of the business's work, public once the shop is. Cleaned on the way in: see app/core/photos.py."""
+
+    __tablename__ = "shop_work_photos"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    shop_id = Column(String, ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_key = Column(String, nullable=False)
+    caption = Column(String(120), nullable=True)
+    is_hidden = Column(Boolean, default=False, server_default=false(), nullable=False)
+    report_count = Column(Integer, default=0, server_default="0", nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class WorkPhotoReport(Base):
+    """Someone flagging a work photo for an admin, once per person."""
+
+    __tablename__ = "work_photo_reports"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    photo_id = Column(String, ForeignKey("shop_work_photos.id", ondelete="CASCADE"), nullable=False, index=True)
+    reporter_id = Column(String, nullable=False)
+    reason = Column(String(500), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("photo_id", "reporter_id", name="uq_work_photo_reports_photo_reporter"),)
 
 
 class ShopDocument(Base):

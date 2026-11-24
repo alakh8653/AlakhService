@@ -17,6 +17,11 @@ class StaffNotFoundError(ShopServiceError):
         super().__init__(msg)
 
 
+class OwnShopRatingError(ShopServiceError):
+    def __init__(self, msg="You can't rate your own shop"):
+        super().__init__(msg)
+
+
 class RatingExistsError(ShopServiceError):
     def __init__(self, msg="This booking has already been rated"):
         super().__init__(msg)

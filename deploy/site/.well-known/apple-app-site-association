@@ -5,6 +5,7 @@
         "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.alakhservice.alakhService"],
         "components": [
           { "/": "/b/*", "comment": "A booking" },
+          { "/": "/s/*", "comment": "A business shared by its owner" },
           { "/": "/reset-password", "?": { "token": "?*" }, "comment": "Password reset link" }
         ]
       }

@@ -2265,7 +2265,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ownerAreaYouServe => 'Area you serve (optional)';
 
   @override
-  String get ownerPhone => 'Phone for customers';
+  String get ownerPhone =>
+      'Shop phone (for Alakh support only; customers never see it)';
 
   @override
   String get ownerUseLocation => 'Use my current location';
@@ -2983,4 +2984,435 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryOther => 'Other';
+
+  @override
+  String get ownerDaysOff => 'Days off';
+
+  @override
+  String get ownerDaysOffHelp =>
+      'Customers can\'t book on these days. Bookings you already have stay, so please cancel or move those yourself.';
+
+  @override
+  String get ownerOffToday => 'Off today';
+
+  @override
+  String get ownerOffTomorrow => 'Off tomorrow';
+
+  @override
+  String get ownerOffPick => 'Choose a date';
+
+  @override
+  String get ownerNoDaysOff => 'No days off coming up.';
+
+  @override
+  String get ownerReviews => 'Customer reviews';
+
+  @override
+  String get ownerNoReviews =>
+      'No reviews yet. They appear here after customers rate a finished job.';
+
+  @override
+  String get ownerReply => 'Reply';
+
+  @override
+  String get ownerEditReply => 'Edit reply';
+
+  @override
+  String get ownerReplyHelp => 'Everyone can read your reply.';
+
+  @override
+  String get ownerCustomers => 'My customers';
+
+  @override
+  String get ownerNoCustomers =>
+      'Customers appear here after their first finished booking.';
+
+  @override
+  String ownerCustomersSummary(int total, int back) {
+    return '$total customers, $back came back';
+  }
+
+  @override
+  String ownerCustomerLine(int visits, String date) {
+    String _temp0 = intl.Intl.pluralLogic(
+      visits,
+      locale: localeName,
+      other: '$visits visits',
+      one: '1 visit',
+    );
+    return '$_temp0, last on $date';
+  }
+
+  @override
+  String get ownerShare => 'Share my business';
+
+  @override
+  String get ownerShareHelp =>
+      'Send this to your customers and groups. They can book you directly from the link.';
+
+  @override
+  String ownerShareMessage(String name, String link) {
+    return 'Book $name on AlakhService: $link';
+  }
+
+  @override
+  String get ownerShareWhatsApp => 'Share on WhatsApp';
+
+  @override
+  String get ownerShareCopy => 'Copy message';
+
+  @override
+  String get ownerShareCopied => 'Copied. You can paste it anywhere.';
+
+  @override
+  String get ownerShareFailed =>
+      'Could not open WhatsApp. Use Copy message instead.';
+
+  @override
+  String get ownerShareNotYet =>
+      'You can share your link once your business is approved.';
+
+  @override
+  String get extraTitle => 'Extra charge to approve';
+
+  @override
+  String extraLine(String amount, String reason) {
+    return '$amount more: $reason';
+  }
+
+  @override
+  String extraNewTotal(String total) {
+    return 'New total if you approve: $total';
+  }
+
+  @override
+  String get extraHelp =>
+      'The price changes only if you approve. If you decline, it stays as it was.';
+
+  @override
+  String get extraApprove => 'Approve';
+
+  @override
+  String get extraDecline => 'Decline';
+
+  @override
+  String extraConfirmTitle(String amount) {
+    return 'Pay $amount more?';
+  }
+
+  @override
+  String get extraConfirmBody => 'This will be added to your booking\'s price.';
+
+  @override
+  String get extraConfirmYes => 'Yes, approve';
+
+  @override
+  String extraIncluded(String amount) {
+    return 'Includes $amount extra you approved';
+  }
+
+  @override
+  String get extraAdd => 'Add extra charge';
+
+  @override
+  String get extraOwnerHelp =>
+      'The customer must approve this in the app before the price changes.';
+
+  @override
+  String get extraHowMuch => 'How much more';
+
+  @override
+  String get extraChooseReason => 'Please choose what it is for.';
+
+  @override
+  String get extraReasonParts => 'Spare parts';
+
+  @override
+  String get extraReasonWork => 'Extra work';
+
+  @override
+  String get extraReasonMaterial => 'Materials';
+
+  @override
+  String get extraReasonOther => 'Something else';
+
+  @override
+  String get extraSend => 'Send to customer';
+
+  @override
+  String extraWaiting(String amount, String reason) {
+    return 'Waiting for the customer: $amount more ($reason)';
+  }
+
+  @override
+  String get extraTakeBack => 'Take back';
+
+  @override
+  String get ownerProfileTitle => 'My profile and work photos';
+
+  @override
+  String get profileHelp =>
+      'Customers see this before they book. It helps them choose you.';
+
+  @override
+  String get profileYearsLabel => 'Years of experience';
+
+  @override
+  String get profileLanguagesLabel => 'Languages you speak';
+
+  @override
+  String get profileAboutLabel => 'About you (optional)';
+
+  @override
+  String get profileAboutHelp =>
+      'Don\'t add your phone number: it will be hidden from customers.';
+
+  @override
+  String get profileSaved => 'Saved. Customers can see this.';
+
+  @override
+  String get profilePhotosTitle => 'Photos of your work';
+
+  @override
+  String get profilePhotosHelp =>
+      'Show finished jobs. Don\'t show customers\' faces or documents. We remove location details from photos.';
+
+  @override
+  String get profileAddPhoto => 'Add a photo';
+
+  @override
+  String get profileAboutTitle => 'About this provider';
+
+  @override
+  String profileYears(int years) {
+    String _temp0 = intl.Intl.pluralLogic(
+      years,
+      locale: localeName,
+      other: '$years years of experience',
+      one: '1 year of experience',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get photoReportTitle => 'Report this photo';
+
+  @override
+  String get photoReportPrivate => 'It shows someone\'s private details';
+
+  @override
+  String get photoReportOffensive => 'It is offensive';
+
+  @override
+  String get photoReportFake => 'It is not this provider\'s work';
+
+  @override
+  String get photoReportContact => 'It shows a phone number or contact';
+
+  @override
+  String get photoReported => 'Thanks. We will check this photo.';
+
+  @override
+  String get profilePhotoHidden => 'Hidden while we check';
+
+  @override
+  String get reviewReport => 'Report';
+
+  @override
+  String get reviewReportTitle => 'Report this review';
+
+  @override
+  String get reviewReportAbusive => 'It is rude or offensive';
+
+  @override
+  String get reviewReportFake => 'It seems fake';
+
+  @override
+  String get reviewReportContact =>
+      'It shows a phone number or private details';
+
+  @override
+  String get reviewReported => 'Thanks. We will check this review.';
+
+  @override
+  String get startCodeTitle => 'Your start code';
+
+  @override
+  String get startCodeHelp =>
+      'Share this code only when the professional arrives';
+
+  @override
+  String get startJobTitle => 'Start the job';
+
+  @override
+  String get startCodeAsk =>
+      'Ask the customer for the 4-digit start code. The job cannot start without it.';
+
+  @override
+  String get startCodeLabel => '4-digit code';
+
+  @override
+  String get startCodeWrong => 'Ask the customer for the 4-digit start code';
+
+  @override
+  String get startCodeTooMany =>
+      'Too many wrong tries. Please wait 15 minutes and try again.';
+
+  @override
+  String get startCodeStart => 'Start';
+
+  @override
+  String get guaranteeField => 'Free-fix guarantee (days)';
+
+  @override
+  String get guaranteeHelp =>
+      'If something goes wrong after the job, the customer can ask for a free fix within these days. 0 means no guarantee.';
+
+  @override
+  String get guaranteeInvalid => 'Enter a number from 0 to 90';
+
+  @override
+  String get guaranteeTitle => 'Free-fix guarantee';
+
+  @override
+  String get guaranteeSaved => 'Guarantee saved';
+
+  @override
+  String guaranteeUntil(String date) {
+    return 'Free fix guarantee until $date';
+  }
+
+  @override
+  String guaranteeEnded(String date) {
+    return 'The free-fix guarantee ended on $date';
+  }
+
+  @override
+  String get reworkRequest => 'Request free fix';
+
+  @override
+  String get reworkTitle => 'Request a free fix';
+
+  @override
+  String get reworkExplain =>
+      'Tell the shop what went wrong. They will come back and fix it at no cost.';
+
+  @override
+  String get reworkReason => 'What went wrong?';
+
+  @override
+  String get reworkReasonShort => 'Please write at least 10 characters';
+
+  @override
+  String get reworkPreferred => 'Preferred time (optional)';
+
+  @override
+  String get reworkPickTime => 'Choose a time';
+
+  @override
+  String get reworkSend => 'Send request';
+
+  @override
+  String get reworkSent => 'Free-fix request sent to the shop';
+
+  @override
+  String get reworkOpen => 'See the free-fix booking';
+
+  @override
+  String get reworkOf => 'This is a free fix for an earlier booking';
+
+  @override
+  String get reworkOpenOriginal => 'See the original booking';
+
+  @override
+  String get freeFixLabel => 'Free fix';
+
+  @override
+  String get shareVisit => 'Share visit status';
+
+  @override
+  String shareVisitText(String url) {
+    return 'Follow my AlakhService visit live: $url';
+  }
+
+  @override
+  String get shareVisitFailed =>
+      'Could not create a share link. Please try again.';
+
+  @override
+  String get sosButton => 'SOS';
+
+  @override
+  String get sosTitle => 'Send an SOS alert?';
+
+  @override
+  String get sosBody =>
+      'Our safety team will be alerted right away, with your location if available. Use this only in an emergency.';
+
+  @override
+  String get sosSend => 'Send SOS';
+
+  @override
+  String get sosSent => 'Our safety team has been alerted.';
+
+  @override
+  String get sosFailed =>
+      'We could not alert our team. If you are in danger, call 112 now.';
+
+  @override
+  String sosCall(String number) {
+    return 'Call $number';
+  }
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get verified => 'Verified';
+
+  @override
+  String get ownerCapacityTitle => 'Customers at the same time';
+
+  @override
+  String get ownerCapacityLabel => 'Customers at once';
+
+  @override
+  String ownerCapacityHelp(int count) {
+    return 'Once a time has this many bookings, customers can\'t book it. Leave empty for one per team member ($count).';
+  }
+
+  @override
+  String get ownerCapacityInvalid => 'Enter a whole number from 1 to 100';
+
+  @override
+  String get ownerAutoConfirm => 'Confirm bookings automatically';
+
+  @override
+  String get ownerAutoConfirmHelp =>
+      'Each booking is confirmed straight away while a place is free. You won\'t need to accept them.';
+
+  @override
+  String get bookingConfirmedNow => 'Booking confirmed';
+
+  @override
+  String get bookingConfirmedNowBody =>
+      'The shop has a place for you, so your booking is confirmed. You can pay from your booking.';
+
+  @override
+  String lineWaitMinutes(int minutes, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people waiting',
+      one: '1 person waiting',
+      zero: 'nobody waiting',
+    );
+    return 'About $minutes min wait now · $_temp0';
+  }
+
+  @override
+  String get lineNoWait => 'No wait right now';
+
+  @override
+  String get lineFullToday => 'The line is full for today: book a time instead';
 }

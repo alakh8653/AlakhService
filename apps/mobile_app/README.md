@@ -21,7 +21,7 @@ flutter pub get
 # Run code generation
 dart run build_runner build --delete-conflicting-outputs
 
-# Start the app against your API gateway (defaults to https://api.alakhservice.com).
+# Start the app against your API gateway (defaults to https://api.alakhservice.in).
 # On the Android emulator the host machine is 10.0.2.2.
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ```

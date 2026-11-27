@@ -166,4 +166,6 @@ hub = QueueHub()
 
 def version_of(payload) -> str:
     """A short fingerprint of a snapshot: equal snapshots, equal versions."""
-    return hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()[:16]
+    return hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode(), usedforsecurity=False).hexdigest()[
+        :16
+    ]

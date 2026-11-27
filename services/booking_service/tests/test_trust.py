@@ -5,10 +5,10 @@ import time
 from datetime import timedelta
 
 import httpx
+import jwt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 
 from app.config import settings
 from app.core import trust
@@ -436,7 +436,7 @@ async def test_the_providers_position_is_asked_with_a_one_minute_token_in_their_
 
     def handler(request):
         token = request.headers["Authorization"].split()[1]
-        seen.update(path=request.url.raw_path.decode(), claims=jwt.get_unverified_claims(token))
+        seen.update(path=request.url.raw_path.decode(), claims=jwt.decode(token, options={"verify_signature": False}))
         return httpx.Response(200, json={"latitude": 12.9, "longitude": 77.6, "timestamp": "2030-11-04T04:30:00Z"})
 
     _mock(monkeypatch, handler)

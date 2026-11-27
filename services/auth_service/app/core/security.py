@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 import bcrypt
+import jwt
 from fastapi import Request
-from jose import JWTError, jwt
 
 from app.config import settings
 
@@ -78,7 +78,7 @@ def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError as e:
+    except jwt.InvalidTokenError as e:
         raise ValueError(f"Invalid token: {e}") from e
 
 

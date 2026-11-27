@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
-from jose import jwt
 
 from app.config import settings
 from tests import test_reviews_api

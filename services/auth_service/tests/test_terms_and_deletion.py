@@ -4,10 +4,10 @@ codes can be texted through MSG91 with a DLT template."""
 import json
 
 import httpx
+import jwt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -169,7 +169,7 @@ async def test_an_account_is_deleted_with_a_one_time_code_without_signing_in(cli
     assert deleted.status_code == 200
     # The profile was erased as the person (a short-lived token for their account).
     [token] = client.erased
-    assert jwt.get_unverified_claims(token)["sub"] == user["id"]
+    assert jwt.decode(token, options={"verify_signature": False})["sub"] == user["id"]
     assert (await client.post("/api/v1/auth/login", json={"email": EMAIL, "password": PASSWORD})).status_code == 401
     # The code is spent, and the email is free for a new account.
     assert (await client.post(url, json={"phone_or_email": EMAIL, "code": code})).status_code == 401

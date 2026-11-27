@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, List, Optional
 
 import httpx
+import jwt
 from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from app.config import settings
 
@@ -33,7 +33,7 @@ def require_caller(credentials: Optional[HTTPAuthorizationCredentials] = Depends
         raise HTTPException(status_code=401, detail="Authentication required")
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from None
     # Refresh and single-purpose (e.g. password reset) tokens share the signing key; reject them.
     if not payload.get("sub") or payload.get("type") != "access" or "purpose" in payload:

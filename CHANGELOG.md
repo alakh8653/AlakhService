@@ -17,6 +17,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- Every service now reads and signs tokens with PyJWT instead of `python-jose`, which is unmaintained
+  and has an unfixed flaw (CVE-2026-85394) that lets someone holding a public key forge HS256 tokens.
+  Our services were not exposed (each one pins its algorithm), but the library can no longer be kept
+  patched. This also drops `ecdsa` (CVE-2024-23342, no fix planned).
+- The Android release build refuses placeholder settings and the debug signing key
+  (`make build-mobile-release`).
+
 ### Added
 
 - Comprehensive root configuration files (.gitignore, .editorconfig, .prettierrc,

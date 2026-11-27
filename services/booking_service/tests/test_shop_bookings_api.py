@@ -7,12 +7,12 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
 import httpx
+import jwt
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from fastapi.websockets import WebSocketDisconnect
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool

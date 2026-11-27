@@ -1,9 +1,9 @@
 """Reviews shown to customers: who may write them, what the public sees, replies, reports, moderation."""
 
+import jwt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 

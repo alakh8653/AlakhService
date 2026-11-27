@@ -1,7 +1,7 @@
 """where each service's shop is and how it is rated, for filters and sorting
 
 Revision ID: 8a1f3c5e7b92
-Revises: 7e4b1c9a2f60
+Revises: c3f18a6d2b47
 Create Date: 2026-11-27 00:00:00
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = '8a1f3c5e7b92'
-down_revision: Union[str, Sequence[str], None] = '7e4b1c9a2f60'
+down_revision: Union[str, Sequence[str], None] = 'c3f18a6d2b47'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

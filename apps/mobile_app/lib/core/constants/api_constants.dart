@@ -6,7 +6,7 @@ class ApiConstants {
   /// `--dart-define=API_BASE_URL=http://10.0.2.2:3000` (Android emulator) or `http://localhost:3000`.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.alakhservice.com',
+    defaultValue: 'https://api.alakhservice.in',
   );
 
   static const String apiVersion = '/api/v1';

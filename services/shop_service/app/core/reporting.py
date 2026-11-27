@@ -6,7 +6,7 @@ approval itself.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import httpx
 import structlog
@@ -93,16 +93,25 @@ class Reporter:
         )
 
     async def sync_listing(
-        self, shop_id: str, listed: bool, category: Optional[str] = None, facts: Optional[dict] = None
+        self,
+        shop_id: str,
+        listed: bool,
+        category: Optional[str] = None,
+        extra_categories: Optional[List[str]] = None,
+        facts: Optional[dict] = None,
     ) -> None:
-        """Customers see a shop's services only while it is approved and switched on, under its type of work;
+        """Customers see a shop's services only while it is approved and switched on, under its types of work;
         [facts] (listing_facts) say where it is and how it is rated, for filters and sorting."""
         if not self.catalog_url:
             return
         await self._post(
             self.catalog_url,
             f"/internal/shops/{path_segment(shop_id)}/listing",
-            {"listed": listed, **({"category": category} if category else {}), **({"facts": facts} if facts else {})},
+            {
+                "listed": listed,
+                **({"category": category, "extra_categories": extra_categories or []} if category else {}),
+                **({"facts": facts} if facts else {}),
+            },
             "listing",
         )
 

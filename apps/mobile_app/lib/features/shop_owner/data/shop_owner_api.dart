@@ -41,6 +41,9 @@ class OwnerShop {
   final String id;
   final String name;
 
+  /// The types of work, the main one first; empty on a response without them.
+  final List<String> types;
+
   /// PENDING_REVIEW, APPROVED or REJECTED.
   final String verificationStatus;
   final String? rejectionReason;
@@ -57,6 +60,7 @@ class OwnerShop {
   const OwnerShop({
     required this.id,
     required this.name,
+    this.types = const [],
     required this.verificationStatus,
     this.rejectionReason,
     this.submittedAt,
@@ -73,6 +77,10 @@ class OwnerShop {
   factory OwnerShop.fromJson(Map<String, dynamic> j) => OwnerShop(
         id: j['id'] as String,
         name: j['name'] as String? ?? '',
+        types: [
+          if (j['category'] != null) j['category'] as String,
+          ...((j['extra_categories'] as List<dynamic>?) ?? const []).cast<String>(),
+        ],
         verificationStatus: j['verification_status'] as String? ?? 'PENDING_REVIEW',
         rejectionReason: j['rejection_reason'] as String?,
         submittedAt: DateTime.tryParse((j['submitted_at'] as String?) ?? ''),
@@ -238,6 +246,9 @@ List<OwnerAction> ownerActions(String status, String mode) {
 
 /// One picked document, ready to upload.
 /// A document this type of work asks for (shop_service's verification checklist).
+///
+/// Two types of work can ask for the same kind of document, each its own: a doctor who is also a dentist has
+/// two registrations to show. So [documentsWaiting] counts them.
 class ChecklistItem {
   final String type;
   final String label;
@@ -252,6 +263,25 @@ class ChecklistItem {
         required: j['required'] as bool? ?? false,
         done: j['done'] as bool? ?? false,
       );
+}
+
+/// What no uploaded document answers yet. As shop_service counts them, each document answers one item, the
+/// required ones first.
+Set<ChecklistItem> documentsWaiting(List<ChecklistItem> checklist, List<String> documents) {
+  final left = <String, int>{};
+  for (final type in documents) {
+    left[type] = (left[type] ?? 0) + 1;
+  }
+  final waiting = <ChecklistItem>{};
+  for (final item in [...checklist.where((i) => i.required), ...checklist.where((i) => !i.required)]) {
+    final count = left[item.type] ?? 0;
+    if (count > 0) {
+      left[item.type] = count - 1;
+    } else {
+      waiting.add(item);
+    }
+  }
+  return waiting;
 }
 
 /// Someone served by this business, by display name only.
@@ -547,6 +577,7 @@ class ShopOwnerApi {
     required String ownerId,
     required String name,
     required String category,
+    List<String> otherTypes = const [],
     required String city,
     String? address,
     String? phone,
@@ -558,6 +589,7 @@ class ShopOwnerApi {
           'owner_id': ownerId,
           'name': name,
           'category': category,
+          if (otherTypes.isNotEmpty) 'extra_categories': otherTypes,
           'city': city,
           if (address != null && address.isNotEmpty) 'address': address,
           if (phone != null && phone.isNotEmpty) 'phone': phone,
@@ -565,6 +597,14 @@ class ShopOwnerApi {
           if (longitude != null) 'longitude': longitude,
         });
         return OwnerShop.fromJson(response.data!);
+      });
+
+  Future<void> setTypes(String shopId, {required String category, required List<String> otherTypes}) =>
+      _call(() async {
+        await apiClient.put<Map<String, dynamic>>(ApiConstants.shop(shopId), data: {
+          'category': category,
+          'extra_categories': otherTypes,
+        });
       });
 
   Future<OwnerShop> shop(String shopId) => _call(() async {
@@ -621,6 +661,7 @@ class ShopOwnerApi {
     required int priceCents,
     required int durationMinutes,
     required List<String> modes,
+    String? serviceType,
   }) =>
       _call(() async {
         final response = await apiClient.post<Map<String, dynamic>>(ApiConstants.services, data: {
@@ -629,6 +670,7 @@ class ShopOwnerApi {
           'price_cents': priceCents,
           'duration_minutes': durationMinutes,
           'service_modes': modes,
+          if (serviceType != null) 'service_type': serviceType,
         });
         return OwnerService.fromJson(response.data!);
       });
@@ -654,12 +696,13 @@ class ShopOwnerApi {
       });
 
   /// The types of document already uploaded (PAN, GST, AADHAAR, UDYAM, BANK_PROOF or SHOP_PHOTO).
-  Future<Set<String>> documentTypes(String shopId) => _call(() async {
+  /// One entry per document, so a type appears as often as the shop has that kind.
+  Future<List<String>> documentTypes(String shopId) => _call(() async {
         final data = (await apiClient.get<List<dynamic>>('${ApiConstants.shop(shopId)}/documents')).data!;
-        return data.cast<Map<String, dynamic>>().map((d) => d['type'] as String).toSet();
+        return data.cast<Map<String, dynamic>>().map((d) => d['type'] as String).toList();
       });
 
-  /// The documents this shop's type of work asks for, beyond the PAN everyone gives.
+  /// The documents this shop's types of work ask for, beyond the PAN everyone gives.
   Future<List<ChecklistItem>> checklist(String shopId) => _call(() async {
         final data = (await apiClient.get<List<dynamic>>('${ApiConstants.shop(shopId)}/verification-checklist')).data!;
         return data.cast<Map<String, dynamic>>().map(ChecklistItem.fromJson).toList();

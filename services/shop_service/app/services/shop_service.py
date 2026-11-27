@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import structlog
-from sqlalchemy import or_, select
+from sqlalchemy import literal, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,15 @@ def is_public(shop: Shop) -> bool:
     return bool(shop.is_active) and shop.verification_status == APPROVED
 
 
+def shop_categories(shop: Shop) -> List[str]:
+    """The shop's types of work, its main one first."""
+    return [shop.category, *[c for c in (shop.extra_categories or "").split(",") if c]]
+
+
+def _joined_extras(category: str, extras: List[str]) -> str:
+    return ",".join(c for c in extras if c != category)
+
+
 class ShopService:
     async def create_shop(self, db: AsyncSession, data: ShopCreate) -> Shop:
         shop = Shop(
@@ -29,6 +38,7 @@ class ShopService:
             owner_id=data.owner_id,
             name=data.name,
             category=data.category,
+            extra_categories=_joined_extras(data.category, data.extra_categories),
             description=data.description,
             city=data.city,
             address=data.address,
@@ -91,7 +101,9 @@ class ShopService:
         if city:
             stmt = stmt.where(Shop.city == city)
         if category:
-            stmt = stmt.where(Shop.category == category)
+            # A whole id between the commas, with any % or _ in it taken literally.
+            extras = literal(",") + Shop.extra_categories + literal(",")
+            stmt = stmt.where(or_(Shop.category == category, extras.contains(f",{category},", autoescape=True)))
         if q:
             stmt = stmt.where(or_(Shop.name.ilike(f"%{q}%"), Shop.description.ilike(f"%{q}%")))
         # Same stable order as list_shops, so the limit cuts the same matches every time.
@@ -100,7 +112,12 @@ class ShopService:
 
     async def update_shop(self, db: AsyncSession, shop_id: str, data: ShopUpdate) -> Shop:
         shop = await self.get_shop(db, shop_id)
-        for field, value in data.model_dump(exclude_unset=True).items():
+        changes = data.model_dump(exclude_unset=True)
+        if "category" in changes or "extra_categories" in changes:
+            changes["extra_categories"] = _joined_extras(
+                changes.get("category", shop.category), changes.get("extra_categories", shop_categories(shop)[1:])
+            )
+        for field, value in changes.items():
             setattr(shop, field, value)
         await db.flush()
         log.info("shop_updated", shop_id=shop_id)

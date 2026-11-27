@@ -7,9 +7,9 @@ its port is reached directly.
 from dataclasses import dataclass
 from typing import Optional
 
+import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 
 from app.config import settings
 
@@ -30,7 +30,7 @@ class Caller:
 def caller_from_token(token: str) -> Caller:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid or expired token") from None
     # Refresh and single-purpose (e.g. password reset) tokens share the signing key; reject them.
     if not payload.get("sub") or payload.get("type") != "access" or "purpose" in payload:

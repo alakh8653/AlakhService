@@ -9,6 +9,7 @@ interface ShopResponse {
   owner_id: string;
   name: string;
   category: string;
+  extra_categories?: string[];
   description: string | null;
   city: string | null;
   address: string | null;
@@ -37,6 +38,7 @@ export function toShop(data: ShopResponse): Shop {
     ownerId: data.owner_id,
     name: data.name,
     category: data.category,
+    extraCategories: data.extra_categories ?? [],
     description: data.description,
     city: data.city,
     address: data.address,
@@ -77,6 +79,7 @@ export async function getShopForOwner(ownerId: string, accessToken?: string): Pr
 export interface ShopUpdate {
   name?: string;
   category?: string;
+  extra_categories?: string[];
   description?: string | null;
   city?: string | null;
   address?: string | null;
@@ -93,6 +96,7 @@ export interface ShopUpdate {
 export interface NewShop {
   name: string;
   category: string;
+  extraCategories?: string[];
   city?: string;
   address?: string;
   phone?: string;
@@ -106,6 +110,7 @@ export async function createShop(ownerId: string, shop: NewShop): Promise<Shop> 
     owner_id: ownerId,
     name: shop.name.trim(),
     category: shop.category.trim().toLowerCase(),
+    ...(shop.extraCategories?.length ? { extra_categories: shop.extraCategories } : {}),
     city: optional(shop.city),
     address: optional(shop.address),
     phone: optional(shop.phone),
@@ -198,6 +203,7 @@ export async function removeHoliday(shopId: string, date: string): Promise<void>
 interface ServiceResponse {
   id: string;
   category_id: string | null;
+  service_type?: string | null;
   shop_id: string;
   name: string;
   description: string | null;
@@ -215,6 +221,7 @@ export function toService(data: ServiceResponse): Service {
     id: data.id,
     shopId: data.shop_id,
     categoryId: data.category_id,
+    serviceType: data.service_type ?? null,
     name: data.name,
     description: data.description,
     priceCents: data.price_cents,
@@ -242,6 +249,8 @@ export interface ServiceInput {
   serviceModes?: ServiceMode[];
   homeVisitFeeCents?: number;
   pickupFeeCents?: number;
+  /** Only for a shop with more than one type of work. */
+  serviceType?: string;
 }
 
 const modeFields = (input: Partial<ServiceInput>) => {
@@ -249,6 +258,7 @@ const modeFields = (input: Partial<ServiceInput>) => {
   if (input.serviceModes !== undefined) body.service_modes = input.serviceModes;
   if (input.homeVisitFeeCents !== undefined) body.home_visit_fee_cents = input.homeVisitFeeCents;
   if (input.pickupFeeCents !== undefined) body.pickup_fee_cents = input.pickupFeeCents;
+  if (input.serviceType !== undefined) body.service_type = input.serviceType;
   return body;
 };
 

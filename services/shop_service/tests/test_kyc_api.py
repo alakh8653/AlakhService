@@ -36,8 +36,9 @@ class FakeReporter:
     async def notify_owner(self, event, owner_id, data):
         self.notifications.append((event, owner_id, data))
 
-    async def sync_listing(self, shop_id, listed, category=None, facts=None):
+    async def sync_listing(self, shop_id, listed, category=None, extra_categories=None, facts=None):
         self.listings.append((shop_id, listed))
+        self.sent_categories = (category, extra_categories)
 
 
 async def no_bookings_to_cancel(shop_id, because="removed"):
@@ -524,3 +525,174 @@ async def test_an_approved_salon_cannot_turn_itself_into_a_clinic_without_the_ce
     assert (await client.put(url, json={"category": "beauty"}, headers=OWNER)).status_code == 200
     await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
     assert (await client.put(url, json={"category": "clinic"}, headers=OWNER)).status_code == 200
+
+
+# More than one type of work
+
+
+@pytest.mark.asyncio
+async def test_a_second_type_of_work_is_kept_on_the_shop_and_a_single_type_shop_has_none(client):
+    single = await new_shop(client)
+    assert single["extra_categories"] == []
+    both = await new_shop(client, owner="owner-2", category="electrical", extra_categories=["Plumbing", "plumbing"])
+    assert both["extra_categories"] == ["plumbing"]
+    url = f"/api/v1/shops/{both['id']}"
+    other = auth("owner-2")
+    # Their main type is not an extra one too, and moving to an extra type does not list it twice.
+    moved = await client.put(url, json={"category": "plumbing"}, headers=other)
+    assert (moved.json()["category"], moved.json()["extra_categories"]) == ("plumbing", [])
+    kept = await client.put(url, json={"extra_categories": ["electrical", "solar"]}, headers=other)
+    assert kept.json()["extra_categories"] == ["electrical", "solar"]
+    assert (await client.put(url, json={"name": "Ravi"}, headers=other)).json()["extra_categories"] == [
+        "electrical",
+        "solar",
+    ]
+
+
+@pytest.mark.parametrize(
+    "bad", [["a,b"], ["salon%"], [""], ["one", "two", "three", "four", "five"]], ids=["comma", "like", "empty", "many"]
+)
+@pytest.mark.asyncio
+async def test_other_types_of_work_must_be_ids_and_few(client, bad):
+    shop = await new_shop(client)
+    resp = await client.put(f"/api/v1/shops/{shop['id']}", json={"extra_categories": bad}, headers=OWNER)
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_extra_types_cannot_be_cleared_with_null_but_can_with_an_empty_list(client):
+    shop = await new_shop(client, extra_categories=["beauty"])
+    url = f"/api/v1/shops/{shop['id']}"
+    assert (await client.put(url, json={"extra_categories": None}, headers=OWNER)).status_code == 422
+    assert (await client.put(url, json={"extra_categories": []}, headers=OWNER)).json()["extra_categories"] == []
+
+
+async def live_shop(client, **extra):
+    shop = await ready_for_review(client, **extra)
+    assert (await client.post(f"/api/v1/admin/shops/{shop['id']}/approve", headers=ADMIN)).status_code == 200
+    return shop
+
+
+@pytest.mark.asyncio
+async def test_customers_browsing_either_type_find_the_shop(client):
+    shop = await live_shop(client, category="electrical", extra_categories=["plumbing", "home_nursing_x"])
+    single = await live_shop_for(client, "owner-2", category="salon")
+
+    async def browse(category):
+        resp = await client.get("/api/v1/shops/search", params={"category": category})
+        assert resp.status_code == 200
+        return [s["id"] for s in resp.json()]
+
+    assert await browse("electrical") == [shop["id"]]
+    assert await browse("plumbing") == [shop["id"]]
+    assert await browse("salon") == [single["id"]]
+    # A whole type, never part of one or a pattern.
+    assert await browse("plumb") == []
+    assert await browse("home_nursing") == []
+    assert await browse("%") == []
+
+
+async def live_shop_for(client, owner, **extra):
+    shop = await new_shop(client, owner=owner, legal_name="Second Business", **extra)
+    headers = auth(owner)
+    assert (await add_link(client, shop["id"], headers=headers)).status_code == 201
+    assert (await client.post(f"/api/v1/shops/{shop['id']}/submit-for-review", headers=headers)).status_code == 200
+    assert (await client.post(f"/api/v1/admin/shops/{shop['id']}/approve", headers=ADMIN)).status_code == 200
+    return shop
+
+
+@pytest.mark.asyncio
+async def test_required_documents_are_needed_for_every_type_chosen(client):
+    shop = await new_shop(client, legal_name="Asha Rao", category="catering", extra_categories=["driver"])
+    await add_link(client, shop["id"])
+    url = f"/api/v1/shops/{shop['id']}/submit-for-review"
+    refused = await client.post(url, headers=OWNER)
+    assert refused.status_code == 409
+    assert "FSSAI" in refused.json()["detail"] and "Driving licence" in refused.json()["detail"]
+
+    await add_link(client, shop["id"], "FOOD_LICENCE")
+    refused = await client.post(url, headers=OWNER)
+    assert "FSSAI" not in refused.json()["detail"] and "Driving licence" in refused.json()["detail"]
+
+    await add_link(client, shop["id"], "DRIVING_LICENCE")
+    assert (await client.post(url, headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_one_registration_does_not_stand_for_two_councils(client):
+    """A clinic and a dentist both ask for a PROFESSIONAL_REGISTRATION, each from a different council."""
+    shop = await new_shop(client, legal_name="Asha Rao", category="clinic", extra_categories=["dentist"])
+    await add_link(client, shop["id"])
+    await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
+    url = f"/api/v1/shops/{shop['id']}/submit-for-review"
+    refused = await client.post(url, headers=OWNER)
+    assert refused.status_code == 409
+    assert "State Dental Council" in refused.json()["detail"]
+    assert "Medical Council" not in refused.json()["detail"]
+
+    checklist = f"/api/v1/shops/{shop['id']}/verification-checklist"
+    items = {i["label"]: i["done"] for i in (await client.get(checklist, headers=OWNER)).json()}
+    assert items["Medical Council registration certificate"] is True
+    assert items["State Dental Council registration certificate"] is False
+
+    await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
+    assert (await client.post(url, headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_the_checklist_covers_every_type_and_lists_what_they_share_once(client):
+    shop = await new_shop(client, category="cleaning", extra_categories=["domestic_help", "electrical"])
+    await add_link(client, shop["id"], "POLICE_VERIFICATION")
+    url = f"/api/v1/shops/{shop['id']}/verification-checklist"
+    items = (await client.get(url, headers=OWNER)).json()
+    assert [(i["type"], i["done"]) for i in items] == [
+        ("POLICE_VERIFICATION", True),
+        ("TRADE_LICENCE", False),
+        ("WORK_PHOTO", False),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_document_counts_for_what_is_required_before_what_is_recommended(client):
+    """An electrician's licence is recommended and a pest controller's required; one licence goes to the latter."""
+    shop = await new_shop(client, category="electrical", extra_categories=["pest_control"])
+    await add_link(client, shop["id"], "TRADE_LICENCE")
+    url = f"/api/v1/shops/{shop['id']}/verification-checklist"
+    items = {i["label"]: i["done"] for i in (await client.get(url, headers=OWNER)).json()}
+    assert items["Pest control licence (State Agriculture Department)"] is True
+    assert items["Wireman licence, or ITI, training or company certificate"] is False
+
+
+@pytest.mark.asyncio
+async def test_an_approved_shop_cannot_add_a_type_without_its_documents(client):
+    shop = await live_shop(client)
+    url = f"/api/v1/shops/{shop['id']}"
+    refused = await client.put(url, json={"extra_categories": ["clinic"]}, headers=OWNER)
+    assert refused.status_code == 409
+    assert "Medical Council" in refused.json()["detail"]
+    # Refused means unchanged, and an admin may still decide otherwise.
+    assert (await client.get(url, headers=OWNER)).json()["extra_categories"] == []
+    assert (await client.put(url, json={"extra_categories": ["beauty"]}, headers=OWNER)).status_code == 200
+
+    await add_link(client, shop["id"], "PROFESSIONAL_REGISTRATION")
+    done = await client.put(url, json={"extra_categories": ["beauty", "clinic"]}, headers=OWNER)
+    assert done.status_code == 200
+    # A second council needs its own certificate, even though the type of document is on file.
+    refused = await client.put(url, json={"extra_categories": ["beauty", "clinic", "dentist"]}, headers=OWNER)
+    assert refused.status_code == 409
+    assert "Dental Council" in refused.json()["detail"]
+    # Taking one away asks for nothing.
+    assert (await client.put(url, json={"extra_categories": []}, headers=OWNER)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_an_approved_shop_changing_types_tells_the_catalog_all_of_them(client, reporter):
+    shop = await live_shop(client, category="electrical")
+    url = f"/api/v1/shops/{shop['id']}"
+    reporter.listings.clear()
+    await client.put(url, json={"extra_categories": ["plumbing"]}, headers=OWNER)
+    assert reporter.listings == [(shop["id"], True)]
+    assert reporter.sent_categories == ("electrical", ["plumbing"])
+    reporter.listings.clear()
+    await client.put(url, json={"name": "Ravi Works"}, headers=OWNER)
+    assert reporter.listings == []

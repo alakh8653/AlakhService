@@ -587,21 +587,19 @@ keyAlias=upload
 keyPassword=...
 ```
 
-then:
+then put the five settings in `apps/mobile_app/release.env` (git-ignored; copy
+`apps/mobile_app/release.env.example`) and build:
 
 ```bash
-cd apps/mobile_app
-flutter pub get
-# Your values, once per shell:
-DEFINES="--dart-define=API_BASE_URL=https://api.alakhservice.in --dart-define=LEGAL_BASE_URL=https://alakhservice.in \
-  --dart-define=APP_LINK_DOMAIN=alakhservice.in --dart-define=SUPPORT_EMAIL=support@alakhservice.in \
-  --dart-define=SUPPORT_PHONE=+919876543210"
-# Play Store wants an App Bundle (.aab); also set GOOGLE_MAPS_API_KEY if you use maps
-flutter build appbundle --release $DEFINES
-# output: build/app/outputs/bundle/release/app-release.aab
-# or an APK to install directly on phones:
-flutter build apk --release $DEFINES
+make check-mobile-release   # checks the settings and the signing key, builds nothing
+make build-mobile-release   # Play Store bundle: apps/mobile_app/build/app/outputs/bundle/release/app-release.aab
+make build-mobile-android   # or an APK to install directly on phones
 ```
+
+The build **refuses to start** while a setting is missing or still a placeholder (`<DOMAIN>`,
+`+910000000000`, `localhost`, an `http://` address), while `APP_LINK_DOMAIN` differs from
+`apps/mobile_app/app_links.xcconfig`, or without the signing key, so a release can't go out with
+fake contact details or the debug key. Set `GOOGLE_MAPS_API_KEY` too if you use maps.
 
 Before each new upload, raise `version:` in `apps/mobile_app/pubspec.yaml` (e.g. `1.0.1+2`; the
 number after `+` must always increase). The application id `com.alakhservice.alakh_service`

@@ -76,6 +76,8 @@ export interface Service {
   id: string;
   shopId: string;
   categoryId: string | null;
+  /** Which of the shop's types of work it is found under; null is the main one. */
+  serviceType?: string | null;
   name: string;
   description: string | null;
   priceCents: number;
@@ -139,6 +141,8 @@ export interface Shop {
   ownerId: string;
   name: string;
   category: string;
+  /** Other types of work beside the main one; customers find the shop under each. */
+  extraCategories?: string[];
   description: string | null;
   city: string | null;
   address: string | null;

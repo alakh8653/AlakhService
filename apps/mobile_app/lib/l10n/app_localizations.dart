@@ -4952,6 +4952,24 @@ abstract class AppLocalizations {
   /// **'Choose at least one service.'**
   String get ownerPickOneService;
 
+  /// No description provided for @ownerPickServiceFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one service for {type}, or take it off.'**
+  String ownerPickServiceFor(String type);
+
+  /// No description provided for @ownerAddAnotherType.
+  ///
+  /// In en, this message translates to:
+  /// **'Add another type of work'**
+  String get ownerAddAnotherType;
+
+  /// No description provided for @ownerOtherTypesHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Customers find you under each one. Each may ask for its own documents.'**
+  String get ownerOtherTypesHelp;
+
   /// No description provided for @ownerChoosePdf.
   ///
   /// In en, this message translates to:

@@ -14,9 +14,11 @@ from app.models.shop import APPROVED, PENDING_REVIEW, Shop
 class FakeReporter:
     def __init__(self):
         self.sent = []
+        self.types = {}
 
-    async def sync_listing(self, shop_id, listed, category=None, facts=None):
+    async def sync_listing(self, shop_id, listed, category=None, extra_categories=None, facts=None):
         self.sent.append((shop_id, listed))
+        self.types[shop_id] = [category, *extra_categories]
 
 
 @pytest.mark.asyncio
@@ -32,12 +34,21 @@ async def test_each_shop_is_listed_only_while_approved_and_switched_on():
                 Shop(
                     id="off", owner_id="o", name="Off", category="salon", verification_status=APPROVED, is_active=False
                 ),
-                Shop(id="new", owner_id="o", name="New", category="salon", verification_status=PENDING_REVIEW),
+                Shop(
+                    id="new",
+                    owner_id="o",
+                    name="New",
+                    category="salon",
+                    extra_categories="beauty,spa",
+                    verification_status=PENDING_REVIEW,
+                ),
             ]
         )
         await db.commit()
     reporter = FakeReporter()
     assert await resync_all(factory, reporter) == 3
+    assert reporter.types["new"] == ["salon", "beauty", "spa"]
+    assert reporter.types["live"] == ["salon"]
     assert sorted(reporter.sent) == [("live", True), ("new", False), ("off", False)]
     await engine.dispose()
 

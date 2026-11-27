@@ -5,8 +5,9 @@ because rules such as a wireman's licence differ from state to state and must no
 Categories are the ids in the apps' service type lists (mobile service_types.dart, dashboard categories.ts).
 """
 
+from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 REGISTRATION = "PROFESSIONAL_REGISTRATION"
 LICENCE = "TRADE_LICENCE"
@@ -114,10 +115,27 @@ CREDENTIALS: Dict[str, Tuple[Credential, ...]] = {
 }
 
 
-def credentials_for(category: Optional[str]) -> List[Credential]:
-    """This type of work's documents, then a photo of the work, which helps everyone get approved."""
-    return [*CREDENTIALS.get(category or "", ()), Credential(WORK_PHOTO, "Photos of your work")]
+def credentials_for(*categories: Optional[str]) -> List[Credential]:
+    """These types of work's documents, then a photo of the work, which helps everyone get approved.
+
+    What two types ask for alike (a police certificate) is listed once.
+    """
+    found = [c for category in categories for c in CREDENTIALS.get(category or "", ())]
+    return [*dict.fromkeys(found), Credential(WORK_PHOTO, "Photos of your work")]
 
 
-def required_for(category: Optional[str]) -> List[Credential]:
-    return [c for c in credentials_for(category) if c.required]
+def required_for(*categories: Optional[str]) -> List[Credential]:
+    return [c for c in credentials_for(*categories) if c.required]
+
+
+def not_shown(credentials: Iterable[Credential], document_types: Iterable[str]) -> List[Credential]:
+    """The credentials no document answers. Each document answers one, the required ones first: a doctor who is
+    also a dentist has two registrations to show, one with each council, of the same document type."""
+    left = Counter(document_types)
+    missing = []
+    for credential in sorted(credentials, key=lambda c: not c.required):
+        if left[credential.type] > 0:
+            left[credential.type] -= 1
+        else:
+            missing.append(credential)
+    return missing

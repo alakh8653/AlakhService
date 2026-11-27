@@ -2804,6 +2804,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ownerPickOneService => 'Choose at least one service.';
 
   @override
+  String ownerPickServiceFor(String type) {
+    return 'Choose at least one service for $type, or take it off.';
+  }
+
+  @override
+  String get ownerAddAnotherType => 'Add another type of work';
+
+  @override
+  String get ownerOtherTypesHelp =>
+      'Customers find you under each one. Each may ask for its own documents.';
+
+  @override
   String get ownerChoosePdf => 'Choose a PDF file';
 
   @override

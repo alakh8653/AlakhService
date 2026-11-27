@@ -7,7 +7,7 @@ from app.core.contact_filter import mask_contact
 from app.core.exceptions import OwnShopRatingError, RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
 from app.core.reporting import Reporter, get_reporter, listing_facts
-from app.core.trades import required_for
+from app.core.trades import not_shown, required_for
 from app.database import get_db
 from app.dependencies import (
     BookingLookup,
@@ -24,7 +24,7 @@ from app.dependencies import (
 )
 from app.schemas.shop import ShopCreate, ShopRatingCreate, ShopResponse, ShopUpdate
 from app.services.kyc_service import kyc_service
-from app.services.shop_service import is_public, shop_service
+from app.services.shop_service import is_public, shop_categories, shop_service
 
 router = APIRouter()
 
@@ -112,12 +112,16 @@ async def get_shop(
 LOCKED_WHEN_APPROVED = ("legal_name", "gstin")
 
 
-async def _keep_credentials_honest(db: AsyncSession, shop, category: Optional[str], caller: Caller) -> None:
-    """An approved salon cannot turn itself into a clinic without the registration a clinic needs."""
-    if caller.is_admin or not category or category == shop.category or shop.verification_status != "APPROVED":
+async def _keep_credentials_honest(db: AsyncSession, shop, changes: dict, caller: Caller) -> None:
+    """An approved salon cannot turn itself into a clinic, or add one, without the registration a clinic needs."""
+    if caller.is_admin or shop.verification_status != "APPROVED":
         return
-    have = {d.type for d in await kyc_service.list_documents(db, shop.id)}
-    missing = [c.label for c in required_for(category) if c.type not in have]
+    was = shop_categories(shop)
+    wanted = [changes.get("category") or shop.category, *changes.get("extra_categories", was[1:])]
+    if set(wanted) <= set(was):
+        return
+    documents = await kyc_service.list_documents(db, shop.id)
+    missing = [c.label for c in not_shown(required_for(*wanted), [d.type for d in documents])]
     if missing:
         raise HTTPException(status_code=409, detail="This type of work needs: " + ", ".join(missing))
 
@@ -143,14 +147,22 @@ async def update_shop(
                     status_code=409,
                     detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
                 )
-        was_category = shop.category
+        was_categories = shop_categories(shop)
         was_place = (shop.latitude, shop.longitude)
-        await _keep_credentials_honest(db, shop, changes.get("category"), caller)
+        await _keep_credentials_honest(db, shop, changes, caller)
         shop = await shop_service.update_shop(db, shop_id, data)
+        categories = shop_categories(shop)
         moved = (shop.latitude, shop.longitude) != was_place
         # Switched on or off, a new type of work, or moved (nearest-first and distance filters).
-        if is_public(shop) != was_public or shop.category != was_category or moved:
-            background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category, listing_facts(shop))
+        if is_public(shop) != was_public or categories != was_categories or moved:
+            background.add_task(
+                reporter.sync_listing,
+                shop.id,
+                is_public(shop),
+                categories[0],
+                categories[1:],
+                facts=listing_facts(shop),
+            )
         return shop
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -208,7 +220,15 @@ async def rate_shop(
         )
         # The new average reaches browsing (top rated first, rating filters) at once.
         await db.commit()
-        background.add_task(reporter.sync_listing, rated.id, is_public(rated), rated.category, listing_facts(rated))
+        categories = shop_categories(rated)
+        background.add_task(
+            reporter.sync_listing,
+            rated.id,
+            is_public(rated),
+            categories[0],
+            categories[1:],
+            facts=listing_facts(rated),
+        )
         return for_caller(rated, caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

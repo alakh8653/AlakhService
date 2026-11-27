@@ -24,9 +24,12 @@ class ServiceListing(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     category_id = Column(String, ForeignKey("service_categories.id", ondelete="SET NULL"), nullable=True)
     shop_id = Column(String, nullable=False, index=True)
-    # The shop's type of work (salon, electrical, ...): what browsing by type goes by, whatever the
+    # The shop's main type of work (salon, electrical, ...): what browsing by type goes by, whatever the
     # service is called. Follows the shop (shop_service sends it with the listing).
     shop_category = Column(String, nullable=True, index=True)
+    # The type of work this service is filed under when the shop has several (an electrician who is also
+    # a plumber); one of the shop's types. Null, as on every older service: under the shop's main type.
+    service_type = Column(String, nullable=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     price_cents = Column(Integer, nullable=False)

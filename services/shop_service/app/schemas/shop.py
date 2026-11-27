@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Annotated, List, Literal, Optional
 
@@ -43,6 +44,8 @@ DocumentType = Literal[
     "WORK_PHOTO",
 ]
 VerificationStatus = Literal["PENDING_REVIEW", "APPROVED", "REJECTED"]
+MAX_EXTRA_CATEGORIES = 4
+CATEGORY_ID = re.compile(r"[a-z0-9_-]{1,50}")
 
 
 def valid_gstin(value: Optional[str]) -> Optional[str]:
@@ -51,6 +54,18 @@ def valid_gstin(value: Optional[str]) -> Optional[str]:
 
 def blank_to_none(value: Optional[str]) -> Optional[str]:
     return (value or "").strip() or None
+
+
+def valid_extra_categories(value: Optional[List[str]]) -> Optional[List[str]]:
+    """Other types of work: ids, as the main category is, stored comma-separated."""
+    if value is None:
+        return None
+    cleaned = list(dict.fromkeys(item.strip().lower() for item in value))
+    if len(cleaned) > MAX_EXTRA_CATEGORIES:
+        raise ValueError(f"A shop can add at most {MAX_EXTRA_CATEGORIES} other types of work")
+    if not all(CATEGORY_ID.fullmatch(item) for item in cleaned):
+        raise ValueError("Not a type of work")
+    return cleaned
 
 
 def not_null(value):
@@ -64,6 +79,8 @@ class ShopCreate(BaseModel):
     owner_id: str
     name: str
     category: str
+    # Any other types of work, besides the main one in category.
+    extra_categories: List[str] = []
     description: Optional[str] = None
     city: Optional[str] = None
     address: Optional[str] = None
@@ -76,6 +93,7 @@ class ShopCreate(BaseModel):
     legal_address: Optional[str] = Field(default=None, max_length=500)
     gstin: Optional[str] = None
 
+    _extra = field_validator("extra_categories")(valid_extra_categories)
     _gstin = field_validator("gstin")(valid_gstin)
     _blank = field_validator("legal_name", "legal_address")(blank_to_none)
 
@@ -83,6 +101,7 @@ class ShopCreate(BaseModel):
 class ShopUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
+    extra_categories: Optional[List[str]] = None
     description: Optional[str] = Field(default=None, max_length=1000)
     years_experience: Optional[int] = Field(default=None, ge=0, le=70)
     languages: Optional[List[Annotated[str, Field(max_length=30)]]] = Field(default=None, max_length=12)
@@ -100,7 +119,8 @@ class ShopUpdate(BaseModel):
     guarantee_days: Optional[int] = Field(default=None, ge=0, le=90)
 
     # Only for a value sent explicitly (defaults are not validated); null clears the other fields.
-    _required = field_validator("name", "category", "is_active", "guarantee_days")(not_null)
+    _required = field_validator("name", "category", "is_active", "guarantee_days", "extra_categories")(not_null)
+    _extra = field_validator("extra_categories")(valid_extra_categories)
     _gstin = field_validator("gstin")(valid_gstin)
     _blank = field_validator("legal_name", "legal_address")(blank_to_none)
 
@@ -112,6 +132,7 @@ class ShopResponse(BaseModel):
     owner_id: str
     name: str
     category: str
+    extra_categories: List[str] = []
     description: Optional[str] = None
     years_experience: Optional[int] = None
     languages: Optional[List[str]] = None
@@ -127,6 +148,12 @@ class ShopResponse(BaseModel):
     longitude: Optional[float] = None
     created_at: datetime
     verification_status: VerificationStatus = "PENDING_REVIEW"
+
+    @field_validator("extra_categories", mode="before")
+    @classmethod
+    def _split_extras(cls, v):
+        return [c for c in v.split(",") if c] if isinstance(v, str) else v or []
+
     rejection_reason: Optional[str] = None
     # The legal details are for the owner and admins only (blanked for everyone else, like the contacts).
     legal_name: Optional[str] = None

@@ -3,7 +3,7 @@
 A shop can ask customers to pay online when they book (no-show protection). Off for every existing shop.
 
 Revision ID: a4c6e8b0d2f1
-Revises: f3a9c1e7b2d4
+Revises: e1a7c42f9d05
 Create Date: 2026-11-28 10:00:00.000000
 
 """
@@ -15,7 +15,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a4c6e8b0d2f1"
-down_revision: Union[str, Sequence[str], None] = "f3a9c1e7b2d4"
+down_revision: Union[str, Sequence[str], None] = "e1a7c42f9d05"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

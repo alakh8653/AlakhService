@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.reporting import listing_facts
 from app.models.shop import Shop
-from app.services.shop_service import is_public
+from app.services.shop_service import is_public, shop_categories
 
 log = structlog.get_logger()
 
@@ -26,10 +26,11 @@ async def resync_all(factory, reporter) -> int:
     """Sends every shop's listing (listed only while approved and switched on); returns how many."""
     async with factory() as db:
         shops = [
-            (s.id, is_public(s), s.category, listing_facts(s)) for s in (await db.execute(select(Shop))).scalars().all()
+            (s.id, is_public(s), shop_categories(s), listing_facts(s))
+            for s in (await db.execute(select(Shop))).scalars().all()
         ]
-    for shop_id, listed, category, facts in shops:
-        await reporter.sync_listing(shop_id, listed, category, facts)
+    for shop_id, listed, categories, facts in shops:
+        await reporter.sync_listing(shop_id, listed, categories[0], categories[1:], facts=facts)
     return len(shops)
 
 

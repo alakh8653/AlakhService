@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     # A PENDING booking the shop has not confirmed this long after it was made (or by its start time)
     # is cancelled and refunded.
     EXPIRE_PENDING_AFTER_HOURS: float = 12
+    # At a shop that asks for payment when booking: how long an unpaid booking holds its place.
+    PREPAY_WINDOW_MINUTES: int = 30
     # This long after a completed visit the customer is asked once whether to book it again (0: never),
     # unless they already have; visits older than this plus REBOOK_REMINDER_WINDOW_DAYS are left alone.
     REBOOK_REMINDER_DAYS: int = 28

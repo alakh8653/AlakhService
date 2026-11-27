@@ -13,12 +13,14 @@ import '../../../chat/data/chat_api.dart';
 import '../../../chat/presentation/booking_chat_page.dart';
 import '../../../payment/data/payment_api.dart';
 import '../../../payment/data/razorpay_checkout.dart';
+import '../../../payment/presentation/pages/payment_page.dart';
 import '../../../payment/presentation/tip_sheet.dart';
 import '../../../payment/presentation/pages/invoice_page.dart';
 import '../../../services/domain/repositories/service_repository.dart';
 import '../../../services/presentation/pages/service_detail_page.dart';
 import '../../data/availability_api.dart';
 import '../../data/booking_queue_api.dart';
+import '../../data/repeat_booking.dart';
 import '../../data/extra_charge_api.dart';
 import '../../data/home_arrival_api.dart';
 import '../../data/trust_api.dart';
@@ -96,6 +98,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
   int _unread = 0;
   bool _cancelling = false;
   bool _openingService = false;
+  bool _repeating = false;
   bool _answeringExtra = false;
   // The tip paid for a completed booking (rupees); null when none, or not known yet.
   double? _tip;
@@ -247,6 +250,65 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
     messenger.showSnackBar(SnackBar(content: Text(l10n.reworkSent)));
     await _load();
     if (mounted) await _openBooking(id);
+  }
+
+  /// Books the same visit again every few weeks at the same time: the customer picks how often and how
+  /// many times, then sees which dates were booked and which were full.
+  Future<void> _repeat(Booking booking) async {
+    final l10n = context.l10n;
+    final choice = await showModalBottomSheet<(int, int)>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _RepeatSheet(booking: booking),
+    );
+    if (choice == null || !mounted) return;
+    setState(() => _repeating = true);
+    final booker = RepeatBooker(
+      bookings: _repository,
+      availability: widget.availabilityApi ?? sl<AvailabilityApi>(),
+      now: widget.clock,
+    );
+    final visits = await booker.book(booking, weeks: choice.$1, times: choice.$2);
+    if (!mounted) return;
+    setState(() => _repeating = false);
+    final booked = visits.where((v) => v.booked).toList();
+    final missed = visits.where((v) => !v.booked).toList();
+    await showDialog<void>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        icon: Icon(booked.isEmpty ? Icons.event_busy : Icons.event_repeat, size: 36),
+        title: Text(booked.isEmpty ? l10n.repeatNoneBooked : l10n.repeatBooked(booked.length)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final v in booked)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.check_circle, color: context.palette.success),
+                  title: Text(friendlyDateTime(v.at, l10n: l10n)),
+                ),
+              for (final v in missed)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.remove_circle_outline, color: context.colors.error),
+                  title: Text(friendlyDateTime(v.at, l10n: l10n)),
+                  subtitle: Text(v.problem == 'full' ? l10n.repeatTimeTaken : v.problem ?? ''),
+                ),
+              if (missed.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(l10n.repeatMissedHint, style: AppTextStyles.caption.themed(context)),
+              ],
+            ],
+          ),
+        ),
+        actions: [FilledButton(onPressed: () => Navigator.pop(dialog), child: Text(l10n.done))],
+      ),
+    );
   }
 
   /// Opens the service as it is offered now (price, shop, reviews), to book it again.
@@ -410,6 +472,7 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
           Text(l10n.extraIncluded(rupees(booking.extraAmount)), style: AppTextStyles.caption.themed(context)),
         if (booking.pendingExtraId != null) _extraCharge(l10n, booking),
         if (booking.preferredStaffName != null) _row(context, Icons.person_outline, l10n.askedFor(booking.preferredStaffName!)),
+        if (booking.guestName != null) _row(context, Icons.supervisor_account_outlined, l10n.bookedFor(booking.guestName!)),
         if (booking.pointsDiscount > 0) _row(context, Icons.card_giftcard, l10n.pointsUsed(rupees(booking.pointsDiscount))),
         if (shown != null)
           _row(context, Icons.receipt_long_outlined, paymentShownLabel(l10n, shown), color: paymentShownColor(context, shown)),
@@ -500,6 +563,59 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ),
         ],
+        if (booking.awaitingPayment) ...[
+          const SizedBox(height: 8),
+          Card(
+            key: const ValueKey('pay-to-keep'),
+            color: context.palette.warning.withValues(alpha: 0.12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.payToKeepTitle, style: AppTextStyles.subtitle1),
+                  const SizedBox(height: 4),
+                  Text(l10n.payToKeepBody(clockTime(booking.paymentDueAt!)), style: AppTextStyles.body2.themed(context)),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      await Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PaymentPage(
+                            bookingId: booking.id,
+                            amount: booking.totalAmount,
+                            bookingNumber: booking.bookingNumber,
+                            serviceName: booking.serviceName,
+                            paymentApi: widget.paymentApi,
+                            onlineOnly: true,
+                          ),
+                        ),
+                      );
+                      if (mounted) await _load();
+                    },
+                    icon: const Icon(Icons.lock_outline),
+                    label: Text(l10n.payNow),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (booking.canRepeat) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('repeat-booking'),
+              onPressed: _repeating ? null : () => _repeat(booking),
+              icon: _repeating
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.event_repeat),
+              label: Text(_repeating ? l10n.repeatBooking : l10n.repeatThisBooking),
+            ),
+          ),
+        ],
         if (booking.canCancel) ...[
           const SizedBox(height: 8),
           Text(l10n.cancelPolicy, style: AppTextStyles.caption.copyWith(color: context.palette.muted)),
@@ -514,6 +630,84 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
           Text(_error!, style: AppTextStyles.caption.copyWith(color: context.colors.error)),
         ],
       ],
+    );
+  }
+}
+
+
+/// How often and how many times to repeat a visit; pops with (weeks, times).
+class _RepeatSheet extends StatefulWidget {
+  final Booking booking;
+
+  const _RepeatSheet({required this.booking});
+
+  @override
+  State<_RepeatSheet> createState() => _RepeatSheetState();
+}
+
+class _RepeatSheetState extends State<_RepeatSheet> {
+  int _weeks = 2;
+  int _times = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final at = widget.booking.scheduledAt.toLocal();
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Semantics(header: true, child: Text(l10n.repeatThisBooking, style: AppTextStyles.heading3)),
+            const SizedBox(height: 4),
+            Text(
+              l10n.repeatSheetHint(widget.booking.serviceName, clockTime(at)),
+              style: AppTextStyles.body2.themed(context),
+            ),
+            const SizedBox(height: 16),
+            Text(l10n.repeatEvery, style: AppTextStyles.subtitle1),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final w in RepeatBooker.everyWeeks)
+                  ChoiceChip(
+                    label: Text(l10n.repeatWeeks(w)),
+                    selected: _weeks == w,
+                    onSelected: (_) => setState(() => _weeks = w),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(l10n.repeatHowMany, style: AppTextStyles.subtitle1),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final n in RepeatBooker.counts)
+                  ChoiceChip(
+                    label: Text(l10n.repeatTimes(n)),
+                    selected: _times == n,
+                    onSelected: (_) => setState(() => _times = n),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(l10n.repeatPolicyNote, style: AppTextStyles.caption.themed(context)),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const ValueKey('repeat-confirm'),
+                onPressed: () => Navigator.pop(context, (_weeks, _times)),
+                child: Text(l10n.repeatConfirm(_times)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

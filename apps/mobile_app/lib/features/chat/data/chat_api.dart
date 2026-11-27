@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_errors.dart';
+import '../../../offline/offline_queue.dart';
+import '../../../offline/sync_manager.dart';
 
 /// One message in a booking's chat, as booking_service shows it to this side: never the other
 /// side's number or address.
@@ -110,7 +112,11 @@ String hidePhoneNumbers(String text) => text.replaceAll(_phoneLike, '•••')
 class ChatApi {
   final ApiClient apiClient;
 
-  ChatApi(this.apiClient);
+  /// Keeps messages written offline and sends them once back online; without it a message needs a
+  /// connection.
+  final SyncManager? offline;
+
+  ChatApi(this.apiClient, {this.offline});
 
   static const int pageSize = 30;
 
@@ -133,13 +139,24 @@ class ChatApi {
   /// Unread messages from the shop on this booking (for a badge).
   Future<int> unread(String bookingId) async => (await messages(bookingId, perPage: 1)).unread;
 
-  Future<ChatMessage> send(String bookingId, String body) => _call(() async {
-        final response = await apiClient.post<Map<String, dynamic>>(
-          ApiConstants.bookingMessages(bookingId),
-          data: {'body': body},
+  /// Sends a message and returns it as stored, or null when there is no connection and it waits in
+  /// [pending] to go out later.
+  Future<ChatMessage?> send(String bookingId, String body) => _call(() async {
+        final path = ApiConstants.bookingMessages(bookingId);
+        final offline = this.offline;
+        if (offline == null) {
+          final response = await apiClient.post<Map<String, dynamic>>(path, data: {'body': body});
+          return ChatMessage.fromJson(response.data!);
+        }
+        final response = await offline.send(
+          offline.request(PendingKind.chatMessage, 'POST', path, data: {'body': body}, ref: bookingId),
         );
-        return ChatMessage.fromJson(response.data!);
+        return response == null ? null : ChatMessage.fromJson((response.data as Map).cast<String, dynamic>());
       });
+
+  /// Messages written on [bookingId] still waiting for a connection, oldest first.
+  List<PendingRequest> pending(String bookingId) =>
+      offline?.queue.about(PendingKind.chatMessage, bookingId) ?? const [];
 
   Future<void> markRead(String bookingId) =>
       _call(() => apiClient.post<dynamic>(ApiConstants.bookingMessagesRead(bookingId)));

@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import '../l10n/l10n.dart';
+import '../security/app_lock.dart';
+import '../security/app_lock_gate.dart';
 import 'offline_banner.dart';
 
 /// The MaterialApp, set up from the customer's display settings (a [SettingsCubit] above it).
@@ -14,11 +17,17 @@ class AppView extends StatelessWidget {
   /// screen. Left out in tests that don't need it.
   final Stream<bool>? online;
 
+  /// How many changes made offline are waiting to be sent, told in the offline strip.
+  final ValueListenable<int>? waiting;
+
+  /// With it, a locked app shows the lock screen over every screen (needs an AuthBloc above).
+  final AppLockCubit? appLock;
+
   /// For opening screens and showing messages from outside the widget tree (links, pushes).
   final GlobalKey<NavigatorState>? navigatorKey;
   final GlobalKey<ScaffoldMessengerState>? messengerKey;
 
-  const AppView({super.key, required this.home, this.online, this.navigatorKey, this.messengerKey});
+  const AppView({super.key, required this.home, this.online, this.waiting, this.appLock, this.navigatorKey, this.messengerKey});
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +49,9 @@ class AppView extends StatelessWidget {
           updateCurrentL10n(context.l10n);
           final screens = child ?? const SizedBox.shrink();
           final online = this.online;
-          return online == null ? screens : OfflineBanner(online: online, child: screens);
+          final lock = appLock;
+          final guarded = lock == null ? screens : AppLockGate(lock: lock, child: screens);
+          return online == null ? guarded : OfflineBanner(online: online, waiting: waiting, child: guarded);
         },
         home: home,
       ),

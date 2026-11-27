@@ -89,6 +89,26 @@ def today():
 
 
 @pytest.mark.asyncio
+async def test_the_dispute_hold_follows_the_booking_whatever_order_messages_arrive_in(http):
+    body = {"shop_id": "shop-1", "total_amount": 20000}
+    # Completed while already disputed (its hold arrived first, before there was an earning to hold).
+    first = await internal(http, "/booking/bk-2/completed", {**body, "on_hold": True})
+    assert first.json()["earning"]["status"] == "HELD"
+    # Sent again once the dispute is over: owed again.
+    again = await internal(http, "/booking/bk-2/completed", {**body, "on_hold": False})
+    assert (again.json()["created"], again.json()["earning"]["status"]) == (False, "READY")
+    # A late release then a late hold cannot both win: the next completion settles it from the booking.
+    await internal(http, "/booking/bk-2/disputed")
+    assert [e.status for e in await rows(ShopEarning)] == ["HELD"]
+    await internal(http, "/booking/bk-2/completed", {**body, "on_hold": False})
+    assert [e.status for e in await rows(ShopEarning)] == ["READY"]
+    # An older booking_service that sends no on_hold changes nothing.
+    await internal(http, "/booking/bk-2/disputed")
+    await internal(http, "/booking/bk-2/completed", body)
+    assert [e.status for e in await rows(ShopEarning)] == ["HELD"]
+
+
+@pytest.mark.asyncio
 async def test_internal_routes_need_the_key(http):
     assert (await internal(http, "/booking/bk-1/completed", key="wrong")).status_code == 401
     assert (await http.post("/internal/payments/booking/bk-1/completed", json={})).status_code == 401

@@ -88,6 +88,7 @@ interface BookingResponse {
   points_discount?: number;
   preferred_staff_id?: string | null;
   preferred_staff_name?: string | null;
+  guest_name?: string | null;
   extra_amount?: number;
   pending_extra_id?: string | null;
   pending_extra_amount?: number | null;
@@ -127,6 +128,7 @@ export function toBooking(data: BookingResponse): Booking {
     pointsDiscount: data.points_discount ?? 0,
     preferredStaffId: data.preferred_staff_id ?? null,
     preferredStaffName: data.preferred_staff_name ?? null,
+    guestName: data.guest_name ?? null,
     extraAmount: data.extra_amount ?? 0,
     pendingExtraId: data.pending_extra_id ?? null,
     pendingExtraAmount: data.pending_extra_amount ?? null,

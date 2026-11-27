@@ -3364,4 +3364,250 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get lineFullToday => 'आज की कतार भर गई है: कोई समय बुक करें';
+
+  @override
+  String get chatWaitingToSend => 'इंटरनेट का इंतज़ार है';
+
+  @override
+  String chatMessageNotSent(String reason) {
+    return 'एक संदेश नहीं भेजा जा सका: $reason';
+  }
+
+  @override
+  String offlineBannerWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count बदलाव',
+      one: '1 बदलाव',
+    );
+    return 'आप ऑफ़लाइन हैं। $_temp0 ऑनलाइन होते ही भेजे जाएँगे।';
+  }
+
+  @override
+  String get offlineChangeExpired => 'इंटरनेट का बहुत देर तक इंतज़ार किया';
+
+  @override
+  String get appLockSetting => 'ऐप लॉक';
+
+  @override
+  String get appLockSettingHint =>
+      'ऐप खुलने पर फ़िंगरप्रिंट, चेहरा या फ़ोन का PIN माँगें';
+
+  @override
+  String get appLockReason => 'AlakhService अनलॉक करें';
+
+  @override
+  String get appLockTitle => 'AlakhService लॉक है';
+
+  @override
+  String get appLockSubtitle =>
+      'फ़िंगरप्रिंट, चेहरे या फ़ोन के PIN से अनलॉक करें।';
+
+  @override
+  String get appLockFailed =>
+      'यह नहीं हुआ। फिर से कोशिश करें, या साइन आउट करके पासवर्ड से साइन इन करें।';
+
+  @override
+  String get appLockUnlock => 'अनलॉक करें';
+
+  @override
+  String get appLockSignOut => 'साइन आउट करें';
+
+  @override
+  String get appLockNotConfirmed =>
+      'हम पुष्टि नहीं कर सके कि यह आप हैं, इसलिए ऐप लॉक अभी भी बंद है';
+
+  @override
+  String get sortLabel => 'क्रम';
+
+  @override
+  String get sortRecommended => 'सुझाए गए';
+
+  @override
+  String get sortNearest => 'सबसे पास पहले';
+
+  @override
+  String get sortPriceLow => 'कीमत: कम से ज़्यादा';
+
+  @override
+  String get sortPriceHigh => 'कीमत: ज़्यादा से कम';
+
+  @override
+  String get sortTopRated => 'सबसे अच्छी रेटिंग';
+
+  @override
+  String get filterHomeVisit => 'घर पर सेवा';
+
+  @override
+  String get filterRating4 => '4★ और ऊपर';
+
+  @override
+  String get filterPriceTitle => 'कीमत';
+
+  @override
+  String get filterPriceAny => 'कोई भी कीमत';
+
+  @override
+  String filterPriceUnder(int amount) {
+    return '₹$amount से कम';
+  }
+
+  @override
+  String get filterClearAll => 'फ़िल्टर हटाएँ';
+
+  @override
+  String get noMatchesFilters => 'इन फ़िल्टर से कुछ नहीं मिला';
+
+  @override
+  String get nearestNeedsLocation =>
+      'सबसे पास वाले देखने के लिए लोकेशन की अनुमति दें';
+
+  @override
+  String get locationWhyNearby =>
+      'ताकि आपके सबसे पास की दुकानें और पेशेवर पहले दिखें। आपकी लोकेशन सिर्फ़ इस खोज के लिए इस्तेमाल होती है और सेव नहीं होती।';
+
+  @override
+  String distanceAway(String km) {
+    return '$km किमी दूर';
+  }
+
+  @override
+  String get repeatThisBooking => 'यह बुकिंग दोहराएँ';
+
+  @override
+  String get repeatBooking => 'आपकी विज़िट बुक हो रही हैं…';
+
+  @override
+  String repeatSheetHint(String service, String time) {
+    return '$service, $time बजे, हफ़्ते के उसी दिन। हर विज़िट अभी बुक होगी, ताकि समय आपके लिए रखा रहे।';
+  }
+
+  @override
+  String get repeatEvery => 'कितनी बार';
+
+  @override
+  String repeatWeeks(int weeks) {
+    String _temp0 = intl.Intl.pluralLogic(
+      weeks,
+      locale: localeName,
+      other: 'हर $weeks हफ़्ते',
+      one: 'हर हफ़्ते',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get repeatHowMany => 'कितनी विज़िट';
+
+  @override
+  String repeatTimes(int count) {
+    return '$count विज़िट';
+  }
+
+  @override
+  String repeatConfirm(int count) {
+    return '$count विज़िट बुक करें';
+  }
+
+  @override
+  String get repeatPolicyNote =>
+      'आप इनमें से किसी को भी बाद में रद्द कर सकते हैं या बदल सकते हैं, सामान्य समय-सीमा में मुफ़्त।';
+
+  @override
+  String repeatBooked(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count विज़िट बुक हुईं',
+      one: '1 विज़िट बुक हुई',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get repeatNoneBooked => 'कोई विज़िट बुक नहीं हो सकी';
+
+  @override
+  String get repeatTimeTaken => 'यह समय भरा है या दुकान बंद है';
+
+  @override
+  String get repeatMissedHint =>
+      'इन तारीख़ों को सेवा के पेज से किसी और समय पर बुक करें।';
+
+  @override
+  String get payToKeepTitle => 'बुकिंग रखने के लिए भुगतान करें';
+
+  @override
+  String payToKeepBody(String time) {
+    return 'यह दुकान बुकिंग के समय भुगतान माँगती है। $time तक ऑनलाइन भुगतान करें, नहीं तो बुकिंग दूसरों के लिए खुल जाएगी। समय पर रद्द करने पर पूरा पैसा वापस मिलता है।';
+  }
+
+  @override
+  String get payNow => 'अभी भुगतान करें';
+
+  @override
+  String get payLater => 'बाद में';
+
+  @override
+  String get notificationSettingsTitle => 'सूचना सेटिंग';
+
+  @override
+  String get notificationSettingsHint =>
+      'चुनें कि AlakhService आपको आपकी बुकिंग के बारे में कैसे बताए।';
+
+  @override
+  String get notifyPush => 'पुश सूचनाएँ';
+
+  @override
+  String get notifyPushHint =>
+      'इस फ़ोन पर। काउंटर पर बुलाए जाने की सूचना हमेशा भेजी जाती है।';
+
+  @override
+  String get notifySms => 'SMS संदेश';
+
+  @override
+  String get notifySmsHint =>
+      'सिर्फ़ ज़रूरी अपडेट के लिए, जब ऐप आप तक न पहुँच सके।';
+
+  @override
+  String get notifyEmail => 'ईमेल';
+
+  @override
+  String get quietHours => 'शांत समय';
+
+  @override
+  String get quietHoursHint =>
+      'जो अपडेट इंतज़ार कर सकते हैं (कतार में बदलाव, दोबारा बुक करने की याद) वे इन घंटों में पुश नहीं होते।';
+
+  @override
+  String get quietFrom => 'से';
+
+  @override
+  String get quietTo => 'तक';
+
+  @override
+  String get notifyAlwaysInApp =>
+      'आप कुछ भी बंद करें, हर अपडेट ऐप में सूचनाओं के अंदर दिखेगा।';
+
+  @override
+  String get bookForSomeoneElse => 'किसी और के लिए बुकिंग';
+
+  @override
+  String get bookForSomeoneElseHint =>
+      'माता-पिता, बच्चा या दोस्त। दुकान के लिए संपर्क आप ही रहेंगे।';
+
+  @override
+  String get guestNameLabel => 'उनका नाम';
+
+  @override
+  String get guestNameHint => 'ताकि दुकान को पता हो कि कौन आएगा';
+
+  @override
+  String get guestNameError => 'उनका नाम लिखें';
+
+  @override
+  String bookedFor(String name) {
+    return '$name के लिए';
+  }
 }

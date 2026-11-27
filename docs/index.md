@@ -20,6 +20,10 @@ The project contains the application services and web/mobile apps for AlakhServi
 - [Trust and safety: start codes, free fixes, shared visits, SOS, verified badge](TRUST_AND_SAFETY.md)
 - [Legal pages, consent at sign-up and account deletion](LEGAL_PAGES.md)
 
+## Product
+
+- [What customers and providers need: research and roadmap](PRODUCT_RESEARCH.md)
+
 ## Launch
 
 - [Launch checklist](launch/LAUNCH_CHECKLIST.md)

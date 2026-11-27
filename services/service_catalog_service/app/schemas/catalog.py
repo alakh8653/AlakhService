@@ -84,6 +84,10 @@ class ServiceListingResponse(BaseModel):
     service_modes: List[str] = ["AT_SHOP"]
     home_visit_fee_cents: int = 0
     pickup_fee_cents: int = 0
+    # How customers rate the shop doing it, and (when the search was given a location) how far it is.
+    shop_rating: float = 0.0
+    shop_rating_count: int = 0
+    distance_km: Optional[float] = None
 
     @field_validator("service_modes", mode="before")
     @classmethod

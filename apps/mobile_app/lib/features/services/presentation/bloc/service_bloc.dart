@@ -28,7 +28,7 @@ class ServiceBloc extends Bloc<ServiceEvent, ServiceState> {
     final request = ++_latest;
     emit(const ServiceLoading());
     final result = await getServicesUseCase(
-      GetServicesParams(page: event.page, category: event.category),
+      GetServicesParams(page: event.page, category: event.category, filters: event.filters),
     );
     if (request != _latest) return;
     result.fold(
@@ -50,7 +50,7 @@ class ServiceBloc extends Bloc<ServiceEvent, ServiceState> {
     final request = ++_latest;
     emit(const ServiceLoading());
     final result = await searchServicesUseCase(
-      SearchServicesParams(query: event.query, category: event.category),
+      SearchServicesParams(query: event.query, category: event.category, filters: event.filters),
     );
     if (request != _latest) return;
     result.fold(

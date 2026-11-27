@@ -6,7 +6,7 @@ import authReducer, { setShop } from '../../state/authSlice';
 import bookingReducer from '../../state/bookingSlice';
 import OpeningHoursPage from '../OpeningHoursPage';
 import { ToastProvider } from '../../components/Toast';
-import { addHoliday, getShopHours, removeHoliday, saveAutoConfirm, saveCapacity, saveWeeklyHours } from '../../services/shopService';
+import { addHoliday, getShopHours, removeHoliday, saveAutoConfirm, saveCapacity, savePrepayment, saveWeeklyHours } from '../../services/shopService';
 import type { OpenInterval, Shop, ShopHours } from '../../types';
 
 vi.mock('../../services/shopService', () => ({
@@ -14,6 +14,7 @@ vi.mock('../../services/shopService', () => ({
   saveWeeklyHours: vi.fn(),
   saveCapacity: vi.fn(),
   saveAutoConfirm: vi.fn(),
+  savePrepayment: vi.fn(),
   addHoliday: vi.fn(),
   removeHoliday: vi.fn(),
 }));
@@ -27,6 +28,7 @@ const hours = (over: Partial<ShopHours> = {}): ShopHours => ({
   capacity: 2,
   capacityOverride: null,
   autoConfirm: false,
+  requirePrepayment: false,
   activeStaff: 2,
   updatedAt: null,
   ...over,
@@ -185,6 +187,17 @@ describe('OpeningHoursPage closures and capacity', () => {
     await waitFor(() => expect(saveAutoConfirm).toHaveBeenCalledWith('s1', true));
     expect(await screen.findByText('New bookings will be confirmed automatically.')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('checkbox', { name: /Confirm each booking straight away/ })).toBeChecked());
+  });
+
+  it('asks customers to pay when they book, even before opening hours are saved', async () => {
+    vi.mocked(getShopHours).mockResolvedValue(hours({ configured: false }));
+    vi.mocked(savePrepayment).mockResolvedValue(hours({ configured: false, requirePrepayment: true }));
+    renderPage();
+    const box = await screen.findByRole('checkbox', { name: /customers pay online \(UPI or card\) when they book/ });
+    expect(box).not.toBeDisabled();
+    fireEvent.click(box);
+    await waitFor(() => expect(savePrepayment).toHaveBeenCalledWith('s1', true));
+    expect(await screen.findByText('Customers will pay online when they book.')).toBeInTheDocument();
   });
 
   it('asks for opening hours before automatic confirmation can be turned on', async () => {

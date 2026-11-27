@@ -25,6 +25,9 @@ class PaymentPage extends StatefulWidget {
   final PaymentApi? paymentApi;
   final CheckoutLauncher? checkoutLauncher;
 
+  /// The shop asks for payment online when booking: cash is not offered.
+  final bool onlineOnly;
+
   const PaymentPage({
     super.key,
     required this.amount,
@@ -33,6 +36,7 @@ class PaymentPage extends StatefulWidget {
     this.serviceName,
     this.paymentApi,
     this.checkoutLauncher,
+    this.onlineOnly = false,
   });
 
   @override
@@ -148,7 +152,7 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final methods = _methodsIn(l10n);
+    final methods = [for (final m in _methodsIn(l10n)) if (!widget.onlineOnly || m.id != 'cash') m];
     return Scaffold(
       appBar: AppBar(title: Text(l10n.paymentTitle)),
       // Everything scrolls, and the Pay button stays at the bottom: on a small phone with large

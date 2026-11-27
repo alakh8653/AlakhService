@@ -13,6 +13,9 @@ enum LocationPurpose {
 
   /// An owner placing their business on the map, once.
   business,
+
+  /// A customer: showing what is nearest to them first.
+  nearby,
 }
 
 /// Explains why location is needed before the system asks; true to go on and ask. With no screen
@@ -30,6 +33,7 @@ Future<bool> explainLocation(LocationPurpose purpose, {BuildContext? context}) a
         LocationPurpose.sharing => l10n.locationWhySharing,
         LocationPurpose.business => l10n.locationWhyBusiness,
         LocationPurpose.eta => l10n.locationWhyEta,
+        LocationPurpose.nearby => l10n.locationWhyNearby,
       }),
       actions: [
         TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.notNow)),

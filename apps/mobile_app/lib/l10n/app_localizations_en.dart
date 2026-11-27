@@ -3403,4 +3403,250 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lineFullToday => 'The line is full for today: book a time instead';
+
+  @override
+  String get chatWaitingToSend => 'Waiting for a connection';
+
+  @override
+  String chatMessageNotSent(String reason) {
+    return 'A message could not be sent: $reason';
+  }
+
+  @override
+  String offlineBannerWaiting(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changes',
+      one: '1 change',
+    );
+    return 'You\'re offline. $_temp0 will be sent when you\'re back online.';
+  }
+
+  @override
+  String get offlineChangeExpired => 'It waited too long for a connection';
+
+  @override
+  String get appLockSetting => 'App lock';
+
+  @override
+  String get appLockSettingHint =>
+      'Ask for your fingerprint, face or phone PIN when the app opens';
+
+  @override
+  String get appLockReason => 'Unlock AlakhService';
+
+  @override
+  String get appLockTitle => 'AlakhService is locked';
+
+  @override
+  String get appLockSubtitle =>
+      'Unlock with your fingerprint, face or phone PIN.';
+
+  @override
+  String get appLockFailed =>
+      'That didn\'t work. Try again, or sign out and sign in with your password.';
+
+  @override
+  String get appLockUnlock => 'Unlock';
+
+  @override
+  String get appLockSignOut => 'Sign out';
+
+  @override
+  String get appLockNotConfirmed =>
+      'We couldn\'t confirm it\'s you, so app lock is still off';
+
+  @override
+  String get sortLabel => 'Sort';
+
+  @override
+  String get sortRecommended => 'Recommended';
+
+  @override
+  String get sortNearest => 'Nearest first';
+
+  @override
+  String get sortPriceLow => 'Price: low to high';
+
+  @override
+  String get sortPriceHigh => 'Price: high to low';
+
+  @override
+  String get sortTopRated => 'Top rated';
+
+  @override
+  String get filterHomeVisit => 'Home visit';
+
+  @override
+  String get filterRating4 => '4★ & up';
+
+  @override
+  String get filterPriceTitle => 'Price';
+
+  @override
+  String get filterPriceAny => 'Any price';
+
+  @override
+  String filterPriceUnder(int amount) {
+    return 'Under ₹$amount';
+  }
+
+  @override
+  String get filterClearAll => 'Clear filters';
+
+  @override
+  String get noMatchesFilters => 'Nothing matches these filters';
+
+  @override
+  String get nearestNeedsLocation =>
+      'Allow location to see what\'s nearest to you';
+
+  @override
+  String get locationWhyNearby =>
+      'To show the shops and professionals nearest to you first. Your location is used only for this search and isn\'t saved.';
+
+  @override
+  String distanceAway(String km) {
+    return '$km km away';
+  }
+
+  @override
+  String get repeatThisBooking => 'Repeat this booking';
+
+  @override
+  String get repeatBooking => 'Booking your visits…';
+
+  @override
+  String repeatSheetHint(String service, String time) {
+    return '$service at $time, on the same day of the week. Each visit is booked now, so the time is kept for you.';
+  }
+
+  @override
+  String get repeatEvery => 'How often';
+
+  @override
+  String repeatWeeks(int weeks) {
+    String _temp0 = intl.Intl.pluralLogic(
+      weeks,
+      locale: localeName,
+      other: 'Every $weeks weeks',
+      one: 'Every week',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get repeatHowMany => 'How many visits';
+
+  @override
+  String repeatTimes(int count) {
+    return '$count visits';
+  }
+
+  @override
+  String repeatConfirm(int count) {
+    return 'Book $count visits';
+  }
+
+  @override
+  String get repeatPolicyNote =>
+      'You can cancel or move any of them later, free within the usual cancellation window.';
+
+  @override
+  String repeatBooked(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count visits booked',
+      one: '1 visit booked',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get repeatNoneBooked => 'No visits could be booked';
+
+  @override
+  String get repeatTimeTaken => 'This time is taken or the shop is closed';
+
+  @override
+  String get repeatMissedHint =>
+      'Book those dates at another time from the service page.';
+
+  @override
+  String get payToKeepTitle => 'Pay to keep this booking';
+
+  @override
+  String payToKeepBody(String time) {
+    return 'This shop asks for payment when you book. Pay online by $time, or the booking is released for others. Cancelling in time gets you a full refund.';
+  }
+
+  @override
+  String get payNow => 'Pay now';
+
+  @override
+  String get payLater => 'Later';
+
+  @override
+  String get notificationSettingsTitle => 'Notification settings';
+
+  @override
+  String get notificationSettingsHint =>
+      'Choose how AlakhService tells you about your bookings.';
+
+  @override
+  String get notifyPush => 'Push notifications';
+
+  @override
+  String get notifyPushHint =>
+      'On this phone. Being called to the counter is always sent.';
+
+  @override
+  String get notifySms => 'Text messages';
+
+  @override
+  String get notifySmsHint =>
+      'Only for important updates, when the app can\'t reach you.';
+
+  @override
+  String get notifyEmail => 'Email';
+
+  @override
+  String get quietHours => 'Quiet hours';
+
+  @override
+  String get quietHoursHint =>
+      'Updates that can wait (queue moves, rebooking reminders) aren\'t pushed during these hours.';
+
+  @override
+  String get quietFrom => 'From';
+
+  @override
+  String get quietTo => 'to';
+
+  @override
+  String get notifyAlwaysInApp =>
+      'Whatever you switch off, every update still appears under Notifications in the app.';
+
+  @override
+  String get bookForSomeoneElse => 'Booking for someone else';
+
+  @override
+  String get bookForSomeoneElseHint =>
+      'A parent, child or friend. You stay the contact for the shop.';
+
+  @override
+  String get guestNameLabel => 'Their name';
+
+  @override
+  String get guestNameHint => 'So the shop knows who to expect';
+
+  @override
+  String get guestNameError => 'Enter their name';
+
+  @override
+  String bookedFor(String name) {
+    return 'For $name';
+  }
 }

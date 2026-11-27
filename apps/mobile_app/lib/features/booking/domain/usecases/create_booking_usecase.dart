@@ -20,6 +20,7 @@ class CreateBookingUseCase {
       usePoints: params.usePoints,
       packagePurchaseId: params.packagePurchaseId,
       preferredStaffId: params.preferredStaffId,
+      guestName: params.guestName,
     );
   }
 }
@@ -38,6 +39,9 @@ class CreateBookingParams {
   final String? packagePurchaseId;
   final String? preferredStaffId;
 
+  /// Booked for someone else: who the shop should expect.
+  final String? guestName;
+
   const CreateBookingParams({
     required this.serviceId,
     required this.scheduledAt,
@@ -49,5 +53,6 @@ class CreateBookingParams {
     this.usePoints = false,
     this.packagePurchaseId,
     this.preferredStaffId,
+    this.guestName,
   });
 }

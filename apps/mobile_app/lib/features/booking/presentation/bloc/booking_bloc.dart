@@ -38,6 +38,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         usePoints: event.usePoints,
         packagePurchaseId: event.packagePurchaseId,
         preferredStaffId: event.preferredStaffId,
+        guestName: event.guestName,
       ),
     );
     result.fold(

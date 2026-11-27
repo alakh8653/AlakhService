@@ -172,6 +172,27 @@ void main() {
     expect(sent['notes'], isNot(contains('Address:')));
   });
 
+  testWidgets('booking for someone else sends their name and asks for it first', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.reset);
+    final adapter = server();
+    await tester.pumpWidget(page(adapter, modes: const [ServiceMode.atShop]));
+    await tester.pumpAndSettle();
+    await pickDateAndTime(tester);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('for-someone-else')));
+    await tester.tap(find.byKey(const ValueKey('for-someone-else')));
+    await tester.pumpAndSettle();
+    await confirm(tester);
+    expect(find.text('Enter their name'), findsOneWidget);
+    expect(adapter.requests.where((r) => r.method == 'POST'), isEmpty);
+
+    await tester.enterText(find.byKey(const ValueKey('guest-name')).last, ' Asha Rao ');
+    await confirm(tester);
+    final sent = adapter.requests.singleWhere((r) => r.method == 'POST').data as Map;
+    expect(sent['guest_name'], 'Asha Rao');
+  });
+
   testWidgets('a retry after an error sends the same Idempotency-Key; a changed booking gets a new one', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     addTearDown(tester.view.reset);

@@ -122,7 +122,11 @@ manager = ConnectionManager()
 
 def request_hash(booking_data: BookingCreate) -> str:
     """Identifies what was asked for, so a key reused for a different booking can be told apart from a retry."""
-    body = json.dumps(booking_data.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    asked = booking_data.model_dump(mode="json")
+    if asked.get("guest_name") is None:
+        # Left out when unused, so requests made before the field existed keep their fingerprint.
+        asked.pop("guest_name", None)
+    body = json.dumps(asked, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(body.encode()).hexdigest()[:32]
 
 
@@ -249,6 +253,8 @@ async def create_booking(
         meta["package_purchase_id"] = package_id
     if preferred:
         meta.update(preferred_staff_id=preferred["id"], preferred_staff_name=preferred.get("name"))
+    if booking_data.guest_name:
+        meta["guest_name"] = booking_data.guest_name
     if code:
         meta["coupon_code"] = code
     if points_discount:
@@ -260,6 +266,11 @@ async def create_booking(
         booking = await booking_service.create_booking(
             db, customer_id, booking_data, metadata, idempotency_key, fingerprint, booking_id
         )
+        if schedule.require_prepayment and booking.total_amount > 0:
+            # Paid online within the window, or released: confirmed once paid, not before.
+            due = clock() + timedelta(minutes=settings.PREPAY_WINDOW_MINUTES)
+            booking.payment_due_at = due.astimezone(timezone.utc)
+            confirm_now = False
         if confirm_now:  # still under hold_shop_capacity, so the last place cannot go twice
             booking = await booking_service.transition_status(
                 db, booking.id, BookingStatus.CONFIRMED.value, SYSTEM, AUTO_CONFIRM_REASON

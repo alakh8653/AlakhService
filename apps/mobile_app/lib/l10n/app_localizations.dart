@@ -5971,6 +5971,390 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The line is full for today: book a time instead'**
   String get lineFullToday;
+
+  /// No description provided for @chatWaitingToSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for a connection'**
+  String get chatWaitingToSend;
+
+  /// No description provided for @chatMessageNotSent.
+  ///
+  /// In en, this message translates to:
+  /// **'A message could not be sent: {reason}'**
+  String chatMessageNotSent(String reason);
+
+  /// No description provided for @offlineBannerWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline. {count, plural, =1{1 change} other{{count} changes}} will be sent when you\'re back online.'**
+  String offlineBannerWaiting(int count);
+
+  /// No description provided for @offlineChangeExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'It waited too long for a connection'**
+  String get offlineChangeExpired;
+
+  /// No description provided for @appLockSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'App lock'**
+  String get appLockSetting;
+
+  /// No description provided for @appLockSettingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for your fingerprint, face or phone PIN when the app opens'**
+  String get appLockSettingHint;
+
+  /// No description provided for @appLockReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock AlakhService'**
+  String get appLockReason;
+
+  /// No description provided for @appLockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AlakhService is locked'**
+  String get appLockTitle;
+
+  /// No description provided for @appLockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock with your fingerprint, face or phone PIN.'**
+  String get appLockSubtitle;
+
+  /// No description provided for @appLockFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'That didn\'t work. Try again, or sign out and sign in with your password.'**
+  String get appLockFailed;
+
+  /// No description provided for @appLockUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get appLockUnlock;
+
+  /// No description provided for @appLockSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get appLockSignOut;
+
+  /// No description provided for @appLockNotConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t confirm it\'s you, so app lock is still off'**
+  String get appLockNotConfirmed;
+
+  /// No description provided for @sortLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get sortLabel;
+
+  /// No description provided for @sortRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get sortRecommended;
+
+  /// No description provided for @sortNearest.
+  ///
+  /// In en, this message translates to:
+  /// **'Nearest first'**
+  String get sortNearest;
+
+  /// No description provided for @sortPriceLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Price: low to high'**
+  String get sortPriceLow;
+
+  /// No description provided for @sortPriceHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Price: high to low'**
+  String get sortPriceHigh;
+
+  /// No description provided for @sortTopRated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get sortTopRated;
+
+  /// No description provided for @filterHomeVisit.
+  ///
+  /// In en, this message translates to:
+  /// **'Home visit'**
+  String get filterHomeVisit;
+
+  /// No description provided for @filterRating4.
+  ///
+  /// In en, this message translates to:
+  /// **'4★ & up'**
+  String get filterRating4;
+
+  /// No description provided for @filterPriceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get filterPriceTitle;
+
+  /// No description provided for @filterPriceAny.
+  ///
+  /// In en, this message translates to:
+  /// **'Any price'**
+  String get filterPriceAny;
+
+  /// No description provided for @filterPriceUnder.
+  ///
+  /// In en, this message translates to:
+  /// **'Under ₹{amount}'**
+  String filterPriceUnder(int amount);
+
+  /// No description provided for @filterClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get filterClearAll;
+
+  /// No description provided for @noMatchesFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches these filters'**
+  String get noMatchesFilters;
+
+  /// No description provided for @nearestNeedsLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow location to see what\'s nearest to you'**
+  String get nearestNeedsLocation;
+
+  /// No description provided for @locationWhyNearby.
+  ///
+  /// In en, this message translates to:
+  /// **'To show the shops and professionals nearest to you first. Your location is used only for this search and isn\'t saved.'**
+  String get locationWhyNearby;
+
+  /// No description provided for @distanceAway.
+  ///
+  /// In en, this message translates to:
+  /// **'{km} km away'**
+  String distanceAway(String km);
+
+  /// No description provided for @repeatThisBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat this booking'**
+  String get repeatThisBooking;
+
+  /// No description provided for @repeatBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking your visits…'**
+  String get repeatBooking;
+
+  /// No description provided for @repeatSheetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{service} at {time}, on the same day of the week. Each visit is booked now, so the time is kept for you.'**
+  String repeatSheetHint(String service, String time);
+
+  /// No description provided for @repeatEvery.
+  ///
+  /// In en, this message translates to:
+  /// **'How often'**
+  String get repeatEvery;
+
+  /// No description provided for @repeatWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'{weeks, plural, =1{Every week} other{Every {weeks} weeks}}'**
+  String repeatWeeks(int weeks);
+
+  /// No description provided for @repeatHowMany.
+  ///
+  /// In en, this message translates to:
+  /// **'How many visits'**
+  String get repeatHowMany;
+
+  /// No description provided for @repeatTimes.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} visits'**
+  String repeatTimes(int count);
+
+  /// No description provided for @repeatConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Book {count} visits'**
+  String repeatConfirm(int count);
+
+  /// No description provided for @repeatPolicyNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You can cancel or move any of them later, free within the usual cancellation window.'**
+  String get repeatPolicyNote;
+
+  /// No description provided for @repeatBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 visit booked} other{{count} visits booked}}'**
+  String repeatBooked(int count);
+
+  /// No description provided for @repeatNoneBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'No visits could be booked'**
+  String get repeatNoneBooked;
+
+  /// No description provided for @repeatTimeTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'This time is taken or the shop is closed'**
+  String get repeatTimeTaken;
+
+  /// No description provided for @repeatMissedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Book those dates at another time from the service page.'**
+  String get repeatMissedHint;
+
+  /// No description provided for @payToKeepTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay to keep this booking'**
+  String get payToKeepTitle;
+
+  /// No description provided for @payToKeepBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This shop asks for payment when you book. Pay online by {time}, or the booking is released for others. Cancelling in time gets you a full refund.'**
+  String payToKeepBody(String time);
+
+  /// No description provided for @payNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay now'**
+  String get payNow;
+
+  /// No description provided for @payLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get payLater;
+
+  /// No description provided for @notificationSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification settings'**
+  String get notificationSettingsTitle;
+
+  /// No description provided for @notificationSettingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how AlakhService tells you about your bookings.'**
+  String get notificationSettingsHint;
+
+  /// No description provided for @notifyPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications'**
+  String get notifyPush;
+
+  /// No description provided for @notifyPushHint.
+  ///
+  /// In en, this message translates to:
+  /// **'On this phone. Being called to the counter is always sent.'**
+  String get notifyPushHint;
+
+  /// No description provided for @notifySms.
+  ///
+  /// In en, this message translates to:
+  /// **'Text messages'**
+  String get notifySms;
+
+  /// No description provided for @notifySmsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for important updates, when the app can\'t reach you.'**
+  String get notifySmsHint;
+
+  /// No description provided for @notifyEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get notifyEmail;
+
+  /// No description provided for @quietHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Quiet hours'**
+  String get quietHours;
+
+  /// No description provided for @quietHoursHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates that can wait (queue moves, rebooking reminders) aren\'t pushed during these hours.'**
+  String get quietHoursHint;
+
+  /// No description provided for @quietFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get quietFrom;
+
+  /// No description provided for @quietTo.
+  ///
+  /// In en, this message translates to:
+  /// **'to'**
+  String get quietTo;
+
+  /// No description provided for @notifyAlwaysInApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Whatever you switch off, every update still appears under Notifications in the app.'**
+  String get notifyAlwaysInApp;
+
+  /// No description provided for @bookForSomeoneElse.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking for someone else'**
+  String get bookForSomeoneElse;
+
+  /// No description provided for @bookForSomeoneElseHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A parent, child or friend. You stay the contact for the shop.'**
+  String get bookForSomeoneElseHint;
+
+  /// No description provided for @guestNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Their name'**
+  String get guestNameLabel;
+
+  /// No description provided for @guestNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'So the shop knows who to expect'**
+  String get guestNameHint;
+
+  /// No description provided for @guestNameError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter their name'**
+  String get guestNameError;
+
+  /// No description provided for @bookedFor.
+  ///
+  /// In en, this message translates to:
+  /// **'For {name}'**
+  String bookedFor(String name);
 }
 
 class _AppLocalizationsDelegate

@@ -106,6 +106,9 @@ class BookingCompleted(BaseModel):
     customer_id: Optional[str] = None
     total_amount: Optional[int] = Field(default=None, ge=0)
     completed_at: Optional[datetime] = None
+    # Whether the booking is under dispute as booking_service sends this (left out by older versions):
+    # the earning is kept out of payouts while it is, and owed again once it is not.
+    on_hold: Optional[bool] = None
 
 
 class BookingCancelled(BaseModel):

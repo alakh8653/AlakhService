@@ -103,6 +103,9 @@ class Booking extends Equatable {
   /// The professional the customer asked for, if anyone.
   final String? preferredStaffName;
 
+  /// Who the visit is for, when booked for someone else.
+  final String? guestName;
+
   /// Why it was cancelled, in the words of whoever cancelled it.
   final String? cancellationReason;
 
@@ -123,6 +126,9 @@ class Booking extends Equatable {
   final String? reworkOf;
   final String? reworkBookingId;
   final DateTime? guaranteeUntil;
+
+  /// At a shop that asks for payment when booking: paid online by then, or the booking is released.
+  final DateTime? paymentDueAt;
 
   const Booking({
     required this.id,
@@ -149,6 +155,7 @@ class Booking extends Equatable {
     this.rescheduleCount = 0,
     this.pointsDiscount = 0,
     this.preferredStaffName,
+    this.guestName,
     this.cancellationReason,
     this.extraAmount = 0,
     this.pendingExtraId,
@@ -158,6 +165,7 @@ class Booking extends Equatable {
     this.reworkOf,
     this.reworkBookingId,
     this.guaranteeUntil,
+    this.paymentDueAt,
   });
 
   bool get canCancel => BookingStatus.cancellable.contains(status);
@@ -173,8 +181,20 @@ class Booking extends Equatable {
   static const maxReschedules = 2;
 
   bool get canBookAgain => BookingStatus.finished.contains(status);
+
+  /// Can be repeated every few weeks at the same time: a visit coming up or one that went well.
+  bool get canRepeat => const {
+        BookingStatus.pending,
+        BookingStatus.confirmed,
+        BookingStatus.assigned,
+        BookingStatus.completed,
+      }.contains(status);
   bool get canTrack => providerId != null && BookingStatus.trackable.contains(status);
-  bool get canPay => BookingStatus.payable.contains(status);
+  bool get canPay =>
+      BookingStatus.payable.contains(status) || (status == BookingStatus.pending && paymentDueAt != null);
+
+  /// Held for payment: the shop asks to pay online now, by [paymentDueAt].
+  bool get awaitingPayment => paymentDueAt != null && status == BookingStatus.pending && !isPaid;
   bool get canRate => status == BookingStatus.completed && shopId != null;
   /// The customer goes to the shop for it, and it is still ahead of them (or under way).
   bool get canGetDirections =>

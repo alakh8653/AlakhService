@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import ShopNotFoundError
-from app.core.reporting import Reporter, get_reporter, request_origin
+from app.core.reporting import Reporter, get_reporter, listing_facts, request_origin
 from app.core.storage import LocalDocumentStorage, StorageDisabled, get_storage, sniff_content_type
 from app.core.trades import credentials_for
 from app.database import get_db
@@ -339,7 +339,7 @@ async def approve_shop(
     background.add_task(
         reporter.notify_owner, "shop.approved", shop.owner_id, {"shop_id": shop.id, "shop_name": shop.name}
     )
-    background.add_task(reporter.sync_listing, shop.id, is_public(shop))
+    background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category, listing_facts(shop))
     return shop
 
 

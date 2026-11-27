@@ -38,6 +38,9 @@ class ServiceEntity extends Equatable {
   /// The shop doing the work has been verified by the platform.
   final bool shopVerified;
 
+  /// How far the shop is from the customer, in km, when the search knew where they are.
+  final double? distanceKm;
+
   const ServiceEntity({
     required this.id,
     required this.name,
@@ -56,6 +59,7 @@ class ServiceEntity extends Equatable {
     this.homeVisitFee = 0,
     this.pickupFee = 0,
     this.shopVerified = false,
+    this.distanceKm,
   });
 
   /// The extra charge for delivering it in [mode].

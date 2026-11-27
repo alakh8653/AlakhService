@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import payments, queue_hub, trust
+from app.core import availability, payments, queue_hub, trust
 from app.core.fsm import BookingStatus
 from app.core.internal import require_internal
 from app.core.notifier import Notifier, get_notifier, notify_booking, snapshot
@@ -49,14 +49,36 @@ async def _booking(db: AsyncSession, booking_id: str):
 
 @router.post("/{booking_id}/payment-status")
 async def set_payment_status(
-    booking_id: str, body: PaymentStatusUpdate, db: AsyncSession = Depends(get_db, scope="function")
+    booking_id: str,
+    body: PaymentStatusUpdate,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    lookup_schedule=Depends(get_schedule_lookup),
+    notifier: Notifier = Depends(get_notifier),
+    lookup_owner=Depends(get_shop_owner_lookup),
 ):
-    """payment_service reports how the booking's payment stands; shown on the booking."""
+    """payment_service reports how the booking's payment stands; shown on the booking.
+
+    A booking held for payment (its shop asks to pay when booking) is no longer at risk once paid, and is
+    confirmed at once at a shop that confirms bookings on its own."""
     booking = await _booking(db, booking_id)
     if booking.payment_status != body.payment_status:
         booking.payment_status = body.payment_status
         await db.flush()
         log.info("booking_payment_status", booking_id=booking_id, payment_status=body.payment_status)
+    if body.payment_status == "PAID" and booking.payment_due_at is not None:
+        booking.payment_due_at = None
+        if booking.status == BookingStatus.PENDING.value:
+            schedule = availability.Schedule.from_shop_service(await lookup_schedule(booking.shop_id))
+            if schedule.auto_confirm and schedule.configured:
+                booking = await booking_service.transition_status(
+                    db, booking.id, BookingStatus.CONFIRMED.value, SYSTEM, "Paid when booking"
+                )
+                background.add_task(
+                    notify_booking, notifier, snapshot(booking), "booking.confirmed", None, lookup_owner
+                )
+        await db.flush()
+    await db.commit()
     return {"booking_id": booking.id, "payment_status": booking.payment_status}
 
 

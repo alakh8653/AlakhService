@@ -1,25 +1,22 @@
 import 'dart:async';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../l10n/l10n.dart';
 
-/// Whether the device has a network: the current state first, then each change. One entry per active
-/// interface (wifi, mobile, ...); [ConnectivityResult.none] alone means offline.
-Stream<bool> onlineStatus(Connectivity connectivity) async* {
-  bool online(List<ConnectivityResult> results) => results.any((r) => r != ConnectivityResult.none);
-  yield online(await connectivity.checkConnectivity());
-  yield* connectivity.onConnectivityChanged.map(online);
-}
+export '../core/network/network_info.dart' show onlineStatus;
 
 /// Wraps every screen (from MaterialApp.builder) with a slim strip at the top while the device is
 /// offline, and a brief "Back online" once it reconnects. [online] is replaceable in tests.
 class OfflineBanner extends StatefulWidget {
   final Stream<bool> online;
   final Widget child;
+
+  /// How many changes are waiting to be sent (see SyncManager), told in the strip while offline.
+  final ValueListenable<int>? waiting;
 
   /// How long "Back online" stays up.
   final Duration backOnlineFor;
@@ -28,6 +25,7 @@ class OfflineBanner extends StatefulWidget {
     super.key,
     required this.online,
     required this.child,
+    this.waiting,
     this.backOnlineFor = const Duration(seconds: 3),
   });
 
@@ -106,9 +104,16 @@ class _OfflineBannerState extends State<OfflineBanner> {
               Icon(offline ? Icons.cloud_off : Icons.cloud_done_outlined, size: 16, color: AppColors.textLight),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  offline ? l10n.offlineBanner : l10n.backOnline,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textLight),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: widget.waiting ?? const _None(),
+                  builder: (context, waiting, _) => Text(
+                    !offline
+                        ? l10n.backOnline
+                        : waiting > 0
+                            ? l10n.offlineBannerWaiting(waiting)
+                            : l10n.offlineBanner,
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textLight),
+                  ),
                 ),
               ),
             ],
@@ -117,4 +122,18 @@ class _OfflineBannerState extends State<OfflineBanner> {
       ),
     );
   }
+}
+
+/// Nothing waiting, for an [OfflineBanner] without a queue.
+class _None implements ValueListenable<int> {
+  const _None();
+
+  @override
+  int get value => 0;
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
 }

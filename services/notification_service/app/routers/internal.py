@@ -40,6 +40,7 @@ async def notify_event(
         notif = await notification_service.notify_event(db, redis, r.user_id, body.event, r.role, body.data)
         if notif:
             created += 1
+            allowed = await notification_service.preferences(db, r.user_id)
             background.add_task(
                 notification_service.deliver_fallback,
                 r.user_id,
@@ -49,6 +50,7 @@ async def notify_event(
                 notif.body,
                 body.data,
                 notif.channel == "push",
+                allowed,
             )
     return {"created": created}
 

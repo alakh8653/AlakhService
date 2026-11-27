@@ -40,6 +40,15 @@ BOOKINGS = {
         "status": "CONFIRMED",
         "total_amount": 20000,
     },
+    "bk-held": {
+        "id": "bk-held",
+        "customer_id": "cust",
+        "shop_id": "shop-1",
+        "provider_id": None,
+        "status": "PENDING",
+        "total_amount": 30000,
+        "payment_due_at": "2030-11-03T03:00:00Z",
+    },
     "bk-new": {
         "id": "bk-new",
         "customer_id": "cust",
@@ -173,6 +182,21 @@ async def test_customers_pay_for_their_own_bookings_at_the_booked_price(client):
         "id"
     ]
     assert (await client.post("/api/v1/payments/initiate", json=body, headers=auth("stranger"))).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_booking_held_for_payment_is_paid_online_while_pending(client):
+    body = {"booking_id": "bk-held", "payment_method": "cash", "idempotency_key": "key-held-1"}
+    cash = await client.post("/api/v1/payments/initiate", json=body, headers=auth("cust"))
+    assert cash.status_code == 409
+    assert "online" in cash.json()["detail"]
+    online = await client.post(
+        "/api/v1/payments/initiate",
+        json={**body, "payment_method": "upi", "idempotency_key": "key-held-2"},
+        headers=auth("cust"),
+    )
+    assert online.status_code == 201
+    assert online.json()["amount_cents"] == 30000
 
 
 @pytest.mark.asyncio

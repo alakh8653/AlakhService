@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Phone, RefreshCw, Send, ShieldCheck } from 'lucide-react';
 import {
   MAX_MESSAGE_LENGTH,
@@ -47,9 +47,9 @@ export default function BookingChat({ bookingId, customerName }: { bookingId: st
     listRef.current?.scrollTo?.({ top: listRef.current.scrollHeight });
   }, [chat?.messages.length]);
 
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim()) return;
+  const send = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!draft.trim() || sending || !chat) return;
     setSending(true);
     setNotice(null);
     try {
@@ -62,6 +62,14 @@ export default function BookingChat({ bookingId, customerName }: { bookingId: st
     } finally {
       setSending(false);
     }
+  };
+
+  // Enter sends, as in other chats; Shift+Enter starts a new line. Not while an input method (Hindi
+  // transliteration, for example) is still composing a word.
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    void send();
   };
 
   const call = async () => {
@@ -148,6 +156,7 @@ export default function BookingChat({ bookingId, customerName }: { bookingId: st
             maxLength={MAX_MESSAGE_LENGTH}
             rows={1}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
             placeholder="Write a message…"
             className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 resize-none"
           />

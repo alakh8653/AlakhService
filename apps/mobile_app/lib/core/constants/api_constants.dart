@@ -116,6 +116,8 @@ class ApiConstants {
   static String markRead(String id) => '$apiVersion/notifications/$id/read';
   /// Registers this device's push (FCM) token for the signed-in user.
   static const String deviceTokens = '$apiVersion/notifications/device-tokens';
+  /// Which channels the signed-in user wants (push, SMS, email) and their quiet hours.
+  static const String notificationPreferences = '$apiVersion/notifications/preferences';
 
   // Legal and privacy (auth_service and compliance_service)
   /// The current Terms version and the legal page links; public.

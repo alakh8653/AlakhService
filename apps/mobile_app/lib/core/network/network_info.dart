@@ -16,3 +16,11 @@ class NetworkInfoImpl implements NetworkInfo {
     return results.any((result) => result != ConnectivityResult.none);
   }
 }
+
+/// Whether the device has a network: the current state first, then each change. One entry per active
+/// interface (wifi, mobile, ...); [ConnectivityResult.none] alone means offline.
+Stream<bool> onlineStatus(Connectivity connectivity) async* {
+  bool online(List<ConnectivityResult> results) => results.any((r) => r != ConnectivityResult.none);
+  yield online(await connectivity.checkConnectivity());
+  yield* connectivity.onConnectivityChanged.map(online);
+}

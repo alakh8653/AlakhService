@@ -68,6 +68,7 @@ async def get_schedule(db: AsyncSession, shop_id: str) -> ShopSchedule:
         capacity=override or max(1, active_staff),
         capacity_override=override,
         auto_confirm=bool(settings and settings.auto_confirm),
+        require_prepayment=bool(settings and settings.require_prepayment),
         active_staff=active_staff,
         updated_at=settings.updated_at if settings else None,
     )
@@ -98,6 +99,11 @@ async def set_capacity(db: AsyncSession, shop_id: str, capacity: Optional[int]) 
 
 async def set_auto_confirm(db: AsyncSession, shop_id: str, auto_confirm: bool) -> None:
     (await _settings_for_update(db, shop_id)).auto_confirm = auto_confirm
+    await db.flush()
+
+
+async def set_prepayment(db: AsyncSession, shop_id: str, required: bool) -> None:
+    (await _settings_for_update(db, shop_id)).require_prepayment = required
     await db.flush()
 
 

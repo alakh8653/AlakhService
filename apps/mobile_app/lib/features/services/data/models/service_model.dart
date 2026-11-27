@@ -19,6 +19,7 @@ class ServiceModel extends ServiceEntity {
     super.homeVisitFee,
     super.pickupFee,
     super.shopVerified,
+    super.distanceKm,
   });
 
   /// This listing with its shop's rating (reviews are of the shop that does the work).
@@ -40,11 +41,13 @@ class ServiceModel extends ServiceEntity {
         homeVisitFee: homeVisitFee,
         pickupFee: pickupFee,
         shopVerified: verified ?? shopVerified,
+        distanceKm: distanceKm,
       );
 
   /// Reads a service_catalog listing. Prices arrive in paise (`price_cents`).
   factory ServiceModel.fromJson(Map<String, dynamic> json) {
     final duration = json['duration_minutes'] as int?;
+    final ratedBy = (json['shop_rating_count'] as num?)?.toInt() ?? 0;
     final rawTags = json['tags'];
     final tags = rawTags is List
         ? rawTags.map((e) => e.toString()).toList()
@@ -59,6 +62,10 @@ class ServiceModel extends ServiceEntity {
       basePrice: ((json['price_cents'] as num?) ?? 0) / 100,
       priceUnit: duration != null ? '$duration min' : 'visit',
       isAvailable: (json['is_active'] as bool?) ?? true,
+      // The shop's rating, when the catalogue sends it (the ratings lookup may refine it).
+      rating: ratedBy > 0 ? ((json['shop_rating'] as num?) ?? 0).toDouble() : 0,
+      reviewCount: ratedBy,
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
       tags: tags,
       shopId: json['shop_id'] as String?,
       durationMinutes: duration,

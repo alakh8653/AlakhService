@@ -92,16 +92,29 @@ class Reporter:
             "notify",
         )
 
-    async def sync_listing(self, shop_id: str, listed: bool, category: Optional[str] = None) -> None:
-        """Customers see a shop's services only while it is approved and switched on, under its type of work."""
+    async def sync_listing(
+        self, shop_id: str, listed: bool, category: Optional[str] = None, facts: Optional[dict] = None
+    ) -> None:
+        """Customers see a shop's services only while it is approved and switched on, under its type of work;
+        [facts] (listing_facts) say where it is and how it is rated, for filters and sorting."""
         if not self.catalog_url:
             return
         await self._post(
             self.catalog_url,
             f"/internal/shops/{path_segment(shop_id)}/listing",
-            {"listed": listed, **({"category": category} if category else {})},
+            {"listed": listed, **({"category": category} if category else {}), **({"facts": facts} if facts else {})},
             "listing",
         )
+
+
+def listing_facts(shop) -> dict:
+    """What service_catalog filters and sorts a shop's services by: where it is and how it is rated."""
+    return {
+        "latitude": shop.latitude,
+        "longitude": shop.longitude,
+        "rating": float(shop.rating_avg or 0),
+        "rating_count": int(shop.rating_count or 0),
+    }
 
 
 def get_reporter() -> Reporter:

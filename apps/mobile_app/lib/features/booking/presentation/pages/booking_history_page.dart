@@ -196,6 +196,7 @@ class _BookingHistoryPageState extends State<BookingHistoryPage> {
                   bookingNumber: b.bookingNumber,
                   serviceName: b.serviceName,
                   paymentApi: widget.paymentApi,
+                  onlineOnly: b.paymentDueAt != null,
                 ))
             : null,
         payment: paymentShown(b, _payments[b.id]),

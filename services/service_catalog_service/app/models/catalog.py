@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import true as sa_true
 from sqlalchemy.sql import func
 
@@ -43,6 +43,12 @@ class ServiceListing(Base):
     # False while the shop awaits approval (or is switched off): kept out of browsing and search.
     # shop_service sets it when a shop is approved, rejected or switched on or off.
     shop_listed = Column(Boolean, default=True, server_default=sa_true(), nullable=False, index=True)
+    # Where the shop is and how its customers rate it, for filtering and sorting (nearest, top rated).
+    # Follow the shop: shop_service sends them with the listing.
+    shop_latitude = Column(Float, nullable=True)
+    shop_longitude = Column(Float, nullable=True)
+    shop_rating = Column(Float, default=0.0, server_default="0", nullable=False)
+    shop_rating_count = Column(Integer, default=0, server_default="0", nullable=False)
 
 
 class ServiceTag(Base):

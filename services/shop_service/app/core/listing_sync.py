@@ -12,6 +12,7 @@ import structlog
 from sqlalchemy import select
 
 from app.config import settings
+from app.core.reporting import listing_facts
 from app.models.shop import Shop
 from app.services.shop_service import is_public
 
@@ -24,9 +25,11 @@ FIRST_PASS_DELAY_SECONDS = 30
 async def resync_all(factory, reporter) -> int:
     """Sends every shop's listing (listed only while approved and switched on); returns how many."""
     async with factory() as db:
-        shops = [(s.id, is_public(s), s.category) for s in (await db.execute(select(Shop))).scalars().all()]
-    for shop_id, listed, category in shops:
-        await reporter.sync_listing(shop_id, listed, category)
+        shops = [
+            (s.id, is_public(s), s.category, listing_facts(s)) for s in (await db.execute(select(Shop))).scalars().all()
+        ]
+    for shop_id, listed, category, facts in shops:
+        await reporter.sync_listing(shop_id, listed, category, facts)
     return len(shops)
 
 

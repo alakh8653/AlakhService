@@ -3,6 +3,7 @@ import json
 import math
 from datetime import datetime, timezone
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import func, select, update
@@ -27,6 +28,13 @@ from app.services.template_service import template_service
 log = structlog.get_logger()
 
 CHANNEL_FALLBACK = ["push", "in_app", "email", "sms"]
+
+
+# The channels a person can switch off. The in-app list always keeps every notice.
+PREFERENCE_CHANNELS = ("push", "sms", "email")
+# Pushed even to someone who switched push off: being told it is their turn, or of an SOS, is the point.
+ALWAYS_PUSHED = frozenset({"booking.your_turn", "safety.sos"})
+LOCAL_ZONE = ZoneInfo("Asia/Kolkata")
 
 
 class NotificationService:
@@ -110,7 +118,15 @@ class NotificationService:
         return sent
 
     async def deliver_fallback(
-        self, user_id: str, event: str, role: Optional[str], title: str, body: str, data: dict, pushed: bool
+        self,
+        user_id: str,
+        event: str,
+        role: Optional[str],
+        title: str,
+        body: str,
+        data: dict,
+        pushed: bool,
+        allowed: Optional[dict] = None,
     ) -> Optional[str]:
         """SMS or email for people the app cannot reach, after the event is recorded. Returns the channel used.
 
@@ -125,16 +141,21 @@ class NotificationService:
         admin_email = event in ADMIN_EMAIL_EVENTS and role == "admin"
         if not shop_email and not admin_email and (pushed or event not in CRITICAL_EVENTS):
             return None
+        # The person's own choice of channels ([allowed], from preferences); admins' safety alerts always go.
+        wants_sms = admin_email or (allowed or {}).get("sms", True)
+        wants_email = admin_email or (allowed or {}).get("email", True)
+        if not wants_sms and not wants_email:
+            return None
         contact = await fetch_contact(user_id)
         if not contact:
             if admin_email:
                 log.error("admin_alert_undelivered", notify_event=event, user_id=user_id)
             return None
-        if not shop_email and not admin_email and contact.get("phone"):
+        if not shop_email and not admin_email and wants_sms and contact.get("phone"):
             text = render_sms(event, data)
             if text and await self.send_sms(contact["phone"], text, event):
                 return "sms"
-        if contact.get("email"):
+        if wants_email and contact.get("email"):
             email_body = f"{body}\n\n"
             if admin_email:
                 email_body += "See the alert under Safety in the admin dashboard.\n"
@@ -152,8 +173,9 @@ class NotificationService:
         )
         return None
 
-    async def check_quiet_hours(self, db: AsyncSession, user_id: str) -> bool:
-        now_hour = datetime.now(timezone.utc).hour
+    async def check_quiet_hours(self, db: AsyncSession, user_id: str, now: Optional[datetime] = None) -> bool:
+        # Quiet hours are the person's own clock hours (India), not UTC.
+        now_hour = (now or datetime.now(timezone.utc)).astimezone(LOCAL_ZONE).hour
         result = await db.execute(
             select(NotificationPreference).where(
                 NotificationPreference.user_id == user_id,
@@ -172,6 +194,43 @@ class NotificationService:
                 if now_hour >= start or now_hour < end:
                     return True
         return False
+
+    async def preferences(self, db: AsyncSession, user_id: str) -> dict:
+        """Which channels the person wants (all on until they say otherwise) and their quiet hours."""
+        rows = {
+            p.channel: p
+            for p in (
+                await db.execute(select(NotificationPreference).where(NotificationPreference.user_id == user_id))
+            ).scalars()
+        }
+        push = rows.get("push")
+        quiet = None
+        if push is not None and push.quiet_hours_start is not None and push.quiet_hours_end is not None:
+            quiet = {"start": push.quiet_hours_start, "end": push.quiet_hours_end}
+        return {
+            **{c: (rows[c].is_enabled if c in rows else True) for c in PREFERENCE_CHANNELS},
+            "quiet_hours": quiet,
+        }
+
+    async def set_preferences(self, db: AsyncSession, user_id: str, wanted: dict) -> dict:
+        rows = {
+            p.channel: p
+            for p in (
+                await db.execute(select(NotificationPreference).where(NotificationPreference.user_id == user_id))
+            ).scalars()
+        }
+        for channel in PREFERENCE_CHANNELS:
+            row = rows.get(channel)
+            if row is None:
+                row = NotificationPreference(user_id=user_id, channel=channel)
+                db.add(row)
+            row.is_enabled = bool(wanted[channel])
+            if channel == "push":
+                quiet = wanted.get("quiet_hours")
+                row.quiet_hours_start = quiet["start"] if quiet else None
+                row.quiet_hours_end = quiet["end"] if quiet else None
+        await db.flush()
+        return await self.preferences(db, user_id)
 
     async def _get_enabled_channels(
         self, db: AsyncSession, user_id: str, requested_channels: Optional[List[str]]
@@ -317,7 +376,12 @@ class NotificationService:
         db.add(notif)
         await db.flush()
         held = event in QUIET_HOURS_HELD and await self.check_quiet_hours(db, user_id)
-        if not held and await self._dispatch_channel(db, redis, "push", user_id, notif, title, body, payload):
+        wants_push = (await self.preferences(db, user_id))["push"] or event in ALWAYS_PUSHED
+        if (
+            wants_push
+            and not held
+            and await self._dispatch_channel(db, redis, "push", user_id, notif, title, body, payload)
+        ):
             notif.channel = "push"
         if redis is not None:
             await InAppChannel(redis).send(user_id, title, body, {**payload, "id": notif.id})

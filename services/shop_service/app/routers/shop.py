@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.contact_filter import mask_contact
 from app.core.exceptions import OwnShopRatingError, RatingExistsError, ShopNotFoundError
 from app.core.internal import is_internal
-from app.core.reporting import Reporter, get_reporter
+from app.core.reporting import Reporter, get_reporter, listing_facts
 from app.core.trades import required_for
 from app.database import get_db
 from app.dependencies import (
@@ -144,10 +144,13 @@ async def update_shop(
                     detail="Your verified legal name and GSTIN can only be changed by support. Please contact us.",
                 )
         was_category = shop.category
+        was_place = (shop.latitude, shop.longitude)
         await _keep_credentials_honest(db, shop, changes.get("category"), caller)
         shop = await shop_service.update_shop(db, shop_id, data)
-        if is_public(shop) != was_public or shop.category != was_category:  # switched on or off, or new type
-            background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category)
+        moved = (shop.latitude, shop.longitude) != was_place
+        # Switched on or off, a new type of work, or moved (nearest-first and distance filters).
+        if is_public(shop) != was_public or shop.category != was_category or moved:
+            background.add_task(reporter.sync_listing, shop.id, is_public(shop), shop.category, listing_facts(shop))
         return shop
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -179,7 +182,9 @@ async def delete_shop(
 async def rate_shop(
     shop_id: str,
     data: ShopRatingCreate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db, scope="function"),
+    reporter: Reporter = Depends(get_reporter),
     caller: Caller = Depends(require_caller),
     lookup_booking: BookingLookup = Depends(get_booking_lookup),
     lookup_name: NameLookup = Depends(get_name_lookup),
@@ -201,6 +206,9 @@ async def rate_shop(
             service_id=booking.get("service_id"),
             reviewer_name=await lookup_name(caller),
         )
+        # The new average reaches browsing (top rated first, rating filters) at once.
+        await db.commit()
+        background.add_task(reporter.sync_listing, rated.id, is_public(rated), rated.category, listing_facts(rated))
         return for_caller(rated, caller)
     except ShopNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

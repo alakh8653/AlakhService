@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../l10n/l10n.dart';
+import '../../../offline/offline_queue.dart';
 import '../../../shared/utils/format.dart';
 import '../../../shared/widgets/error_widget.dart';
 import '../../../shared/widgets/loading_indicator.dart';
@@ -51,8 +52,9 @@ class _BookingChatPageState extends State<BookingChatPage> {
   bool _calling = false;
   String? _error;
   Timer? _poll;
+  final _subscriptions = <StreamSubscription<Object>>[];
 
-  ChatApi get _api => widget.chatApi ?? sl<ChatApi>();
+  late final ChatApi _api = widget.chatApi ?? sl<ChatApi>();
 
   @override
   void initState() {
@@ -60,11 +62,30 @@ class _BookingChatPageState extends State<BookingChatPage> {
     _input.addListener(() => setState(() {}));
     _load();
     _poll = Timer.periodic(widget.pollInterval, (_) => _refresh());
+    final offline = _api.offline;
+    if (offline != null) {
+      offline.queue.pending.addListener(_onPendingChanged);
+      _subscriptions
+        ..add(offline.delivered.where(_aboutThisChat).listen((_) => _refresh()))
+        ..add(offline.dropped.where((d) => _aboutThisChat(d.request)).listen((d) {
+          if (mounted) _snack(context.l10n.chatMessageNotSent(d.reason), error: true);
+        }));
+    }
+  }
+
+  bool _aboutThisChat(PendingRequest r) => r.kind == PendingKind.chatMessage && r.ref == widget.bookingId;
+
+  void _onPendingChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _poll?.cancel();
+    _api.offline?.queue.pending.removeListener(_onPendingChanged);
+    for (final s in _subscriptions) {
+      s.cancel();
+    }
     _input.dispose();
     super.dispose();
   }
@@ -139,7 +160,8 @@ class _BookingChatPageState extends State<BookingChatPage> {
       final message = await _api.send(widget.bookingId, body);
       if (!mounted) return;
       _input.clear();
-      setState(() => _messages = _merge(_messages, [message]));
+      // Null: no connection, so it waits (shown below the others) and goes out once back online.
+      if (message != null) setState(() => _messages = _merge(_messages, [message]));
     } catch (e) {
       if (!mounted) return;
       _snack(apiErrorMessage(e), error: true);
@@ -204,7 +226,8 @@ class _BookingChatPageState extends State<BookingChatPage> {
   }
 
   Widget _list(AppLocalizations l10n) {
-    if (_messages.isEmpty) {
+    final waiting = _api.pending(widget.bookingId);
+    if (_messages.isEmpty && waiting.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -212,8 +235,12 @@ class _BookingChatPageState extends State<BookingChatPage> {
         ),
       );
     }
-    // Reversed so the newest message sits at the bottom and the list starts there.
-    final newestFirst = _messages.reversed.toList();
+    // Reversed so the newest message sits at the bottom and the list starts there; messages still
+    // waiting to be sent come last.
+    final newestFirst = <Widget>[
+      for (final r in waiting.reversed) _Bubble.waiting(body: (r.data?['body'] as String?) ?? '', at: r.createdAt),
+      for (final m in _messages.reversed) _Bubble(message: m),
+    ];
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -227,7 +254,7 @@ class _BookingChatPageState extends State<BookingChatPage> {
             ),
           );
         }
-        return _Bubble(message: newestFirst[i]);
+        return newestFirst[i];
       },
     );
   }
@@ -304,7 +331,25 @@ class _BookingChatPageState extends State<BookingChatPage> {
 class _Bubble extends StatelessWidget {
   final ChatMessage message;
 
-  const _Bubble({required this.message});
+  /// Written offline and not sent yet.
+  final bool waiting;
+
+  const _Bubble({required this.message}) : waiting = false;
+
+  _Bubble.waiting({required String body, required DateTime at})
+      : waiting = true,
+        message = ChatMessage(
+          id: '',
+          bookingId: '',
+          senderRole: 'customer',
+          senderName: '',
+          isMine: true,
+          body: body,
+          createdAt: at,
+        );
+
+  String _status(AppLocalizations l10n) =>
+      waiting ? l10n.chatWaitingToSend : (message.isRead ? l10n.chatRead : l10n.chatSent);
 
   @override
   Widget build(BuildContext context) {
@@ -349,10 +394,14 @@ class _Bubble extends StatelessWidget {
                       if (mine) ...[
                         const SizedBox(width: 4),
                         Semantics(
-                          label: message.isRead ? l10n.chatRead : l10n.chatSent,
+                          label: _status(l10n),
                           child: Tooltip(
-                            message: message.isRead ? l10n.chatRead : l10n.chatSent,
-                            child: Icon(message.isRead ? Icons.done_all : Icons.done, size: 14, color: meta),
+                            message: _status(l10n),
+                            child: Icon(
+                              waiting ? Icons.schedule : (message.isRead ? Icons.done_all : Icons.done),
+                              size: 14,
+                              color: meta,
+                            ),
                           ),
                         ),
                       ],

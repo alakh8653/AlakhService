@@ -6,7 +6,10 @@ import { attachWebSockets } from './websocket.js';
 
 const config = loadConfig();
 
-function connectRedis(url: string): SendCommand {
+/** How long start-up waits for Redis before serving without it (it keeps reconnecting). */
+const REDIS_START_WAIT_MS = 3_000;
+
+async function connectRedis(url: string): Promise<SendCommand> {
   const client = createClient({
     url,
     // While Redis is down, commands fail at once (limits and revocations then let requests
@@ -15,11 +18,17 @@ function connectRedis(url: string): SendCommand {
     socket: { connectTimeout: 2_000, reconnectStrategy: (retries) => Math.min(retries * 200, 5_000) },
   });
   client.on('error', (err: Error) => console.error(JSON.stringify({ msg: 'redis_error', error: err.message })));
-  client.connect().catch(() => undefined); // reported by the error handler; reconnects on its own
+  // Failures are reported by the error handler and the client reconnects on its own. Waiting briefly
+  // for the first connection lets the rate-limit stores load their script at start-up instead of
+  // logging a failure and loading it on the first request.
+  const connected = client.connect().catch(() => undefined);
+  let timer: NodeJS.Timeout | undefined;
+  await Promise.race([connected, new Promise((resolve) => (timer = setTimeout(resolve, REDIS_START_WAIT_MS)))]);
+  clearTimeout(timer);
   return (args) => client.sendCommand(args);
 }
 
-const redis = config.redisUrl ? connectRedis(config.redisUrl) : undefined;
+const redis = config.redisUrl ? await connectRedis(config.redisUrl) : undefined;
 const server = createApp(config, { redis, processMetrics: true }).listen(config.port, () => {
   console.log(JSON.stringify({ msg: 'api_gateway listening', port: config.port, sharedLimits: Boolean(redis) }));
 });

@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ShopNotFoundError
 from app.database import get_db
 from app.dependencies import Caller, ensure_owner, require_caller
-from app.schemas.hours import AutoConfirmUpdate, CapacityUpdate, HolidayCreate, ShopSchedule, WeeklyHoursUpdate
+from app.schemas.hours import (
+    AutoConfirmUpdate,
+    CapacityUpdate,
+    HolidayCreate,
+    PrepaymentUpdate,
+    ShopSchedule,
+    WeeklyHoursUpdate,
+)
 from app.services import hours_service
 from app.services.shop_service import is_public, shop_service
 
@@ -79,6 +86,19 @@ async def set_auto_confirm(
 ):
     shop = await _owned_shop(db, shop_id, caller)
     await hours_service.set_auto_confirm(db, shop_id, data.auto_confirm)
+    return await _schedule(db, shop)
+
+
+@router.put("/shops/{shop_id}/prepayment", response_model=ShopSchedule)
+async def set_prepayment(
+    shop_id: str,
+    data: PrepaymentUpdate,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    caller: Caller = Depends(require_caller),
+):
+    """Asks customers to pay online when they book (no-show protection). Unpaid bookings are released."""
+    shop = await _owned_shop(db, shop_id, caller)
+    await hours_service.set_prepayment(db, shop_id, data.require_prepayment)
     return await _schedule(db, shop)
 
 

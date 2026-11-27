@@ -85,6 +85,6 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID for quick and secure login.</string>
+	<string>Use Face ID to unlock AlakhService when app lock is on.</string>
 </dict>
 </plist>

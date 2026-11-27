@@ -155,7 +155,22 @@ def _locked(query, db: AsyncSession):
 
 
 async def _attempt(db: AsyncSession, row: PaymentOutbox, client: PaymentClient, now: datetime) -> bool:
-    error = await client.send(row.booking_id, row.kind, json.loads(row.payload))
+    payload = json.loads(row.payload)
+    # Whether the booking is under dispute is read now, not when the message was queued: a message retried
+    # after the dispute was resolved must not hold the shop's money again.
+    disputed_now = False
+    if row.kind in (DISPUTED, COMPLETED):
+        booking = await db.get(Booking, row.booking_id)
+        disputed_now = booking is not None and booking.status == "DISPUTED"
+    if row.kind == DISPUTED and not disputed_now:
+        row.attempts += 1
+        row.delivered_at = now
+        row.last_error = None
+        log.info("payment_sync_skipped", booking_id=row.booking_id, kind=row.kind, reason="no longer disputed")
+        return True
+    if row.kind == COMPLETED:
+        payload["on_hold"] = disputed_now
+    error = await client.send(row.booking_id, row.kind, payload)
     row.attempts += 1
     if error is None:
         row.delivered_at = now

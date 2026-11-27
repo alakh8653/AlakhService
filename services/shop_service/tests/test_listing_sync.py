@@ -15,7 +15,7 @@ class FakeReporter:
     def __init__(self):
         self.sent = []
 
-    async def sync_listing(self, shop_id, listed, category=None):
+    async def sync_listing(self, shop_id, listed, category=None, facts=None):
         self.sent.append((shop_id, listed))
 
 

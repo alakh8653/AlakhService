@@ -19,6 +19,9 @@ class ShopScheduleSettings(Base):
     # Bookings are confirmed at once while a place is free, with no tap from the owner. Needs opening
     # hours: only a shop with hours has its capacity checked.
     auto_confirm = Column(Boolean, default=False, server_default=false(), nullable=False)
+    # Customers pay online when they book, or the booking is released after a short while (no-show
+    # protection). booking_service reads it with the schedule.
+    require_prepayment = Column(Boolean, default=False, server_default=false(), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=True)
 
 

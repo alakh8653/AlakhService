@@ -179,7 +179,31 @@ async def test_resolving_a_dispute_refunded_or_completed(http):
     done = await http.post("/internal/bookings/bk-2/resolve-dispute", json={"outcome": "COMPLETED"}, headers=INTERNAL)
     assert done.json()["status"] == "COMPLETED"
     assert [(b, k) for b, k, _ in PAY.sent] == [("bk-2", "completed")]
+    # Sent again with the booking no longer under dispute, so payment_service lifts the hold on the payout.
+    assert PAY.sent[0][2]["on_hold"] is False
     assert (await stored("bk-2")).status == "COMPLETED"
+
+
+@pytest.mark.asyncio
+async def test_a_dispute_message_retried_after_the_dispute_ended_is_not_sent(http):
+    owner = auth("owner-1")
+    for status in ("CONFIRMED", "IN_PROGRESS", "COMPLETED"):
+        await http.put("/api/v1/bookings/bk-4/status", json={"status": status}, headers=owner)
+    assert PAY.sent[0][2]["on_hold"] is False
+    # payment_service is down when the customer disputes: the hold waits in the outbox.
+    PAY.down = True
+    await http.put("/api/v1/bookings/bk-4/status", json={"status": "DISPUTED"}, headers=auth("c3"))
+    PAY.down = False
+    # The dispute is resolved in the shop's favour before the retry comes round.
+    PAY.sent.clear()
+    await http.post("/internal/bookings/bk-4/resolve-dispute", json={"outcome": "COMPLETED"}, headers=INTERNAL)
+    async with SESSIONS["factory"]() as db:
+        await payments.deliver_due(db, PAY, datetime.now(timezone.utc) + timedelta(hours=2))
+        await db.commit()
+    # The late hold is dropped (it would keep the shop's money held for good); the completion says no hold.
+    assert [(k, p.get("on_hold")) for _, k, p in PAY.sent] == [("completed", False)]
+    rows = {r.kind: r for r in await outbox()}
+    assert rows["disputed"].delivered_at is not None
 
 
 def new_booking(n, status, scheduled_at, created_at=None, customer="cust"):
@@ -242,6 +266,34 @@ async def test_reminders_go_out_24h_and_1h_before_each_once(http):
     # w-1 got only the one-hour reminder, and never a "tomorrow" afterwards.
     w1 = await stored("w-1")
     assert w1.reminder_1h_sent_at is not None and w1.reminder_24h_sent_at is not None
+
+
+@pytest.mark.asyncio
+async def test_a_visit_booked_well_ahead_gets_a_reminder_three_days_before(http):
+    async with SESSIONS["factory"]() as db:
+        db.add_all(
+            [
+                # Booked two weeks ahead, now 2.5 days away: reminded once, the customer only.
+                new_booking(20, "CONFIRMED", NOW + timedelta(days=2, hours=12), created_at=NOW - timedelta(days=11)),
+                # Booked yesterday for three days from now: fresh in mind, no early reminder.
+                new_booking(21, "CONFIRMED", NOW + timedelta(days=2, hours=12), created_at=NOW - timedelta(days=1)),
+                # Still five days away.
+                new_booking(22, "CONFIRMED", NOW + timedelta(days=5), created_at=NOW - timedelta(days=10)),
+                # Not happening.
+                new_booking(23, "CANCELLED", NOW + timedelta(days=2), created_at=NOW - timedelta(days=10)),
+            ]
+        )
+        await db.commit()
+    notes = Notes()
+    out = await worker.run_once(SESSIONS["factory"], notes, fake_owner, PAY, now=NOW)
+    early = [(b, roles) for e, b, roles, d in notes.sent if e == "booking.reminder" and d["reminder"] == "3d"]
+    assert (out["early_reminders"], early) == (1, [("w-20", ("customer",))])
+    notes.sent.clear()
+    await worker.run_once(SESSIONS["factory"], notes, fake_owner, PAY, now=NOW + timedelta(hours=1))
+    assert not [e for e, b, _, d in notes.sent if e == "booking.reminder" and d["reminder"] == "3d"]
+    # The day-before reminder still follows.
+    await worker.run_once(SESSIONS["factory"], notes, fake_owner, PAY, now=NOW + timedelta(days=1, hours=13))
+    assert ("w-20", "24h") in [(b, d["reminder"]) for e, b, _, d in notes.sent if e == "booking.reminder"]
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,8 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.contact_filter import mask_contact
+
 # How far in the past a new booking may start, so a client clock running slightly behind is not refused.
 SCHEDULE_CLOCK_SKEW = timedelta(minutes=5)
 
@@ -38,6 +40,19 @@ class BookingCreate(BaseModel):
     package_purchase_id: Optional[str] = Field(default=None, max_length=128)
     # The staff member the customer would like (shop_service's team id); the shop still assigns the job.
     preferred_staff_id: Optional[str] = Field(default=None, max_length=128)
+    # Booked for someone else (a parent, a friend): who the shop should expect. The customer who books stays
+    # the contact; only a name is shared, never a number.
+    guest_name: Optional[str] = Field(default=None, max_length=60)
+
+    @field_validator("guest_name")
+    @classmethod
+    def guest_name_is_a_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return None
+        v = " ".join(v.split())
+        if mask_contact(v).flagged:
+            raise ValueError("Just the name, please: contact details stay private")
+        return v
 
     @field_validator("scheduled_at")
     @classmethod
@@ -124,10 +139,14 @@ class BookingResponse(BaseModel):
     # Who the customer asked for, if anyone (first name and last initial).
     preferred_staff_id: Optional[str] = None
     preferred_staff_name: Optional[str] = None
+    # Who the visit is for, when the customer booked it for someone else.
+    guest_name: Optional[str] = None
     # Times the customer has moved it (they may do so MAX_CUSTOMER_RESCHEDULES times).
     reschedule_count: int = 0
     # UNPAID, PAID, REFUNDED or PARTIALLY_REFUNDED (kept up to date by payment_service).
     payment_status: str = "UNPAID"
+    # Set while the shop waits for this booking to be paid online: unpaid by then, it is released.
+    payment_due_at: Optional[datetime] = None
     # Of total_amount, what the customer agreed to on top; and any extra charge waiting for their answer.
     extra_amount: int = 0
     pending_extra_id: Optional[str] = None

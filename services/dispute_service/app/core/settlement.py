@@ -21,7 +21,13 @@ REFUND_FULL, REFUND_PARTIAL, RELEASE_TO_SHOP, NO_ACTION = (
     "NO_ACTION",
 )
 # What the booking becomes: refunded in full, or completed (the shop keeps all or the rest of the money).
-BOOKING_OUTCOME = {REFUND_FULL: "REFUNDED", REFUND_PARTIAL: "COMPLETED", RELEASE_TO_SHOP: "COMPLETED"}
+# No action only closes the case: the booking counts as completed and the shop is paid as it would have been.
+BOOKING_OUTCOME = {
+    REFUND_FULL: "REFUNDED",
+    REFUND_PARTIAL: "COMPLETED",
+    RELEASE_TO_SHOP: "COMPLETED",
+    NO_ACTION: "COMPLETED",
+}
 
 
 class SettlementFailed(Exception):
@@ -67,7 +73,8 @@ class SettlementClient:
 
     async def settle_money(self, dispute_id: str, booking_id: str, outcome: str, amount_cents: Optional[int]) -> dict:
         base = f"/internal/payments/booking/{_segment(booking_id)}"
-        if outcome == RELEASE_TO_SHOP:
+        if outcome in (RELEASE_TO_SHOP, NO_ACTION):
+            # No action moves no money either way; it only lifts the hold the dispute put on the payout.
             resp = await self._post(self.payment_url, f"{base}/release", {}, "payment_service")
         else:
             body = {

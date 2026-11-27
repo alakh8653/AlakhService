@@ -1,0 +1,17 @@
+# Docker sends this folder to the builder and `COPY . .` puts it in the image. Leave out local
+# virtualenvs (make setup creates .venv here), caches, test output and env files: they make every
+# build slow and must not end up inside an image.
+.venv/
+venv/
+env/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+junit.xml
+.env
+.env.*

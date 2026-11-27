@@ -270,6 +270,7 @@ build/
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
 **/android/key.properties
+apps/mobile_app/release.env
 **/*.keystore
 **/*.jks
 

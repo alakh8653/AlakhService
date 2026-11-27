@@ -1,6 +1,6 @@
 """Shared test helpers: signed tokens, a notifier that records what it sends, joining a queue."""
 
-from jose import jwt
+import jwt
 
 from app.config import settings
 

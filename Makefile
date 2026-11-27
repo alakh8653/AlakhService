@@ -422,11 +422,19 @@ build-web: ## Build web frontend
 	done
 	$(call success,"Web frontend built")
 
+.PHONY: build-mobile-release
+build-mobile-release: ## Build the signed Play Store app bundle (.aab); settings from apps/mobile_app/release.env
+	$(call log,"Building Android release bundle...")
+	$(ROOT_DIR)/scripts/deploy/build_android_release.sh appbundle
+
 .PHONY: build-mobile-android
-build-mobile-android: ## Build Flutter Android APK (release)
+build-mobile-android: ## Build the signed Android release APK; settings from apps/mobile_app/release.env
 	$(call log,"Building Android APK...")
-	cd $(MOBILE_DIR) && flutter build apk --release
-	$(call success,"Android APK built: $(MOBILE_DIR)/build/app/outputs/flutter-apk/app-release.apk")
+	$(ROOT_DIR)/scripts/deploy/build_android_release.sh apk
+
+.PHONY: check-mobile-release
+check-mobile-release: ## Check the Android release settings and signing key without building
+	@CHECK_ONLY=1 $(ROOT_DIR)/scripts/deploy/build_android_release.sh
 
 .PHONY: build-mobile-ios
 build-mobile-ios: ## Build Flutter iOS archive (release)

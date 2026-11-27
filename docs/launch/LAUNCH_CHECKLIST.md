@@ -42,6 +42,8 @@ from [DEPLOYMENT.md](../DEPLOYMENT.md). Do the whole list on a test server first
   - [ ] An account is deleted from the app and from `/delete-account`.
 - [ ] App installed from Play **internal testing** on at least one cheap Android phone and one
       newer one, in English and in Hindi.
+- [ ] `apps/mobile_app/release.env` filled with the live domain and support contacts, and
+      `make check-mobile-release` says OK; the Play upload is built with `make build-mobile-release`.
 - [ ] Play listing, screenshots and data safety form filled in ([PLAY_STORE_LISTING.md](PLAY_STORE_LISTING.md)).
 
 ## Launch day

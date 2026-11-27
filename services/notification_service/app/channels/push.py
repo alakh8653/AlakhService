@@ -9,8 +9,8 @@ import time
 from typing import Optional
 
 import httpx
+import jwt
 import structlog
-from jose import jwt
 
 log = structlog.get_logger()
 

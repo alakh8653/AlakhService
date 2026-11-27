@@ -3,12 +3,12 @@
 import json
 
 import httpx
+import jwt
 import pytest
 import pytest_asyncio
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from httpx import ASGITransport, AsyncClient
-from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -176,7 +176,7 @@ async def test_push_uses_fcm_http_v1_with_a_service_account_token():
     token_call, send_call, second_send = calls
     assert token_call.url.path == "/token"
     assertion = dict(x.split("=") for x in token_call.content.decode().split("&"))["assertion"]
-    claims = jwt.get_unverified_claims(assertion)
+    claims = jwt.decode(assertion, options={"verify_signature": False})
     assert (claims["iss"], claims["scope"]) == (
         "push@alakh.iam.gserviceaccount.com",
         "https://www.googleapis.com/auth/firebase.messaging",

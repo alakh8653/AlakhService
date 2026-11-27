@@ -45,6 +45,8 @@ class ServiceListingCreate(BaseModel):
     service_modes: List[ServiceMode] = ["AT_SHOP"]
     home_visit_fee_cents: int = Field(0, ge=0, le=MAX_FEE_CENTS)
     pickup_fee_cents: int = Field(0, ge=0, le=MAX_FEE_CENTS)
+    # One of the shop's types of work; left out, the service goes under the shop's main type.
+    service_type: Optional[str] = None
 
     @field_validator("service_modes")
     @classmethod
@@ -62,6 +64,7 @@ class ServiceListingUpdate(BaseModel):
     service_modes: Optional[List[ServiceMode]] = None
     home_visit_fee_cents: Optional[int] = Field(None, ge=0, le=MAX_FEE_CENTS)
     pickup_fee_cents: Optional[int] = Field(None, ge=0, le=MAX_FEE_CENTS)
+    service_type: Optional[str] = None
 
     @field_validator("service_modes")
     @classmethod
@@ -84,6 +87,7 @@ class ServiceListingResponse(BaseModel):
     service_modes: List[str] = ["AT_SHOP"]
     home_visit_fee_cents: int = 0
     pickup_fee_cents: int = 0
+    service_type: Optional[str] = None
 
     @field_validator("service_modes", mode="before")
     @classmethod

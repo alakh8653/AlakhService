@@ -62,3 +62,46 @@ describe('ShopSetupPage free-fix guarantee', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
+
+describe('ShopSetupPage with more than one type of work', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createShop.mockResolvedValue(created);
+    vi.mocked(updateShop).mockResolvedValue(created);
+  });
+
+  const chooseMain = (category: string) => {
+    fillIn();
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: category } });
+  };
+
+  it('lets a provider add another type of work', async () => {
+    renderPage();
+    expect(screen.queryByLabelText(/Other types of work/)).not.toBeInTheDocument();
+    chooseMain('electrical');
+    fireEvent.change(screen.getByLabelText(/Other types of work/), { target: { value: 'plumbing' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create shop' }));
+    await waitFor(() => expect(createShop).toHaveBeenCalled());
+    expect(createShop.mock.calls[0][0]).toMatchObject({ category: 'electrical', extraCategories: ['plumbing'] });
+  });
+
+  it('can take a type away again, and a provider with one type adds none', async () => {
+    renderPage();
+    chooseMain('electrical');
+    fireEvent.change(screen.getByLabelText(/Other types of work/), { target: { value: 'plumbing' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Plumbing' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create shop' }));
+    await waitFor(() => expect(createShop).toHaveBeenCalled());
+    expect(createShop.mock.calls[0][0]).toMatchObject({ category: 'electrical', extraCategories: [] });
+  });
+
+  it('stops offering more once a provider has as many as allowed', () => {
+    renderPage();
+    chooseMain('electrical');
+    for (const type of ['plumbing', 'solar', 'welding', 'painting']) {
+      fireEvent.change(screen.getByLabelText(/Other types of work/), { target: { value: type } });
+    }
+    expect(screen.queryByRole('combobox', { name: /Other types of work/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Plumbing' })).toBeInTheDocument();
+  });
+});

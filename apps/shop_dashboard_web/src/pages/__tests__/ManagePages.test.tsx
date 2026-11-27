@@ -66,6 +66,49 @@ beforeEach(() => {
   store.dispatch(setCredentials({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 0 }, user: { id: 'u', name: 'A', email: null, phone: null, role: 'shop_owner' }, shop }));
 });
 
+describe('ServicesPage with more than one type of work', () => {
+  const both = { ...shop, category: 'electrical', extraCategories: ['plumbing'] } as Shop;
+
+  beforeEach(() => {
+    store.dispatch(setCredentials({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 0 }, user: { id: 'u', name: 'A', email: null, phone: null, role: 'shop_owner' }, shop: both }));
+  });
+
+  it('labels each service with its type', async () => {
+    api.getServices.mockResolvedValue([haircut, { ...haircut, id: 'svc2', name: 'Tap repair', serviceType: 'plumbing' }]);
+    renderPage(<ServicesPage />);
+    expect(await screen.findByText('Electrical')).toBeInTheDocument();
+    expect(screen.getByText('Plumbing')).toBeInTheDocument();
+  });
+
+  it('asks which type a new service goes under', async () => {
+    api.createService.mockResolvedValue({ ...haircut, id: 'svc2', name: 'Tap repair', serviceType: 'plumbing' });
+    renderPage(<ServicesPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add service' }));
+    const dialog = screen.getByRole('dialog', { name: 'New service' });
+    const type = within(dialog).getByLabelText('Type of work');
+    expect(type).toHaveValue('electrical');
+    fireEvent.change(type, { target: { value: 'plumbing' } });
+    fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Tap repair' } });
+    fireEvent.change(within(dialog).getByLabelText('Price (₹)'), { target: { value: '200' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add service' }));
+    await waitFor(() => expect(api.createService).toHaveBeenCalled());
+    expect(api.createService.mock.calls[0][1]).toMatchObject({ serviceType: 'plumbing' });
+  });
+
+  it('shows a service without a type under the main one, and can move it', async () => {
+    api.updateService.mockResolvedValue({ ...haircut, serviceType: 'plumbing' });
+    renderPage(<ServicesPage />);
+    expect(await screen.findByText('Electrical')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Haircut' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit Haircut' });
+    fireEvent.change(within(dialog).getByLabelText('Type of work'), { target: { value: 'plumbing' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(api.updateService).toHaveBeenCalled());
+    expect(api.updateService.mock.calls[0][1]).toMatchObject({ serviceType: 'plumbing' });
+    expect(await screen.findByText('Plumbing')).toBeInTheDocument();
+  });
+});
+
 describe('ServicesPage', () => {
   it('shows prices with mode fees and hides a service with a named switch', async () => {
     api.updateService.mockResolvedValue({ ...haircut, isActive: false });
@@ -77,6 +120,18 @@ describe('ServicesPage', () => {
     expect(await screen.findByText('Haircut is hidden from customers.')).toBeInTheDocument();
     expect(api.updateService).toHaveBeenCalledWith('svc1', { isActive: false });
     expect(screen.getByRole('switch', { name: 'Haircut available to book' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('asks nothing about the type of a shop with one type of work', async () => {
+    store.dispatch(setCredentials({ tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: 0 }, user: { id: 'u', name: 'A', email: null, phone: null, role: 'shop_owner' }, shop: { ...shop, category: 'salon', extraCategories: [] } }));
+    api.updateService.mockResolvedValue(haircut);
+    renderPage(<ServicesPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Haircut' }));
+    const dialog = screen.getByRole('dialog', { name: 'Edit Haircut' });
+    expect(within(dialog).queryByLabelText('Type of work')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(api.updateService).toHaveBeenCalled());
+    expect(api.updateService.mock.calls[0][1].serviceType).toBeUndefined();
   });
 
   it('points out each problem in the form next to its field', async () => {

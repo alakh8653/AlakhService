@@ -7,9 +7,10 @@ import structlog
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.trades import required_for
+from app.core.trades import not_shown, required_for
 from app.models.shop import APPROVED, PENDING_REVIEW, REJECTED, Shop, ShopDocument, ShopPayoutDetails
 from app.schemas.shop import PayoutDetailsIn
+from app.services.shop_service import shop_categories
 
 log = structlog.get_logger()
 
@@ -31,9 +32,8 @@ def missing_for_review(shop: Shop, documents: List[ShopDocument]) -> List[str]:
         missing.append("PAN document")
     if shop.gstin and not any(d.type == "GST" for d in documents):
         missing.append("GST certificate (you gave a GSTIN)")
-    for credential in required_for(shop.category):
-        if not any(d.type == credential.type for d in documents):
-            missing.append(credential.label)
+    required = required_for(*shop_categories(shop))
+    missing.extend(c.label for c in not_shown(required, [d.type for d in documents]))
     return missing
 
 

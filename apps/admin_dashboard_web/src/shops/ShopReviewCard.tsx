@@ -133,7 +133,7 @@ export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForRevie
             {shop.name}
           </h3>
           <p className="text-sm text-gray-600">
-            {shop.category}
+            {[shop.category, ...shop.extraCategories].join(', ')}
             {shop.city ? ` · ${shop.city}` : ''} · <span title={shop.id} className="font-mono text-xs">{shortId(shop.id)}</span>
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function ShopReviewCard({ shop, onDecided }: { shop: ShopForRevie
           <p className="font-semibold">Needed for this type of work</p>
           <ul className="list-disc ml-5">
             {needed.map((d) => (
-              <li key={d.type}>
+              <li key={d.label}>
                 {d.label}: {d.done ? 'uploaded' : 'missing'}
                 {d.admin_check ? `. ${d.admin_check}.` : ''}
               </li>

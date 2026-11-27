@@ -45,6 +45,22 @@ export interface TradeDocument {
   done: boolean;
 }
 
+/**
+ * The trade documents no upload answers yet; as shop_service counts them, each upload answers one, the required
+ * ones first. A doctor who is also a dentist has two registrations to show, of the same document type.
+ */
+export function documentsWaiting(needed: TradeDocument[], documents: { type: string }[]): Set<TradeDocument> {
+  const left = new Map<string, number>();
+  for (const { type } of documents) left.set(type, (left.get(type) ?? 0) + 1);
+  const waiting = new Set<TradeDocument>();
+  for (const doc of [...needed.filter((d) => d.required), ...needed.filter((d) => !d.required)]) {
+    const count = left.get(doc.type) ?? 0;
+    if (count > 0) left.set(doc.type, count - 1);
+    else waiting.add(doc);
+  }
+  return waiting;
+}
+
 export async function getVerificationChecklist(shopId: string): Promise<TradeDocument[]> {
   const { data } = await apiClient.get<TradeDocument[]>(`/shops/${encodeURIComponent(shopId)}/verification-checklist`);
   return data;

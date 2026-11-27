@@ -1,6 +1,6 @@
 /**
  * Kinds of work customers book. Keep in step with the mobile app's lib/shared/service_types.dart; the value is
- * the shop's category on the server, and every service of the shop is found under it.
+ * the shop's category on the server, and its services are found under it. A shop can add other kinds beside it.
  */
 export const SHOP_CATEGORIES: { value: string; label: string }[] = [
   { value: 'salon', label: 'Salon' },
@@ -49,3 +49,11 @@ export const SHOP_CATEGORIES: { value: string; label: string }[] = [
   { value: 'office', label: 'Office / appointments' },
   { value: 'other', label: 'Other' },
 ];
+
+/** How many other kinds of work a shop can add beside its main one; shop_service's limit too. */
+export const MAX_OTHER_TYPES = 4;
+
+/** The name to show for a kind of work; shops from before the list may have one of their own. */
+export function categoryLabel(value: string): string {
+  return SHOP_CATEGORIES.find((c) => c.value === value)?.label ?? value;
+}

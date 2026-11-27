@@ -160,3 +160,30 @@ describe('helpers', () => {
     expect(user.id).toBe('u9');
   });
 });
+
+describe('more than one type of work', () => {
+  it('sends other types with a new shop only when there are some, and reads them back', async () => {
+    api.post.mockResolvedValue({ data: { ...apiShop, category: 'electrical', extra_categories: ['plumbing'] } });
+    const shop = await createShop('u1', { name: 'Ravi', category: 'electrical', extraCategories: ['plumbing'] });
+    expect(api.post.mock.lastCall?.[1]).toMatchObject({ category: 'electrical', extra_categories: ['plumbing'] });
+    expect(shop.extraCategories).toEqual(['plumbing']);
+
+    await createShop('u1', { name: 'Ravi', category: 'electrical' });
+    expect(api.post.mock.lastCall?.[1]).not.toHaveProperty('extra_categories');
+  });
+
+  it('reads a shop from before there were several types as having no others', async () => {
+    api.post.mockResolvedValue({ data: apiShop });
+    expect((await createShop('u1', { name: 'Asha', category: 'salon' })).extraCategories).toEqual([]);
+  });
+
+  it("sends a service's type only when it was given one", async () => {
+    api.post.mockResolvedValue({ data: { id: 'x', service_type: 'plumbing' } });
+    const service = await createService('s1', { name: 'Tap repair', priceCents: 100, serviceType: 'plumbing' });
+    expect(api.post.mock.lastCall?.[1]).toMatchObject({ service_type: 'plumbing' });
+    expect(service.serviceType).toBe('plumbing');
+
+    await createService('s1', { name: 'Fan repair', priceCents: 100 });
+    expect(api.post.mock.lastCall?.[1]).not.toHaveProperty('service_type');
+  });
+});

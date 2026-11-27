@@ -11,10 +11,12 @@ import { DEFAULT_GUARANTEE_DAYS, GUARANTEE_HELP, MAX_GUARANTEE_DAYS, guaranteeDa
 import { useAuth } from '../hooks/useAuth';
 import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import { SHOP_CATEGORIES } from '../services/categories';
+import OtherTypesField from '../components/OtherTypesField';
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter your shop name'),
   category: z.string().min(1, 'Choose a category'),
+  extraCategories: z.array(z.string()),
   city: z.string().trim().min(2, 'Enter your city'),
   address: z.string().trim().optional(),
   phone: z
@@ -39,14 +41,24 @@ export default function ShopSetupPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { category: '', guaranteeDays: String(DEFAULT_GUARANTEE_DAYS) } });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { category: '', extraCategories: [], guaranteeDays: String(DEFAULT_GUARANTEE_DAYS) },
+  });
+  const [category, extraCategories] = watch(['category', 'extraCategories']);
 
   const onSubmit = async (values: FormData) => {
     try {
       setServerError(null);
       const { guaranteeDays, ...details } = values;
-      const created = await createShop({ ...details, phone: details.phone ? normalizePhone(details.phone) : undefined });
+      const created = await createShop({
+        ...details,
+        extraCategories: details.extraCategories.filter((type) => type !== details.category),
+        phone: details.phone ? normalizePhone(details.phone) : undefined,
+      });
       // The guarantee is set on the shop once it exists; if this fails it keeps the default, changeable in Settings.
       try {
         dispatch(setShop(await updateShop(created.id, { guarantee_days: Number(guaranteeDays) })));
@@ -85,6 +97,9 @@ export default function ShopSetupPage() {
             </select>
             {errors.category && <p className="mt-1 text-xs text-red-600">{errors.category.message}</p>}
           </div>
+          {category && (
+            <OtherTypesField main={category} value={extraCategories} onChange={(types) => setValue('extraCategories', types)} />
+          )}
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City</label>

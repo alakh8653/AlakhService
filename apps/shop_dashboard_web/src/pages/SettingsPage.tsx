@@ -12,6 +12,7 @@ import { apiErrorMessage, isE164, normalizePhone } from '../services/format';
 import ProviderProfileCard from '../components/ProviderProfileCard';
 import { useToast } from '../components/Toast';
 import { SHOP_CATEGORIES } from '../services/categories';
+import OtherTypesField from '../components/OtherTypesField';
 
 const optional = z.string().trim();
 
@@ -25,6 +26,7 @@ const coordinate = (limit: number) =>
 const schema = z.object({
   name: z.string().trim().min(2, 'At least 2 characters'),
   category: z.string().trim().min(2, 'Choose a category'),
+  extraCategories: z.array(z.string()),
   description: optional,
   city: optional,
   address: optional,
@@ -41,7 +43,7 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const FIELDS: [keyof FormData, string, string, string][] = [
+const FIELDS: [Exclude<keyof FormData, 'extraCategories'>, string, string, string][] = [
   ['name', 'Shop name', 'text', 'organization'],
   ['description', 'About your shop', 'text', 'off'],
   ['city', 'City', 'text', 'address-level2'],
@@ -68,7 +70,7 @@ export default function SettingsPage() {
     watch,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
-  const [lat, lng, category] = watch(['latitude', 'longitude', 'category']);
+  const [lat, lng, category, extraCategories] = watch(['latitude', 'longitude', 'category', 'extraCategories']);
   const hasPin = !!lat && !!lng && !errors.latitude && !errors.longitude;
   // Shops created before the list existed may have a category of their own; keep it selectable.
   const categories =
@@ -99,6 +101,7 @@ export default function SettingsPage() {
     reset({
       name: shop.name,
       category: shop.category,
+      extraCategories: shop.extraCategories ?? [],
       description: shop.description ?? '',
       city: shop.city ?? '',
       address: shop.address ?? '',
@@ -117,6 +120,7 @@ export default function SettingsPage() {
       const updated = await updateShop(shop.id, {
         name: values.name,
         category: values.category,
+        extra_categories: values.extraCategories.filter((type) => type !== values.category),
         description: values.description || null,
         city: values.city || null,
         address: values.address || null,
@@ -181,6 +185,11 @@ export default function SettingsPage() {
           </select>
           {fieldError('category')}
         </div>
+        <OtherTypesField
+          main={category ?? ''}
+          value={extraCategories ?? []}
+          onChange={(types) => setValue('extraCategories', types, { shouldDirty: true })}
+        />
         {FIELDS.slice(1).map(([field, label, type, autoComplete]) => (
           <div key={field}>
             <label htmlFor={field} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>

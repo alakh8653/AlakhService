@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer, { setShop } from '../../state/authSlice';
@@ -63,12 +63,40 @@ describe('SettingsPage map location', () => {
     expect(screen.getByLabelText('Longitude')).toHaveValue('73.856712');
   });
 
+  it('adds another type of work, and keeps the main one out of the others', async () => {
+    vi.mocked(updateShop).mockImplementation(async (_id, update) => ({ ...shop, ...update }) as Shop);
+    renderPage();
+    const other = await screen.findByLabelText(/Other types of work/);
+    await waitFor(() => expect(screen.getByLabelText('Category')).toHaveValue('salon'));
+    expect(within(other).queryByRole('option', { name: 'Salon' })).not.toBeInTheDocument();
+    fireEvent.change(other, { target: { value: 'plumbing' } });
+    expect(await screen.findByRole('button', { name: 'Remove Plumbing' })).toBeInTheDocument();
+
+    // Moving the main type to one of the others does not list it twice.
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'plumbing' } });
+    expect(screen.queryByRole('button', { name: 'Remove Plumbing' })).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByLabelText('Category').closest('form')!);
+    await waitFor(() => expect(updateShop).toHaveBeenCalled());
+    expect(vi.mocked(updateShop).mock.calls[0][1]).toMatchObject({ category: 'plumbing', extra_categories: [] });
+  });
+
+  it('saves the other types of work', async () => {
+    vi.mocked(updateShop).mockImplementation(async (_id, update) => ({ ...shop, ...update }) as Shop);
+    renderPage();
+    const other = await screen.findByLabelText(/Other types of work/);
+    await waitFor(() => expect(screen.getByLabelText('Category')).toHaveValue('salon'));
+    fireEvent.change(other, { target: { value: 'plumbing' } });
+    fireEvent.submit(screen.getByLabelText('Category').closest('form')!);
+    await waitFor(() => expect(updateShop).toHaveBeenCalled());
+    expect(vi.mocked(updateShop).mock.calls[0][1]).toMatchObject({ category: 'salon', extra_categories: ['plumbing'] });
+  });
+
   it('offers the category list and saves a phone typed the Indian way', async () => {
     vi.mocked(updateShop).mockImplementation(async (_id, update) => ({ ...shop, ...update }) as Shop);
     renderPage();
     const category = screen.getByLabelText('Category');
     await waitFor(() => expect(category).toHaveValue('salon'));
-    expect(screen.getByRole('option', { name: 'Car & bike repair' })).toBeInTheDocument();
+    expect(within(category).getByRole('option', { name: 'Car & bike repair' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Shop phone'), { target: { value: '98765 43210' } });
     expect(await screen.findByText('Unsaved changes')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));

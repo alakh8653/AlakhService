@@ -10,13 +10,21 @@ from sqlalchemy.pool import StaticPool
 import app.models.catalog  # noqa: F401
 from app.config import settings
 from app.database import Base, get_db
-from app.dependencies import get_shop_category_lookup, get_shop_listed_lookup, get_shop_owner_lookup
+from app.dependencies import get_shop_listed_lookup, get_shop_owner_lookup, get_shop_types_lookup
 from app.main import app
 
-OWNERS = {"shop-1": "owner-1", "shop-2": "owner-2", "shop-new": "owner-3"}
+OWNERS = {
+    "shop-1": "owner-1",
+    "shop-2": "owner-2",
+    "shop-new": "owner-3",
+    "shop-both": "owner-4",
+    "shop-gone": "owner-5",
+}
 # shop-new still awaits approval in shop_service.
-LISTED = {"shop-1": True, "shop-2": True, "shop-new": False}
+LISTED = {"shop-1": True, "shop-2": True, "shop-new": False, "shop-both": True, "shop-gone": True}
 KEY = "internal-test-key"
+# Everyone else's only type is electrical; shop-gone is one shop_service could not tell us about.
+TYPES = {"shop-both": ["electrical", "plumbing"], "shop-gone": []}
 
 
 def auth(sub: str, role: str = "user") -> dict:
@@ -41,10 +49,10 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async def fake_category(shop_id):
-        return "electrical"
+    async def fake_types(shop_id):
+        return TYPES.get(shop_id, ["electrical"])
 
-    app.dependency_overrides[get_shop_category_lookup] = lambda: fake_category
+    app.dependency_overrides[get_shop_types_lookup] = lambda: fake_types
 
     async def fake_listed(shop_id):
         return LISTED[shop_id]
@@ -252,3 +260,107 @@ async def test_browsing_by_type_finds_a_service_whatever_it_is_called(client):
     searched = await client.get("/api/v1/services/search", params={"q": "fan", "category": "electrical"})
     assert [s["id"] for s in searched.json()] == [created["id"]]
     assert (await client.get("/api/v1/services/search", params={"q": "fan", "category": "plumbing"})).json() == []
+
+
+async def listing_of(client, shop, name, **extra):
+    body = {"shop_id": shop, "name": name, "price_cents": 50000, **extra}
+    return await client.post("/api/v1/services", json=body, headers=auth(OWNERS[shop]))
+
+
+async def browse(client, category):
+    found = await client.get("/api/v1/services", params={"category": category})
+    return sorted(s["name"] for s in found.json())
+
+
+@pytest.mark.asyncio
+async def test_a_provider_with_two_types_is_found_under_either(client):
+    fan = await listing_of(client, "shop-both", "Fan repair", service_type="electrical")
+    tap = await listing_of(client, "shop-both", "Tap repair", service_type="plumbing")
+    assert (fan.status_code, tap.status_code) == (201, 201)
+    assert tap.json()["service_type"] == "plumbing"
+    assert await browse(client, "electrical") == ["Fan repair"]
+    assert await browse(client, "plumbing") == ["Tap repair"]
+
+    async def searched(category, q=None):
+        params = {"category": category, **({"q": q} if q else {})}
+        return [s["name"] for s in (await client.get("/api/v1/services/search", params=params)).json()]
+
+    assert await searched("plumbing") == ["Tap repair"]
+    assert await searched("plumbing", "repair") == ["Tap repair"]
+    assert await searched("electrical", "repair") == ["Fan repair"]
+    assert await searched("plumbing", "fan") == []
+
+
+@pytest.mark.asyncio
+async def test_a_service_without_a_type_stays_under_the_main_type_of_its_shop(client):
+    """Every service from before there were several types, and any single-type shop's."""
+    created = await listing_of(client, "shop-1", "Fan repair")
+    assert created.json()["service_type"] is None
+    assert await browse(client, "electrical") == ["Fan repair"]
+    assert await browse(client, "plumbing") == []
+
+
+@pytest.mark.asyncio
+async def test_a_service_cannot_go_under_a_type_its_shop_did_not_choose(client):
+    """The documents are checked per type, so this would list a salon under clinics without any."""
+    refused = await listing_of(client, "shop-both", "Consultation", service_type="clinic")
+    assert refused.status_code == 422
+    assert await browse(client, "clinic") == []
+    fan = await listing_of(client, "shop-1", "Fan repair", service_type="electrical")
+    assert fan.status_code == 201
+    moved = await client.put(
+        f"/api/v1/services/{fan.json()['id']}", json={"service_type": "clinic"}, headers=auth("owner-1")
+    )
+    assert moved.status_code == 422
+    assert await browse(client, "clinic") == []
+    # And when shop_service cannot say, it is not taken on trust.
+    assert (await listing_of(client, "shop-gone", "Fan repair", service_type="clinic")).status_code == 503
+    assert (await listing_of(client, "shop-gone", "Fan repair")).status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_a_service_can_move_to_another_of_the_shops_types(client):
+    created = await listing_of(client, "shop-both", "Geyser fitting")
+    assert await browse(client, "electrical") == ["Geyser fitting"]
+    url = f"/api/v1/services/{created.json()['id']}"
+    moved = await client.put(url, json={"service_type": "plumbing"}, headers=auth("owner-4"))
+    assert moved.json()["service_type"] == "plumbing"
+    assert (await browse(client, "electrical"), await browse(client, "plumbing")) == ([], ["Geyser fitting"])
+    back = await client.put(url, json={"service_type": None}, headers=auth("owner-4"))
+    assert back.json()["service_type"] is None
+    assert await browse(client, "electrical") == ["Geyser fitting"]
+
+
+@pytest.mark.asyncio
+async def test_dropping_a_type_brings_its_services_back_under_the_main_one(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", KEY)
+    await listing_of(client, "shop-both", "Tap repair", service_type="plumbing")
+    await listing_of(client, "shop-both", "Fan repair", service_type="electrical")
+    await listing_of(client, "shop-both", "Wiring")
+    url = "/internal/shops/shop-both/listing"
+    headers = {"X-Internal-Key": KEY}
+
+    # An older shop_service, or a message about listing only, leaves the types alone.
+    await client.post(url, json={"listed": True, "category": "electrical"}, headers=headers)
+    await client.post(url, json={"listed": True}, headers=headers)
+    assert await browse(client, "plumbing") == ["Tap repair"]
+
+    body = {"listed": True, "category": "electrical", "extra_categories": ["plumbing"]}
+    assert (await client.post(url, json=body, headers=headers)).status_code == 200
+    assert await browse(client, "plumbing") == ["Tap repair"]
+
+    body["extra_categories"] = []
+    await client.post(url, json=body, headers=headers)
+    assert await browse(client, "plumbing") == []
+    assert await browse(client, "electrical") == ["Fan repair", "Tap repair", "Wiring"]
+
+
+@pytest.mark.asyncio
+async def test_a_single_type_shop_moving_trade_takes_all_its_services_along(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_API_KEY", KEY)
+    await listing_of(client, "shop-1", "Old", service_type="electrical")
+    await listing_of(client, "shop-1", "Older")
+    body = {"listed": True, "category": "plumbing", "extra_categories": []}
+    await client.post("/internal/shops/shop-1/listing", json=body, headers={"X-Internal-Key": KEY})
+    assert await browse(client, "plumbing") == ["Old", "Older"]
+    assert await browse(client, "electrical") == []

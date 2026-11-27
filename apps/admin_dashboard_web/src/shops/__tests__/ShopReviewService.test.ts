@@ -30,6 +30,7 @@ describe('ShopReviewService', () => {
     expect(get).toHaveBeenCalledWith('/admin/shops/review-queue', { params: { limit: 100 } });
     expect(shop).toMatchObject({ id: 's1', ownerId: 'o1', status: 'PENDING_REVIEW', legalName: 'Glow Salon Pvt Ltd', hasPayoutDetails: true });
     expect(shop.documents[0]).toMatchObject({ id: 'd1', type: 'PAN', uploaded: true, fileName: 'pan.pdf', sizeBytes: 2048 });
+    expect(shop.extraCategories).toEqual([]);
   });
 
   it('lists every shop with status and search filters, paged', async () => {

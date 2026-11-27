@@ -8,6 +8,7 @@ import {
   DOCUMENT_LABELS,
   DOCUMENT_TYPES,
   deleteDocument,
+  documentsWaiting,
   downloadDocument,
   fileProblem,
   getDocuments,
@@ -51,9 +52,14 @@ export function onboardingChecklist(
     { id: 'pan', label: 'PAN card uploaded', done: has('PAN'), required: true },
   ];
   if (shop.gstin) items.push({ id: 'gst', label: 'GST certificate uploaded (you gave a GSTIN)', done: has('GST'), required: true });
+  // Done as soon as it is uploaded here, without asking the server again.
+  const waiting = documentsWaiting(tradeDocuments, documents);
+  const ids = new Set<string>();
   for (const doc of tradeDocuments) {
-    // Done as soon as it is uploaded here, without asking the server again.
-    items.push({ id: doc.type, label: doc.required ? doc.label : `${doc.label} (recommended)`, done: has(doc.type), required: doc.required });
+    // Two types of work can ask for the same kind of document, each its own.
+    const id = ids.has(doc.type) ? `${doc.type}: ${doc.label}` : doc.type;
+    ids.add(doc.type);
+    items.push({ id, label: doc.required ? doc.label : `${doc.label} (recommended)`, done: !waiting.has(doc), required: doc.required });
   }
   items.push(
     { id: 'photo', label: 'Shop photo (helps customers find you)', done: has('SHOP_PHOTO'), required: false },

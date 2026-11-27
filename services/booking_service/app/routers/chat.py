@@ -14,8 +14,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Response
 from sqlalchemy import false, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import risk
@@ -216,11 +217,40 @@ async def notify_message(
     )
 
 
+async def _sent_with_key(db: AsyncSession, booking_id: str, user_id: str, key: str) -> Optional[BookingMessage]:
+    return (
+        await db.execute(
+            select(BookingMessage).where(
+                BookingMessage.booking_id == booking_id,
+                BookingMessage.sender_id == user_id,
+                BookingMessage.client_key == key,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _replay(
+    message: BookingMessage,
+    text: str,
+    response: Response,
+    user_id: str,
+    lookup_names: NameLookup,
+    customer_id: str,
+) -> MessageResponse:
+    """The message an earlier request with this key stored, as long as this one says the same thing."""
+    if message.body != text:
+        raise HTTPException(status_code=422, detail="This Idempotency-Key was already used for a different message")
+    response.status_code = 200
+    return _present(message, user_id, await _customer_name(lookup_names, customer_id))
+
+
 @router.post("/bookings/{booking_id}/messages", response_model=MessageResponse, status_code=201)
 async def send_message(
     booking_id: str,
     body: MessageCreate,
     background: BackgroundTasks,
+    response: Response,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", max_length=64, pattern=r"^[A-Za-z0-9_-]+$"),
     db: AsyncSession = Depends(get_db, scope="function"),
     current_user: dict = Depends(get_current_user),
     lookup_owner: OwnerLookup = Depends(get_shop_owner_lookup),
@@ -229,11 +259,20 @@ async def send_message(
     clock: Callable[[], datetime] = Depends(get_clock),
 ):
     """Sends a message to the other side. Phone numbers, emails, UPI handles and messaging-app links are
-    replaced with "[hidden for your safety]" and the message is flagged for review."""
+    replaced with "[hidden for your safety]" and the message is flagged for review.
+
+    With an Idempotency-Key, sending the same message again (an app catching up after being offline)
+    returns the first one with 200 instead of posting it twice."""
     now = clock()
     booking, parties = await _booking_for(db, booking_id, current_user, lookup_owner)
-    side = _writer(booking, parties, now)
     user_id = current_user.get("sub")
+    customer_id = booking.customer_id
+    filtered = mask_contact(body.body)
+    if idempotency_key:
+        earlier = await _sent_with_key(db, booking_id, user_id, idempotency_key)
+        if earlier is not None:
+            return await _replay(earlier, filtered.text, response, user_id, lookup_names, customer_id)
+    side = _writer(booking, parties, now)
     sent = BookingMessage.sender_id
     if await _count_since(db, BookingMessage, sent, user_id, booking_id, now - timedelta(minutes=1)) >= (
         MAX_MESSAGES_PER_MINUTE
@@ -244,7 +283,6 @@ async def send_message(
     ):
         raise HTTPException(status_code=429, detail="Daily message limit reached for this booking")
 
-    filtered = mask_contact(body.body)
     # The other side is told only of the first message they have not read yet, not of every one.
     sender_is_customer = side == CUSTOMER
     pending = (
@@ -267,10 +305,19 @@ async def send_message(
         flag_reasons=",".join(filtered.found) or None,
         original_body=body.body if filtered.flagged else None,
         created_at=now,
+        client_key=idempotency_key,
     )
     db.add(message)
-    await db.flush()
-    await db.commit()
+    try:
+        await db.flush()
+        await db.commit()
+    except IntegrityError:
+        # The same message arrived twice at once and the other request stored it first.
+        await db.rollback()
+        earlier = idempotency_key and await _sent_with_key(db, booking_id, user_id, idempotency_key)
+        if not earlier:
+            raise
+        return await _replay(earlier, filtered.text, response, user_id, lookup_names, customer_id)
     if filtered.flagged:
         log.info("chat_contact_hidden", booking_id=booking_id, sender_id=user_id, kinds=filtered.found)
         background.add_task(risk.report_risk, user_id, "contact_sharing_attempt", 0.2, True)

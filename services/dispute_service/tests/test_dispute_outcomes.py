@@ -80,10 +80,15 @@ async def test_release_to_shop(http):
 
 
 @pytest.mark.asyncio
-async def test_no_action_touches_no_money(http):
+async def test_no_action_moves_no_money_but_closes_the_booking(http):
     d = await create(http)
     assert (await resolve(http, d["id"])).json()["outcome"] == "NO_ACTION"
-    assert CALLS == []
+    # No refund: only the dispute's hold on the shop's payout is lifted, and the booking is completed again
+    # (left DISPUTED it would stay that way, with the shop's money held, for good).
+    assert [(h, p.rsplit("/", 1)[1], b) for h, p, b in CALLS] == [
+        ("payment", "release", {}),
+        ("booking", "resolve-dispute", {"outcome": "COMPLETED"}),
+    ]
 
 
 @pytest.mark.asyncio

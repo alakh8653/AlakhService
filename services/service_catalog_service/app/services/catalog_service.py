@@ -7,12 +7,17 @@ import structlog
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import discovery
+from app.core.discovery import Discovery
 from app.core.exceptions import ServiceListingNotFoundError
 from app.core.search import BKTree, TFIDFIndex
 from app.models.catalog import ServiceCategory, ServiceListing
 from app.schemas.catalog import CategoryCreate, ServiceListingCreate, ServiceListingUpdate
 
 log = structlog.get_logger()
+
+# Sorting other than by name, or by distance, happens after the query: this many matches at most are looked at.
+ARRANGE_POOL = 1000
 
 # In-memory search indices. They live per process, so each process rebuilds them from the
 # database before its first search (see _ensure_index) and keeps them current on writes.
@@ -106,6 +111,7 @@ class CatalogService:
         shop_id: Optional[str] = None,
         include_inactive: bool = False,
         category: Optional[str] = None,
+        d: Discovery = Discovery(),
     ) -> List[ServiceListing]:
         query = select(ServiceListing)
         if shop_id:
@@ -117,8 +123,11 @@ class CatalogService:
             query = query.where(ServiceListing.is_active == True)
         if category:
             query = query.where(_filed_under(category))
-        result = await db.execute(query.order_by(ServiceListing.name, ServiceListing.id).offset(skip).limit(limit))
-        return list(result.scalars().all())
+        query = discovery.where(query, d).order_by(ServiceListing.name, ServiceListing.id)
+        if d.sort == "relevance" and not d.located:
+            return list((await db.execute(query.offset(skip).limit(limit))).scalars().all())
+        pool = (await db.execute(query.limit(ARRANGE_POOL))).scalars().all()
+        return discovery.arrange(pool, d)[skip : skip + limit]
 
     async def _ensure_index(self, db: AsyncSession) -> None:
         if _index_state["loaded"]:
@@ -131,9 +140,15 @@ class CatalogService:
         log.info("search_index_built")
 
     async def search_services(
-        self, db: AsyncSession, q: Optional[str] = None, category: Optional[str] = None, limit: int = 20
+        self,
+        db: AsyncSession,
+        q: Optional[str] = None,
+        category: Optional[str] = None,
+        limit: int = 20,
+        d: Discovery = Discovery(),
     ) -> List[ServiceListing]:
         base = select(ServiceListing).where(ServiceListing.is_active == True, ServiceListing.shop_listed == True)
+        base = discovery.where(base, d)
         if category:
             base = base.where(or_(_filed_under(category), ServiceListing.category_id == category))
         if q:
@@ -143,11 +158,12 @@ class CatalogService:
             if ranked:
                 result = await db.execute(base.where(ServiceListing.id.in_(ranked)))
                 by_id = {s.id: s for s in result.scalars().all()}
-                return [by_id[i] for i in ranked if i in by_id][:limit]
+                return discovery.arrange([by_id[i] for i in ranked if i in by_id], d)[:limit]
             # Fallback to LIKE search (substrings and words the tokenizer drops)
             base = base.where(or_(ServiceListing.name.ilike(f"%{q}%"), ServiceListing.description.ilike(f"%{q}%")))
-        result = await db.execute(base.order_by(ServiceListing.name, ServiceListing.id).limit(limit))
-        return list(result.scalars().all())
+        pool = limit if d.sort == "relevance" and not d.located else ARRANGE_POOL
+        result = await db.execute(base.order_by(ServiceListing.name, ServiceListing.id).limit(pool))
+        return discovery.arrange(result.scalars().all(), d)[:limit]
 
     async def update_service(self, db: AsyncSession, service_id: str, data: ServiceListingUpdate) -> ServiceListing:
         service = await self.get_service(db, service_id)
@@ -184,6 +200,23 @@ class CatalogService:
                 )
                 .values(service_type=None)
             )
+
+    async def set_shop_facts(
+        self,
+        db: AsyncSession,
+        shop_id: str,
+        latitude: Optional[float],
+        longitude: Optional[float],
+        rating: Optional[float],
+        rating_count: Optional[int],
+    ) -> None:
+        """Where a shop is and how it is rated, on each of its services (for filters and sorting)."""
+        values = {"shop_latitude": latitude, "shop_longitude": longitude}
+        if rating is not None:
+            values["shop_rating"] = round(float(rating), 2)
+        if rating_count is not None:
+            values["shop_rating_count"] = int(rating_count)
+        await db.execute(update(ServiceListing).where(ServiceListing.shop_id == shop_id).values(**values))
 
     async def set_shop_listed(self, db: AsyncSession, shop_id: str, listed: bool) -> int:
         """Shows or hides every service of a shop in browsing and search. Returns how many changed."""

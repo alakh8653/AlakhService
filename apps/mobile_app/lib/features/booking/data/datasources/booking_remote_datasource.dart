@@ -19,6 +19,7 @@ abstract class BookingRemoteDataSource {
     bool usePoints = false,
     String? packagePurchaseId,
     String? preferredStaffId,
+    String? guestName,
   });
 
   Future<List<BookingModel>> getUserBookings({int page = 1});
@@ -65,6 +66,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
     bool usePoints = false,
     String? packagePurchaseId,
     String? preferredStaffId,
+    String? guestName,
   }) async {
     try {
       final response = await apiClient.post<Map<String, dynamic>>(
@@ -83,6 +85,7 @@ class BookingRemoteDataSourceImpl implements BookingRemoteDataSource {
           if (usePoints) 'use_points': true,
           if (packagePurchaseId != null) 'package_purchase_id': packagePurchaseId,
           if (preferredStaffId != null) 'preferred_staff_id': preferredStaffId,
+          if (guestName != null && guestName.trim().isNotEmpty) 'guest_name': guestName.trim(),
         },
       );
       return await _model(response.data!);

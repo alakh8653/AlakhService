@@ -29,6 +29,9 @@ class CreateBookingRequested extends BookingEvent {
   /// The professional the customer would like (a team member id); the shop still assigns the job.
   final String? preferredStaffId;
 
+  /// Booked for someone else: who the shop should expect.
+  final String? guestName;
+
   const CreateBookingRequested({
     required this.serviceId,
     required this.scheduledAt,
@@ -40,6 +43,7 @@ class CreateBookingRequested extends BookingEvent {
     this.usePoints = false,
     this.packagePurchaseId,
     this.preferredStaffId,
+    this.guestName,
   });
 
   @override
@@ -54,6 +58,7 @@ class CreateBookingRequested extends BookingEvent {
         usePoints,
         packagePurchaseId,
         preferredStaffId,
+        guestName,
       ];
 }
 

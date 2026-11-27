@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.discovery import MODES, SORTS, Discovery
 from app.core.exceptions import ServiceListingNotFoundError
 from app.database import get_db
 from app.dependencies import (
@@ -29,6 +30,40 @@ from app.schemas.catalog import (
 from app.services.catalog_service import catalog_service
 
 router = APIRouter()
+
+
+def discovery_params(
+    min_price: Optional[float] = Query(None, ge=0, description="Rupees"),
+    max_price: Optional[float] = Query(None, ge=0, description="Rupees"),
+    min_rating: Optional[float] = Query(None, ge=1, le=5),
+    mode: Optional[str] = Query(None, description="AT_SHOP, AT_HOME or PICKUP_DROP"),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lng: Optional[float] = Query(None, ge=-180, le=180),
+    max_km: Optional[float] = Query(None, gt=0, le=500),
+    sort: str = Query("relevance", description="relevance, price_asc, price_desc, rating or distance"),
+) -> Discovery:
+    """Filters and sort order customers can ask for when browsing or searching."""
+    if sort not in SORTS:
+        raise HTTPException(status_code=422, detail=f"sort must be one of {', '.join(SORTS)}")
+    if mode is not None and mode not in MODES:
+        raise HTTPException(status_code=422, detail=f"mode must be one of {', '.join(MODES)}")
+    if (lat is None) != (lng is None):
+        raise HTTPException(status_code=422, detail="Give both lat and lng, or neither")
+    if (sort == "distance" or max_km is not None) and lat is None:
+        raise HTTPException(status_code=422, detail="Sorting or limiting by distance needs lat and lng")
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise HTTPException(status_code=422, detail="min_price is above max_price")
+    cents = lambda rupees: None if rupees is None else int(round(rupees * 100))  # noqa: E731
+    return Discovery(
+        min_price_cents=cents(min_price),
+        max_price_cents=cents(max_price),
+        min_rating=min_rating,
+        mode=mode,
+        lat=lat,
+        lng=lng,
+        max_km=max_km,
+        sort=sort,
+    )
 
 
 def _ensure_shop_does(service_type: Optional[str], shop_types: List[str]) -> None:
@@ -57,10 +92,11 @@ async def list_services(
     shop_id: Optional[str] = None,
     include_inactive: bool = False,
     category: Optional[str] = None,
+    d: Discovery = Depends(discovery_params),
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
     return await catalog_service.list_services(
-        db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive, category=category
+        db, skip=skip, limit=limit, shop_id=shop_id, include_inactive=include_inactive, category=category, d=d
     )
 
 
@@ -89,9 +125,10 @@ async def search_services(
     q: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
+    d: Discovery = Depends(discovery_params),
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    return await catalog_service.search_services(db, q=q, category=category, limit=limit)
+    return await catalog_service.search_services(db, q=q, category=category, limit=limit, d=d)
 
 
 @router.get("/services/{service_id}", response_model=ServiceListingResponse)
@@ -121,9 +158,18 @@ async def update_service(
         raise HTTPException(status_code=404, detail=str(e)) from e
 
 
+class ShopFacts(BaseModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    rating: Optional[float] = None
+    rating_count: Optional[int] = None
+
+
 class ShopListing(BaseModel):
     listed: bool
     category: Optional[str] = None
+    # Where the shop is and how it is rated (older shop_service versions leave it out).
+    facts: Optional[ShopFacts] = None
     # Sent with the category; services under a type the shop no longer has go back under its main type.
     extra_categories: Optional[List[str]] = None
 
@@ -136,6 +182,9 @@ async def set_shop_listing(shop_id: str, data: ShopListing, db: AsyncSession = D
     """shop_service: the shop was approved, rejected, or switched on or off, or changed its type of work."""
     if data.category:
         await catalog_service.set_shop_category(db, shop_id, data.category, data.extra_categories)
+    if data.facts is not None:
+        f = data.facts
+        await catalog_service.set_shop_facts(db, shop_id, f.latitude, f.longitude, f.rating, f.rating_count)
     return {
         "shop_id": shop_id,
         "listed": data.listed,

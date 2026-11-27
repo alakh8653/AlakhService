@@ -3,6 +3,7 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
 import '../../domain/entities/service_entity.dart';
+import '../../domain/entities/service_filters.dart';
 import '../../domain/repositories/service_repository.dart';
 import '../datasources/service_remote_datasource.dart';
 
@@ -20,6 +21,7 @@ class ServiceRepositoryImpl implements ServiceRepository {
     int page = 1,
     int limit = 20,
     String? category,
+    ServiceFilters filters = ServiceFilters.none,
   }) async {
     if (!await networkInfo.isConnected) {
       return const Left(NetworkFailure());
@@ -29,6 +31,7 @@ class ServiceRepositoryImpl implements ServiceRepository {
         page: page,
         limit: limit,
         category: category,
+        filters: filters,
       );
       return Right(services);
     } on ServerException catch (e) {
@@ -40,6 +43,7 @@ class ServiceRepositoryImpl implements ServiceRepository {
   Future<Either<Failure, List<ServiceEntity>>> searchServices({
     required String query,
     String? category,
+    ServiceFilters filters = ServiceFilters.none,
   }) async {
     if (!await networkInfo.isConnected) {
       return const Left(NetworkFailure());
@@ -48,6 +52,7 @@ class ServiceRepositoryImpl implements ServiceRepository {
       final services = await remoteDataSource.searchServices(
         query: query,
         category: category,
+        filters: filters,
       );
       return Right(services);
     } on ServerException catch (e) {

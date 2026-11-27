@@ -156,6 +156,17 @@ async def test_auto_confirm_is_off_until_the_owner_turns_it_on(client, shop):
 
 
 @pytest.mark.asyncio
+async def test_paying_when_booking_is_off_until_the_owner_asks_for_it(client, shop):
+    assert (await client.get(hours_url(shop))).json()["require_prepayment"] is False
+    url = f"/api/v1/shops/{shop['id']}/prepayment"
+    assert (await client.put(url, json={"require_prepayment": True}, headers=OTHER)).status_code == 403
+    assert (await client.put(url, json={}, headers=OWNER)).status_code == 422
+    done = await client.put(url, json={"require_prepayment": True}, headers=OWNER)
+    assert done.json()["require_prepayment"] is True
+    assert (await client.get(hours_url(shop))).json()["require_prepayment"] is True
+
+
+@pytest.mark.asyncio
 async def test_holidays_are_added_listed_soonest_first_and_removed(client, shop):
     url = f"/api/v1/shops/{shop['id']}/holidays"
     later, sooner = today() + timedelta(days=20), today() + timedelta(days=3)

@@ -98,8 +98,10 @@ class Reporter:
         listed: bool,
         category: Optional[str] = None,
         extra_categories: Optional[List[str]] = None,
+        facts: Optional[dict] = None,
     ) -> None:
-        """Customers see a shop's services only while it is approved and switched on, under its types of work."""
+        """Customers see a shop's services only while it is approved and switched on, under its types of work;
+        [facts] (listing_facts) say where it is and how it is rated, for filters and sorting."""
         if not self.catalog_url:
             return
         await self._post(
@@ -108,9 +110,20 @@ class Reporter:
             {
                 "listed": listed,
                 **({"category": category, "extra_categories": extra_categories or []} if category else {}),
+                **({"facts": facts} if facts else {}),
             },
             "listing",
         )
+
+
+def listing_facts(shop) -> dict:
+    """What service_catalog filters and sorts a shop's services by: where it is and how it is rated."""
+    return {
+        "latitude": shop.latitude,
+        "longitude": shop.longitude,
+        "rating": float(shop.rating_avg or 0),
+        "rating_count": int(shop.rating_count or 0),
+    }
 
 
 def get_reporter() -> Reporter:

@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_errors.dart';
+import '../../../offline/offline_queue.dart';
+import '../../../offline/sync_manager.dart';
 
 class AppNotification {
   final String id;
@@ -65,11 +67,63 @@ class AppNotification {
       );
 }
 
+/// How someone wants to be told (notification_service): each channel on or off, and quiet hours (hours of
+/// the day in India; null when there are none).
+class NotificationPreferences {
+  final bool push;
+  final bool sms;
+  final bool email;
+  final int? quietStart;
+  final int? quietEnd;
+
+  const NotificationPreferences({
+    this.push = true,
+    this.sms = true,
+    this.email = true,
+    this.quietStart,
+    this.quietEnd,
+  });
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    final quiet = json['quiet_hours'] as Map<String, dynamic>?;
+    return NotificationPreferences(
+      push: (json['push'] as bool?) ?? true,
+      sms: (json['sms'] as bool?) ?? true,
+      email: (json['email'] as bool?) ?? true,
+      quietStart: (quiet?['start'] as num?)?.toInt(),
+      quietEnd: (quiet?['end'] as num?)?.toInt(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'push': push,
+        'sms': sms,
+        'email': email,
+        'quiet_hours': quietStart == null || quietEnd == null ? null : {'start': quietStart, 'end': quietEnd},
+      };
+
+  NotificationPreferences copyWith({bool? push, bool? sms, bool? email}) => NotificationPreferences(
+        push: push ?? this.push,
+        sms: sms ?? this.sms,
+        email: email ?? this.email,
+        quietStart: quietStart,
+        quietEnd: quietEnd,
+      );
+
+  NotificationPreferences withQuiet(int start, int end) =>
+      NotificationPreferences(push: push, sms: sms, email: email, quietStart: start, quietEnd: end);
+
+  NotificationPreferences withoutQuiet() => NotificationPreferences(push: push, sms: sms, email: email);
+}
+
 /// The signed-in user's notifications (notification_service).
 class NotificationsApi {
   final ApiClient apiClient;
 
-  NotificationsApi(this.apiClient);
+  /// Marks things read offline too, sending it once back online.
+  final SyncManager? offline;
+
+  NotificationsApi(this.apiClient, {this.offline});
 
   Future<T> _call<T>(Future<T> Function() request) async {
     try {
@@ -94,7 +148,27 @@ class NotificationsApi {
         return (response.data!['unread_count'] as num).toInt();
       });
 
-  Future<void> markRead(String id) => _call(() => apiClient.post<dynamic>(ApiConstants.markRead(id)));
+  Future<NotificationPreferences> preferences() => _call(() async {
+        final response = await apiClient.get<Map<String, dynamic>>(ApiConstants.notificationPreferences);
+        return NotificationPreferences.fromJson(response.data!);
+      });
 
-  Future<void> markAllRead() => _call(() => apiClient.post<dynamic>(ApiConstants.markAllRead));
+  Future<NotificationPreferences> savePreferences(NotificationPreferences prefs) => _call(() async {
+        final response =
+            await apiClient.put<Map<String, dynamic>>(ApiConstants.notificationPreferences, data: prefs.toJson());
+        return NotificationPreferences.fromJson(response.data!);
+      });
+
+  Future<void> markRead(String id) => _mark(ApiConstants.markRead(id), 'notification-read:$id');
+
+  Future<void> markAllRead() => _mark(ApiConstants.markAllRead, 'notification-read:all');
+
+  Future<void> _mark(String path, String key) => _call(() async {
+        final offline = this.offline;
+        if (offline == null) {
+          await apiClient.post<dynamic>(path);
+        } else {
+          await offline.send(offline.request(PendingKind.notificationRead, 'POST', path, replaces: key));
+        }
+      });
 }

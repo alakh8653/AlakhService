@@ -45,6 +45,8 @@ export interface Booking {
   /** The staff member the customer asked for (shop staff id and display name), if anyone. */
   preferredStaffId?: string | null;
   preferredStaffName?: string | null;
+  /** Booked for someone else: who to expect (the customer stays the contact). */
+  guestName?: string | null;
   /** Of totalAmount, what the customer agreed to pay on top after the job was seen (minor units). */
   extraAmount?: number;
   /** An extra charge waiting for the customer's answer: its id, amount (minor units) and reason. */
@@ -128,6 +130,8 @@ export interface ShopHours {
   capacityOverride: number | null;
   /** Each booking is confirmed at once while a place is free (needs opening hours). */
   autoConfirm: boolean;
+  /** Customers pay online when they book; an unpaid booking is released after a short while. */
+  requirePrepayment: boolean;
   activeStaff: number;
   updatedAt: string | null;
 }

@@ -134,6 +134,7 @@ interface ShopHoursResponse {
   capacity: number;
   capacity_override: number | null;
   auto_confirm?: boolean;
+  require_prepayment?: boolean;
   active_staff: number;
   updated_at: string | null;
 }
@@ -149,6 +150,7 @@ export function toShopHours(data: ShopHoursResponse): ShopHours {
     capacity: data.capacity,
     capacityOverride: data.capacity_override,
     autoConfirm: data.auto_confirm ?? false,
+    requirePrepayment: data.require_prepayment ?? false,
     activeStaff: data.active_staff,
     updatedAt: data.updated_at,
   };
@@ -170,6 +172,12 @@ export async function saveWeeklyHours(shopId: string, weekly: OpenInterval[][]):
 /** null goes back to one customer per active staff member. */
 export async function saveCapacity(shopId: string, capacity: number | null): Promise<ShopHours> {
   const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/capacity`, { capacity });
+  return toShopHours(data);
+}
+
+/** Customers pay online when they book (no-show protection). */
+export async function savePrepayment(shopId: string, required: boolean): Promise<ShopHours> {
+  const { data } = await apiClient.put<ShopHoursResponse>(`/shops/${shopId}/prepayment`, { require_prepayment: required });
   return toShopHours(data);
 }
 

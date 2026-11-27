@@ -40,6 +40,7 @@ class ServiceCard extends StatelessWidget {
     final subtitle = [
       if (service.category.isNotEmpty && service.category != 'Service') service.category,
       if (service.durationMinutes != null && service.durationMinutes! > 0) l10n.minutesShort(service.durationMinutes!),
+      if (service.distanceKm case final km?) l10n.distanceAway(km < 10 ? km.toStringAsFixed(1) : km.round().toString()),
     ].join(' · ');
     return Semantics(
       button: true,

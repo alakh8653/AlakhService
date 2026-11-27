@@ -62,8 +62,8 @@ export function createApp(config: GatewayConfig, options: AppOptions = {}) {
   };
   const isRevoked = createRevocationCheck(options.redis, redisError);
   // Shared across gateway instances when Redis is there; if Redis fails, requests are let through.
-  // The gateway starts before its Redis client connects, so the store's startup script load fails;
-  // rate-limit-redis (6.0.2+) loads it again on the next count and retries that count.
+  // server.ts waits briefly for Redis before this runs; if Redis is not there yet, the store's start-up
+  // script load fails and rate-limit-redis (6.0.2+) loads it again on the next count and retries it.
   const limitStore = (prefix: string): Store | undefined =>
     options.redis
       ? new RedisStore({ prefix, sendCommand: (...args: string[]) => options.redis!(args) as Promise<RedisReply> })

@@ -16,7 +16,7 @@ class FakeReporter:
         self.sent = []
         self.types = {}
 
-    async def sync_listing(self, shop_id, listed, category=None, extra_categories=None):
+    async def sync_listing(self, shop_id, listed, category=None, extra_categories=None, facts=None):
         self.sent.append((shop_id, listed))
         self.types[shop_id] = [category, *extra_categories]
 

@@ -1,9 +1,11 @@
 import asyncio
 import json
+from typing import Optional
 
 import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -132,6 +134,41 @@ async def mark_all_read(
 ):
     count = await notification_service.mark_all_read(db, user_id)
     return {"marked_read": count}
+
+
+class QuietHours(BaseModel):
+    # Hours of the day in India, 0-23: from start until end (it may wrap past midnight, e.g. 22 to 7).
+    start: int = Field(ge=0, le=23)
+    end: int = Field(ge=0, le=23)
+
+
+class Preferences(BaseModel):
+    push: bool = True
+    sms: bool = True
+    email: bool = True
+    # While these hours last, updates that can wait (queue moves, rebooking nudges) stay in the app unpushed.
+    quiet_hours: Optional[QuietHours] = None
+
+
+@router.get("/notifications/preferences", response_model=Preferences)
+async def get_preferences(
+    user_id: str = Depends(target_user),
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """How the signed-in person wants to be told: which channels, and quiet hours. All on by default."""
+    return await notification_service.preferences(db, user_id)
+
+
+@router.put("/notifications/preferences", response_model=Preferences)
+async def set_preferences(
+    data: Preferences,
+    user_id: str = Depends(target_user),
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Every notice stays in the app's list whatever is switched off here."""
+    saved = await notification_service.set_preferences(db, user_id, data.model_dump())
+    await db.commit()
+    return saved
 
 
 @router.get("/notifications/count/unread")

@@ -227,6 +227,38 @@ async def test_messages_are_rate_limited_and_bounded(client, env):  # noqa: F811
 
 
 @pytest.mark.asyncio
+async def test_a_message_sent_again_with_its_key_is_stored_once(client, env):  # noqa: F811
+    keyed = {**CUSTOMER, "Idempotency-Key": "offline-msg-1"}
+    first = await client.post(URL, json={"body": "Running 10 min late"}, headers=keyed)
+    assert first.status_code == 201
+    # The app comes back online and sends it again, even after the chat has closed.
+    env["clock"].now += timedelta(days=3)
+    again = await client.post(URL, json={"body": "Running 10 min late"}, headers=keyed)
+    assert again.status_code == 200
+    assert again.json()["id"] == first.json()["id"]
+    env["clock"].now = NOW
+    assert (await client.get(URL, headers=OWNER)).json()["total"] == 1
+    # One key, one message; and a key is the sender's own.
+    reused = await client.post(URL, json={"body": "Something else"}, headers=keyed)
+    assert reused.status_code == 422
+    assert (
+        await client.post(URL, json={"body": "OK"}, headers={**OWNER, "Idempotency-Key": "offline-msg-1"})
+    ).status_code == 201
+    assert (
+        await client.post(URL, json={"body": "x"}, headers={**CUSTOMER, "Idempotency-Key": "no spaces"})
+    ).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_a_replay_does_not_count_against_the_rate_limit(client, env):  # noqa: F811
+    keyed = {**CUSTOMER, "Idempotency-Key": "k-0"}
+    assert (await client.post(URL, json={"body": "m0"}, headers=keyed)).status_code == 201
+    for i in range(1, chat.MAX_MESSAGES_PER_MINUTE):
+        assert (await client.post(URL, json={"body": f"m{i}"}, headers=CUSTOMER)).status_code == 201
+    assert (await client.post(URL, json={"body": "m0"}, headers=keyed)).status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_the_other_side_is_told_of_the_first_unread_message_only(client, env):  # noqa: F811
     sent = env["notified"].sent
     await client.post(URL, json={"body": "hello"}, headers=CUSTOMER)

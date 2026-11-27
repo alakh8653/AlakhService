@@ -4,12 +4,22 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_errors.dart';
 import '../../../reviews/data/reviews_api.dart';
+import '../../domain/entities/service_filters.dart';
 import '../models/service_model.dart';
 
 abstract class ServiceRemoteDataSource {
-  Future<List<ServiceModel>> getServices({int page = 1, int limit = 20, String? category});
+  Future<List<ServiceModel>> getServices({
+    int page = 1,
+    int limit = 20,
+    String? category,
+    ServiceFilters filters = ServiceFilters.none,
+  });
 
-  Future<List<ServiceModel>> searchServices({required String query, String? category});
+  Future<List<ServiceModel>> searchServices({
+    required String query,
+    String? category,
+    ServiceFilters filters = ServiceFilters.none,
+  });
 
   Future<ServiceModel> getServiceById(String id);
 }
@@ -45,11 +55,22 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
   }
 
   @override
-  Future<List<ServiceModel>> getServices({int page = 1, int limit = 20, String? category}) async {
+  Future<List<ServiceModel>> getServices({
+    int page = 1,
+    int limit = 20,
+    String? category,
+    ServiceFilters filters = ServiceFilters.none,
+  }) async {
     try {
       final response = await apiClient.get<List<dynamic>>(
         ApiConstants.services,
-        queryParameters: {'skip': (page - 1) * limit, 'limit': limit},
+        // The type picked on the home screen (a shop's type of work) narrows the list too.
+        queryParameters: {
+          'skip': (page - 1) * limit,
+          'limit': limit,
+          if (category != null) 'category': category,
+          ...filters.toQuery(),
+        },
       );
       return await _list(response.data);
     } on DioException catch (e) {
@@ -58,11 +79,15 @@ class ServiceRemoteDataSourceImpl implements ServiceRemoteDataSource {
   }
 
   @override
-  Future<List<ServiceModel>> searchServices({required String query, String? category}) async {
+  Future<List<ServiceModel>> searchServices({
+    required String query,
+    String? category,
+    ServiceFilters filters = ServiceFilters.none,
+  }) async {
     try {
       final response = await apiClient.get<List<dynamic>>(
         ApiConstants.searchServices,
-        queryParameters: {'q': query, if (category != null) 'category': category},
+        queryParameters: {'q': query, if (category != null) 'category': category, ...filters.toQuery()},
       );
       return await _list(response.data);
     } on DioException catch (e) {

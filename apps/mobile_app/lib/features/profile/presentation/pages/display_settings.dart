@@ -39,7 +39,9 @@ class DisplaySettings extends StatelessWidget {
                 context,
                 title: l10n.settingTheme,
                 selected: settings.themeMode,
-                options: [for (final m in [ThemeMode.system, ThemeMode.light, ThemeMode.dark]) (m, themeLabel(l10n, m))],
+                options: [
+                  for (final m in [ThemeMode.system, ThemeMode.light, ThemeMode.dark]) (m, themeLabel(l10n, m))
+                ],
               );
               if (mode != null && context.mounted) await context.read<SettingsCubit>().setThemeMode(mode);
             },
@@ -104,25 +106,29 @@ Future<T?> showChoiceSheet<T>(
   return showModalBottomSheet<T>(
     context: context,
     showDragHandle: true,
+    // As tall as its options need, scrolling on a small screen or with large text.
+    isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Semantics(header: true, child: Text(title, style: AppTextStyles.heading3)),
-          ),
-          for (final (value, label) in options)
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-              title: Text(label, style: AppTextStyles.body1),
-              selected: value == selected,
-              trailing: value == selected ? Icon(Icons.check, color: sheetContext.colors.primary) : null,
-              onTap: () => Navigator.pop(sheetContext, value),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Semantics(header: true, child: Text(title, style: AppTextStyles.heading3)),
             ),
-          const SizedBox(height: 8),
-        ],
+            for (final (value, label) in options)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                title: Text(label, style: AppTextStyles.body1),
+                selected: value == selected,
+                trailing: value == selected ? Icon(Icons.check, color: sheetContext.colors.primary) : null,
+                onTap: () => Navigator.pop(sheetContext, value),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     ),
   );

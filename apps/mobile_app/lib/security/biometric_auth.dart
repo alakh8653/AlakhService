@@ -1,60 +1,53 @@
-import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 
-/// Wraps [LocalAuthentication] for fingerprint / Face ID authentication.
-class BiometricAuthService {
-  final LocalAuthentication _localAuth = LocalAuthentication();
+/// Checks that the person holding the phone is its owner: fingerprint, face, or the phone's own PIN,
+/// pattern or password. Replaceable in tests.
+abstract class DeviceAuthenticator {
+  /// Whether the phone has a way to check (biometrics or a screen lock is set up).
+  Future<bool> canAuthenticate();
 
-  /// Failures reported as a plain `false` from [authenticate]: biometrics are
-  /// unavailable on this device, or the user/system cancelled the prompt.
-  static const Set<LocalAuthExceptionCode> _unavailableOrCancelled = {
-    LocalAuthExceptionCode.noBiometricHardware,
-    LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable,
-    LocalAuthExceptionCode.noBiometricsEnrolled,
-    LocalAuthExceptionCode.noCredentialsSet,
-    LocalAuthExceptionCode.userCanceled,
-    LocalAuthExceptionCode.systemCanceled,
-    LocalAuthExceptionCode.timeout,
-  };
+  /// Shows the phone's prompt with [reason]; true once the owner is confirmed, false if they cancel or
+  /// the phone cannot check.
+  Future<bool> authenticate(String reason);
+}
 
-  /// Returns `true` if the device supports biometric authentication and has
-  /// at least one enrolled biometric.
-  Future<bool> isAvailable() async {
+/// [DeviceAuthenticator] over local_auth: the system biometric prompt, falling back to the screen lock.
+class BiometricAuthService implements DeviceAuthenticator {
+  final LocalAuthentication _localAuth;
+
+  BiometricAuthService([LocalAuthentication? localAuth]) : _localAuth = localAuth ?? LocalAuthentication();
+
+  @override
+  Future<bool> canAuthenticate() async {
     try {
-      final canCheck = await _localAuth.canCheckBiometrics;
-      if (!canCheck) return false;
-      final biometrics = await _localAuth.getAvailableBiometrics();
-      return biometrics.isNotEmpty;
+      return await _localAuth.isDeviceSupported();
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Whether a fingerprint or face is enrolled (not just a screen lock).
+  Future<bool> hasBiometrics() async {
+    try {
+      return await _localAuth.canCheckBiometrics && (await _localAuth.getAvailableBiometrics()).isNotEmpty;
     } on PlatformException {
       return false;
     }
   }
 
-  /// Lists available biometric types on the device.
-  Future<List<BiometricType>> getAvailableBiometrics() async {
+  @override
+  Future<bool> authenticate(String reason) async {
     try {
-      return await _localAuth.getAvailableBiometrics();
+      // Not biometricOnly: someone whose finger is not read can still use the phone's PIN.
+      return await _localAuth.authenticate(localizedReason: reason, persistAcrossBackgrounding: true);
+    } on LocalAuthException {
+      // Cancelled, nothing to check with, or locked out after too many tries: not confirmed.
+      return false;
     } on PlatformException {
-      return [];
-    }
-  }
-
-  /// Prompts the user for biometric authentication.
-  ///
-  /// Returns `true` on success, `false` if cancelled or failed.
-  Future<bool> authenticate({
-    String localizedReason = 'Authenticate to continue',
-  }) async {
-    try {
-      return await _localAuth.authenticate(
-        localizedReason: localizedReason,
-        persistAcrossBackgrounding: true,
-      );
-    } on LocalAuthException catch (e) {
-      if (_unavailableOrCancelled.contains(e.code)) {
-        return false;
-      }
-      rethrow;
+      return false;
     }
   }
 

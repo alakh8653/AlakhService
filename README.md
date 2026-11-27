@@ -1,83 +1,82 @@
-
 # AlakhService
 
 [![Backend CI](https://github.com/alakh8653/AlakhService/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/alakh8653/AlakhService/actions/workflows/backend-ci.yml)
 [![Mobile CI](https://github.com/alakh8653/AlakhService/actions/workflows/mobile-ci.yml/badge.svg)](https://github.com/alakh8653/AlakhService/actions/workflows/mobile-ci.yml)
+[![Web CI](https://github.com/alakh8653/AlakhService/actions/workflows/web-ci.yml/badge.svg)](https://github.com/alakh8653/AlakhService/actions/workflows/web-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Enterprise-grade hyperlocal service marketplace — connecting customers with skilled service providers.
+> A hyperlocal service marketplace: customers book shops and home-visit professionals, shops run
+> their day from a dashboard, and an admin panel keeps the platform safe.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      AlakhService Platform                          │
-│                                                                     │
-│  ┌──────────┐  ┌──────────────┐  ┌─────────────────────────────┐  │
-│  │  Mobile  │  │  Shop Dash   │  │       Admin Dashboard        │  │
-│  │  (Flutter│  │  (React/TS)  │  │        (React/TS)            │  │
-│  └────┬─────┘  └──────┬───────┘  └──────────────┬──────────────┘  │
-│       │               │                          │                  │
-│       └───────────────┴──────────────────────────┘                 │
-│                               │                                     │
-│                    ┌──────────▼──────────┐                         │
-│                    │     API Gateway      │                         │
-│                    │  (TypeScript/Express)│                         │
-│                    └──────────┬──────────┘                         │
-│                               │                                     │
-│    ┌──────────────────────────┼──────────────────────────┐         │
-│    │           Microservices  │  (Python/FastAPI)         │         │
-│    │  auth  user  shop  booking  payment  notification    │         │
-│    │  queue  dispatch  tracking  pricing  search  ML      │         │
-│    └──────────────────────────┬──────────────────────────┘         │
-│                               │                                     │
-│    ┌──────────────────────────▼──────────────────────────┐         │
-│    │  PostgreSQL  Redis  Kafka  Elasticsearch  S3         │         │
-│    └─────────────────────────────────────────────────────┘         │
-└─────────────────────────────────────────────────────────────────────┘
+  Flutter app          Shop dashboard        Admin dashboard
+  (customers, pros,    (React + TS)          (React + TS)
+   shop owners)
+        │                    │                     │
+        └────────────────────┼─────────────────────┘
+                             ▼
+                   ┌───────────────────┐
+                   │    API gateway    │  :3000  routing, JWT checks, rate limits,
+                   │ (TypeScript/Exp.) │         circuit breaker, websockets
+                   └─────────┬─────────┘
+                             ▼
+      15 Python / FastAPI services (one PostgreSQL database each)
+      auth · user · shop · booking · payment · notification · tracking · queue
+      analytics · dispute · trust_risk · admin · compliance · pricing · service_catalog
+                             │
+                ┌────────────┴────────────┐
+                ▼                         ▼
+           PostgreSQL 16               Redis 7
 ```
 
 ## Features
 
-- 🚀 **24 Python/FastAPI microservices** with async/await, Pydantic v2, SQLAlchemy 2.0
-- 📱 **Flutter mobile app** with Clean Architecture, BLoC, offline-first
-- 🌐 **2 React/TypeScript dashboards** (shop + admin) with real-time updates
-- 🔀 **API Gateway** with circuit breaker, rate limiting, JWT validation
-- 🤖 **ML Platform** — demand forecasting, dynamic pricing, fraud detection, recommendations
-- 🔒 **Security** — JWT RS256, bcrypt, rate limiting, certificate pinning
-- 📊 **Observability** — Prometheus, Grafana, Jaeger, structured logging
-- 🏗️ **IaC** — Terraform + Kubernetes with HPA, PDB, network policies
+- **Booking:** slots, walk-in lines with a TV board, home visits with live tracking, rescheduling,
+  waitlists, free fixes (rework), shared visits and SOS.
+- **Payments:** Razorpay (UPI and cards), GST invoices, refunds by cancellation policy, tips,
+  loyalty points, referrals, prepaid packages and shop payouts.
+- **Shops:** onboarding with KYC documents and admin approval, hours, capacity, staff, services,
+  reviews and work photos.
+- **Trust and safety:** in-app chat with contact details hidden, masked calls, disputes, risk
+  scoring and a contact-sharing watch list ([docs](docs/TRUST_AND_SAFETY.md)).
+- **Notifications:** push (Firebase), SMS (MSG91 or Twilio), email and WhatsApp reports.
+- **Compliance:** Terms acceptance, consent, data export and account deletion
+  ([docs](docs/LEGAL_PAGES.md)).
+- **Operations:** one-server production deploy with Caddy HTTPS, verified daily backups,
+  Prometheus, Alertmanager, Grafana and blackbox checks ([docs](docs/DEPLOYMENT.md)).
+- **Languages:** the app ships in English and Hindi.
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| Mobile | Flutter 3.x, Dart, BLoC, GoRouter, Dio |
-| Web | React 18, TypeScript, Redux Toolkit, React Query, Tailwind |
-| API Gateway | TypeScript, Express, Redis |
-| Backend | Python 3.11, FastAPI, SQLAlchemy 2.0, Celery |
-| ML | scikit-learn, numpy, pandas, ARIMA, XGBoost |
-| Data | PostgreSQL 15, Redis 7, Kafka, Elasticsearch 8 |
-| Infra | Terraform, Kubernetes, Docker, GitHub Actions |
+|---|---|
+| Mobile | Flutter 3.x, Dart, BLoC, get_it, Dio, Google Maps, Firebase Messaging, Razorpay |
+| Web dashboards | React 19, TypeScript, Vite, Redux Toolkit, React Hook Form + Zod, Tailwind CSS 4, Recharts |
+| API gateway | Node.js, TypeScript, Express 5, Redis (rate limits and sign-out revocation) |
+| Services | Python, FastAPI, Pydantic 2, SQLAlchemy 2 (async), Alembic |
+| Data | PostgreSQL 16, Redis 7 |
+| Auth | JWT (HS256) access and refresh tokens, bcrypt, OTP sign-in |
+| Infrastructure | Docker Compose, Caddy, Prometheus, Alertmanager, Grafana |
+| CI | GitHub Actions: backend, web, mobile, end-to-end, deploy checks, security scan, release |
 
-## Quick Start
+## Quick start
 
 ```bash
-# Clone and setup
 git clone https://github.com/alakh8653/AlakhService.git
 cd AlakhService
-make setup
-
-# Start all services
-make dev
-
-# Run tests
-make test
+make setup   # .env, one virtualenv per service, npm ci, pre-commit
+make dev     # the whole stack in Docker, with source mounts and auto-reload
+make test    # Python and Node tests
 ```
 
-## Deploy to Production
+`make help` lists every command.
+
+## Deploy to production
 
 One Linux server with Docker, automatic HTTPS (Caddy), daily verified backups and optional
 monitoring. Step-by-step guide for non-experts, including the Android release:
-**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. Before launch, go through the
+[launch checklist](docs/launch/LAUNCH_CHECKLIST.md).
 
 ```bash
 cp .env.production.example .env.production   # fill it in
@@ -85,111 +84,7 @@ make prod-preflight                          # checks the file and the server
 make prod-deploy                             # build, migrate, rolling restart, smoke test
 ```
 
-## Project Structure
-
-# AlakhService — Enterprise-Grade Full-Stack Service Platform
-
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=flat-square)](https://github.com/AlakhService/AlakhService/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-85%25-green?style=flat-square)](./coverage)
-[![Python](https://img.shields.io/badge/python-3.11-blue?style=flat-square)](https://python.org)
-[![Flutter](https://img.shields.io/badge/flutter-3.x-02569B?style=flat-square)](https://flutter.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=flat-square)](https://fastapi.tiangolo.com)
-
-> A production-ready, microservices-based platform for on-demand service booking — connecting customers, service providers, and shop owners through a unified ecosystem of mobile apps, web dashboards, and intelligent backend services.
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        CLIENT LAYER                                     │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐  │
-│  │  Flutter Mobile  │  │  React Customer  │  │   React Admin/Shop   │  │
-│  │  (Customer App)  │  │   Web Dashboard  │  │      Dashboard       │  │
-│  └────────┬─────────┘  └────────┬─────────┘  └──────────┬───────────┘  │
-└───────────┼─────────────────────┼───────────────────────┼──────────────┘
-            │                     │                       │
-            └─────────────────────▼───────────────────────┘
-                          ┌───────────────┐
-                          │  API Gateway  │  :3000
-                          │   (Node.js)   │
-                          └───────┬───────┘
-                                  │
-          ┌───────────────────────┼───────────────────────┐
-          │                       │                       │
-  ┌───────▼───────┐     ┌─────────▼───────┐     ┌────────▼────────┐
-  │  Auth Service │     │  User Service   │     │  Shop Service   │
-  │    :8001      │     │    :8002        │     │    :8003        │
-  └───────────────┘     └─────────────────┘     └─────────────────┘
-          │                       │                       │
-  ┌───────▼───────┐     ┌─────────▼───────┐     ┌────────▼────────┐
-  │ Booking Svc   │     │ Payment Service │     │Notification Svc │
-  │    :8004      │     │    :8005        │     │    :8006        │
-  └───────────────┘     └─────────────────┘     └─────────────────┘
-          │
-  ┌───────▼──────────────────────────────────────────────────────┐
-  │                     EVENT BUS (Kafka)                        │
-  └───────┬──────────────────────────────────────────────────────┘
-          │
-  ┌───────▼──────────────────────────────────────────────────────┐
-  │                   DATA LAYER                                 │
-  │   PostgreSQL  │  Redis Cache  │  S3 Object Store             │
-  └──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## ✨ Features
-
-- **18+ Microservices** — Independently deployable services covering every business domain
-- **Flutter Mobile App** — Cross-platform (iOS/Android) customer-facing application
-- **React Dashboards** — Admin, Shop Owner, and Analytics web portals
-- **ML Platform** — Intelligent demand forecasting, dynamic pricing, and fraud detection
-- **Real-Time Tracking** — Live GPS tracking for field technicians and delivery agents
-- **Smart Dispatch** — Automated job assignment based on proximity, skill, and availability
-- **Dynamic Pricing Engine** — Time-based, demand-aware pricing with configurable rules
-- **Trust & Risk Engine** — Automated KYC, background checks, and fraud scoring
-- **Compliance Service** — Automated regulatory checks and audit trail management
-- **Kafka Event Streaming** — Fully event-driven architecture with guaranteed delivery
-- **Service Catalog** — Structured service definitions with variants and pricing tiers
-- **Dispute Resolution** — Mediated dispute workflow with evidence management
-- **Queue Management** — Configurable waiting queues with priority scheduling
-- **Push / SMS / Email Notifications** — Omnichannel notification delivery
-- **Kubernetes-Ready** — Helm charts and Kubernetes manifests included
-- **Terraform Infrastructure** — One-command cloud provisioning for AWS/GCP
-- **Observability** — Distributed tracing with Jaeger, metrics with Prometheus/Grafana
-- **CI/CD Pipelines** — GitHub Actions for backend, mobile, and web
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Mobile** | Flutter 3.x / Dart |
-| **Backend** | FastAPI / Python 3.11 |
-| **API Gateway** | Node.js / Express |
-| **Web (Customer)** | React 18 / TypeScript / Vite |
-| **Web (Admin)** | React 18 / TypeScript / Ant Design |
-| **Database** | PostgreSQL 15 |
-| **Cache** | Redis 7 |
-| **Message Bus** | Apache Kafka |
-| **Search** | Elasticsearch |
-| **Object Storage** | AWS S3 |
-| **Auth** | JWT + OAuth 2.0 |
-| **Containerisation** | Docker / Docker Compose |
-| **Orchestration** | Kubernetes + Helm |
-| **Infrastructure** | Terraform (AWS) |
-| **Monitoring** | Prometheus + Grafana |
-| **Tracing** | Jaeger |
-| **Error Tracking** | Sentry |
-| **CI/CD** | GitHub Actions |
-
----
-
-## 🚀 Quick Setup
+## Development setup
 
 ### Prerequisites
 
@@ -202,7 +97,7 @@ make prod-deploy                             # build, migrate, rolling restart, 
 ### 1. Clone & configure
 
 ```bash
-git clone https://github.com/AlakhService/AlakhService.git
+git clone https://github.com/alakh8653/AlakhService.git
 cd AlakhService
 cp .env.example .env
 # Edit .env and fill in your real credentials
@@ -282,9 +177,8 @@ For a ready-made demo instead, `make db-seed` (with `make dev` running) adds `ad
 `customer@example.com` with one booking, all with the password `Demo-pass-1`. It is safe to re-run,
 and refuses to run against anything but `localhost`.
 
----
 
-## 🧩 Microservices
+## Microservices
 
 | Service | Port | Description |
 |---|---|---|
@@ -307,94 +201,48 @@ and refuses to run against anything but `localhost`.
 | ~~`catalog_service`~~ | — | Deprecated, not deployed; `service_catalog_service` is the catalogue ([DEPRECATED.md](services/catalog_service/DEPRECATED.md)) |
 | `api_gateway` | 3000 | Single entry point: routing, JWT checks, rate limiting, circuit breaker ([docs](services/api_gateway/README.md)) |
 
-> The ML platform described in the architecture is not in this repository yet.
 
----
-
-## 📁 Directory Structure
-
+## Directory structure
 
 ```
 AlakhService/
 ├── apps/
-│   ├── mobile_app/          # Flutter mobile app
-│   ├── shop_dashboard_web/  # React shop owner dashboard
-│   └── admin_dashboard_web/ # React admin dashboard
+│   ├── mobile_app/            # Flutter app for customers, professionals and shop owners
+│   ├── shop_dashboard_web/    # React shop owner dashboard
+│   └── admin_dashboard_web/   # React admin dashboard
 ├── services/
-│   ├── api_gateway/         # TypeScript API gateway
-│   ├── auth_service/        # Authentication & authorization
-│   ├── booking_service/     # Booking FSM & management
-│   ├── payment_service/     # Payments & ledger
-│   └── ...                  # 14 more Python microservices (see 🧩 Microservices)
-├── backend/                 # Deprecated legacy monolith, unused (see backend/DEPRECATED.md)
-├── infra/postgres/          # Creates one database per service on first start
-└── docs/                    # GitHub Pages site
+│   ├── api_gateway/           # TypeScript API gateway (the only public entry point)
+│   └── <name>_service/        # 15 FastAPI services, each with app/, migrations/ and tests/
+├── deploy/                    # Caddy, monitoring, and the public site with the legal pages
+├── infra/postgres/            # Creates one database per service on first start
+├── scripts/                   # Deploy, backup, seed, end-to-end and load-test scripts
+├── docs/                      # Deployment, recovery, legal, trust and launch guides
+├── backend/                   # Deprecated legacy monolith, unused (see backend/DEPRECATED.md)
+├── docker-compose.yml         # Local stack
+├── docker-compose.dev.yml     # Source mounts and auto-reload for `make dev`
+└── docker-compose.prod.yml    # Production stack
 ```
+
+## Documentation
+
+| Guide | What it covers |
+|---|---|
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Going live on one server, step by step |
+| [DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) | Backups, restores and what to do when data is lost |
+| [LIVE_QUEUE.md](docs/LIVE_QUEUE.md) | Walk-in lines, the TV board and their capacity |
+| [TRUST_AND_SAFETY.md](docs/TRUST_AND_SAFETY.md) | Start codes, free fixes, shared visits, SOS, verified badge |
+| [PRIVACY_AND_CONTACT.md](docs/PRIVACY_AND_CONTACT.md) | How customers and shops talk without sharing numbers |
+| [LEGAL_PAGES.md](docs/LEGAL_PAGES.md) | Legal pages, consent at sign-up, account deletion |
+| [WHATSAPP_REPORTS.md](docs/WHATSAPP_REPORTS.md) | Reports sent to professionals on WhatsApp |
+| [launch/](docs/launch/LAUNCH_CHECKLIST.md) | Launch checklist, staging, Play Store listing, shop owner guide |
+| [PRODUCT_RESEARCH.md](docs/PRODUCT_RESEARCH.md) | What customers and providers need, what was added, what is next |
+| [API gateway](services/api_gateway/README.md) | Route table, access rules, monitoring endpoints |
 
 ## Contributing
 
-See [CONTRIBUTING.md](docs/onboarding/contributing.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report
+security problems as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-│   ├── mobile_app/              # Flutter customer app
-│   ├── admin_web/               # React admin dashboard
-│   └── customer_web/            # React customer web portal
-├── services/
-│   ├── auth_service/            # FastAPI — authentication
-│   ├── user_service/            # FastAPI — users
-│   ├── shop_service/            # FastAPI — shops
-│   ├── booking_service/         # FastAPI — bookings
-│   ├── payment_service/         # FastAPI — payments
-│   ├── notification_service/    # FastAPI — notifications
-│   ├── tracking_service/        # FastAPI — GPS tracking
-│   ├── queue_service/           # FastAPI — job queues
-│   ├── dispatch_service/        # deprecated, not deployed
-│   ├── analytics_service/       # FastAPI — analytics
-│   ├── dispute_service/         # FastAPI — disputes
-│   ├── trust_risk_service/      # FastAPI — trust & risk
-│   ├── admin_service/           # FastAPI — admin
-│   ├── compliance_service/      # FastAPI — compliance
-│   ├── pricing_engine/          # FastAPI — pricing
-│   ├── service_catalog_service/ # FastAPI — catalog
-│   └── ml_platform/             # Python — ML models & serving
-├── gateway/                     # Node.js API Gateway
-├── infra/
-│   ├── terraform/               # AWS infrastructure as code
-│   ├── kubernetes/              # K8s manifests
-│   └── helm/                    # Helm charts
-├── scripts/                     # Utility & migration scripts
-├── docs/                        # Architecture & API documentation
-├── .github/
-│   ├── workflows/               # CI/CD pipelines
-│   ├── ISSUE_TEMPLATE/          # Issue templates
-│   └── PULL_REQUEST_TEMPLATE.md
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── LICENSE
-└── README.md
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/my-feature`
-3. Commit your changes following [Conventional Commits](https://www.conventionalcommits.org/)
-4. Push to your fork and open a Pull Request against `develop`
-5. Fill in the PR template and ensure all CI checks pass
-
-Please read [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for detailed guidelines on code style, testing requirements, and the review process.
-
----
-
-## 📄 License
-
-Copyright © 2024 AlakhService Contributors. Released under the [MIT License](./LICENSE).
-
+MIT, see [LICENSE](LICENSE).

@@ -3,7 +3,15 @@ import { useSelector } from 'react-redux';
 import { Plus, Trash2, Copy, CalendarOff, Users } from 'lucide-react';
 import type { RootState } from '../state/store';
 import type { OpenInterval, ShopHours } from '../types';
-import { addHoliday, getShopHours, removeHoliday, saveAutoConfirm, saveCapacity, saveWeeklyHours } from '../services/shopService';
+import {
+  addHoliday,
+  getShopHours,
+  removeHoliday,
+  saveAutoConfirm,
+  saveCapacity,
+  savePrepayment,
+  saveWeeklyHours,
+} from '../services/shopService';
 import { apiErrorMessage } from '../services/format';
 import { DAY_NAMES, MAX_INTERVALS, dayProblem, normalizeDay, suggestedWeek, todayInIndia } from '../services/hours';
 import Switch from '../components/Switch';
@@ -379,6 +387,47 @@ function AutoConfirm({ hours, onChange }: { hours: ShopHours; onChange: (h: Shop
   );
 }
 
+function Prepayment({ hours, onChange }: { hours: ShopHours; onChange: (h: ShopHours) => void }) {
+  const shopId = useSelector((state: RootState) => state.auth.shop?.id);
+  const toast = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const change = async (on: boolean) => {
+    if (!shopId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await savePrepayment(shopId, on));
+      toast(on ? 'Customers will pay online when they book.' : 'Customers can book without paying first.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not save'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className={`${card} space-y-2`} aria-labelledby="prepayment-heading">
+      <h2 id="prepayment-heading" className="font-semibold text-gray-900">Ask customers to pay when they book</h2>
+      <label className="flex items-start gap-2 text-sm text-gray-800">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={hours.requirePrepayment}
+          disabled={busy}
+          onChange={(e) => change(e.target.checked)}
+        />
+        <span>
+          Protects you from no-shows: customers pay online (UPI or card) when they book. A booking not paid within 30
+          minutes is released, so the time is free for others. Customers who cancel in time still get a full refund.
+        </span>
+      </label>
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+    </section>
+  );
+}
+
 export default function OpeningHoursPage() {
   const shopId = useSelector((state: RootState) => state.auth.shop?.id);
   const [hours, setHours] = useState<ShopHours | null>(null);
@@ -419,6 +468,7 @@ export default function OpeningHoursPage() {
           <Holidays hours={hours} onChange={setHours} />
           <Capacity key={hours.capacity} hours={hours} onChange={setHours} />
           <AutoConfirm hours={hours} onChange={setHours} />
+          <Prepayment hours={hours} onChange={setHours} />
         </>
       )}
     </div>

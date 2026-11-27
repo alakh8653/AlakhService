@@ -32,6 +32,7 @@ SYSTEM = "system"
 # A team member on a break or off: the customers waiting for them hear why their time moved.
 AWAY = ("BREAK", "OFF")
 EXPIRED_REASON = "Shop did not confirm"
+UNPAID_REASON = "Not paid in time"
 # Bookings that will happen: confirmed, perhaps with a provider assigned, not started yet.
 REMINDER_STATUSES = (BookingStatus.CONFIRMED.value, BookingStatus.ASSIGNED.value)
 
@@ -83,6 +84,43 @@ async def due_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> Li
             out.append((booking, "24h"))
     await db.flush()
     return out
+
+
+EARLY_REMINDER = timedelta(days=3)
+
+
+async def due_early_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> List[Booking]:
+    """Takes the visits owed a reminder three days ahead and marks them sent.
+
+    Only for visits booked more than four days ahead: one booked closer than that is fresh in mind, and the
+    24-hour and one-hour reminders still follow.
+    """
+    query = _skip_locked(
+        select(Booking)
+        .where(
+            Booking.status.in_(REMINDER_STATUSES),
+            Booking.reminder_3d_sent_at.is_(None),
+            Booking.reminder_24h_sent_at.is_(None),
+            Booking.scheduled_at > now + timedelta(hours=24),
+            Booking.scheduled_at <= now + EARLY_REMINDER,
+        )
+        .order_by(Booking.scheduled_at)
+        .limit(limit),
+        db,
+    )
+    out = []
+    for booking in (await db.execute(query)).scalars().all():
+        made, at = (_aware(booking.created_at), _aware(booking.scheduled_at))
+        if at - made <= EARLY_REMINDER + timedelta(days=1):
+            continue
+        booking.reminder_3d_sent_at = now
+        out.append(booking)
+    await db.flush()
+    return out
+
+
+def _aware(at: datetime) -> datetime:
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
 async def due_rebook_reminders(db: AsyncSession, now: datetime, limit: int = 200) -> List[Booking]:
@@ -231,6 +269,32 @@ async def expire_unconfirmed(
     return out
 
 
+async def release_unpaid(db: AsyncSession, now: datetime, limit: int = 200) -> List[Tuple[Booking, str]]:
+    """Cancels bookings held for payment that were not paid in time, freeing their place. Returns (booking,
+    payment outbox id)."""
+    now = now.astimezone(timezone.utc)
+    query = _skip_locked(
+        select(Booking)
+        .where(
+            Booking.status.in_((BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value)),
+            Booking.payment_due_at.is_not(None),
+            Booking.payment_due_at <= now,
+            Booking.payment_status != "PAID",
+        )
+        .order_by(Booking.payment_due_at)
+        .limit(limit),
+        db,
+    )
+    out = []
+    for booking in (await db.execute(query)).scalars().all():
+        booking.payment_due_at = None
+        booking = await booking_service.cancel_booking(db, booking.id, SYSTEM, UNPAID_REASON)
+        queued = await payments.enqueue(db, booking, payments.CANCELLED, "customer")
+        out.append((booking, queued.id))
+        log.info("booking_released_unpaid", booking_id=booking.id)
+    return out
+
+
 async def run_once(
     factory,
     notifier: Notifier,
@@ -244,6 +308,9 @@ async def run_once(
     now = now or datetime.now(timezone.utc)
     async with factory() as db:
         reminders = [(snapshot(b), label) for b, label in await due_reminders(db, now)]
+        await db.commit()
+    async with factory() as db:
+        early = [snapshot(b) for b in await due_early_reminders(db, now)]
         await db.commit()
     async with factory() as db:
         rebook = [snapshot(b) for b in await due_rebook_reminders(db, now)]
@@ -262,14 +329,16 @@ async def run_once(
                 ]
                 await db.commit()
     async with factory() as db:
+        unpaid_rows = await release_unpaid(db, now)
+        unpaid = [(snapshot(b), outbox_id) for b, outbox_id in unpaid_rows]
         expired_rows = await expire_unconfirmed(db, now, settings.EXPIRE_PENDING_AFTER_HOURS)
         expired = [(snapshot(b), outbox_id) for b, outbox_id in expired_rows]
         # An expired request frees its time for anyone waiting for that day.
         waiting = []
-        for b, _ in expired_rows:
+        for b, _ in [*unpaid_rows, *expired_rows]:
             waiting += await waitlist.time_opened(db, b.shop_id, b.scheduled_at, except_customer=b.customer_id)
         await db.commit()
-    for _snap, outbox_id in expired:
+    for _snap, outbox_id in [*unpaid, *expired]:
         await payments.deliver_now(factory, client, outbox_id)
     async with factory() as db:
         retried = await payments.deliver_due(db, client, now)
@@ -277,11 +346,25 @@ async def run_once(
 
     for snap, label in reminders:
         await notify_booking(notifier, snap, "booking.reminder", None, lookup_owner, extra={"reminder": label})
+    for snap in early:
+        await notify_booking(
+            notifier, snap, "booking.reminder", None, lookup_owner, roles=("customer",), extra={"reminder": "3d"}
+        )
     await waitlist.tell(notifier, waiting)
     for snap, kind, data in queue_notices:
         await notify_booking(notifier, snap, f"booking.{kind}", None, lookup_owner, roles=("customer",), extra=data)
     for snap in rebook:
         await notify_booking(notifier, snap, "booking.rebook", None, lookup_owner, roles=("customer",))
+    for snap, _ in unpaid:
+        await notify_booking(
+            notifier,
+            snap,
+            "booking.expired",
+            None,
+            lookup_owner,
+            roles=("customer", "shop"),
+            extra={"reason": UNPAID_REASON},
+        )
     for snap, _ in expired:
         await notify_booking(
             notifier,
@@ -294,9 +377,11 @@ async def run_once(
         )
     summary = {
         "reminders": len(reminders),
+        "early_reminders": len(early),
         "rebook_reminders": len(rebook),
         "queue_notices": len(queue_notices),
         "expired": len(expired),
+        "released_unpaid": len(unpaid),
         "payment_retries": len(retried),
     }
     if any(summary.values()):

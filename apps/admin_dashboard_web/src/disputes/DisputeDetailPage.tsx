@@ -30,7 +30,7 @@ const OUTCOME_HELP: Record<DisputeOutcome, string> = {
   REFUND_FULL: 'Everything still paid is refunded through Razorpay; the booking becomes refunded.',
   REFUND_PARTIAL: 'Refunds the amount below; the shop keeps the rest, less commission.',
   RELEASE_TO_SHOP: 'The shop is paid as for any completed booking.',
-  NO_ACTION: 'Only closes the case (e.g. a complaint that is not about money).',
+  NO_ACTION: 'Closes the case with no refund (e.g. a complaint that is not about money): the booking counts as completed and the shop is paid as usual.',
 };
 
 /** Rupees typed by the admin as paise, or null when it is not a positive amount. */

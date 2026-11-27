@@ -74,6 +74,8 @@ class Schedule:
     accepting_bookings: bool = True
     # The owner's choice to confirm each booking at once while a place is free.
     auto_confirm: bool = False
+    # The owner asks customers to pay online when they book (no-show protection).
+    require_prepayment: bool = False
 
     @classmethod
     def from_shop_service(cls, data: Optional[dict]) -> "Schedule":
@@ -89,6 +91,7 @@ class Schedule:
             configured=bool(data.get("configured")),
             capacity=max(1, int(data.get("capacity") or 1)),
             auto_confirm=bool(data.get("auto_confirm")),
+            require_prepayment=bool(data.get("require_prepayment")),
             weekly=weekly,
             holidays=holidays,
             timezone=data.get("timezone") or DEFAULT_TIMEZONE,

@@ -51,6 +51,11 @@ class Booking(Base):
     # Set when the reminder worker has sent each reminder, so each goes out once across replicas.
     reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
     reminder_1h_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # Three days ahead, for visits booked well in advance (an early reminder lowers no-shows).
+    reminder_3d_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # At a shop that asks for payment when booking: unpaid by then, the booking is released (and its
+    # place with it). Cleared once paid.
+    payment_due_at = Column(DateTime(timezone=True), nullable=True)
     # When the customer was asked whether they want to book this service again (once per visit).
     rebook_reminder_sent_at = Column(DateTime(timezone=True), nullable=True)
     # On the day: when the customer was told their turn is near, and that the shop is running late (once each).
@@ -124,6 +129,11 @@ class Booking(Base):
     @property
     def preferred_staff_name(self):
         return self._meta().get("preferred_staff_name")
+
+    @property
+    def guest_name(self):
+        """Who the visit is for, when booked for someone else."""
+        return self._meta().get("guest_name")
 
     @property
     def package_purchase_id(self):

@@ -208,6 +208,12 @@ export default function BookingCard({
             )}
           </p>
         )}
+        {booking.guestName && (
+          <p className="text-sm text-gray-700" data-testid="guest-name">
+            <span className="text-gray-500">For:</span> {booking.guestName}{' '}
+            <span className="text-xs text-gray-500">(booked by {booking.customerDisplayName || 'the customer'})</span>
+          </p>
+        )}
         {booking.preferredStaffName && (
           <p className="text-sm text-indigo-700">
             <span className="text-gray-500">Asked for:</span> {booking.preferredStaffName}

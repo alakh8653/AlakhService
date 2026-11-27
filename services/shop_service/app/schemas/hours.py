@@ -83,6 +83,10 @@ class AutoConfirmUpdate(BaseModel):
     auto_confirm: bool
 
 
+class PrepaymentUpdate(BaseModel):
+    require_prepayment: bool
+
+
 class HolidayCreate(BaseModel):
     date: date
     note: Optional[str] = Field(default=None, max_length=120)
@@ -112,6 +116,8 @@ class ShopSchedule(BaseModel):
     capacity_override: Optional[int] = None
     # Confirm each booking at once while a place is free (booking_service reads it; needs hours).
     auto_confirm: bool = False
+    # Customers pay online when they book (booking_service holds an unpaid booking only briefly).
+    require_prepayment: bool = False
     active_staff: int
     updated_at: Optional[datetime] = None
     # False while the shop awaits approval or is switched off: booking_service turns bookings away.

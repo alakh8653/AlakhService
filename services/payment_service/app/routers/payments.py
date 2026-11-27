@@ -104,8 +104,14 @@ async def initiate_payment(
     booking = await lookup_booking(checkout.booking_id, credentials.credentials)
     if booking is None or booking.get("customer_id") != payer_id:
         raise HTTPException(status_code=404, detail="Booking not found")
-    if booking.get("status") not in PAYABLE_STATUSES:
+    # A shop that asks for payment when booking holds the booking (pending) until it is paid online.
+    held_for_payment = booking.get("payment_due_at") is not None
+    if booking.get("status") not in PAYABLE_STATUSES and not (held_for_payment and booking.get("status") == "PENDING"):
         raise HTTPException(status_code=409, detail="This booking cannot be paid for yet")
+    if held_for_payment and not online:
+        raise HTTPException(
+            status_code=409, detail="This shop asks for payment online when booking. Please pay by UPI or card."
+        )
     if not booking.get("total_amount"):
         # Covered in full, e.g. a visit of a prepaid package.
         raise HTTPException(status_code=409, detail="There is nothing to pay for this booking")

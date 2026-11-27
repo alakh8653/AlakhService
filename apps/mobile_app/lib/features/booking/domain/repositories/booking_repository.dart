@@ -14,6 +14,7 @@ abstract class BookingRepository {
     bool usePoints = false,
     String? packagePurchaseId,
     String? preferredStaffId,
+    String? guestName,
   });
 
   Future<Either<Failure, List<Booking>>> getUserBookings({int page = 1});

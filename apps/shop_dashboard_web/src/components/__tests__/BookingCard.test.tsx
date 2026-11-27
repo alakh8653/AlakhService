@@ -54,6 +54,11 @@ describe('BookingCard', () => {
     expect(screen.getByTestId('queue-line')).toHaveTextContent('Being served now');
   });
 
+  it('says who the visit is for when it was booked for someone else', () => {
+    render(<BookingCard booking={{ ...booking, guestName: 'Asha Rao' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
+    expect(screen.getByTestId('guest-name')).toHaveTextContent(`For: Asha Rao (booked by ${booking.customerDisplayName})`);
+  });
+
   it('says who the customer asked for', () => {
     render(<BookingCard booking={{ ...booking, preferredStaffId: 'st1', preferredStaffName: 'Meena R.' }} onChangeStatus={vi.fn()} onCancel={vi.fn()} />, { wrapper: MemoryRouter });
     expect(screen.getByText('Meena R.')).toBeInTheDocument();

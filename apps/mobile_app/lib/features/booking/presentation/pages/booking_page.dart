@@ -1,3 +1,4 @@
+import '../../../payment/presentation/pages/payment_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -114,6 +115,9 @@ class BookingPage extends StatefulWidget {
 class _BookingPageState extends State<BookingPage> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
+  // Booking for someone else (a parent, a friend): their name goes to the shop; the customer stays the contact.
+  final _guestController = TextEditingController();
+  bool _forSomeoneElse = false;
   final _couponController = TextEditingController();
   final _itemController = TextEditingController();
   late final AddressApi _addressApi = widget.addressApi ?? sl<AddressApi>();
@@ -317,6 +321,7 @@ class _BookingPageState extends State<BookingPage> {
   @override
   void dispose() {
     _notesController.dispose();
+    _guestController.dispose();
     _couponController.dispose();
     _itemController.dispose();
     super.dispose();
@@ -402,7 +407,8 @@ class _BookingPageState extends State<BookingPage> {
       addressId: _needsAddress ? _address!.id : null,
       itemDescription: _mode == ServiceMode.pickupDrop ? _itemController.text.trim() : null,
     );
-    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints, _packageCovers, _preferred];
+    final guest = _forSomeoneElse && _guestController.text.trim().isNotEmpty ? _guestController.text.trim() : null;
+    final details = <Object?>[slot.at, address, notes, couponCode, delivery, _usePoints, _packageCovers, _preferred, guest];
     if (_attemptKey == null || !listEquals(details, _attemptDetails)) {
       _attemptKey = newIdempotencyKey();
       _attemptDetails = details;
@@ -419,6 +425,7 @@ class _BookingPageState extends State<BookingPage> {
             usePoints: _usePoints && _pointsDiscount > 0,
             packagePurchaseId: _packageCovers ? _package!.id : null,
             preferredStaffId: _preferred,
+            guestName: guest,
           ),
         );
   }
@@ -426,6 +433,42 @@ class _BookingPageState extends State<BookingPage> {
   Future<void> _showBooked(Booking booking) async {
     final navigator = Navigator.of(context);
     final l10n = context.l10n;
+    if (booking.awaitingPayment) {
+      // The shop asks for payment when booking: pay now, or the booking is released at paymentDueAt.
+      final pay = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          icon: Icon(Icons.timer_outlined, color: context.palette.warning, size: 48),
+          title: Text(l10n.payToKeepTitle),
+          content: Text(
+            '${widget.serviceName}\n${friendlyDateTime(booking.scheduledAt, l10n: l10n)}\n\n'
+            '${l10n.payToKeepBody(clockTime(booking.paymentDueAt!))}',
+            textAlign: TextAlign.center,
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(l10n.payLater)),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(l10n.payNow)),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (pay == true) {
+        await navigator.pushReplacement(MaterialPageRoute<void>(
+          builder: (_) => PaymentPage(
+            bookingId: booking.id,
+            amount: booking.totalAmount,
+            bookingNumber: booking.bookingNumber,
+            serviceName: widget.serviceName,
+            onlineOnly: true,
+          ),
+        ));
+      } else {
+        ShellNavigation.show(context, ShellTab.bookings);
+      }
+      return;
+    }
     // A shop that confirms by itself has already taken this booking.
     final confirmed = booking.status == 'CONFIRMED';
     final viewBookings = await showDialog<bool>(
@@ -678,6 +721,26 @@ class _BookingPageState extends State<BookingPage> {
                     maxLines: 2,
                     textCapitalization: TextCapitalization.sentences,
                     validator: (v) => (v == null || v.trim().isEmpty) ? l10n.whatToCollectError : null,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                SwitchListTile(
+                  key: const ValueKey('for-someone-else'),
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.supervisor_account_outlined),
+                  title: Text(l10n.bookForSomeoneElse),
+                  subtitle: Text(l10n.bookForSomeoneElseHint),
+                  value: _forSomeoneElse,
+                  onChanged: (on) => setState(() => _forSomeoneElse = on),
+                ),
+                if (_forSomeoneElse) ...[
+                  CustomTextField(
+                    key: const ValueKey('guest-name'),
+                    controller: _guestController,
+                    label: l10n.guestNameLabel,
+                    hint: l10n.guestNameHint,
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.guestNameError : null,
                   ),
                   const SizedBox(height: 16),
                 ],

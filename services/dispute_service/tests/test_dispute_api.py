@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import app.models.dispute  # noqa: F401  (registers the models on Base.metadata)
 from app.config import settings
 from app.core.audit import AuditReporter, get_audit_reporter
+from app.core.settlement import SettlementClient, get_settlement_client
 from app.database import Base, get_db
 from app.dependencies import Caller, booking_visible_to, get_booking_check
 from app.main import app
@@ -43,6 +44,13 @@ async def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_booking_check] = lambda: booking_check
+    # payment_service and booking_service accept every outcome (tests/test_dispute_outcomes.py checks the calls).
+    app.dependency_overrides[get_settlement_client] = lambda: SettlementClient(
+        "http://payment",
+        "http://booking",
+        "k" * 40,
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})),
+    )
     # Requests are made as an admin unless a test says otherwise.
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=auth("ops")) as ac:
         yield ac

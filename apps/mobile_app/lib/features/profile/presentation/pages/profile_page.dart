@@ -18,6 +18,8 @@ import '../../../packages/presentation/packages_widgets.dart';
 import '../../../shops/presentation/saved_shops_page.dart';
 import '../../data/profile_api.dart';
 import 'addresses_page.dart';
+import 'app_lock_setting.dart';
+import '../../../notifications/presentation/pages/notification_settings_page.dart';
 import 'display_settings.dart';
 import 'edit_profile_page.dart';
 import 'legal_section.dart';
@@ -154,6 +156,15 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: widget.onOpenNotifications,
             ),
             const DisplaySettings(),
+            const AppLockSetting(),
+            _ProfileMenuItem(
+              icon: Icons.tune,
+              label: l10n.notificationSettingsTitle,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationSettingsPage()),
+              ),
+            ),
             _ProfileMenuItem(
               icon: Icons.help_outline,
               label: l10n.helpTitle,

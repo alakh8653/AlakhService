@@ -62,6 +62,24 @@ describe('BookingChat', () => {
     expect(screen.getByText(/· Sent/)).toBeInTheDocument();
   });
 
+  it('sends on Enter, and starts a new line on Shift+Enter', async () => {
+    api.getMessages.mockResolvedValue(page({ unread: 0 }));
+    api.sendMessage.mockResolvedValue(message({ id: 'm2', isMine: true, senderRole: 'shop', body: 'See you' }));
+    render(<BookingChat bookingId="b1" customerName="Ravi S." />);
+    await screen.findByText('Is 10 fine?');
+
+    const box = screen.getByLabelText('Message Ravi S.');
+    fireEvent.change(box, { target: { value: 'See you' } });
+    expect(fireEvent.keyDown(box, { key: 'Enter', shiftKey: true })).toBe(true); // not prevented: a new line
+    expect(api.sendMessage).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(await screen.findByText('See you')).toBeInTheDocument();
+    expect(api.sendMessage).toHaveBeenCalledTimes(1);
+    expect(api.sendMessage).toHaveBeenCalledWith('b1', 'See you');
+    expect(box).toHaveValue('');
+  });
+
   it('explains when contact details were hidden', async () => {
     api.getMessages.mockResolvedValue(page({ messages: [], total: 0, unread: 0 }));
     api.sendMessage.mockResolvedValue(message({ id: 'm2', isMine: true, body: 'call [hidden for your safety]', flagged: true }));

@@ -56,6 +56,10 @@ import '../../features/services/presentation/bloc/service_bloc.dart';
 import '../../features/jobs/data/jobs_api.dart';
 import '../../features/tracking/data/tracking_api.dart';
 import '../../features/tracking/data/tracking_destination.dart';
+import '../../offline/offline_queue.dart';
+import '../../offline/sync_manager.dart';
+import '../../security/app_lock.dart';
+import '../../security/biometric_auth.dart';
 import '../network/api_client.dart';
 import '../network/network_info.dart';
 import '../network/token_store.dart';
@@ -64,21 +68,35 @@ import '../settings/app_settings.dart';
 final sl = GetIt.instance;
 
 /// Registers the app's dependencies. [tokens] can be swapped for a [MemoryTokenStore] in tests;
-/// [push] is the device's push channel, null when Firebase is not configured.
-Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
+/// [push] is the device's push channel, null when Firebase is not configured; [authenticator] checks
+/// the phone's owner for app lock.
+Future<void> init({TokenStore? tokens, PushMessaging? push, DeviceAuthenticator? authenticator}) async {
+  final prefs = await SharedPreferences.getInstance();
+
   // Core
   sl.registerLazySingleton<TokenStore>(() => tokens ?? SecureTokenStore());
   sl.registerLazySingleton(
     () => ApiClient(
       tokens: sl(),
-      // A rejected refresh ends the session everywhere in the app.
-      onSessionExpired: () => sl<AuthBloc>().add(const SessionExpired()),
+      // A rejected refresh ends the session everywhere in the app; what it left unsent is dropped.
+      onSessionExpired: () {
+        sl<SyncManager>().clear();
+        sl<AuthBloc>().add(const SessionExpired());
+      },
     ),
   );
   // Theme and language, read before the first frame so the app starts in the chosen ones.
-  sl.registerSingleton(SettingsCubit(await SharedPreferences.getInstance()));
+  sl.registerSingleton(SettingsCubit(prefs));
+  // App lock, read before the first frame too so nothing shows before it.
+  sl.registerSingleton(AppLockCubit(prefs, authenticator ?? BiometricAuthService()));
   sl.registerLazySingleton(() => Connectivity());
   sl.registerLazySingleton<NetworkInfo>(() => NetworkInfoImpl(sl()));
+
+  // Changes made offline (chat messages, read marks, saved shops), sent once back online.
+  sl.registerSingleton(OfflineQueue(prefs));
+  sl.registerLazySingleton(
+    () => SyncManager(queue: sl(), dio: sl<ApiClient>().dio, online: onlineStatus(sl<Connectivity>())),
+  );
 
   // Auth: one bloc for the whole app, so session expiry reaches every screen.
   sl.registerLazySingleton(
@@ -103,7 +121,13 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
       localDataSource: sl(),
       networkInfo: sl(),
       tokens: sl(),
-      beforeSignOut: () => sl<PushService>().releaseDevice(),
+      beforeSignOut: () async {
+        // Give what was written offline one last chance to go out under this account, then forget it.
+        final sync = sl<SyncManager>();
+        await sync.sync().timeout(const Duration(seconds: 5), onTimeout: () {});
+        await sync.clear();
+        await sl<PushService>().releaseDevice();
+      },
     ),
   );
   sl.registerLazySingleton<AuthRemoteDataSource>(() => AuthRemoteDataSourceImpl(apiClient: sl()));
@@ -133,7 +157,7 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   sl.registerLazySingleton(() => JobsApi(sl(), services: sl()));
   sl.registerLazySingleton(() => QueueApi(sl()));
   sl.registerLazySingleton(() => ShopLocationApi(sl()));
-  sl.registerLazySingleton(() => NotificationsApi(sl()));
+  sl.registerLazySingleton(() => NotificationsApi(sl(), offline: sl()));
   sl.registerLazySingleton(() => ProfileApi(sl()));
   sl.registerLazySingleton(() => AddressApi(sl()));
   sl.registerLazySingleton(
@@ -153,11 +177,11 @@ Future<void> init({TokenStore? tokens, PushMessaging? push}) async {
   sl.registerLazySingleton(() => ExtraChargeApi(sl()));
   sl.registerLazySingleton(() => ShopProfileApi(sl()));
   sl.registerLazySingleton(() => ShopHoursApi(sl()));
-  sl.registerLazySingleton(() => SavedShopsApi(sl()));
+  sl.registerLazySingleton(() => SavedShopsApi(sl(), offline: sl()));
   sl.registerLazySingleton(() => TeamApi(sl()));
   sl.registerLazySingleton(() => LoyaltyApi(sl()));
   sl.registerLazySingleton(() => PackagesApi(sl()));
-  sl.registerLazySingleton(() => ChatApi(sl()));
+  sl.registerLazySingleton(() => ChatApi(sl(), offline: sl()));
   sl.registerLazySingleton(() => LegalApi(sl()));
   sl.registerLazySingleton(() => DataExportApi(sl()));
   sl.registerLazySingleton(() => DeviceTokenApi(sl()));

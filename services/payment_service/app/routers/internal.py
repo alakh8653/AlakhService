@@ -71,10 +71,17 @@ async def booking_completed(
 ):
     try:
         earning, created = await earnings_service.settle_booking(
-            db, booking_id, body.shop_id, body.total_amount, body.completed_at
+            db, booking_id, body.shop_id, body.total_amount, body.completed_at, hold=bool(body.on_hold)
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    if not created and body.on_hold is not None:
+        # Sent again after a dispute (or retried): the hold follows the booking as it is now.
+        earning = (
+            await earnings_service.hold(db, booking_id)
+            if body.on_hold
+            else await earnings_service.release(db, booking_id)
+        ) or earning
     points = 0
     if body.customer_id and earning.status != "REFUNDED":
         # Points on what the customer paid themselves, not on what their points paid.

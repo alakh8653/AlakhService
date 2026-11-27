@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -25,10 +25,14 @@ class BookingMessage(Base):
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     # When the other side first read it.
     read_at = Column(DateTime(timezone=True), nullable=True)
+    # From the Idempotency-Key header: an app sending a message again (e.g. after being offline) finds
+    # this one instead of posting it twice.
+    client_key = Column(String(64), nullable=True)
 
     __table_args__ = (
         Index("ix_booking_messages_booking_created", "booking_id", "created_at"),
         Index("ix_booking_messages_flagged_created", "flagged", "created_at"),
+        UniqueConstraint("booking_id", "sender_id", "client_key", name="uq_booking_messages_sender_client_key"),
     )
 
 
